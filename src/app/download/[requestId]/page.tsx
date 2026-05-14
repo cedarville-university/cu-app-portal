@@ -530,7 +530,7 @@ export default async function DownloadPage({
           <p>
             {isImportedApp
               ? `The portal tracks ${appRequest.appName} for Azure publishing.`
-              : `${appRequest.appName} — Download the ZIP, set up Codex, and publish to Azure.`}
+              : `${appRequest.appName} — Set up Codex, and publish to Azure.`}
           </p>
         </div>
         {appRequest.repositoryStatus === "FAILED" && appRequest.artifact ? (

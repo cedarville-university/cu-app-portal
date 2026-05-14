@@ -508,7 +508,7 @@ function renderDeletePanel(request: {
             <legend>Resources to delete</legend>
             <label>
               <input name="deletePortal" type="checkbox" />
-              Remove this app from the portal (and delete the downloaded ZIP file)
+              Remove this app from the portal
             </label>
             {canDeleteGitHub ? (
               <label>
