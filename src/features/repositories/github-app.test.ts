@@ -808,4 +808,59 @@ describe("createGitHubAppClient", () => {
       "https://api.github.com/repos/cedarville-it/campus-dashboard/git/refs/heads/portal/add-azure-publishing",
     );
   });
+
+  it("reuses an existing pull request preparation branch on retry", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
+      .mockResolvedValueOnce(createJsonResponse({ object: { sha: "base-sha" } }))
+      .mockResolvedValueOnce(
+        createJsonResponse(
+          { message: "Reference already exists" },
+          { status: 422, statusText: "Unprocessable Entity" },
+        ),
+      )
+      .mockResolvedValueOnce(createJsonResponse({ object: { sha: "branch-sha" } }))
+      .mockResolvedValueOnce(createJsonResponse({ tree: { sha: "branch-tree-sha" } }))
+      .mockResolvedValueOnce(createJsonResponse({ sha: "blob-sha" }))
+      .mockResolvedValueOnce(createJsonResponse({ sha: "tree-sha" }))
+      .mockResolvedValueOnce(createJsonResponse({ sha: "commit-sha" }))
+      .mockResolvedValueOnce(createJsonResponse({ ref: "refs/heads/portal/add-azure-publishing" }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          html_url: "https://github.com/cedarville-it/campus-dashboard/pull/1",
+        }),
+      );
+    const client = createGitHubAppClient({
+      appId: "12345",
+      privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      installationId: "111",
+      fetchImpl,
+    });
+
+    await expect(
+      client.createPullRequestWithFiles({
+        owner: "cedarville-it",
+        name: "campus-dashboard",
+        baseBranch: "main",
+        branch: "portal/add-azure-publishing",
+        title: "Add Azure publishing",
+        body: "Prepared by the portal.",
+        message: "Add Azure publishing",
+        files: { "docs/publishing/azure-app-service.md": "# Publish\n" },
+      }),
+    ).resolves.toEqual({
+      commitSha: "commit-sha",
+      pullRequestUrl: "https://github.com/cedarville-it/campus-dashboard/pull/1",
+    });
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      4,
+      "https://api.github.com/repos/cedarville-it/campus-dashboard/git/ref/heads/portal/add-azure-publishing",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(JSON.parse(String(fetchImpl.mock.calls[6][1]?.body))).toMatchObject({
+      base_tree: "branch-tree-sha",
+    });
+  });
 });

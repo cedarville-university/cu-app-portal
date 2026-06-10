@@ -214,6 +214,45 @@ function summarizeError(error: unknown) {
   return error instanceof Error ? error.message : "unknown";
 }
 
+function getErrorStatus(error: unknown) {
+  return (
+    error instanceof Error &&
+    "status" in error &&
+    typeof error.status === "number"
+  )
+    ? error.status
+    : null;
+}
+
+function isGitHubAuthenticationError(error: unknown) {
+  return (
+    getErrorStatus(error) === 401 &&
+    summarizeError(error).startsWith("GitHub API request failed:")
+  );
+}
+
+function isGitHubIntegrationPermissionError(error: unknown) {
+  const message = summarizeError(error);
+
+  return (
+    getErrorStatus(error) === 403 &&
+    message.startsWith("GitHub API request failed:") &&
+    message.includes("Resource not accessible by integration")
+  );
+}
+
+function summarizePreparationError(error: unknown) {
+  if (isGitHubAuthenticationError(error)) {
+    return "GitHub App authentication failed while preparing the repository (GitHub returned 401 Requires authentication). Ask an administrator to verify the GitHub App ID, private key, installation mapping, and repository permissions, then retry publishing setup.";
+  }
+
+  if (isGitHubIntegrationPermissionError(error)) {
+    return "GitHub App permissions are missing for this repository (GitHub returned 403 Resource not accessible by integration). Ask an administrator to update the GitHub App installation with repository contents and pull request access, then retry publishing setup.";
+  }
+
+  return summarizeError(error);
+}
+
 function summarizePublishingSetupPreflightError(error: unknown) {
   return error instanceof Error && error.message
     ? error.message
@@ -543,9 +582,12 @@ export async function prepareExistingAppAction(
     }
   } catch (error) {
     const isPublishingConflict = isPublishingFileConflictError(error);
+    const isGitHubAuthFailure = isGitHubAuthenticationError(error);
+    const isGitHubPermissionFailure =
+      isGitHubIntegrationPermissionError(error);
     const message = isPublishingConflict
       ? buildPublishingFileConflictFeedback(summarizeError(error))
-      : summarizeError(error);
+      : summarizePreparationError(error);
 
     await prisma.repositoryImport.update({
       where: { id: appRequest.repositoryImport.id },
@@ -566,7 +608,7 @@ export async function prepareExistingAppAction(
       error: message,
     });
 
-    if (isPublishingConflict) {
+    if (isPublishingConflict || isGitHubAuthFailure || isGitHubPermissionFailure) {
       revalidateImportedRepositoryViews(requestId);
       return;
     }

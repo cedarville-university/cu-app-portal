@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadGitHubAppConfig } from "./config";
 
@@ -60,5 +63,54 @@ describe("loadGitHubAppConfig", () => {
     });
 
     expect(config.installationIdsByOrg["student-org"]).toBe("222");
+  });
+
+  it("refreshes local env files on runtime loads so retries use updated GitHub credentials", () => {
+    const originalCwd = process.cwd();
+    const originalEnv = {
+      GITHUB_APP_ID: process.env.GITHUB_APP_ID,
+      GITHUB_APP_PRIVATE_KEY: process.env.GITHUB_APP_PRIVATE_KEY,
+      GITHUB_ALLOWED_ORGS: process.env.GITHUB_ALLOWED_ORGS,
+      GITHUB_DEFAULT_ORG: process.env.GITHUB_DEFAULT_ORG,
+      GITHUB_DEFAULT_REPO_VISIBILITY: process.env.GITHUB_DEFAULT_REPO_VISIBILITY,
+      GITHUB_APP_INSTALLATION_ID: process.env.GITHUB_APP_INSTALLATION_ID,
+      GITHUB_APP_INSTALLATIONS_JSON: process.env.GITHUB_APP_INSTALLATIONS_JSON,
+      NODE_ENV: process.env.NODE_ENV,
+    };
+    const dir = mkdtempSync(join(tmpdir(), "portal-github-env-"));
+
+    try {
+      process.chdir(dir);
+      process.env.NODE_ENV = "development";
+      process.env.GITHUB_APP_ID = "123";
+      process.env.GITHUB_APP_PRIVATE_KEY = "stale-key";
+      process.env.GITHUB_ALLOWED_ORGS = "cedarville-it";
+      process.env.GITHUB_DEFAULT_ORG = "cedarville-it";
+      process.env.GITHUB_DEFAULT_REPO_VISIBILITY = "private";
+      process.env.GITHUB_APP_INSTALLATION_ID = "111";
+      delete process.env.GITHUB_APP_INSTALLATIONS_JSON;
+      writeFileSync(
+        join(dir, ".env.local"),
+        [
+          "GITHUB_APP_PRIVATE_KEY=fresh-key-line-1\\nfresh-key-line-2",
+          "GITHUB_APP_INSTALLATION_ID=222",
+        ].join("\n"),
+      );
+
+      const config = loadGitHubAppConfig();
+
+      expect(config.privateKey).toBe("fresh-key-line-1\nfresh-key-line-2");
+      expect(config.installationIdsByOrg["cedarville-it"]).toBe("222");
+    } finally {
+      process.chdir(originalCwd);
+      for (const [key, value] of Object.entries(originalEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

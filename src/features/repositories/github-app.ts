@@ -304,6 +304,15 @@ function isPossibleExistingRepositoryError(error: unknown) {
   );
 }
 
+function isExistingReferenceError(error: unknown) {
+  return (
+    error instanceof Error &&
+    "status" in error &&
+    error.status === 422 &&
+    error.message.includes("Reference already exists")
+  );
+}
+
 function defaultSleep(ms: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
@@ -529,16 +538,32 @@ export function createGitHubAppClient({
         throw new Error(STALE_REPOSITORY_HEAD_ERROR);
       }
 
-      await readJson<{ ref: string }>(
-        await fetchImpl(`https://api.github.com/repos/${encodedOwner}/${encodedName}/git/refs`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            ref: `refs/heads/${input.branch}`,
-            sha: baseRef.object.sha,
+      let parentSha = baseRef.object.sha;
+
+      try {
+        await readJson<{ ref: string }>(
+          await fetchImpl(`https://api.github.com/repos/${encodedOwner}/${encodedName}/git/refs`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({
+              ref: `refs/heads/${input.branch}`,
+              sha: baseRef.object.sha,
+            }),
           }),
-        }),
-      );
+        );
+      } catch (error) {
+        if (!isExistingReferenceError(error)) {
+          throw error;
+        }
+
+        const existingBranchRef = await readJson<GitHubRefResponse>(
+          await fetchImpl(
+            `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/ref/${githubRefPath("heads", input.branch)}`,
+            { method: "GET", headers },
+          ),
+        );
+        parentSha = existingBranchRef.object.sha;
+      }
 
       const commit = await createCommitFromFiles({
         owner: input.owner,
@@ -548,7 +573,7 @@ export function createGitHubAppClient({
         files: input.files,
         fetchImpl,
         headers,
-        parentSha: baseRef.object.sha,
+        parentSha,
       });
       const pullRequest = await readJson<GitHubPullRequestResponse>(
         await fetchImpl(`https://api.github.com/repos/${encodedOwner}/${encodedName}/pulls`, {

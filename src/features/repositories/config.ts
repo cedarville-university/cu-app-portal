@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
 
 const visibilitySchema = z.enum(["private", "internal", "public"]);
@@ -33,8 +35,68 @@ export type GitHubAppConfig = {
   installationIdsByOrg: Record<string, string>;
 };
 
+type LoadGitHubAppConfigOptions = {
+  envFileDirectory?: string;
+  reloadLocalEnv?: boolean;
+};
+
 function normalizePrivateKey(value: string) {
   return value.includes("\\n") ? value.replaceAll("\\n", "\n") : value;
+}
+
+function unquoteDotEnvValue(value: string) {
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    return value.slice(1, -1);
+  }
+
+  return value;
+}
+
+function readDotEnvFile(filename: string) {
+  const values: Record<string, string> = {};
+
+  try {
+    const contents = readFileSync(filename, "utf8");
+
+    for (const line of contents.split("\n")) {
+      const trimmed = line.trim();
+
+      if (!trimmed || trimmed.startsWith("#")) {
+        continue;
+      }
+
+      const separatorIndex = trimmed.indexOf("=");
+
+      if (separatorIndex === -1) {
+        continue;
+      }
+
+      const key = trimmed.slice(0, separatorIndex).trim();
+      const value = unquoteDotEnvValue(trimmed.slice(separatorIndex + 1).trim());
+
+      if (key) {
+        values[key] = value;
+      }
+    }
+  } catch {
+    // Local env files are optional in production, CI, and tests.
+  }
+
+  return values;
+}
+
+function withLocalEnvFileOverrides(
+  source: Record<string, string | undefined>,
+  directory: string,
+) {
+  return {
+    ...source,
+    ...readDotEnvFile(join(directory, ".env")),
+    ...readDotEnvFile(join(directory, ".env.local")),
+  };
 }
 
 function parseInstallationIds(
@@ -73,8 +135,15 @@ function parseInstallationIds(
 
 export function loadGitHubAppConfig(
   source: Record<string, string | undefined> = process.env,
+  options: LoadGitHubAppConfigOptions = {},
 ): GitHubAppConfig {
-  const parsed = githubAppConfigSchema.parse(source);
+  const shouldReloadLocalEnv =
+    options.reloadLocalEnv ??
+    (source === process.env && process.env.NODE_ENV !== "production");
+  const configSource = shouldReloadLocalEnv
+    ? withLocalEnvFileOverrides(source, options.envFileDirectory ?? process.cwd())
+    : source;
+  const parsed = githubAppConfigSchema.parse(configSource);
   const allowedOrgs = parsed.GITHUB_ALLOWED_ORGS.split(",")
     .map((value) => value.trim())
     .filter(Boolean);

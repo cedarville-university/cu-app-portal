@@ -1079,6 +1079,108 @@ describe("repository import actions", () => {
     });
   });
 
+  it("keeps GitHub authentication preparation failures on the page after recording them", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_github_auth",
+      userId: "user-123",
+      appName: "Campus Dashboard",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_github_auth",
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockRejectedValue(
+      Object.assign(
+        new Error(
+          "GitHub API request failed: 401 Unauthorized - Requires authentication",
+        ),
+        { status: 401 },
+      ),
+    );
+
+    const formData = new FormData();
+    formData.set("preparationMode", "PULL_REQUEST");
+
+    await expect(
+      prepareExistingAppAction("req_github_auth", formData, {
+        github: {
+          getBranchHead: vi.fn(),
+          readRepositoryTextFiles: vi.fn(),
+          commitFiles: vi.fn(),
+          createPullRequestWithFiles: vi.fn(),
+        },
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.repositoryImport.update).toHaveBeenCalledWith({
+      where: { id: "import_github_auth" },
+      data: expect.objectContaining({
+        preparationMode: "PULL_REQUEST",
+        preparationStatus: "FAILED",
+        preparationErrorSummary:
+          "GitHub App authentication failed while preparing the repository (GitHub returned 401 Requires authentication). Ask an administrator to verify the GitHub App ID, private key, installation mapping, and repository permissions, then retry publishing setup.",
+      }),
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/apps");
+    expect(revalidatePath).toHaveBeenCalledWith("/download/req_github_auth");
+  });
+
+  it("keeps GitHub integration permission preparation failures on the page after recording them", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_github_forbidden",
+      userId: "user-123",
+      appName: "Campus Dashboard",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_github_forbidden",
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockRejectedValue(
+      Object.assign(
+        new Error(
+          "GitHub API request failed: 403 Forbidden - Resource not accessible by integration",
+        ),
+        { status: 403 },
+      ),
+    );
+
+    const formData = new FormData();
+    formData.set("preparationMode", "PULL_REQUEST");
+
+    await expect(
+      prepareExistingAppAction("req_github_forbidden", formData, {
+        github: {
+          getBranchHead: vi.fn(),
+          readRepositoryTextFiles: vi.fn(),
+          commitFiles: vi.fn(),
+          createPullRequestWithFiles: vi.fn(),
+        },
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.repositoryImport.update).toHaveBeenCalledWith({
+      where: { id: "import_github_forbidden" },
+      data: expect.objectContaining({
+        preparationMode: "PULL_REQUEST",
+        preparationStatus: "FAILED",
+        preparationErrorSummary:
+          "GitHub App permissions are missing for this repository (GitHub returned 403 Resource not accessible by integration). Ask an administrator to update the GitHub App installation with repository contents and pull request access, then retry publishing setup.",
+      }),
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/apps");
+    expect(revalidatePath).toHaveBeenCalledWith(
+      "/download/req_github_forbidden",
+    );
+  });
+
   it("rejects preparation unless the import is awaiting a user choice", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
