@@ -1,4 +1,5 @@
 import { auth, signIn, signOut } from "@/auth";
+import { getAppDataStatus } from "@/lib/app-data";
 
 async function signInAction() {
   "use server";
@@ -13,7 +14,10 @@ async function signOutAction() {
 }
 
 export default async function HomePage() {
-  const session = await auth();
+  const [session, dataStatus] = await Promise.all([
+    auth(),
+    getAppDataStatus(),
+  ]);
   const userName =
     session?.user?.name ?? session?.user?.email ?? "Cedarville user";
 
@@ -34,6 +38,10 @@ export default async function HomePage() {
           ) : (
             <p className="panel-value">Ready for Cedarville Entra sign-in</p>
           )}
+        </div>
+        <div>
+          <p className="panel-label">{dataStatus.label}</p>
+          <p className="panel-value">{dataStatus.value}</p>
         </div>
         {session?.user ? (
           <form action={signOutAction}>

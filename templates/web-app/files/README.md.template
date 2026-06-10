@@ -16,3 +16,7 @@ This starter is prepared for {{HOSTING_TARGET}}.
 6. Let the portal provision Azure PostgreSQL, App Service settings, and production auth settings during publish.
 7. Record manual steps, blockers, and operator handoff notes in `docs/publishing/lessons-learned.md`.
 8. Keep `docs/github-setup.md` and `docs/deployment-guide.md` as fallback handoff docs if automation is blocked.
+
+## App Data
+
+Persistent app data is already wired in through `src/lib/app-data.ts`. The portal supplies the production database connection during publish, and the starter applies database updates automatically when it starts in Azure. Most app editors can use the helper functions without needing to configure the database by hand.

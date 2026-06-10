@@ -36,6 +36,16 @@ describe("buildArchive", () => {
     expect(zip.file("package.json")).toBeTruthy();
     expect(zip.file("tsconfig.json")).toBeTruthy();
     expect(zip.file("next-env.d.ts")).toBeTruthy();
+    expect(zip.file(".gitignore")).toBeTruthy();
+    await expect(zip.file(".gitignore")?.async("string")).resolves.toContain(
+      "node_modules/",
+    );
+    await expect(zip.file(".gitignore")?.async("string")).resolves.toContain(
+      ".next/",
+    );
+    await expect(zip.file(".gitignore")?.async("string")).resolves.toContain(
+      ".env.local",
+    );
     await expect(zip.file("README.md")?.async("string")).resolves.toContain(
       "Campus <Beta>",
     );
@@ -53,6 +63,22 @@ describe("buildArchive", () => {
     );
     expect(generatedPackageJson.dependencies["next-auth"]).toBe(
       "^5.0.0-beta.25",
+    );
+    expect(generatedPackageJson.dependencies["@prisma/client"]).toBe(
+      "^6.19.3",
+    );
+    expect(generatedPackageJson.dependencies.prisma).toBe("^6.19.3");
+    expect(generatedPackageJson.scripts.predev).toBe("prisma generate");
+    expect(generatedPackageJson.scripts.prebuild).toBe("prisma generate");
+    expect(generatedPackageJson.scripts.pretypecheck).toBe("prisma generate");
+    expect(generatedPackageJson.scripts.start).toBe(
+      "prisma migrate deploy && next start",
+    );
+    expect(generatedPackageJson.scripts["db:generate"]).toBe(
+      "prisma generate",
+    );
+    expect(generatedPackageJson.scripts["db:deploy"]).toBe(
+      "prisma migrate deploy",
     );
     expect(generatedPackageJson.scripts.typecheck).toBe("tsc --noEmit");
     expect(generatedPackageJson.scripts.test).toBe("npm run typecheck");
@@ -90,8 +116,30 @@ describe("buildArchive", () => {
       zip.file("src/app/page.tsx")?.async("string"),
     ).resolves.toContain('await signIn("microsoft-entra-id")');
     expect(zip.file("src/auth.ts")).toBeTruthy();
+    expect(zip.file("src/lib/app-data.ts")).toBeTruthy();
     expect(zip.file("src/app/api/auth/[...nextauth]/route.ts")).toBeTruthy();
     expect(zip.file("src/app/api/health/route.ts")).toBeTruthy();
+    expect(zip.file("prisma/schema.prisma")).toBeTruthy();
+    expect(
+      zip.file("prisma/migrations/00000000000000_init/migration.sql"),
+    ).toBeTruthy();
+    await expect(
+      zip.file("prisma/schema.prisma")?.async("string"),
+    ).resolves.toContain("model AppSetting");
+    await expect(
+      zip
+        .file("prisma/migrations/00000000000000_init/migration.sql")
+        ?.async("string"),
+    ).resolves.toContain('CREATE TABLE "AppSetting"');
+    await expect(
+      zip.file("src/lib/app-data.ts")?.async("string"),
+    ).resolves.toContain("getAppDataStatus");
+    await expect(
+      zip.file("src/lib/app-data.ts")?.async("string"),
+    ).resolves.toContain("Ready for app data");
+    await expect(
+      zip.file("src/app/page.tsx")?.async("string"),
+    ).resolves.toContain("getAppDataStatus");
     await expect(
       zip.file("src/app/api/health/route.ts")?.async("string"),
     ).resolves.toContain('app: "Campus <Beta>"');
@@ -175,6 +223,9 @@ describe("buildArchive", () => {
     await expect(
       zip.file("docs/publishing/azure-app-service.md")?.async("string"),
     ).resolves.toContain("DATABASE_URL");
+    await expect(
+      zip.file("README.md")?.async("string"),
+    ).resolves.toContain("Persistent app data is already wired in");
     expect(archive.files["README.md"]).toContain("Campus <Beta>");
     expect(archive.files["app-portal/deployment-manifest.json"]).toBe(
       expectedDeploymentManifest,
@@ -217,14 +268,18 @@ describe("buildArchive", () => {
     expect(templateManifest.entryFiles).toEqual(
       expect.arrayContaining([
         "package.json.template",
+        ".gitignore.template",
         "tsconfig.json.template",
         "next-env.d.ts",
+        "prisma/schema.prisma.template",
+        "prisma/migrations/00000000000000_init/migration.sql",
         ".github/workflows/deploy-azure-app-service.yml.template",
         ".codex/skills/publish-to-azure/SKILL.md.template",
         "docs/publishing/azure-app-service.md.template",
         "docs/publishing/lessons-learned.md.template",
         "src/app/layout.tsx.template",
         "src/app/page.tsx.template",
+        "src/lib/app-data.ts.template",
         "src/auth.ts.template",
         "src/app/api/auth/[...nextauth]/route.ts.template",
         "src/app/api/health/route.ts.template",

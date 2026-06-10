@@ -57,6 +57,7 @@ gh workflow run deploy-azure-app-service.yml
 
 - Treat the portal-managed repo as the supported source of truth even if you also keep a ZIP copy.
 - Keep production `DATABASE_URL` in Azure App Service settings and keep development `.env.example` on localhost.
+- The generated app runs `prisma migrate deploy` as part of `npm start`, so production database tables are applied during App Service startup.
 - Set both `AUTH_URL` and `NEXTAUTH_URL` to the public Azure hostname in production so Auth.js does not generate `localhost` sign-in URLs.
 - Keep `AUTH_MICROSOFT_ENTRA_ID_ID`, `AUTH_MICROSOFT_ENTRA_ID_SECRET`, and `AUTH_MICROSOFT_ENTRA_ID_ISSUER` aligned with the shared generated-app Entra registration.
 - Prefer updating the generated workflow and manifest instead of creating parallel deployment instructions.
