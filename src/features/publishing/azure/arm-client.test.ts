@@ -80,6 +80,11 @@ describe("createAzureArmClient", () => {
       resourceGroup: "rg-cu-apps-published",
       serverName: "psql-cu-apps-published",
       databaseName: "db_campus_dashboard_clx9abc1",
+      tags: {
+        managedBy: "cu-app-portal",
+        appRequestId: "request-123",
+        ownerUsername: "portalstaff",
+      },
     });
 
     expect(fetchImpl).toHaveBeenCalledWith(
@@ -87,6 +92,11 @@ describe("createAzureArmClient", () => {
       expect.objectContaining({
         method: "PUT",
         body: JSON.stringify({
+          tags: {
+            managedBy: "cu-app-portal",
+            appRequestId: "request-123",
+            ownerUsername: "portalstaff",
+          },
           properties: { charset: "UTF8", collation: "en_US.utf8" },
         }),
       }),

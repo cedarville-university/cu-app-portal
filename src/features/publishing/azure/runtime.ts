@@ -40,6 +40,7 @@ type RuntimeDeps = {
       resourceGroup: string;
       serverName: string;
       databaseName: string;
+      tags: Record<string, string>;
     }): Promise<void>;
   };
   graph: {
@@ -95,6 +96,11 @@ type PublishableAppRequest = {
   repositoryDefaultBranch: string;
   repositoryStatus: "READY";
   primaryPublishUrl: string | null;
+  user: {
+    githubUsername: string | null;
+    displayName: string;
+    email: string;
+  };
   template: { slug: string };
 };
 
@@ -112,7 +118,7 @@ async function loadPublishableRequest(
 ): Promise<PublishableAppRequest> {
   const appRequest = await deps.prisma.appRequest.findUnique({
     where: { id: appRequestId },
-    include: { template: true },
+    include: { template: true, user: true },
   });
 
   if (
@@ -134,8 +140,21 @@ async function loadPublishableRequest(
     repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
     repositoryStatus: appRequest.repositoryStatus,
     primaryPublishUrl: appRequest.primaryPublishUrl,
+    user: {
+      githubUsername: appRequest.user.githubUsername,
+      displayName: appRequest.user.displayName,
+      email: appRequest.user.email,
+    },
     template: { slug: appRequest.template.slug },
   };
+}
+
+function ownerUsername(appRequest: PublishableAppRequest) {
+  return (
+    appRequest.user.githubUsername ??
+    appRequest.user.displayName ??
+    appRequest.user.email
+  );
 }
 
 function buildDatabaseUrl(config: AzurePublishConfig, databaseName: string) {
@@ -296,6 +315,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         repositoryOwner: appRequest.repositoryOwner,
         repositoryName: appRequest.repositoryName,
         ownerUserId: appRequest.userId,
+        ownerUsername: ownerUsername(appRequest),
         supportReference: appRequest.supportReference,
       });
 
@@ -303,6 +323,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         resourceGroup: deps.config.resourceGroup,
         serverName: deps.config.postgresServer,
         databaseName: names.databaseName,
+        tags,
       });
 
       const webApp = await deps.arm.putWebApp({

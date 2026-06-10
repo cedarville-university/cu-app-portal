@@ -24,6 +24,11 @@ const readyAppRequest = {
   id: "clx9abc123zzzzzzzzzz",
   appName: "Campus Dashboard",
   userId: "user-123",
+  user: {
+    githubUsername: "portalstaff",
+    displayName: "Portal Staff",
+    email: "portal.staff@example.edu",
+  },
   template: { slug: "web-app" },
   supportReference: "CU-123",
   repositoryOwner: "cedarville-it",
@@ -115,6 +120,10 @@ describe("createAzurePublishRuntime", () => {
       resourceGroup: "rg-cu-apps-published",
       serverName: "psql-cu-apps-published",
       databaseName: "db_campus_dashboard_clx9abc1",
+      tags: expect.objectContaining({
+        appRequestId: "clx9abc123zzzzzzzzzz",
+        ownerUsername: "portalstaff",
+      }),
     });
     expect(arm.putWebApp).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -124,6 +133,7 @@ describe("createAzurePublishRuntime", () => {
         tags: expect.objectContaining({
           appRequestId: "clx9abc123zzzzzzzzzz",
           repository: "cedarville-it/campus-dashboard",
+          ownerUsername: "portalstaff",
         }),
       }),
     );

@@ -1,8 +1,12 @@
 import React from "react";
 import Link from "next/link";
 import { LogoutButton } from "@/features/auth/logout-button";
+import { getServerSession } from "@/auth/session";
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  const session = await getServerSession();
+  const userDisplayName = session?.user?.name ?? session?.user?.email;
+
   return (
     <header className="site-header">
       <div className="site-header__inner">
@@ -18,6 +22,9 @@ export function SiteHeader() {
           <Link href="/">Home</Link>
           <Link href="/create">Create App</Link>
           <Link href="/apps">My Apps</Link>
+          {userDisplayName ? (
+            <span className="site-header__user-name">{userDisplayName}</span>
+          ) : null}
           <LogoutButton />
         </nav>
       </div>

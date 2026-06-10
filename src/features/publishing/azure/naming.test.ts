@@ -59,6 +59,7 @@ describe("buildPublishResourceTags", () => {
         repositoryOwner: "cedarville-it",
         repositoryName: "campus-dashboard",
         ownerUserId: "user-123",
+        ownerUsername: "portalstaff",
         supportReference: "CU-123",
       }),
     ).toEqual({
@@ -69,6 +70,7 @@ describe("buildPublishResourceTags", () => {
       repository: "cedarville-it/campus-dashboard",
       environment: "published",
       ownerUserId: "user-123",
+      ownerUsername: "portalstaff",
       supportReference: "CU-123",
       createdBy: "portal-publish-worker",
     });
@@ -83,9 +85,27 @@ describe("buildPublishResourceTags", () => {
         repositoryOwner: "cedarville-it",
         repositoryName: "campus-dashboard",
         ownerUserId: "user-123",
+        ownerUsername: "portalstaff",
         supportReference: "CU-123",
       }),
     ).toThrow(/Azure tag appName must be 256 characters or fewer/);
+  });
+
+  it("uses display name as the owner username tag when github username is unavailable", () => {
+    expect(
+      buildPublishResourceTags({
+        requestId: "request-123",
+        appName: "Campus Dashboard",
+        templateSlug: "web-app",
+        repositoryOwner: "cedarville-it",
+        repositoryName: "campus-dashboard",
+        ownerUserId: "user-123",
+        ownerUsername: "Portal Staff",
+        supportReference: "CU-123",
+      }),
+    ).toMatchObject({
+      ownerUsername: "Portal Staff",
+    });
   });
 });
 

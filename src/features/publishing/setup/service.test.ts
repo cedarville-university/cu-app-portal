@@ -10,6 +10,11 @@ const appRequest = {
   id: "req_123",
   appName: "Campus Dashboard",
   userId: "user-123",
+  user: {
+    githubUsername: "portalstaff",
+    displayName: "Portal Staff",
+    email: "portal.staff@example.edu",
+  },
   supportReference: "SUP-123",
   repositoryOwner: "cedarville-it",
   repositoryName: "campus-dashboard",
@@ -460,5 +465,29 @@ describe("publishing setup service", () => {
         primaryPublishUrl: "https://campus-dashboard.cedarville.edu",
       }),
     });
+  });
+
+  it("tags repaired Azure resources with the owner's username", async () => {
+    const deps = createDeps();
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putPostgresDatabase).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      serverName: "psql-cu-apps-published",
+      databaseName: "db_campus_dashboard_req123",
+      tags: expect.objectContaining({
+        appRequestId: "req_123",
+        ownerUsername: "portalstaff",
+      }),
+    });
+    expect(deps.arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tags: expect.objectContaining({
+          appRequestId: "req_123",
+          ownerUsername: "portalstaff",
+        }),
+      }),
+    );
   });
 });

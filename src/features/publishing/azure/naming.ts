@@ -20,6 +20,7 @@ type PublishResourceTagInput = {
   repositoryOwner: string;
   repositoryName: string;
   ownerUserId: string;
+  ownerUsername: string;
   supportReference: string;
 };
 
@@ -31,6 +32,7 @@ type PublishResourceTags = {
   repository: string;
   environment: "published";
   ownerUserId: string;
+  ownerUsername: string;
   supportReference: string;
   createdBy: "portal-publish-worker";
 };
@@ -120,6 +122,7 @@ export function buildPublishResourceTags({
   repositoryOwner,
   repositoryName,
   ownerUserId,
+  ownerUsername,
   supportReference,
 }: PublishResourceTagInput): PublishResourceTags {
   return validateAzureTagValues({
@@ -130,6 +133,7 @@ export function buildPublishResourceTags({
     repository: `${repositoryOwner}/${repositoryName}`,
     environment: "published",
     ownerUserId,
+    ownerUsername,
     supportReference,
     createdBy: "portal-publish-worker",
   });

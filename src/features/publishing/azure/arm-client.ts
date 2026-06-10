@@ -174,6 +174,7 @@ export function createAzureArmClient({
       resourceGroup: string;
       serverName: string;
       databaseName: string;
+      tags: Record<string, string>;
     }) {
       await readJson<unknown>(
         await fetchImpl(
@@ -185,6 +186,7 @@ export function createAzureArmClient({
             method: "PUT",
             headers: await headers(),
             body: JSON.stringify({
+              tags: input.tags,
               properties: {
                 charset: "UTF8",
                 collation: "en_US.utf8",

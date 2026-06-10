@@ -65,6 +65,11 @@ type SetupAppRequest = {
   repositoryDefaultBranch: string | null;
   repositoryStatus: string;
   primaryPublishUrl: string | null;
+  user: {
+    githubUsername: string | null;
+    displayName: string;
+    email: string;
+  };
   template: { slug: string };
 };
 
@@ -81,6 +86,7 @@ export type PublishingSetupServiceDeps = {
       resourceGroup: string;
       serverName: string;
       databaseName: string;
+      tags: Record<string, string>;
     }): Promise<void>;
     putWebApp(input: {
       resourceGroup: string;
@@ -195,7 +201,7 @@ async function loadSetupRequest(
 ): Promise<SetupAppRequest> {
   const appRequest = await db.appRequest.findUnique({
     where: { id: appRequestId },
-    include: { template: true },
+    include: { template: true, user: true },
   });
 
   if (
@@ -217,8 +223,21 @@ async function loadSetupRequest(
     repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
     repositoryStatus: appRequest.repositoryStatus,
     primaryPublishUrl: appRequest.primaryPublishUrl,
+    user: {
+      githubUsername: appRequest.user.githubUsername,
+      displayName: appRequest.user.displayName,
+      email: appRequest.user.email,
+    },
     template: { slug: appRequest.template.slug },
   };
+}
+
+function ownerUsername(appRequest: SetupAppRequest) {
+  return (
+    appRequest.user.githubUsername ??
+    appRequest.user.displayName ??
+    appRequest.user.email
+  );
 }
 
 function targetNames(appRequest: SetupAppRequest) {
@@ -780,6 +799,16 @@ export async function repairPublishingSetup(
   const appRequest = await loadSetupRequest(appRequestId, db);
   const repo = repository(appRequest);
   const names = targetNames(appRequest);
+  const tags = buildPublishResourceTags({
+    requestId: appRequest.id,
+    appName: appRequest.appName,
+    templateSlug: appRequest.template.slug,
+    repositoryOwner: repo.owner,
+    repositoryName: repo.name,
+    ownerUserId: appRequest.userId,
+    ownerUsername: ownerUsername(appRequest),
+    supportReference: appRequest.supportReference,
+  });
   let repairStep: PublishingSetupCheckKey = "azure_resource_access";
 
   await db.appRequest.update({
@@ -796,6 +825,7 @@ export async function repairPublishingSetup(
       resourceGroup: deps.config.resourceGroup,
       serverName: deps.config.postgresServer,
       databaseName: names.databaseName,
+      tags,
     });
 
     repairStep = "azure_resource_access";
@@ -809,15 +839,7 @@ export async function repairPublishingSetup(
       ),
       runtimeStack: deps.config.runtimeStack,
       startupCommand: STARTUP_COMMAND,
-      tags: buildPublishResourceTags({
-        requestId: appRequest.id,
-        appName: appRequest.appName,
-        templateSlug: appRequest.template.slug,
-        repositoryOwner: repo.owner,
-        repositoryName: repo.name,
-        ownerUserId: appRequest.userId,
-        supportReference: appRequest.supportReference,
-      }),
+      tags,
     });
     const azureDefaultHostName =
       webApp.properties?.defaultHostName ?? names.azureDefaultHostName;
