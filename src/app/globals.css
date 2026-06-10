@@ -732,6 +732,15 @@ select.form-control {
   margin: 0;
 }
 
+.app-card__name-link {
+  color: inherit;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+}
+
+.app-card__name-link:hover {
+  color: var(--cu-gold-light);
+}
+
 .app-card__body {
   padding: 1.25rem 1.5rem;
 }

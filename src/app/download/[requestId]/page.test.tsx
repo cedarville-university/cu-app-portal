@@ -29,8 +29,13 @@ vi.mock("@/features/auth/logout", () => ({
 }));
 
 vi.mock("@/features/publishing/actions", () => ({
+  enablePushToDeployAction: vi.fn(),
   publishToAzureAction: vi.fn(),
   retryPublishAction: vi.fn(),
+}));
+
+vi.mock("@/features/app-deletion/actions", () => ({
+  deleteAppAction: vi.fn(),
 }));
 
 vi.mock("@/features/publishing/setup/actions", () => ({
@@ -112,7 +117,7 @@ describe("DownloadPage", () => {
       screen.getByRole("heading", { name: /your app is ready/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/managed repo ready/i),
+      screen.getByText(/repository ready:/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", {
@@ -128,7 +133,7 @@ describe("DownloadPage", () => {
     expect(
       screen.queryByRole("link", { name: /download zip/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/repo access granted/i)).toBeInTheDocument();
+    expect(screen.getByText(/repository access granted/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /publish to azure/i }),
     ).toBeInTheDocument();
@@ -183,7 +188,7 @@ describe("DownloadPage", () => {
 
     expect(
       screen.getByText(
-        /azure publishing unavailable until repository preparation is committed/i,
+        /publishing is unavailable until the publishing setup has been applied/i,
       ),
     ).toBeInTheDocument();
     expect(
@@ -309,15 +314,22 @@ describe("DownloadPage", () => {
       name: /publishing setup status/i,
     });
     expect(
-      within(setupStatus).getByText(/setup: needs repair/i),
+      within(setupStatus).getByText((_, element) =>
+        element?.textContent === "Status: needs repair",
+      ),
     ).toBeInTheDocument();
     expect(
       within(setupStatus).getByText(/publishing credentials are out of date/i),
     ).toBeInTheDocument();
     expect(
-      within(setupStatus).getByText(
-        /github actions secrets: fail - required github actions secrets are missing/i,
-      ),
+      within(setupStatus).getByText((_, element) => {
+        const text = element?.textContent?.replace(/\s+/g, " ").trim();
+        return Boolean(
+          element?.tagName === "LI" &&
+            text?.includes("GitHub publish secrets: fail") &&
+            text.includes("Required GitHub Actions secrets are missing."),
+        );
+      }),
     ).toBeInTheDocument();
     expect(
       within(setupStatus).getByRole("button", {
@@ -325,7 +337,7 @@ describe("DownloadPage", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/repair publishing setup before publishing/i),
+      screen.getByText(/publishing setup needs to be repaired before you can publish/i),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /publish to azure/i }),
@@ -381,7 +393,7 @@ describe("DownloadPage", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByText(
-        /azure publishing unavailable until repository preparation is committed/i,
+        /publishing is unavailable until the publishing setup has been applied/i,
       ),
     ).toBeInTheDocument();
     const importedStatus = screen.getByRole("region", {
@@ -389,12 +401,12 @@ describe("DownloadPage", () => {
     });
     expect(
       within(importedStatus).getByRole("button", {
-        name: /commit azure publishing additions/i,
+        name: /apply publishing setup/i,
       }),
     ).toBeInTheDocument();
     expect(
       within(importedStatus).getByRole("button", {
-        name: /open azure publishing pr/i,
+        name: /review publishing changes/i,
       }),
     ).toBeInTheDocument();
   });
@@ -441,16 +453,16 @@ describe("DownloadPage", () => {
       name: /imported repository status/i,
     });
     expect(
-      within(importedStatus).getByText(/Preparation: blocked/i),
+      within(importedStatus).getByText(/publishing setup: blocked/i),
     ).toBeInTheDocument();
     expect(
       within(importedStatus).getByRole("button", {
-        name: /open azure publishing pr/i,
+        name: /review publishing changes/i,
       }),
     ).toBeInTheDocument();
     expect(
       within(importedStatus).getByRole("button", {
-        name: /verify repository readiness/i,
+        name: /confirm repository is ready/i,
       }),
     ).toBeInTheDocument();
     expect(
@@ -502,21 +514,21 @@ describe("DownloadPage", () => {
     });
     expect(
       within(importedStatus).getByRole("button", {
-        name: /committing azure publishing additions/i,
+        name: /applying publishing setup/i,
       }),
     ).toBeDisabled();
     expect(
       within(importedStatus).getByRole("button", {
-        name: /opening azure publishing pr/i,
+        name: /opening review page/i,
       }),
     ).toBeDisabled();
     const pendingStatuses = within(importedStatus).getAllByRole("status");
     expect(pendingStatuses).toHaveLength(2);
     expect(pendingStatuses[0]).toHaveTextContent(
-      /committing azure publishing additions/i,
+      /saving publishing configuration to your repository/i,
     );
     expect(pendingStatuses[1]).toHaveTextContent(
-      /opening azure publishing pull request/i,
+      /opening a review page on github/i,
     );
   });
 
@@ -563,12 +575,12 @@ describe("DownloadPage", () => {
     });
     expect(
       within(importedStatus).getByText(
-        "Preparation error: GitHub API rate limit exceeded.",
+        "Setup error: GitHub API rate limit exceeded.",
       ),
     ).toBeInTheDocument();
     expect(
       within(importedStatus).getByRole("button", {
-        name: /retry azure publishing preparation/i,
+        name: /retry publishing setup/i,
       }),
     ).toBeInTheDocument();
     expect(
@@ -620,9 +632,9 @@ describe("DownloadPage", () => {
     expect(
       screen.getByRole("button", { name: /publish to azure/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Imported Repository Workflow")).toBeInTheDocument();
+    expect(screen.getByText("Syncing Your Local Code")).toBeInTheDocument();
     expect(
-      screen.getByText(/your local clone may still have origin pointed at/i),
+      screen.getByText(/still connected to the original source/i),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -634,7 +646,7 @@ describe("DownloadPage", () => {
     expect(screen.getByText("git push portal HEAD:trunk")).toBeInTheDocument();
     expect(
       screen.queryByText(
-        /azure publishing unavailable until repository preparation is committed/i,
+        /publishing is unavailable until the publishing setup has been applied/i,
       ),
     ).not.toBeInTheDocument();
 
@@ -697,7 +709,7 @@ describe("DownloadPage", () => {
     );
 
     expect(
-      screen.getByText(/publishing setup must be ready before publishing/i),
+      screen.getByText(/publishing setup must be ready before you can publish/i),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /publish to azure/i }),
@@ -751,18 +763,25 @@ describe("DownloadPage", () => {
       name: /publishing setup status/i,
     });
     expect(
-      within(setupStatus).getByText(/setup: blocked/i),
+      within(setupStatus).getByText((_, element) =>
+        element?.textContent === "Status: blocked",
+      ),
     ).toBeInTheDocument();
     expect(
       within(setupStatus).getByText(/azure resource group access/i),
     ).toBeInTheDocument();
     expect(
-      within(setupStatus).getByText(
-        /azure resource access: fail - the shared resource group was not found/i,
-      ),
+      within(setupStatus).getByText((_, element) => {
+        const text = element?.textContent?.replace(/\s+/g, " ").trim();
+        return Boolean(
+          element?.tagName === "LI" &&
+            text?.includes("Azure hosting access: fail") &&
+            text.includes("The shared resource group was not found."),
+        );
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/repair publishing setup before publishing/i),
+      screen.getByText(/publishing setup needs to be repaired before you can publish/i),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /publish to azure/i }),
@@ -809,7 +828,7 @@ describe("DownloadPage", () => {
     );
 
     expect(
-      screen.getByText(/repair publishing setup before publishing/i),
+      screen.getByText(/publishing setup needs to be repaired before you can publish/i),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /publish to azure/i }),
@@ -863,7 +882,7 @@ describe("DownloadPage", () => {
       }),
     ).toHaveAttribute("href", "https://custom.example.edu");
     expect(
-      screen.getByRole("link", { name: /github workflow/i }),
+      screen.getByRole("link", { name: /deployment log/i }),
     ).toHaveAttribute(
       "href",
       "https://github.com/cedarville-it/campus-dashboard/actions/runs/123",
@@ -900,7 +919,7 @@ describe("DownloadPage", () => {
       }),
     );
 
-    expect(screen.getByText(/repo setup failed/i)).toBeInTheDocument();
+    expect(screen.getByText(/repository setup failed/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /download zip/i })).toHaveAttribute(
       "href",
       "/api/download/req_456",
@@ -908,13 +927,116 @@ describe("DownloadPage", () => {
     expect(screen.getByText(/repo setup note:/i)).toBeInTheDocument();
     expect(screen.queryByText(/last publish note:/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /retrying repo setup/i }),
+      screen.getByRole("button", { name: /retrying repository setup/i }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("status"),
-    ).toHaveTextContent(/retrying managed repo setup/i);
+      screen
+        .getAllByRole("status")
+        .some((status) =>
+          /retrying repository setup/i.test(status.textContent ?? ""),
+        ),
+    ).toBe(true);
     expect(
       screen.queryByRole("button", { name: /copy codex handoff prompt/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows scoped deletion controls on the app details page", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_delete",
+      appName: "Campus Dashboard",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      publishStatus: "SUCCEEDED",
+      publishingSetupStatus: "READY",
+      publishingSetupErrorSummary: null,
+      publishUrl: "https://app-campus-dashboard.azurewebsites.net",
+      primaryPublishUrl: "https://app-campus-dashboard.azurewebsites.net",
+      azureWebAppName: "app-campus-dashboard-clx9abc1",
+      azureDatabaseName: "db_campus_dashboard_clx9abc1",
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-delete",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "portalstaff",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_delete" }),
+      }),
+    );
+
+    expect(screen.getByText("Delete App")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/remove this app from the portal/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/delete github repository/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/delete azure deployment/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /delete selected resources/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows auto-deploy enablement for successfully published generated apps", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_push",
+      appName: "Campus Dashboard",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      publishStatus: "SUCCEEDED",
+      deploymentTarget: "Azure App Service",
+      deploymentTriggerMode: "PORTAL_DISPATCH",
+      publishingSetupStatus: "READY",
+      publishingSetupErrorSummary: null,
+      publishUrl: "https://app-campus-dashboard.azurewebsites.net",
+      primaryPublishUrl: "https://app-campus-dashboard.azurewebsites.net",
+      azureWebAppName: "app-campus-dashboard-clx9abc1",
+      azureDatabaseName: "db_campus_dashboard_clx9abc1",
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-push",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "portalstaff",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_push" }),
+      }),
+    );
+
+    expect(screen.getByText("Deployment mode: manual publish")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /enable auto-deploy/i }),
+    ).toBeInTheDocument();
   });
 });

@@ -15,6 +15,16 @@ describe("buildArchive", () => {
     const archive = await buildArchive(input);
 
     const zip = await JSZip.loadAsync(archive.buffer);
+    const generatedPackageJson = JSON.parse(
+      (await zip.file("package.json")?.async("string")) ?? "{}",
+    ) as {
+      dependencies: Record<string, string>;
+    };
+    const templatePackageJson = JSON.parse(
+      await readFile("templates/web-app/files/package.json.template", "utf8"),
+    ) as {
+      dependencies: Record<string, string>;
+    };
     const expectedDeploymentManifest = `${JSON.stringify(
       buildDeploymentManifest(input),
       null,
@@ -34,12 +44,12 @@ describe("buildArchive", () => {
     await expect(
       zip.file("package.json")?.async("string"),
     ).resolves.toContain('"name": "campus-beta"');
-    await expect(
-      zip.file("package.json")?.async("string"),
-    ).resolves.toContain('"next": "15.5.15"');
-    await expect(
-      zip.file("package.json")?.async("string"),
-    ).resolves.toContain('"react": "19.0.0"');
+    expect(generatedPackageJson.dependencies.next).toBe(
+      templatePackageJson.dependencies.next,
+    );
+    expect(generatedPackageJson.dependencies.react).toBe(
+      templatePackageJson.dependencies.react,
+    );
     await expect(
       zip.file(".env.example")?.async("string"),
     ).resolves.toContain(

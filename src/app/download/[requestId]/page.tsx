@@ -3,10 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import {
+  enablePushToDeployAction,
   publishToAzureAction,
   retryPublishAction,
 } from "@/features/publishing/actions";
+import { deleteAppAction } from "@/features/app-deletion/actions";
 import { repairPublishingSetupAction } from "@/features/publishing/setup/actions";
+import { supportsPostSuccessPushToDeploy } from "@/features/publishing/providers";
 import {
   retryRepositoryBootstrapAction,
   saveGitHubUsernameAndGrantAccessAction,
@@ -49,6 +52,16 @@ function getDisplayPublishUrl(
   publishUrl: string | null,
 ) {
   return publishUrl ?? primaryPublishUrl;
+}
+
+function formatDeploymentMode(mode: string | null | undefined) {
+  return mode === "PUSH_TO_DEPLOY" ? "auto-deploy" : "manual publish";
+}
+
+function deploymentModeTooltip(mode: string | null | undefined) {
+  return mode === "PUSH_TO_DEPLOY"
+    ? "Your app publishes to Azure automatically whenever code is updated in the repository."
+    : "You control when your app is published to Azure by clicking the Publish button here.";
 }
 
 const PREPARATION_REQUIRED_MESSAGE =
@@ -511,6 +524,138 @@ function renderPublishAction({
   );
 }
 
+function renderPushToDeployButton(request: {
+  id: string;
+  sourceOfTruth?: string | null;
+  repositoryStatus: string;
+  publishStatus: string;
+  deploymentTarget?: string | null;
+  deploymentTriggerMode?: string | null;
+}) {
+  if (
+    request.sourceOfTruth !== "PORTAL_MANAGED_REPO" ||
+    request.repositoryStatus !== "READY" ||
+    request.publishStatus !== "SUCCEEDED" ||
+    request.deploymentTriggerMode === "PUSH_TO_DEPLOY" ||
+    !request.deploymentTarget ||
+    !supportsPostSuccessPushToDeploy(request.deploymentTarget)
+  ) {
+    return null;
+  }
+
+  const enableAction = enablePushToDeployAction.bind(null, request.id);
+
+  return (
+    <form action={enableAction}>
+      <PendingSubmitButton
+        idleLabel="Enable Auto-Deploy"
+        pendingLabel="Enabling..."
+        statusText="Enabling auto-deploy. Future code updates will publish automatically."
+        variant="ghost"
+        size="sm"
+        title="Turn on automatic publishing — your app will deploy to Azure whenever code is updated in the repository, without needing to click Publish"
+      />
+    </form>
+  );
+}
+
+function renderDeletePanel(request: {
+  id: string;
+  repositoryOwner: string | null;
+  repositoryName: string | null;
+  repositoryStatus: string;
+  publishStatus: string;
+  azureWebAppName: string | null;
+  azureDatabaseName: string | null;
+}) {
+  const deleteAction = deleteAppAction.bind(null, request.id);
+  const canDeleteGitHub =
+    request.repositoryStatus !== "DELETED" &&
+    Boolean(request.repositoryOwner && request.repositoryName);
+  const canDeleteAzure =
+    request.publishStatus !== "DELETED" &&
+    Boolean(request.azureWebAppName || request.azureDatabaseName);
+
+  return (
+    <details className="delete-panel">
+      <summary>Delete App</summary>
+      <div className="delete-panel__content">
+        <form action={deleteAction} className="form-stack">
+          <p className="delete-warning">
+            Anything you leave unchecked must be deleted manually later.
+          </p>
+          <fieldset>
+            <legend>Resources to delete</legend>
+            <label>
+              <input name="deletePortal" type="checkbox" />
+              Remove this app from the portal
+            </label>
+            {canDeleteGitHub ? (
+              <label>
+                <input name="deleteGithub" type="checkbox" />
+                Delete GitHub repository{" "}
+                <code style={{ fontSize: "0.875em" }}>
+                  {request.repositoryOwner}/{request.repositoryName}
+                </code>{" "}
+                <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>
+                  (permanently removes your app&rsquo;s code from GitHub)
+                </span>
+              </label>
+            ) : (
+              <p
+                style={{
+                  fontSize: "0.875rem",
+                  color: "var(--text-muted)",
+                  margin: 0,
+                }}
+              >
+                GitHub repository already deleted or not tracked.
+              </p>
+            )}
+            {canDeleteAzure ? (
+              <label>
+                <input name="deleteAzure" type="checkbox" />
+                <span>
+                  Delete Azure deployment
+                  {request.azureWebAppName ? (
+                    <>: Web App {request.azureWebAppName}</>
+                  ) : null}
+                  {request.azureDatabaseName ? (
+                    <> and PostgreSQL database {request.azureDatabaseName}</>
+                  ) : null}
+                </span>
+              </label>
+            ) : (
+              <p
+                style={{
+                  fontSize: "0.875rem",
+                  color: "var(--text-muted)",
+                  margin: 0,
+                }}
+              >
+                Azure deployment already deleted or not tracked.
+              </p>
+            )}
+          </fieldset>
+          <label>
+            <input name="confirmDelete" type="checkbox" required />
+            I understand that the checked items will be permanently deleted.
+          </label>
+          <div>
+            <PendingSubmitButton
+              idleLabel="Delete Selected Resources"
+              pendingLabel="Deleting Selected Resources..."
+              statusText="Deleting selected resources. This can take a moment."
+              variant="danger"
+              size="sm"
+            />
+          </div>
+        </form>
+      </div>
+    </details>
+  );
+}
+
 export default async function DownloadPage({
   params,
 }: {
@@ -833,6 +978,14 @@ export default async function DownloadPage({
                 Azure app: {appRequest.azureWebAppName}
               </div>
             ) : null}
+            {appRequest.sourceOfTruth === "PORTAL_MANAGED_REPO" ? (
+              <div className="status-row">
+                <span title={deploymentModeTooltip(appRequest.deploymentTriggerMode)}>
+                  Deployment mode:{" "}
+                  {formatDeploymentMode(appRequest.deploymentTriggerMode)}
+                </span>
+              </div>
+            ) : null}
             {displayPublishUrl ? (
               <div className="status-row">
                 <a
@@ -887,7 +1040,25 @@ export default async function DownloadPage({
             preparationStatus: appRequest.repositoryImport?.preparationStatus,
             publishingSetupStatus: appRequest.publishingSetupStatus,
           })}
+          {renderPushToDeployButton({
+            id: appRequest.id,
+            sourceOfTruth: appRequest.sourceOfTruth,
+            repositoryStatus: appRequest.repositoryStatus,
+            publishStatus: appRequest.publishStatus,
+            deploymentTarget: appRequest.deploymentTarget,
+            deploymentTriggerMode: appRequest.deploymentTriggerMode,
+          })}
         </div>
+
+        {renderDeletePanel({
+          id: appRequest.id,
+          repositoryOwner: appRequest.repositoryOwner,
+          repositoryName: appRequest.repositoryName,
+          repositoryStatus: appRequest.repositoryStatus,
+          publishStatus: appRequest.publishStatus,
+          azureWebAppName: appRequest.azureWebAppName,
+          azureDatabaseName: appRequest.azureDatabaseName,
+        })}
 
       </div>
 
