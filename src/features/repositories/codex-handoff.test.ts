@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildCodexHandoffPrompt } from "./codex-handoff";
+import {
+  buildCodexHandoffPrompt,
+  buildLocalCodexGitSetupPrompt,
+} from "./codex-handoff";
 
 describe("buildCodexHandoffPrompt", () => {
   it("includes portal remote instructions for successfully imported repos", () => {
@@ -28,5 +31,25 @@ describe("buildCodexHandoffPrompt", () => {
     expect(prompt).toContain(
       "Use the portal remote when preparing work for Cedarville App Portal publishing.",
     );
+  });
+});
+
+describe("buildLocalCodexGitSetupPrompt", () => {
+  it("tells Codex to help install Git before local repository setup when needed", () => {
+    const prompt = buildLocalCodexGitSetupPrompt({
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      appName: "Campus Dashboard",
+      requestId: "req_local",
+      defaultBranch: "main",
+    });
+
+    expect(prompt).toContain("Do not require the GitHub CLI.");
+    expect(prompt).toContain("If git is not installed");
+    expect(prompt).toContain("help me install Git first");
+    expect(prompt).toContain("https://git-scm.com/downloads/");
+    expect(prompt).toContain(
+      "git remote add portal https://github.com/cedarville-it/campus-dashboard",
+    );
+    expect(prompt).toContain("git push -u portal HEAD:main");
   });
 });

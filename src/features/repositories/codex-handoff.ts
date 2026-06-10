@@ -50,6 +50,7 @@ export function buildLocalCodexGitSetupPrompt({
     `Managed repository: ${repositoryUrl}`,
     "",
     "Do not require the GitHub CLI.",
+    "Check whether the git command is available locally. If git is not installed, pause the repository setup and help me install Git first using the official installer or package manager for my operating system (https://git-scm.com/downloads/), then continue with the setup.",
     "In the local project folder, inspect whether git is already initialized and whether there are existing commits/remotes.",
     "If git is not initialized, run:",
     "git init",
