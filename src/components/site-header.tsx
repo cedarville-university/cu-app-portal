@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { LoginButton } from "@/features/auth/login-button";
 import { LogoutButton } from "@/features/auth/logout-button";
 import { getServerSession } from "@/auth/session";
 
@@ -25,7 +26,7 @@ export async function SiteHeader() {
           {userDisplayName ? (
             <span className="site-header__user-name">{userDisplayName}</span>
           ) : null}
-          <LogoutButton />
+          {session?.user ? <LogoutButton /> : <LoginButton />}
         </nav>
       </div>
     </header>

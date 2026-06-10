@@ -9,6 +9,8 @@ const authEnvSchema = z.object({
   AUTH_MICROSOFT_ENTRA_ID_ISSUER: z.string().url(),
 });
 
+const SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;
+
 function isE2EAuthBypassEnabled() {
   return process.env.E2E_AUTH_BYPASS === "true";
 }
@@ -16,7 +18,8 @@ function isE2EAuthBypassEnabled() {
 export async function authConfig() {
   if (isE2EAuthBypassEnabled()) {
     return {
-      session: { strategy: "jwt" },
+      session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
+      jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
       providers: [],
       callbacks: {
         async signIn() {
@@ -38,7 +41,8 @@ export async function authConfig() {
   const authEnv = authEnvSchema.parse(process.env);
 
   return {
-    session: { strategy: "jwt" },
+    session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
+    jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
     providers: [
       MicrosoftEntraID({
         clientId: authEnv.AUTH_MICROSOFT_ENTRA_ID_ID,

@@ -44,6 +44,14 @@ describe("authConfig", () => {
     expect(provider.id).toBe("microsoft-entra-id");
   });
 
+  it("expires user sessions after 24 hours", async () => {
+    const { authConfig } = await import("./config");
+    const config = await authConfig();
+
+    expect(config.session?.maxAge).toBe(24 * 60 * 60);
+    expect(config.jwt?.maxAge).toBe(24 * 60 * 60);
+  });
+
   it("can be imported without auth env variables", async () => {
     vi.unstubAllEnvs();
     vi.resetModules();

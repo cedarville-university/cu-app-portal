@@ -12,6 +12,10 @@ vi.mock("@/features/auth/logout", () => ({
   logoutAction: vi.fn(),
 }));
 
+vi.mock("@/features/auth/login", () => ({
+  loginAction: vi.fn(),
+}));
+
 const mockGetServerSession = vi.mocked(getServerSession);
 
 afterEach(() => {
@@ -40,5 +44,19 @@ describe("SiteHeader", () => {
     expect(userName.compareDocumentPosition(logoutButton)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
+  });
+
+  it("shows a log in button when no user is signed in", async () => {
+    mockGetServerSession.mockResolvedValue(null);
+
+    render(await SiteHeader());
+
+    expect(
+      screen.getByRole("button", { name: /log in/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /log out/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Portal Staff")).not.toBeInTheDocument();
   });
 });
