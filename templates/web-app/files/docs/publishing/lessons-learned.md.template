@@ -8,7 +8,9 @@ Use this file to capture the operational details that make the next publish easi
 - Which managed GitHub org and repository were used
 - Which steps required manual intervention
 - Which repository or Azure names changed from the manifest defaults
+- Which shared Azure resource group, App Service plan, and PostgreSQL server were used
 - Which PostgreSQL server, database, and `DATABASE_URL` values were used in production
+- Which Entra redirect URI was registered for the published app
 - Which secrets, permissions, or publish profile issues blocked automation
 - Which recovery steps are safe to repeat
 - Which unresolved issues need a technical operator

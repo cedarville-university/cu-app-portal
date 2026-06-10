@@ -19,6 +19,7 @@ describe("buildArchive", () => {
       (await zip.file("package.json")?.async("string")) ?? "{}",
     ) as {
       dependencies: Record<string, string>;
+      scripts: Record<string, string>;
     };
     const templatePackageJson = JSON.parse(
       await readFile("templates/web-app/files/package.json.template", "utf8"),
@@ -50,11 +51,30 @@ describe("buildArchive", () => {
     expect(generatedPackageJson.dependencies.react).toBe(
       templatePackageJson.dependencies.react,
     );
+    expect(generatedPackageJson.dependencies["next-auth"]).toBe(
+      "^5.0.0-beta.25",
+    );
+    expect(generatedPackageJson.scripts.typecheck).toBe("tsc --noEmit");
+    expect(generatedPackageJson.scripts.test).toBe("npm run typecheck");
     await expect(
       zip.file(".env.example")?.async("string"),
     ).resolves.toContain(
       "DATABASE_URL=postgresql://portal:portal@localhost:5432/campus-beta?schema=public",
     );
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.toContain("AUTH_SECRET=replace-me");
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.toContain("AUTH_MICROSOFT_ENTRA_ID_ID=replace-me");
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.toContain(
+      "AUTH_MICROSOFT_ENTRA_ID_ISSUER=https://login.microsoftonline.com/replace-me/v2.0",
+    );
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.not.toContain("AUTH_MICROSOFT_ENTRA_ID_CLIENT_ID");
     await expect(
       zip.file("src/app/page.tsx")?.async("string"),
     ).resolves.toContain('<h1>{ "Campus <Beta>" }</h1>');
@@ -64,7 +84,22 @@ describe("buildArchive", () => {
     await expect(
       zip.file("src/app/page.tsx")?.async("string"),
     ).resolves.toContain(
-      '<p>{ "Tracks {housing} and \\"retention\\"." }</p>',
+      '<p className="lede">{ "Tracks {housing} and \\"retention\\"." }</p>',
+    );
+    await expect(
+      zip.file("src/app/page.tsx")?.async("string"),
+    ).resolves.toContain('await signIn("microsoft-entra-id")');
+    expect(zip.file("src/auth.ts")).toBeTruthy();
+    expect(zip.file("src/app/api/auth/[...nextauth]/route.ts")).toBeTruthy();
+    expect(zip.file("src/app/api/health/route.ts")).toBeTruthy();
+    await expect(
+      zip.file("src/app/api/health/route.ts")?.async("string"),
+    ).resolves.toContain('app: "Campus <Beta>"');
+    await expect(zip.file("README.md")?.async("string")).resolves.toContain(
+      "portal-managed GitHub repository",
+    );
+    await expect(zip.file("README.md")?.async("string")).resolves.not.toContain(
+      "Create a new GitHub repository for this project.",
     );
     expect(zip.file("docs/github-setup.md")).toBeTruthy();
     expect(zip.file("docs/deployment-guide.md")).toBeTruthy();
@@ -122,7 +157,15 @@ describe("buildArchive", () => {
     ).resolves.toContain('"runtimeStack": "NODE|24-lts"');
     await expect(
       zip.file("app-portal/deployment-manifest.json")?.async("string"),
-    ).resolves.toContain('"server": "psql-campus-beta"');
+    ).resolves.toContain('"resourceModel": "shared-portal-managed"');
+    await expect(
+      zip.file("app-portal/deployment-manifest.json")?.async("string"),
+    ).resolves.toContain('"postgresServer": "psql-cu-apps-published"');
+    await expect(
+      zip.file("app-portal/deployment-manifest.json")?.async("string"),
+    ).resolves.toContain(
+      '"webAppNamePattern": "app-campus-beta-<short-request-id>"',
+    );
     await expect(
       zip.file("app-portal/deployment-manifest.json")?.async("string"),
     ).resolves.toContain('"databaseUrlAppSetting": "DATABASE_URL"');
@@ -181,6 +224,10 @@ describe("buildArchive", () => {
         "docs/publishing/azure-app-service.md.template",
         "docs/publishing/lessons-learned.md.template",
         "src/app/layout.tsx.template",
+        "src/app/page.tsx.template",
+        "src/auth.ts.template",
+        "src/app/api/auth/[...nextauth]/route.ts.template",
+        "src/app/api/health/route.ts.template",
       ]),
     );
   });

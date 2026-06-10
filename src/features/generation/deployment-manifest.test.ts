@@ -31,12 +31,20 @@ describe("buildDeploymentManifest", () => {
       defaults: {
         githubRepository: "campus-hub",
         azure: {
-          resourceGroup: "rg-campus-hub",
+          resourceModel: "shared-portal-managed",
           runtimeStack: "NODE|24-lts",
-          webApp: "campus-hub",
+          shared: {
+            resourceGroup: "rg-cu-apps-published",
+            appServicePlan: "asp-cu-apps-published",
+            postgresServer: "psql-cu-apps-published",
+          },
+          perApp: {
+            webAppNamePattern: "app-campus-hub-<short-request-id>",
+            databaseNamePattern: "db_campus_hub_<short_request_id>",
+            federatedCredentialNamePattern:
+              "github-campus-hub-<short-request-id>",
+          },
           database: {
-            server: "psql-campus-hub",
-            database: "campus-hub",
             adminUser: "portaladmin",
             sslMode: "require",
           },
@@ -96,12 +104,20 @@ describe("buildDeploymentManifest", () => {
       defaults: {
         githubRepository: "app",
         azure: {
-          resourceGroup: "rg-app",
+          resourceModel: "shared-portal-managed",
           runtimeStack: "NODE|24-lts",
-          webApp: "app",
+          shared: {
+            resourceGroup: "rg-cu-apps-published",
+            appServicePlan: "asp-cu-apps-published",
+            postgresServer: "psql-cu-apps-published",
+          },
+          perApp: {
+            webAppNamePattern: "app-app-<short-request-id>",
+            databaseNamePattern: "db_app_<short_request_id>",
+            federatedCredentialNamePattern:
+              "github-app-<short-request-id>",
+          },
           database: {
-            server: "psql-app",
-            database: "app",
             adminUser: "portaladmin",
             sslMode: "require",
           },

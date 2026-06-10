@@ -8,10 +8,11 @@ This starter is prepared for {{HOSTING_TARGET}}.
 
 ## Next Steps
 
-1. Create a new GitHub repository for this project.
-2. Copy the generated files into that repository.
-3. Use the supported publishing path in `docs/publishing/azure-app-service.md`.
+1. Use the portal-managed GitHub repository as the supported source of truth.
+2. Clone or open that managed repository locally when you are ready to customize the app.
+3. Run `npm install`, then `npm run dev` for local development.
 4. Keep local development on the localhost `DATABASE_URL` in `.env.example`.
-5. Provision the Azure PostgreSQL database and set the production `DATABASE_URL` app setting during publish.
-6. Record manual steps, blockers, and operator handoff notes in `docs/publishing/lessons-learned.md`.
-7. Keep `docs/github-setup.md` and `docs/deployment-guide.md` as fallback handoff docs if automation is blocked.
+5. Use the supported publishing path in `docs/publishing/azure-app-service.md`.
+6. Let the portal provision Azure PostgreSQL, App Service settings, and production auth settings during publish.
+7. Record manual steps, blockers, and operator handoff notes in `docs/publishing/lessons-learned.md`.
+8. Keep `docs/github-setup.md` and `docs/deployment-guide.md` as fallback handoff docs if automation is blocked.

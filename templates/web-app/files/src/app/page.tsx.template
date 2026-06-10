@@ -1,9 +1,50 @@
-export default function HomePage() {
+import { auth, signIn, signOut } from "@/auth";
+
+async function signInAction() {
+  "use server";
+
+  await signIn("microsoft-entra-id");
+}
+
+async function signOutAction() {
+  "use server";
+
+  await signOut();
+}
+
+export default async function HomePage() {
+  const session = await auth();
+  const userName =
+    session?.user?.name ?? session?.user?.email ?? "Cedarville user";
+
   return (
-    <main>
-      <h1>{ {{APP_NAME_JS}} }</h1>
-      <p>{ {{APP_DESCRIPTION_JS}} }</p>
-      <p>Prepared for deployment to {{HOSTING_TARGET}}.</p>
+    <main className="app-shell">
+      <section className="hero">
+        <p className="eyebrow">Cedarville App Portal starter</p>
+        <h1>{ {{APP_NAME_JS}} }</h1>
+        <p className="lede">{ {{APP_DESCRIPTION_JS}} }</p>
+        <p className="deployment-note">Prepared for {{HOSTING_TARGET}}.</p>
+      </section>
+
+      <section className="status-panel" aria-label="Application status">
+        <div>
+          <p className="panel-label">Authentication</p>
+          {session?.user ? (
+            <p className="panel-value">Signed in as {userName}</p>
+          ) : (
+            <p className="panel-value">Ready for Cedarville Entra sign-in</p>
+          )}
+        </div>
+        {session?.user ? (
+          <form action={signOutAction}>
+            <button type="submit">Sign out</button>
+          </form>
+        ) : (
+          <form action={signInAction}>
+            <button type="submit">Sign in with Cedarville</button>
+          </form>
+        )}
+      </section>
     </main>
   );
 }

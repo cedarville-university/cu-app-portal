@@ -25,12 +25,19 @@ export type DeploymentManifest = {
   defaults: {
     githubRepository: string;
     azure: {
-      resourceGroup: string;
+      resourceModel: "shared-portal-managed";
       runtimeStack: "NODE|24-lts";
-      webApp: string;
+      shared: {
+        resourceGroup: string;
+        appServicePlan: string;
+        postgresServer: string;
+      };
+      perApp: {
+        webAppNamePattern: string;
+        databaseNamePattern: string;
+        federatedCredentialNamePattern: string;
+      };
       database: {
-        server: string;
-        database: string;
         adminUser: string;
         sslMode: "require";
       };
@@ -70,10 +77,15 @@ function toSlug(value: string) {
   return slug || "app";
 }
 
+function toDatabaseNameSegment(value: string) {
+  return value.replaceAll("-", "_");
+}
+
 export function buildDeploymentManifest(
   input: DeploymentManifestInput,
 ): DeploymentManifest {
   const appSlug = toSlug(input.appName);
+  const databaseNameSegment = toDatabaseNameSegment(appSlug);
 
   return {
     schemaVersion: "1.0.0",
@@ -93,12 +105,19 @@ export function buildDeploymentManifest(
     defaults: {
       githubRepository: appSlug,
       azure: {
-        resourceGroup: `rg-${appSlug}`,
+        resourceModel: "shared-portal-managed",
         runtimeStack: "NODE|24-lts",
-        webApp: appSlug,
+        shared: {
+          resourceGroup: "rg-cu-apps-published",
+          appServicePlan: "asp-cu-apps-published",
+          postgresServer: "psql-cu-apps-published",
+        },
+        perApp: {
+          webAppNamePattern: `app-${appSlug}-<short-request-id>`,
+          databaseNamePattern: `db_${databaseNameSegment}_<short_request_id>`,
+          federatedCredentialNamePattern: `github-${appSlug}-<short-request-id>`,
+        },
         database: {
-          server: `psql-${appSlug}`,
-          database: appSlug,
           adminUser: "portaladmin",
           sslMode: "require",
         },

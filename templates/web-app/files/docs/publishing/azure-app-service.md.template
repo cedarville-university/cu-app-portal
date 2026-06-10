@@ -13,18 +13,29 @@ This bundle supports one first-class publishing path for `{{APP_NAME}}`: a porta
 7. After the first successful portal publish, enable push-to-deploy in the portal if future pushes to the default branch should deploy automatically.
 8. Use `.codex/skills/publish-to-azure/SKILL.md` to drive the publish flow when portal automation is unavailable and you need a local recovery path.
 
+## Resource Model
+
+Portal-managed publishing uses shared Cedarville Azure infrastructure:
+
+- resource group: `rg-cu-apps-published`
+- App Service plan: `asp-cu-apps-published`
+- PostgreSQL flexible server: `psql-cu-apps-published`
+
+Each app gets its own Azure Web App, PostgreSQL database on the shared server, GitHub OIDC federated credential, and App Service settings. The portal's configured `AZURE_PUBLISH_*` values are authoritative if they differ from the generated fallback manifest.
+
 ## Fallback Path
 
 If automation is blocked, complete the publish manually with the same manifest and workflow inputs:
 
-1. Create the Azure resource group, PostgreSQL flexible server, and PostgreSQL database.
+1. Confirm the shared Azure resource group, App Service plan, and PostgreSQL flexible server exist.
 2. Build the production `DATABASE_URL` from the Azure database credentials.
 3. Save `DATABASE_URL` in the Azure App Service app settings.
-4. Save `AUTH_URL` and `NEXTAUTH_URL` in the Azure App Service app settings using the public Azure hostname.
-5. Create or select the Azure identity used by GitHub Actions.
-6. Add the Azure identity secrets to GitHub.
-7. Trigger the workflow manually with `workflow_dispatch`. After the portal or an operator enables push-to-deploy, future pushes to the default branch can deploy automatically.
-8. Record any manual changes or blockers in `docs/publishing/lessons-learned.md`.
+4. Save `AUTH_URL`, `NEXTAUTH_URL`, `AUTH_SECRET`, and the `AUTH_MICROSOFT_ENTRA_ID_*` settings in the Azure App Service app settings using the public Azure hostname.
+5. Add the public callback URL to the shared generated-app Entra registration.
+6. Create or select the Azure identity used by GitHub Actions.
+7. Add the Azure identity secrets to GitHub.
+8. Trigger the workflow manually with `workflow_dispatch`. After the portal or an operator enables push-to-deploy, future pushes to the default branch can deploy automatically.
+9. Record any manual changes or blockers in `docs/publishing/lessons-learned.md`.
 
 ## GitHub CLI Shortcut
 
@@ -47,6 +58,7 @@ gh workflow run deploy-azure-app-service.yml
 - Treat the portal-managed repo as the supported source of truth even if you also keep a ZIP copy.
 - Keep production `DATABASE_URL` in Azure App Service settings and keep development `.env.example` on localhost.
 - Set both `AUTH_URL` and `NEXTAUTH_URL` to the public Azure hostname in production so Auth.js does not generate `localhost` sign-in URLs.
+- Keep `AUTH_MICROSOFT_ENTRA_ID_ID`, `AUTH_MICROSOFT_ENTRA_ID_SECRET`, and `AUTH_MICROSOFT_ENTRA_ID_ISSUER` aligned with the shared generated-app Entra registration.
 - Prefer updating the generated workflow and manifest instead of creating parallel deployment instructions.
 - Prefer GitHub Actions to build the deployment package and keep Azure focused on running the artifact.
 - Keep the initial workflow manual-only. Add the default-branch push trigger only after the first deployment succeeds.

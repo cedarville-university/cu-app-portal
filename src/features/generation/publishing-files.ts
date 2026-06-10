@@ -17,6 +17,8 @@ The usual flow is:
 7. Keep local development on the localhost \`DATABASE_URL\` in \`.env.example\`.
 8. Treat manual GitHub or Azure CLI work as a recovery path, not the primary workflow.
 
+Portal-managed publishing uses the configured shared Azure resource group, App Service plan, and PostgreSQL flexible server. Each app gets its own Web App and database inside that shared target.
+
 If automation gets blocked, use docs/publishing/lessons-learned.md to record what happened and what to try next.`,
     "docs/publishing/lessons-learned.md": `# Publishing Lessons Learned
 
