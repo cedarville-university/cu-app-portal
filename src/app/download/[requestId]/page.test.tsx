@@ -992,6 +992,31 @@ describe("DownloadPage", () => {
     expect(
       screen.getByRole("button", { name: /delete selected resources/i }),
     ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByLabelText(
+        /i understand that the checked items will be permanently deleted/i,
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: /delete selected resources/i }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: /confirm app deletion/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/type delete to confirm/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^delete app$/i }),
+    ).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/type delete to confirm/i), {
+      target: { value: "delete" },
+    });
+
+    expect(
+      screen.getByRole("button", { name: /^delete app$/i }),
+    ).toBeEnabled();
   });
 
   it("shows auto-deploy enablement for successfully published generated apps", async () => {

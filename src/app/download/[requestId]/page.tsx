@@ -7,6 +7,7 @@ import {
   publishToAzureAction,
   retryPublishAction,
 } from "@/features/publishing/actions";
+import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
 import { deleteAppAction } from "@/features/app-deletion/actions";
 import { repairPublishingSetupAction } from "@/features/publishing/setup/actions";
 import { supportsPostSuccessPushToDeploy } from "@/features/publishing/providers";
@@ -580,7 +581,7 @@ function renderDeletePanel(request: {
     <details className="delete-panel">
       <summary>Delete App</summary>
       <div className="delete-panel__content">
-        <form action={deleteAction} className="form-stack">
+        <ConfirmDeleteForm action={deleteAction} className="form-stack">
           <p className="delete-warning">
             Anything you leave unchecked must be deleted manually later.
           </p>
@@ -650,7 +651,7 @@ function renderDeletePanel(request: {
               size="sm"
             />
           </div>
-        </form>
+        </ConfirmDeleteForm>
       </div>
     </details>
   );
