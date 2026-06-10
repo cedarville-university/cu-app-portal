@@ -32,3 +32,37 @@ export function buildCodexHandoffPrompt(
 
   return prompt.join("\n");
 }
+
+export function buildLocalCodexGitSetupPrompt({
+  repositoryUrl,
+  appName,
+  requestId,
+  defaultBranch = "main",
+}: {
+  repositoryUrl: string;
+  appName: string;
+  requestId: string;
+  defaultBranch?: string | null;
+}) {
+  return [
+    `I have a local Codex-built app named "${appName}" that needs to be connected to the Cedarville App Portal managed GitHub repository.`,
+    `Portal request: ${requestId}`,
+    `Managed repository: ${repositoryUrl}`,
+    "",
+    "Do not require the GitHub CLI.",
+    "In the local project folder, inspect whether git is already initialized and whether there are existing commits/remotes.",
+    "If git is not initialized, run:",
+    "git init",
+    `git branch -M ${defaultBranch ?? "main"}`,
+    "git add .",
+    'git commit -m "Initial app source"',
+    "",
+    "Add the portal-managed repository as a remote named portal if it is not already configured:",
+    `git remote add portal ${repositoryUrl}`,
+    "",
+    "Push the current local code to the portal-managed repository:",
+    `git push -u portal HEAD:${defaultBranch ?? "main"}`,
+    "",
+    "After the push succeeds, tell me to return to the Cedarville App Portal and apply or review the Azure publishing setup.",
+  ].join("\n");
+}

@@ -194,6 +194,75 @@ describe("DownloadPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows Codex git setup instructions for local apps with portal-created repos", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_local",
+      appName: "Campus Dashboard",
+      submittedConfig: {
+        description: "Built locally with Codex.",
+        hostingTarget: "Azure App Service",
+        localOnlySource: true,
+      },
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "NOT_REQUESTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      repositoryDefaultBranch: "main",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      repositoryImport: {
+        sourceRepositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+        importStatus: "NOT_REQUIRED",
+        compatibilityStatus: "NOT_SCANNED",
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+      artifact: null,
+      publishAttempts: [],
+      publishSetupChecks: [],
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_local" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /push your local app code/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("git init")).toBeInTheDocument();
+    expect(screen.getByText("git remote add portal https://github.com/cedarville-it/campus-dashboard")).toBeInTheDocument();
+    expect(screen.getByText("git push -u portal HEAD:main")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /copy codex handoff prompt/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /copy codex handoff prompt/i }),
+    );
+
+    await waitFor(() => {
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        expect.stringContaining("Do not require the GitHub CLI."),
+      );
+    });
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "git remote add portal https://github.com/cedarville-it/campus-dashboard",
+      ),
+    );
+  });
+
   it("shows repair instead of publish actions when publishing setup needs repair", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({

@@ -8,6 +8,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
   addExistingAppAction,
+  createManagedRepositoryForLocalAppAction,
   prepareExistingAppAction,
   verifyExistingAppPreparationAction,
 } from "./actions";
@@ -189,6 +190,84 @@ describe("repository import actions", () => {
       }),
     );
     expect(importRepositoryWithHistory).not.toHaveBeenCalled();
+  });
+
+  it("creates an empty managed repository for a local Codex app", async () => {
+    const createRepository = vi.fn().mockResolvedValue({
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      url: "https://github.com/cedarville-it/campus-dashboard",
+      defaultBranch: "main",
+    });
+    vi.mocked(createGitHubAppClient).mockReturnValue({
+      createInstallationTokenForGit: vi.fn(),
+      createRepository,
+      updateRepositoryDefaultBranch: vi.fn(),
+      getRepository: vi.fn(),
+      getBranchHead: vi.fn(),
+      readRepositoryTextFiles: vi.fn(),
+      commitFiles: vi.fn(),
+      createPullRequestWithFiles: vi.fn(),
+    });
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.template.upsert).mockResolvedValue({
+      id: "template-imported",
+    } as Awaited<ReturnType<typeof prisma.template.upsert>>);
+    vi.mocked(prisma.appRequest.create).mockResolvedValue({
+      id: "req_local",
+      supportReference: "SUP-123",
+    } as Awaited<ReturnType<typeof prisma.appRequest.create>>);
+
+    const formData = new FormData();
+    formData.set("appName", "Campus Dashboard");
+    formData.set("description", "Built locally with Codex.");
+
+    await createManagedRepositoryForLocalAppAction(formData);
+
+    expect(createRepository).toHaveBeenCalledWith({
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      visibility: "private",
+      files: {},
+      defaultBranch: "main",
+      autoInit: false,
+    });
+    expect(prisma.appRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user-123",
+        appName: "Campus Dashboard",
+        submittedConfig: expect.objectContaining({
+          description: "Built locally with Codex.",
+          hostingTarget: "Azure App Service",
+          localOnlySource: true,
+        }),
+        sourceOfTruth: "IMPORTED_REPOSITORY",
+        repositoryProvider: "GITHUB",
+        repositoryOwner: "cedarville-it",
+        repositoryName: "campus-dashboard",
+        repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+        repositoryDefaultBranch: "main",
+        repositoryStatus: "READY",
+      }),
+    });
+    expect(prisma.repositoryImport.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        appRequestId: "req_local",
+        sourceRepositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+        targetRepositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+        importStatus: "NOT_REQUIRED",
+        compatibilityStatus: "NOT_SCANNED",
+        preparationStatus: "PENDING_USER_CHOICE",
+      }),
+    });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      "EXISTING_APP_ADD_REQUESTED",
+      expect.objectContaining({
+        requestId: "req_local",
+        source: "local-codex-app",
+      }),
+    );
+    expect(revalidatePath).toHaveBeenCalledWith("/apps");
   });
 
   it("imports external repositories into the shared org before creating ready records", async () => {

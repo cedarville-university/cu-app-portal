@@ -22,6 +22,11 @@ const addExistingAppSchema = z.object({
   description: z.string().trim().max(500).optional(),
 });
 
+const localCodexAppSchema = z.object({
+  appName: z.string().trim().min(2).max(80),
+  description: z.string().trim().max(500).optional(),
+});
+
 const preparationModeSchema = z.enum(["DIRECT_COMMIT", "PULL_REQUEST"]);
 const PREPARABLE_STATUSES = ["PENDING_USER_CHOICE", "FAILED"] as const;
 
@@ -480,6 +485,106 @@ export async function addExistingAppAction(
       },
     );
   }
+
+  revalidatePath("/apps");
+
+  return { requestId: request.id };
+}
+
+export async function createManagedRepositoryForLocalAppAction(
+  formData: FormData,
+) {
+  const parsed = localCodexAppSchema.parse({
+    appName: String(formData.get("appName") ?? ""),
+    description: String(formData.get("description") ?? ""),
+  });
+  const userId = await resolveCurrentUserId();
+  const githubConfig = loadGitHubAppConfig();
+  const owner = githubConfig.defaultOrg;
+
+  if (!githubConfig.allowedOrgs.includes(owner)) {
+    throw new Error(`Configured GitHub org "${owner}" is not allowed.`);
+  }
+
+  const github = createGitHubClientForOwner(owner, githubConfig);
+  const repositoryName = buildSharedOrgTargetName({
+    sourceName: parsed.appName,
+    existingNames: [],
+  });
+  const repository = await github.createRepository({
+    owner,
+    name: repositoryName,
+    visibility: githubConfig.defaultRepoVisibility,
+    files: {},
+    defaultBranch: "main",
+    autoInit: false,
+  });
+  const defaultBranch = repository.defaultBranch || "main";
+  const supportReference = createSupportReference();
+
+  const request = await prisma.$transaction(async (tx) => {
+    const template = await upsertImportedTemplate(tx);
+    const appRequest = await tx.appRequest.create({
+      data: {
+        userId,
+        templateId: template.id,
+        templateVersion: "1.0.0",
+        appName: parsed.appName,
+        submittedConfig: {
+          description: parsed.description ?? "",
+          hostingTarget: "Azure App Service",
+          localOnlySource: true,
+          repositoryUrl: repository.url,
+        },
+        generationStatus: "SUCCEEDED",
+        supportReference,
+        deploymentTarget: "Azure App Service",
+        sourceOfTruth: "IMPORTED_REPOSITORY",
+        repositoryProvider: "GITHUB",
+        repositoryOwner: repository.owner,
+        repositoryName: repository.name,
+        repositoryUrl: repository.url,
+        repositoryDefaultBranch: defaultBranch,
+        repositoryVisibility: githubConfig.defaultRepoVisibility,
+        repositoryStatus: "READY",
+        publishStatus: "NOT_STARTED",
+      },
+    });
+
+    await tx.repositoryImport.create({
+      data: {
+        appRequestId: appRequest.id,
+        sourceRepositoryUrl: repository.url,
+        sourceRepositoryOwner: repository.owner,
+        sourceRepositoryName: repository.name,
+        sourceRepositoryDefaultBranch: defaultBranch,
+        targetRepositoryOwner: repository.owner,
+        targetRepositoryName: repository.name,
+        targetRepositoryUrl: repository.url,
+        targetRepositoryDefaultBranch: defaultBranch,
+        importStatus: "NOT_REQUIRED",
+        importErrorSummary: null,
+        compatibilityStatus: "NOT_SCANNED",
+        compatibilityFindings: [],
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    });
+
+    return appRequest;
+  });
+
+  await recordAuditEvent("EXISTING_APP_ADD_REQUESTED", {
+    requestId: request.id,
+    supportReference,
+    source: "local-codex-app",
+    targetRepositoryUrl: repository.url,
+  });
+
+  await recordAuditEvent("EXISTING_APP_IMPORT_SUCCEEDED", {
+    requestId: request.id,
+    source: "local-codex-app",
+    targetRepository: `${repository.owner}/${repository.name}`,
+  });
 
   revalidatePath("/apps");
 

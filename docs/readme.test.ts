@@ -33,6 +33,7 @@ describe("portal setup docs", () => {
     expect(setup).toContain("no user GitHub OAuth");
     expect(setup).toContain("short-lived GitHub App installation token");
     expect(setup).toContain("repository creation permission");
+    expect(setup).toContain("GitHub CLI (`gh`) is not required");
     expect(setup).toContain("npm run build");
     expect(setup).toContain("Azure App Service Node 24");
   });

@@ -1,5 +1,11 @@
 import React from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AddExistingAppPage from "./page";
 
@@ -29,10 +35,14 @@ vi.mock("@/features/app-requests/current-user", () => ({
 
 vi.mock("@/features/repository-imports/actions", () => ({
   addExistingAppAction: vi.fn(),
+  createManagedRepositoryForLocalAppAction: vi.fn(),
 }));
 
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
-import { addExistingAppAction } from "@/features/repository-imports/actions";
+import {
+  addExistingAppAction,
+  createManagedRepositoryForLocalAppAction,
+} from "@/features/repository-imports/actions";
 
 function findElementByType(
   element: React.ReactNode,
@@ -61,6 +71,25 @@ function findElementByType(
   return null;
 }
 
+function findElementsByType(
+  element: React.ReactNode,
+  type: string,
+): React.ReactElement[] {
+  if (!React.isValidElement(element)) {
+    return [];
+  }
+
+  const matches = element.type === type ? [element] : [];
+  const children = React.Children.toArray(
+    (element.props as { children?: React.ReactNode }).children,
+  );
+
+  return [
+    ...matches,
+    ...children.flatMap((child) => findElementsByType(child, type)),
+  ];
+}
+
 beforeEach(() => {
   mockUseFormStatus.mockReturnValue({ pending: false });
 });
@@ -82,6 +111,9 @@ describe("AddExistingAppPage", () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(addExistingAppAction).mockResolvedValue({
       requestId: "req_imported_app",
+    });
+    vi.mocked(createManagedRepositoryForLocalAppAction).mockResolvedValue({
+      requestId: "req_local_app",
     });
 
     const page = await AddExistingAppPage();
@@ -115,11 +147,11 @@ describe("AddExistingAppPage", () => {
       "placeholder",
       "https://github.com/owner/repo",
     );
-    expect(screen.getByLabelText(/app name/i)).toHaveAttribute("type", "text");
-    expect(screen.getByLabelText(/app name/i)).toHaveAttribute("required");
-    expect(screen.getByLabelText(/description/i)).toHaveAttribute("rows", "4");
+    expect(screen.getByLabelText(/^app name$/i)).toHaveAttribute("type", "text");
+    expect(screen.getByLabelText(/^app name$/i)).toHaveAttribute("required");
+    expect(screen.getByLabelText(/^description$/i)).toHaveAttribute("rows", "4");
     expect(
-      screen.getByRole("button", { name: /analyze repository/i }),
+      screen.getByRole("button", { name: /check repository/i }),
     ).toHaveAttribute("type", "submit");
 
     const formAction = findElementByType(page, "form")?.props.action as (
@@ -137,6 +169,64 @@ describe("AddExistingAppPage", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/download/req_imported_app");
   });
 
+  it("shows an expandable GitHub explanation help box", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+
+    render(await AddExistingAppPage());
+
+    const helpToggle = screen.getByText("What is GitHub?");
+    const helpBox = helpToggle.closest("details");
+
+    expect(helpBox).not.toBeNull();
+    expect(helpBox).not.toHaveAttribute("open");
+
+    fireEvent.click(helpToggle);
+
+    expect(helpBox).toHaveAttribute("open");
+    expect(
+      screen.getByText(/github is a secure place to store app code/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/the portal uses github so codex/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a local Codex app path that creates a managed repository first", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(createManagedRepositoryForLocalAppAction).mockResolvedValue({
+      requestId: "req_local_app",
+    });
+
+    const page = await AddExistingAppPage();
+    render(page);
+
+    expect(
+      screen.getByRole("heading", { name: /not on github yet/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/the portal will create an empty managed github repository/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /create managed repository/i }),
+    ).toHaveAttribute("type", "submit");
+
+    const forms = findElementsByType(page, "form");
+    const localFormAction = forms[1]?.props.action as (
+      formData: FormData,
+    ) => Promise<void>;
+    const formData = new FormData();
+    formData.set("appName", "Campus Dashboard");
+    formData.set("description", "Local app built with Codex.");
+
+    await expect(localFormAction(formData)).rejects.toThrow(
+      "redirect:/download/req_local_app",
+    );
+    expect(createManagedRepositoryForLocalAppAction).toHaveBeenCalledWith(
+      formData,
+    );
+    expect(mockRedirect).toHaveBeenCalledWith("/download/req_local_app");
+  });
+
   it("disables repository analysis and shows live status while pending", async () => {
     mockUseFormStatus.mockReturnValue({ pending: true });
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
@@ -144,10 +234,16 @@ describe("AddExistingAppPage", () => {
     render(await AddExistingAppPage());
 
     expect(
-      screen.getByRole("button", { name: /analyzing repository/i }),
+      screen.getByRole("button", { name: /checking repository/i }),
     ).toBeDisabled();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      /analyzing repository and preparing import/i,
-    );
+    expect(
+      screen
+        .getAllByRole("status")
+        .some((status) =>
+          /checking your repository for compatibility/i.test(
+            status.textContent ?? "",
+          ),
+        ),
+    ).toBe(true);
   });
 });

@@ -16,7 +16,10 @@ import {
   verifyExistingAppPreparationAction,
 } from "@/features/repository-imports/actions";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
-import { buildCodexHandoffPrompt } from "@/features/repositories/codex-handoff";
+import {
+  buildCodexHandoffPrompt,
+  buildLocalCodexGitSetupPrompt,
+} from "@/features/repositories/codex-handoff";
 import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-handoff-button";
 import { prisma } from "@/lib/db";
 
@@ -193,6 +196,67 @@ function getImportedRepositoryRemoteWorkflow({
     portalRepositoryUrl: repositoryUrl,
     sourceRepositoryUrl: repositoryImport.sourceRepositoryUrl,
   };
+}
+
+function isLocalCodexSource(submittedConfig: unknown) {
+  if (!submittedConfig || typeof submittedConfig !== "object") {
+    return false;
+  }
+
+  return (
+    "localOnlySource" in submittedConfig &&
+    submittedConfig.localOnlySource === true
+  );
+}
+
+function localCodexGitCommands(repositoryUrl: string, defaultBranch = "main") {
+  return [
+    "git init",
+    `git branch -M ${defaultBranch}`,
+    "git add .",
+    'git commit -m "Initial app source"',
+    `git remote add portal ${repositoryUrl}`,
+    `git push -u portal HEAD:${defaultBranch}`,
+  ];
+}
+
+function renderLocalCodexSetup({
+  repositoryUrl,
+  defaultBranch,
+}: {
+  repositoryUrl: string | null;
+  defaultBranch?: string | null;
+}) {
+  if (!repositoryUrl) {
+    return null;
+  }
+
+  const branch = defaultBranch ?? "main";
+
+  return (
+    <div className="card">
+      <h2 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>
+        Push Your Local App Code
+      </h2>
+      <p>
+        Copy the Codex handoff prompt above, then let Codex run these steps in
+        your local app folder. The portal has already created the managed
+        GitHub repository; Codex only needs to initialize git when needed, add
+        the managed remote, and push your code.
+      </p>
+      <ol className="step-list">
+        {localCodexGitCommands(repositoryUrl, branch).map((command) => (
+          <li key={command}>
+            <code>{command}</code>
+          </li>
+        ))}
+      </ol>
+      <p>
+        After the push succeeds, use the publishing setup controls below so the
+        portal can add or review the Azure publishing files.
+      </p>
+    </div>
+  );
 }
 
 function renderImportedRepositoryStatus({
@@ -500,6 +564,27 @@ export default async function DownloadPage({
     repositoryUrl: appRequest.repositoryUrl,
     repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
   });
+  const isLocalCodexApp = isLocalCodexSource(appRequest.submittedConfig);
+  const codexHandoffPrompt =
+    isLocalCodexApp && appRequest.repositoryUrl
+      ? buildLocalCodexGitSetupPrompt({
+          repositoryUrl: appRequest.repositoryUrl,
+          appName: appRequest.appName,
+          requestId,
+          defaultBranch: appRequest.repositoryDefaultBranch,
+        })
+      : appRequest.repositoryUrl
+        ? buildCodexHandoffPrompt(
+            appRequest.repositoryUrl,
+            appRequest.appName,
+            requestId,
+            {
+              defaultBranch: importedRepositoryRemoteWorkflow?.defaultBranch,
+              sourceRepositoryUrl:
+                importedRepositoryRemoteWorkflow?.sourceRepositoryUrl,
+            },
+          )
+        : null;
 
   return (
     <main>
@@ -565,19 +650,9 @@ export default async function DownloadPage({
                   </span>
                 </div>
               </div>
-              <CopyCodexHandoffButton
-                prompt={buildCodexHandoffPrompt(
-                  appRequest.repositoryUrl,
-                  appRequest.appName,
-                  requestId,
-                  {
-                    defaultBranch:
-                      importedRepositoryRemoteWorkflow?.defaultBranch,
-                    sourceRepositoryUrl:
-                      importedRepositoryRemoteWorkflow?.sourceRepositoryUrl,
-                  },
-                )}
-              />
+              {codexHandoffPrompt ? (
+                <CopyCodexHandoffButton prompt={codexHandoffPrompt} />
+              ) : null}
             </>
           ) : appRequest.repositoryStatus === "FAILED" ? (
             <div className="error-box">
@@ -670,6 +745,13 @@ export default async function DownloadPage({
             )}
           </div>
         ) : null}
+
+        {isLocalCodexApp
+          ? renderLocalCodexSetup({
+              repositoryUrl: appRequest.repositoryUrl,
+              defaultBranch: appRequest.repositoryDefaultBranch,
+            })
+          : null}
 
         {/* Imported repository status section */}
         {isImportedApp

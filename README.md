@@ -8,6 +8,8 @@ The portal signs staff in with Microsoft Entra ID, guides them through a templat
 
 Users can also add an existing compatible GitHub app repository. If the source repository is outside the configured Cedarville GitHub org, the portal imports it into the shared org while preserving history, scans and prepares it for Node/Next Azure App Service publishing, and lets the user choose either direct publishing additions or a review PR.
 
+For apps developed locally with Codex that are not on GitHub yet, the portal can create an empty managed repository in the shared org first. The app details page then provides Codex-ready git instructions to initialize the local project when needed, add the managed repository as a remote, and push the code without requiring GitHub CLI.
+
 The current `web-app` template now includes an Azure-first publishing bundle for generated apps:
 
 - a minimal Next.js starter repo skeleton

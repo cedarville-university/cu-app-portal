@@ -48,6 +48,8 @@ The add-existing-app flow uses the same GitHub App configuration as portal-manag
 
 When a submitted repository is outside `GITHUB_DEFAULT_ORG`, the portal imports it into the default org with a short-lived GitHub App installation token and preserves the source repository history. The GitHub App needs repository creation permission in the target org, plus read access to private source repositories that are imported.
 
+If a user has built an app locally with Codex but has not created any GitHub repository yet, the portal can create the destination repository directly in `GITHUB_DEFAULT_ORG`. The resulting app details page gives Codex a handoff prompt and plain `git` commands to initialize the local folder if needed, add the managed repository as a `portal` remote, and push the current code. GitHub CLI (`gh`) is not required for this path.
+
 V1 supports root Node/Next apps that build with `npm run build` and run on Azure App Service Node 24. After import or scan, the portal prepares the repository for the supported Azure App Service publishing path.
 
 ### Portal-Managed Azure Publishing
