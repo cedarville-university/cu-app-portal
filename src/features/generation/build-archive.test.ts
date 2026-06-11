@@ -170,6 +170,12 @@ describe("buildArchive", () => {
       zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
     ).resolves.toContain("DATABASE_URL");
     await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("Azure Database for PostgreSQL flexible server");
+    await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("Set the App Service `DATABASE_URL` app setting");
+    await expect(
       zip.file(".github/workflows/deploy-azure-app-service.yml")?.async(
         "string",
       ),
@@ -321,6 +327,10 @@ describe("buildArchive", () => {
         "string",
       )) ?? "";
     const readme = (await zip.file("README.md")?.async("string")) ?? "";
+    const publishSkill =
+      (await zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async(
+        "string",
+      )) ?? "";
 
     expect(azurePublishingDoc).toContain(
       "This app was generated without a database.",
@@ -337,6 +347,14 @@ describe("buildArchive", () => {
     expect(readme).not.toContain("DATABASE_URL");
     expect(readme).not.toContain("Azure PostgreSQL");
     expect(readme).not.toContain("Persistent app data is already wired in");
+    expect(publishSkill).toContain(
+      "This app was generated without a database.",
+    );
+    expect(publishSkill).toContain(
+      "Create or verify the Azure App Service app described by the manifest.",
+    );
+    expect(publishSkill).not.toContain("PostgreSQL");
+    expect(publishSkill).not.toContain("DATABASE_URL");
   });
 
   it("rejects unsupported hosting targets for the Azure-first publishing bundle", async () => {
