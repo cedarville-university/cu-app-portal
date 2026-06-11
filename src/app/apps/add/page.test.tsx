@@ -136,6 +136,9 @@ describe("AddExistingAppPage", () => {
     expect(
       screen.getByRole("heading", { name: /add existing app/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/currently detects root next.js and python fastapi apps/i),
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/github repository url/i)).toHaveAttribute(
       "type",
       "url",
