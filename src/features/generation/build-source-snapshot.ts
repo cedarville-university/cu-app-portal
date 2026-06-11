@@ -446,6 +446,7 @@ function getEntryFilesForInput(
   input: CreateAppRequestInput,
 ) {
   const entryFiles = [...manifest.entryFiles];
+  const generatedOverrides = new Set(manifest.generatedOverrides ?? []);
 
   if (input.databaseProvider === "postgresql") {
     entryFiles.push(
@@ -457,7 +458,9 @@ function getEntryFilesForInput(
     entryFiles.push(...(manifest.conditionalEntryFiles?.entraLogin ?? []));
   }
 
-  return entryFiles;
+  return entryFiles.filter(
+    (entryFile) => !generatedOverrides.has(stripTemplateExtension(entryFile)),
+  );
 }
 
 export async function buildSourceSnapshot(
