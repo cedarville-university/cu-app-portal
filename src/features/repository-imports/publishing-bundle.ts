@@ -124,7 +124,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+          elif [ -f pyproject.toml ]; then
+            python -m pip install . --target=".python_packages/lib/site-packages"
+          else
+            echo "Expected requirements.txt or pyproject.toml for FastAPI dependency installation."
+            exit 1
+          fi
 
       - name: Azure login
         uses: azure/login@v2
@@ -169,7 +176,6 @@ function buildImportedManifest(
       defaults: {
         ...manifest.defaults,
         githubRepository: repositoryName,
-        ...(hasNextDefaults ? {} : { appSettings: {} }),
       },
     },
     null,

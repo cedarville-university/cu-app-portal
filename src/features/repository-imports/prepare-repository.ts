@@ -1,4 +1,5 @@
 import {
+  IMPORTED_NEXT_RUNTIME,
   PUBLISHING_BUNDLE_PATHS,
   type CompatibilityFinding,
   scanRepositoryCompatibility,
@@ -158,6 +159,7 @@ export async function prepareImportedRepository({
     appName,
     repositoryOwner: owner,
     repositoryName: name,
+    runtime: compatibility.runtime ?? IMPORTED_NEXT_RUNTIME,
     files,
     allowPublishingPathConflicts: mode === "PULL_REQUEST",
   });

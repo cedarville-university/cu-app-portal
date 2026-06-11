@@ -103,7 +103,8 @@ describe("planPublishingBundle", () => {
         workflowFileName: "deploy-azure-app-service.yml",
       },
       files: {
-        "requirements.txt": "fastapi==0.115.0\nuvicorn[standard]==0.30.0\n",
+        "requirements.txt":
+          "fastapi==0.115.0\ngunicorn==23.0.0\nuvicorn[standard]==0.30.0\n",
         "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
       },
     });
@@ -116,8 +117,13 @@ describe("planPublishingBundle", () => {
       plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"],
     ).toContain(".python_packages/lib/site-packages");
     expect(
-      JSON.parse(plan.filesToWrite["app-portal/deployment-manifest.json"]),
-    ).toMatchObject({
+      plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"],
+    ).toContain("pyproject.toml");
+    const manifest = JSON.parse(
+      plan.filesToWrite["app-portal/deployment-manifest.json"],
+    );
+
+    expect(manifest).toMatchObject({
       templateSlug: "imported-web-app",
       runtime: {
         family: "python",
@@ -126,12 +132,11 @@ describe("planPublishingBundle", () => {
       },
       defaults: {
         githubRepository: "reports-api",
-        appSettings: expect.not.objectContaining({
-          DATABASE_URL: expect.any(String),
-          AUTH_SECRET: expect.any(String),
-        }),
       },
     });
+    expect(manifest.defaults.appSettings).toBeUndefined();
+    expect(manifest.applicationSettings).not.toContain("DATABASE_URL");
+    expect(manifest.applicationSettings).not.toContain("AUTH_SECRET");
     expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
       "Python 3.14 / FastAPI",
     );
