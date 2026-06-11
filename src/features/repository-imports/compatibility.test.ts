@@ -72,12 +72,44 @@ describe("scanRepositoryCompatibility", () => {
         "pyproject.toml":
           '[project]\ndependencies = ["fastapi>=0.115", "gunicorn>=23", "uvicorn[standard]>=0.30"]\n',
         "app.py": "from fastapi import FastAPI\napp = FastAPI()\n",
-      }).runtime,
-    ).toMatchObject({
-      family: "python",
-      framework: "fastapi",
-      startupCommand:
-        "python -m gunicorn app:app -k uvicorn.workers.UvicornWorker",
+      }),
+    ).toEqual({
+      status: "COMPATIBLE",
+      findings: [],
+      canDirectCommit: true,
+      runtime: expect.objectContaining({
+        family: "python",
+        framework: "fastapi",
+        azureRuntimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn app:app -k uvicorn.workers.UvicornWorker",
+      }),
+    });
+  });
+
+  it("accepts a root FastAPI app with Poetry-style pyproject dependencies", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "pyproject.toml": [
+          "[tool.poetry.dependencies]",
+          "python = \"^3.14\"",
+          "fastapi = \"^0.115\"",
+          "gunicorn = \"^23.0\"",
+          "uvicorn = { extras = [\"standard\"], version = \"^0.32\" }",
+        ].join("\n"),
+        "app.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      }),
+    ).toEqual({
+      status: "COMPATIBLE",
+      findings: [],
+      canDirectCommit: true,
+      runtime: expect.objectContaining({
+        family: "python",
+        framework: "fastapi",
+        azureRuntimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn app:app -k uvicorn.workers.UvicornWorker",
+      }),
     });
   });
 
@@ -210,6 +242,8 @@ describe("scanRepositoryCompatibility", () => {
     });
 
     expect(result.status).toBe("UNSUPPORTED");
+    expect(result.canDirectCommit).toBe(false);
+    expect(result.runtime).toBeNull();
     expect(result.findings).toContainEqual({
       code: "AMBIGUOUS_APP_RUNTIME",
       severity: "error",

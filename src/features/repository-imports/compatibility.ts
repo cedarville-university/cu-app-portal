@@ -162,11 +162,33 @@ function collectPythonDependencies(files: RepositoryFileMap) {
   }
 
   let isInDependencyList = false;
+  let isInPoetryDependencyTable = false;
 
   for (const line of (files["pyproject.toml"] ?? "").split(/\r?\n/)) {
     const trimmedLine = line.trim();
 
     if (trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    const tableMatch = trimmedLine.match(/^\[([^\]]+)]$/);
+
+    if (tableMatch) {
+      isInDependencyList = false;
+      isInPoetryDependencyTable =
+        tableMatch[1].trim() === "tool.poetry.dependencies";
+      continue;
+    }
+
+    if (isInPoetryDependencyTable) {
+      const assignmentMatch = trimmedLine.match(
+        /^([a-z0-9][a-z0-9_.-]*)\s*=/i,
+      );
+
+      if (assignmentMatch) {
+        dependencies.add(assignmentMatch[1].toLowerCase());
+      }
+
       continue;
     }
 
