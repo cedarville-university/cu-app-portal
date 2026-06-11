@@ -279,9 +279,13 @@ describe("buildArchive", () => {
     ]);
     expect(templateManifest.generatedOverrides?.sort()).toEqual([
       ".codex/skills/publish-to-azure/SKILL.md",
+      ".env.example",
       "README.md",
       "docs/publishing/azure-app-service.md",
       "docs/publishing/lessons-learned.md",
+      "package.json",
+      "src/app/page.tsx",
+      "src/lib/app-data.ts",
     ]);
 
     for (const generatedFile of templateManifest.generatedFiles) {
@@ -298,8 +302,6 @@ describe("buildArchive", () => {
         ".gitignore.template",
         "tsconfig.json.template",
         "next-env.d.ts",
-        "prisma/schema.prisma.template",
-        "prisma/migrations/00000000000000_init/migration.sql",
         ".github/workflows/deploy-azure-app-service.yml.template",
         ".codex/skills/publish-to-azure/SKILL.md.template",
         "docs/publishing/azure-app-service.md.template",
@@ -307,11 +309,29 @@ describe("buildArchive", () => {
         "src/app/layout.tsx.template",
         "src/app/page.tsx.template",
         "src/lib/app-data.ts.template",
-        "src/auth.ts.template",
-        "src/app/api/auth/[...nextauth]/route.ts.template",
         "src/app/api/health/route.ts.template",
       ]),
     );
+    expect(templateManifest.entryFiles).not.toEqual(
+      expect.arrayContaining([
+        "prisma/schema.prisma.template",
+        "prisma/migrations/00000000000000_init/migration.sql",
+        "src/auth.ts.template",
+        "src/app/api/auth/[...nextauth]/route.ts.template",
+      ]),
+    );
+    expect(templateManifest).toMatchObject({
+      conditionalEntryFiles: {
+        databasePostgresql: [
+          "prisma/schema.prisma.template",
+          "prisma/migrations/00000000000000_init/migration.sql",
+        ],
+        entraLogin: [
+          "src/app/api/auth/[...nextauth]/route.ts.template",
+          "src/auth.ts.template",
+        ],
+      },
+    });
   });
 
   it('falls back to "app.zip" when the app name normalizes to an empty slug', async () => {
@@ -350,7 +370,41 @@ describe("buildArchive", () => {
       (await zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async(
         "string",
       )) ?? "";
+    const packageJson = JSON.parse(
+      (await zip.file("package.json")?.async("string")) ?? "{}",
+    ) as {
+      dependencies: Record<string, string>;
+      scripts: Record<string, string>;
+    };
 
+    expect(zip.file("prisma/schema.prisma")).toBeNull();
+    expect(
+      zip.file("prisma/migrations/00000000000000_init/migration.sql"),
+    ).toBeNull();
+    expect(zip.file("src/app/api/auth/[...nextauth]/route.ts")).toBeNull();
+    expect(zip.file("src/auth.ts")).toBeNull();
+    await expect(
+      zip.file("src/app/page.tsx")?.async("string"),
+    ).resolves.not.toContain("@/auth");
+    await expect(
+      zip.file("src/app/page.tsx")?.async("string"),
+    ).resolves.not.toContain("getAppDataStatus");
+    await expect(
+      zip.file("src/lib/app-data.ts")?.async("string"),
+    ).resolves.not.toContain("@prisma/client");
+    expect(packageJson.dependencies["@prisma/client"]).toBeUndefined();
+    expect(packageJson.dependencies.prisma).toBeUndefined();
+    expect(packageJson.dependencies["next-auth"]).toBeUndefined();
+    expect(packageJson.scripts.predev).toBeUndefined();
+    expect(packageJson.scripts.prebuild).toBeUndefined();
+    expect(packageJson.scripts.pretypecheck).toBeUndefined();
+    expect(packageJson.scripts.start).toBe("next start");
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.not.toContain("DATABASE_URL");
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.not.toContain("AUTH_");
     expect(azurePublishingDoc).toContain(
       "This app was generated without a database.",
     );

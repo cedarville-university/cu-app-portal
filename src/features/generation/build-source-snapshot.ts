@@ -14,6 +14,10 @@ type TemplateManifest = {
   slug: string;
   version: string;
   entryFiles: string[];
+  conditionalEntryFiles?: {
+    databasePostgresql?: string[];
+    entraLogin?: string[];
+  };
   generatedFiles: string[];
   generatedOverrides?: string[];
 };
@@ -79,10 +83,244 @@ function buildGeneratedTemplateFiles(
 
   return {
     ...instructionFiles,
+    "package.json": buildPackageJsonFile(input),
+    ".env.example": buildEnvExampleFile(input),
+    "src/app/page.tsx": buildPageFile(input),
+    "src/lib/app-data.ts": buildAppDataFile(input),
     "README.md": buildReadmeFile(input),
     ".codex/skills/publish-to-azure/SKILL.md": buildPublishSkillFile(input),
     "app-portal/deployment-manifest.json": deploymentManifest,
   };
+}
+
+function buildPackageJsonFile(input: CreateAppRequestInput) {
+  const hasDatabase = input.databaseProvider === "postgresql";
+  const hasEntraLogin = input.entraLogin;
+  const scripts = {
+    ...(hasDatabase ? { predev: "prisma generate" } : {}),
+    dev: "next dev",
+    ...(hasDatabase ? { prebuild: "prisma generate" } : {}),
+    build: "next build",
+    start: hasDatabase ? "prisma migrate deploy && next start" : "next start",
+    ...(hasDatabase
+      ? {
+          "db:generate": "prisma generate",
+          "db:deploy": "prisma migrate deploy",
+          pretypecheck: "prisma generate",
+        }
+      : {}),
+    typecheck: "tsc --noEmit",
+    test: "npm run typecheck",
+  };
+  const dependencies = {
+    ...(hasDatabase ? { "@prisma/client": "^6.19.3" } : {}),
+    next: "15.5.19",
+    ...(hasEntraLogin ? { "next-auth": "^5.0.0-beta.25" } : {}),
+    ...(hasDatabase ? { prisma: "^6.19.3" } : {}),
+    react: "19.0.0",
+    "react-dom": "19.0.0",
+  };
+
+  return `${JSON.stringify(
+    {
+      name: toSlug(input.appName),
+      version: "0.1.0",
+      private: true,
+      scripts,
+      dependencies,
+      devDependencies: {
+        "@types/node": "22.10.2",
+        "@types/react": "19.0.2",
+        "@types/react-dom": "19.0.2",
+        typescript: "5.7.2",
+      },
+      engines: {
+        node: ">=24",
+      },
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+function buildEnvExampleFile(input: CreateAppRequestInput) {
+  const hasDatabase = input.databaseProvider === "postgresql";
+  const hasEntraLogin = input.entraLogin;
+  const lines = [
+    ...(hasDatabase
+      ? [
+          `DATABASE_URL=postgresql://portal:portal@localhost:5432/${toSlug(
+            input.appName,
+          )}?schema=public`,
+        ]
+      : []),
+    ...(hasEntraLogin
+      ? [
+          "AUTH_URL=http://localhost:3000",
+          "NEXTAUTH_URL=http://localhost:3000",
+          "AUTH_SECRET=replace-me",
+          "AUTH_MICROSOFT_ENTRA_ID_ID=replace-me",
+          "AUTH_MICROSOFT_ENTRA_ID_SECRET=replace-me",
+          "AUTH_MICROSOFT_ENTRA_ID_ISSUER=https://login.microsoftonline.com/replace-me/v2.0",
+        ]
+      : []),
+  ];
+
+  if (lines.length === 0) {
+    return "# This starter does not require local environment variables by default.\n";
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+function buildPageFile(input: CreateAppRequestInput) {
+  const hasDatabase = input.databaseProvider === "postgresql";
+  const hasEntraLogin = input.entraLogin;
+  const imports = [
+    ...(hasEntraLogin
+      ? ['import { auth, signIn, signOut } from "@/auth";']
+      : []),
+    ...(hasDatabase
+      ? ['import { getAppDataStatus } from "@/lib/app-data";']
+      : []),
+  ];
+  const authActions = hasEntraLogin
+    ? `
+async function signInAction() {
+  "use server";
+
+  await signIn("microsoft-entra-id");
+}
+
+async function signOutAction() {
+  "use server";
+
+  await signOut();
+}
+`
+    : "";
+  const dataLoad = hasDatabase
+    ? hasEntraLogin
+      ? `  const [session, dataStatus] = await Promise.all([
+    auth(),
+    getAppDataStatus(),
+  ]);
+`
+      : `  const dataStatus = await getAppDataStatus();
+`
+    : hasEntraLogin
+      ? `  const session = await auth();
+`
+      : "";
+  const userName = hasEntraLogin
+    ? `  const userName =
+    session?.user?.name ?? session?.user?.email ?? "Cedarville user";
+`
+    : "";
+  const authPanel = hasEntraLogin
+    ? `        <div>
+          <p className="panel-label">Authentication</p>
+          {session?.user ? (
+            <p className="panel-value">Signed in as {userName}</p>
+          ) : (
+            <p className="panel-value">Ready for Cedarville Entra sign-in</p>
+          )}
+        </div>
+`
+    : "";
+  const dataPanel = hasDatabase
+    ? `        <div>
+          <p className="panel-label">{dataStatus.label}</p>
+          <p className="panel-value">{dataStatus.value}</p>
+        </div>
+`
+    : `        <div>
+          <p className="panel-label">Starter status</p>
+          <p className="panel-value">Ready to customize</p>
+        </div>
+`;
+  const authButton = hasEntraLogin
+    ? `        {session?.user ? (
+          <form action={signOutAction}>
+            <button type="submit">Sign out</button>
+          </form>
+        ) : (
+          <form action={signInAction}>
+            <button type="submit">Sign in with Cedarville</button>
+          </form>
+        )}
+`
+    : "";
+  const prelude = [imports.join("\n"), authActions.trim()]
+    .filter(Boolean)
+    .join("\n\n");
+  const leadingContent = prelude ? `${prelude}\n\n` : "";
+
+  return `${leadingContent}export default async function HomePage() {
+${dataLoad}${userName}
+  return (
+    <main className="app-shell">
+      <section className="hero">
+        <p className="eyebrow">Cedarville App Portal starter</p>
+        <h1>{ ${JSON.stringify(input.appName)} }</h1>
+        <p className="lede">{ ${JSON.stringify(input.description)} }</p>
+        <p className="deployment-note">Prepared for ${input.hostingTarget}.</p>
+      </section>
+
+      <section className="status-panel" aria-label="Application status">
+${authPanel}${dataPanel}${authButton}      </section>
+    </main>
+  );
+}
+`;
+}
+
+function buildAppDataFile(input: CreateAppRequestInput) {
+  if (input.databaseProvider !== "postgresql") {
+    return `export async function getAppDataStatus() {
+  return {
+    label: "App data",
+    value: "No database configured",
+  };
+}
+`;
+  }
+
+  return `import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient;
+};
+
+const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+
+export async function getAppDataStatus() {
+  try {
+    await prisma.appSetting.upsert({
+      where: { key: "starter.dataStatus" },
+      update: { value: "Ready for app data" },
+      create: {
+        key: "starter.dataStatus",
+        value: "Ready for app data",
+      },
+    });
+
+    return {
+      label: "App data",
+      value: "Ready for app data",
+    };
+  } catch {
+    return {
+      label: "App data",
+      value: "Ready after publish",
+    };
+  }
+}
+`;
 }
 
 function buildReadmeFile(input: CreateAppRequestInput) {
@@ -203,6 +441,25 @@ ${authNotes}
 `;
 }
 
+function getEntryFilesForInput(
+  manifest: TemplateManifest,
+  input: CreateAppRequestInput,
+) {
+  const entryFiles = [...manifest.entryFiles];
+
+  if (input.databaseProvider === "postgresql") {
+    entryFiles.push(
+      ...(manifest.conditionalEntryFiles?.databasePostgresql ?? []),
+    );
+  }
+
+  if (input.entraLogin) {
+    entryFiles.push(...(manifest.conditionalEntryFiles?.entraLogin ?? []));
+  }
+
+  return entryFiles;
+}
+
 export async function buildSourceSnapshot(
   input: CreateAppRequestInput,
 ): Promise<Record<string, string>> {
@@ -218,7 +475,7 @@ export async function buildSourceSnapshot(
   );
   const files: Record<string, string> = {};
 
-  for (const entryFile of manifest.entryFiles) {
+  for (const entryFile of getEntryFilesForInput(manifest, input)) {
     const sourcePath = path.join(templateRoot, entryFile);
     const source = await readFile(sourcePath, "utf8");
     files[stripTemplateExtension(entryFile)] = renderTemplateString(
@@ -255,4 +512,14 @@ function formatList(values: string[]) {
   }
 
   return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
+}
+
+function toSlug(value: string) {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-+|-+$/g, "");
+
+  return slug || "app";
 }
