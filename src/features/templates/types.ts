@@ -23,7 +23,6 @@ export type AppServiceRuntimeFamily = "node" | "python" | "java";
 
 type AppServiceRuntimeBase = {
   displayName: string;
-  azureRuntimeStack: string;
   startupCommand: string;
   workflowFileName: string;
 };
@@ -32,14 +31,17 @@ export type AppServiceRuntime =
   | (AppServiceRuntimeBase & {
       family: "node";
       framework: "nextjs" | "express";
+      azureRuntimeStack: `NODE|${string}`;
     })
   | (AppServiceRuntimeBase & {
       family: "python";
       framework: "fastapi";
+      azureRuntimeStack: `PYTHON|${string}`;
     })
   | (AppServiceRuntimeBase & {
       family: "java";
       framework: "spring-boot";
+      azureRuntimeStack: `JAVA|${string}`;
     });
 
 export type FeatureMode = "unsupported" | "optional" | "required";
@@ -54,7 +56,7 @@ export type TemplateDatabaseFeature =
     }
   | {
       mode: "optional";
-      providerOptions: EnabledDatabaseProvider[];
+      providerOptions: [EnabledDatabaseProvider, ...EnabledDatabaseProvider[]];
       defaultProvider: DatabaseProvider;
     }
   | {
@@ -65,10 +67,19 @@ export type TemplateDatabaseFeature =
 
 export type TemplateFeatures = {
   database: TemplateDatabaseFeature;
-  entraLogin: {
-    mode: FeatureMode;
-    defaultEnabled: boolean;
-  };
+  entraLogin:
+    | {
+        mode: "unsupported";
+        defaultEnabled: false;
+      }
+    | {
+        mode: "optional";
+        defaultEnabled: boolean;
+      }
+    | {
+        mode: "required";
+        defaultEnabled: true;
+      };
 };
 
 export type PortalTemplate = {
