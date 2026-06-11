@@ -1,22 +1,16 @@
 import { buildDeploymentManifest } from "@/features/generation/deployment-manifest";
 import {
+  IMPORTED_NEXT_RUNTIME,
   PUBLISHING_BUNDLE_PATHS,
+  type ImportedAppRuntime,
   type RepositoryFileMap,
 } from "./compatibility";
-
-const IMPORTED_WEB_APP_RUNTIME = {
-  family: "node",
-  framework: "nextjs",
-  displayName: "Node.js 24 / Next.js",
-  azureRuntimeStack: "NODE|24-lts",
-  startupCommand: "npm start",
-  workflowFileName: "deploy-azure-app-service.yml",
-} as const;
 
 type PublishingBundleInput = {
   appName: string;
   repositoryOwner: string;
   repositoryName: string;
+  runtime: ImportedAppRuntime;
   files: RepositoryFileMap;
   allowPublishingPathConflicts?: boolean;
 };
@@ -25,7 +19,7 @@ type PublishingBundlePlan = {
   filesToWrite: Record<string, string>;
 };
 
-const DEPLOY_WORKFLOW = `name: Deploy to Azure App Service
+const NEXT_DEPLOY_WORKFLOW = `name: Deploy to Azure App Service
 
 on:
   workflow_dispatch:
@@ -95,17 +89,77 @@ jobs:
           package: \${{ env.DEPLOY_PACKAGE_PATH }}
 `;
 
-function buildImportedManifest(appName: string, repositoryName: string) {
+function usesNextPublishingDefaults(runtime: ImportedAppRuntime) {
+  return runtime.framework === IMPORTED_NEXT_RUNTIME.framework;
+}
+
+function buildDeployWorkflow(runtime: ImportedAppRuntime) {
+  if (runtime.framework === "fastapi") {
+    return `name: Deploy to Azure App Service
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  AZURE_WEBAPP_NAME: \${{ secrets.AZURE_WEBAPP_NAME }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: \${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: \${{ env.AZURE_WEBAPP_NAME }}
+          package: .
+`;
+  }
+
+  return NEXT_DEPLOY_WORKFLOW;
+}
+
+function buildImportedManifest(
+  appName: string,
+  repositoryName: string,
+  runtime: ImportedAppRuntime,
+) {
+  const hasNextDefaults = usesNextPublishingDefaults(runtime);
   const manifest = buildDeploymentManifest(
     {
       templateSlug: "imported-web-app",
       appName,
       description: `Imported app ${appName}`,
       hostingTarget: "Azure App Service",
-      databaseProvider: "postgresql",
-      entraLogin: true,
+      databaseProvider: hasNextDefaults ? "postgresql" : "none",
+      entraLogin: hasNextDefaults,
     },
-    { runtime: IMPORTED_WEB_APP_RUNTIME },
+    { runtime },
   );
 
   return `${JSON.stringify(
@@ -115,6 +169,7 @@ function buildImportedManifest(appName: string, repositoryName: string) {
       defaults: {
         ...manifest.defaults,
         githubRepository: repositoryName,
+        ...(hasNextDefaults ? {} : { appSettings: {} }),
       },
     },
     null,
@@ -154,6 +209,7 @@ function assertNoPublishingPathConflicts(files: RepositoryFileMap) {
 export function planPublishingBundle({
   appName,
   repositoryName,
+  runtime,
   files,
   allowPublishingPathConflicts = false,
 }: PublishingBundleInput): PublishingBundlePlan {
@@ -162,23 +218,27 @@ export function planPublishingBundle({
   }
 
   const filesToWrite: Record<string, string> = {};
-  const updatedPackageJson = updatePackageJson(files["package.json"]);
+  const updatedPackageJson =
+    usesNextPublishingDefaults(runtime)
+      ? updatePackageJson(files["package.json"])
+      : null;
 
   if (updatedPackageJson) {
     filesToWrite["package.json"] = updatedPackageJson;
   }
 
   filesToWrite[".github/workflows/deploy-azure-app-service.yml"] =
-    DEPLOY_WORKFLOW;
+    buildDeployWorkflow(runtime);
   filesToWrite[".codex/skills/publish-to-azure/SKILL.md"] =
-    "# Publish to Azure\n\nUse the Cedarville App Portal as the supported Azure publishing path for this imported app.\n";
+    `# Publish to Azure\n\nUse the Cedarville App Portal as the supported Azure publishing path for this imported ${runtime.displayName} app.\n`;
   filesToWrite["docs/publishing/azure-app-service.md"] =
-    "# Publish to Azure App Service\n\nThis imported app is prepared for Cedarville App Portal-managed Azure publishing.\n";
+    `# Publish to Azure App Service\n\nThis imported ${runtime.displayName} app is prepared for Cedarville App Portal-managed Azure publishing.\n`;
   filesToWrite["docs/publishing/lessons-learned.md"] =
     "# Publishing Lessons Learned\n\nRecord manual fixes and deployment blockers here.\n";
   filesToWrite["app-portal/deployment-manifest.json"] = buildImportedManifest(
     appName,
     repositoryName,
+    runtime,
   );
 
   return { filesToWrite };

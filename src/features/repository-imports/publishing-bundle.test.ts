@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { IMPORTED_NEXT_RUNTIME } from "./compatibility";
 import { planPublishingBundle } from "./publishing-bundle";
 
 describe("planPublishingBundle", () => {
@@ -7,6 +8,7 @@ describe("planPublishingBundle", () => {
       appName: "Campus Dashboard",
       repositoryOwner: "cedarville-it",
       repositoryName: "campus-dashboard",
+      runtime: IMPORTED_NEXT_RUNTIME,
       files: {
         "package.json": JSON.stringify(
           {
@@ -61,6 +63,7 @@ describe("planPublishingBundle", () => {
       appName: "Campus Dashboard",
       repositoryOwner: "cedarville-it",
       repositoryName: "campus-dashboard",
+      runtime: IMPORTED_NEXT_RUNTIME,
       files: { "package.json": packageJson },
     });
 
@@ -73,6 +76,7 @@ describe("planPublishingBundle", () => {
         appName: "Campus Dashboard",
         repositoryOwner: "cedarville-it",
         repositoryName: "campus-dashboard",
+        runtime: IMPORTED_NEXT_RUNTIME,
         files: {
           "package.json": JSON.stringify({
             scripts: { build: "next build", start: "next start" },
@@ -82,5 +86,54 @@ describe("planPublishingBundle", () => {
         },
       }),
     ).toThrow(".github/workflows/deploy-azure-app-service.yml already exists");
+  });
+
+  it("adds FastAPI publishing files without package.json rewrites", () => {
+    const plan = planPublishingBundle({
+      appName: "Reports API",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "reports-api",
+      runtime: {
+        family: "python",
+        framework: "fastapi",
+        displayName: "Python 3.14 / FastAPI",
+        azureRuntimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+        workflowFileName: "deploy-azure-app-service.yml",
+      },
+      files: {
+        "requirements.txt": "fastapi==0.115.0\nuvicorn[standard]==0.30.0\n",
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      },
+    });
+
+    expect(plan.filesToWrite["package.json"]).toBeUndefined();
+    expect(
+      plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"],
+    ).toContain("Setup Python");
+    expect(
+      plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"],
+    ).toContain(".python_packages/lib/site-packages");
+    expect(
+      JSON.parse(plan.filesToWrite["app-portal/deployment-manifest.json"]),
+    ).toMatchObject({
+      templateSlug: "imported-web-app",
+      runtime: {
+        family: "python",
+        framework: "fastapi",
+        azureRuntimeStack: "PYTHON|3.14",
+      },
+      defaults: {
+        githubRepository: "reports-api",
+        appSettings: expect.not.objectContaining({
+          DATABASE_URL: expect.any(String),
+          AUTH_SECRET: expect.any(String),
+        }),
+      },
+    });
+    expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
+      "Python 3.14 / FastAPI",
+    );
   });
 });
