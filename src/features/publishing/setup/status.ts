@@ -24,6 +24,22 @@ export type PublishingSetupCheckResult = {
   metadata: Record<string, unknown>;
 };
 
+export function getEffectivePublishingSetupStatus({
+  publishStatus,
+  publishingSetupStatus,
+}: {
+  publishStatus?: string | null;
+  publishingSetupStatus?: PublishingSetupStatus | string | null;
+}): PublishingSetupStatus {
+  const status = (publishingSetupStatus ?? "NOT_CHECKED") as PublishingSetupStatus;
+
+  if (publishStatus === "SUCCEEDED" && status === "NOT_CHECKED") {
+    return "READY";
+  }
+
+  return status;
+}
+
 export type PublishingSetupErrorClassification = {
   setupStatus: Extract<PublishingSetupStatus, "NEEDS_REPAIR" | "BLOCKED">;
   summary: string;

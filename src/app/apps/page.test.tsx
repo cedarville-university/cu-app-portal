@@ -223,4 +223,40 @@ describe("MyAppsPage", () => {
     );
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
+
+  it("shows legacy published apps with unchecked publishing setup as ready", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
+      {
+        id: "req_legacy_published",
+        appName: "Campus Dashboard",
+        generationStatus: "SUCCEEDED",
+        sourceOfTruth: "PORTAL_MANAGED_REPO",
+        repositoryStatus: "READY",
+        repositoryAccessStatus: "GRANTED",
+        publishStatus: "SUCCEEDED",
+        publishingSetupStatus: "NOT_CHECKED",
+        repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+        publishUrl: "https://app-campus-dashboard.azurewebsites.net",
+        primaryPublishUrl: "https://app-campus-dashboard.azurewebsites.net",
+        repositoryImport: null,
+      },
+    ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
+
+    render(await MyAppsPage());
+
+    const appCard = screen
+      .getByRole("heading", { name: /campus dashboard/i })
+      .closest("li");
+
+    expect(appCard).not.toBeNull();
+    expect(
+      within(appCard as HTMLElement).getByText(/pub\. config:\s*ready/i),
+    ).toBeInTheDocument();
+    expect(
+      within(appCard as HTMLElement).queryByText(
+        /pub\. config:\s*not checked/i,
+      ),
+    ).not.toBeInTheDocument();
+  });
 });

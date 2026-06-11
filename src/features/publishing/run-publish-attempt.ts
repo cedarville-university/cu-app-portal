@@ -254,6 +254,8 @@ export async function runPublishAttempt(
         publishStatus: "SUCCEEDED",
         publishUrl: deployment.publishUrl,
         publishErrorSummary: null,
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
         lastPublishedAt: completedAt,
       },
     });

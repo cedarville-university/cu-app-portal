@@ -10,6 +10,7 @@ import {
 import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
 import { deleteAppAction } from "@/features/app-deletion/actions";
 import { repairPublishingSetupAction } from "@/features/publishing/setup/actions";
+import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/status";
 import { supportsPostSuccessPushToDeploy } from "@/features/publishing/providers";
 import {
   retryRepositoryBootstrapAction,
@@ -82,7 +83,7 @@ function isImportedRepositoryPrepared(
 }
 
 function needsPublishingSetupRepair(status: string | null | undefined) {
-  return status === "NEEDS_REPAIR";
+  return status === "NEEDS_REPAIR" || status === "BLOCKED";
 }
 
 function isPublishingSetupBlocking(status: string | null | undefined) {
@@ -137,6 +138,7 @@ function formatCheckKey(key: string) {
 
 function renderPublishingSetupStatus(request: {
   id: string;
+  publishStatus?: string | null;
   publishingSetupStatus?: string | null;
   publishingSetupErrorSummary?: string | null;
   publishSetupChecks?: Array<{
@@ -145,7 +147,10 @@ function renderPublishingSetupStatus(request: {
     message: string;
   }>;
 }) {
-  const status = request.publishingSetupStatus ?? "NOT_CHECKED";
+  const status = getEffectivePublishingSetupStatus({
+    publishStatus: request.publishStatus,
+    publishingSetupStatus: request.publishingSetupStatus,
+  });
   const repairAction = repairPublishingSetupAction.bind(null, request.id);
 
   return (
@@ -705,6 +710,10 @@ export default async function DownloadPage({
     appRequest.publishUrl,
   );
   const pub = publishBadge(appRequest.publishStatus);
+  const effectivePublishingSetupStatus = getEffectivePublishingSetupStatus({
+    publishStatus: appRequest.publishStatus,
+    publishingSetupStatus: appRequest.publishingSetupStatus,
+  });
   const importedRepositoryRemoteWorkflow = getImportedRepositoryRemoteWorkflow({
     repositoryImport: appRequest.repositoryImport,
     repositoryUrl: appRequest.repositoryUrl,
@@ -1028,7 +1037,8 @@ export default async function DownloadPage({
 
           {renderPublishingSetupStatus({
             id: appRequest.id,
-            publishingSetupStatus: appRequest.publishingSetupStatus,
+            publishStatus: appRequest.publishStatus,
+            publishingSetupStatus: effectivePublishingSetupStatus,
             publishingSetupErrorSummary: appRequest.publishingSetupErrorSummary,
             publishSetupChecks: appRequest.publishSetupChecks,
           })}
@@ -1039,7 +1049,7 @@ export default async function DownloadPage({
             repositoryStatus: appRequest.repositoryStatus,
             sourceOfTruth: appRequest.sourceOfTruth,
             preparationStatus: appRequest.repositoryImport?.preparationStatus,
-            publishingSetupStatus: appRequest.publishingSetupStatus,
+            publishingSetupStatus: effectivePublishingSetupStatus,
           })}
           {renderPushToDeployButton({
             id: appRequest.id,

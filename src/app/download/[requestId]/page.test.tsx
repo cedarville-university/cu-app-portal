@@ -719,7 +719,7 @@ describe("DownloadPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("hides publish without a repair button when publishing setup is blocked", async () => {
+  it("offers repair when publishing setup is blocked", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_setup_blocked",
@@ -790,8 +790,8 @@ describe("DownloadPage", () => {
       screen.queryByRole("button", { name: /retry publish/i }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /repair publishing setup/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /repair publishing setup/i }),
+    ).toBeInTheDocument();
   });
 
   it("hides publish without a repair button while publishing setup is repairing", async () => {
@@ -1063,5 +1063,55 @@ describe("DownloadPage", () => {
     expect(
       screen.getByRole("button", { name: /enable auto-deploy/i }),
     ).toBeInTheDocument();
+  });
+
+  it("shows legacy published apps with unchecked publishing setup as ready", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_legacy_published",
+      appName: "Campus Dashboard",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      publishStatus: "SUCCEEDED",
+      deploymentTarget: "Azure App Service",
+      deploymentTriggerMode: "PORTAL_DISPATCH",
+      publishingSetupStatus: "NOT_CHECKED",
+      publishingSetupErrorSummary: null,
+      publishUrl: "https://app-campus-dashboard.azurewebsites.net",
+      primaryPublishUrl: "https://app-campus-dashboard.azurewebsites.net",
+      azureWebAppName: "app-campus-dashboard-clx9abc1",
+      azureDatabaseName: "db_campus_dashboard_clx9abc1",
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-legacy-published",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "portalstaff",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_legacy_published" }),
+      }),
+    );
+
+    expect(
+      screen.getByText((_, element) => element?.textContent === "Status: ready"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        (_, element) => element?.textContent === "Status: not checked",
+      ),
+    ).not.toBeInTheDocument();
   });
 });
