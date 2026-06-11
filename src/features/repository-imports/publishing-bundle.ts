@@ -92,6 +92,8 @@ function buildImportedManifest(appName: string, repositoryName: string) {
     appName,
     description: `Imported app ${appName}`,
     hostingTarget: "Azure App Service",
+    databaseProvider: "postgresql",
+    entraLogin: true,
   });
 
   return `${JSON.stringify(

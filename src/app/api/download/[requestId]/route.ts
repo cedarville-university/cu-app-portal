@@ -1,24 +1,41 @@
 import { getServerSession } from "@/auth/session";
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
+import { createAppSchema } from "@/features/create-app/validation";
 import { buildArchive } from "@/features/generation/build-archive";
 import {
   isMissingFileError,
   loadArtifact,
 } from "@/features/generation/storage";
+import { getTemplateBySlug } from "@/features/templates/catalog";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-import { z } from "zod";
 import { createDownloadHeaders } from "../headers";
 
-const storedRequestInputSchema = z.object({
-  templateSlug: z.string().min(1),
-  appName: z.string().min(1),
-  description: z.string().min(1),
-  hostingTarget: z.string().min(1),
-});
-
 function parseStoredRequestInput(value: unknown): CreateAppRequestInput {
-  return storedRequestInputSchema.parse(value);
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("templateSlug" in value) ||
+    typeof value.templateSlug !== "string"
+  ) {
+    throw new Error("Stored app request configuration is invalid.");
+  }
+
+  const template = getTemplateBySlug(value.templateSlug);
+
+  if (!template) {
+    throw new Error("Stored app request template is no longer available.");
+  }
+
+  const parsed = createAppSchema({
+    hostingTarget: template.hostingTarget,
+    features: template.features,
+  }).parse(value);
+
+  return {
+    ...parsed,
+    templateSlug: value.templateSlug,
+  };
 }
 
 async function resolveDownloadUserId() {

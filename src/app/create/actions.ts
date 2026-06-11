@@ -45,23 +45,22 @@ export async function extractCreateAppInput(
     templateSlug: template.slug,
     appName: String(formData.get("appName") ?? ""),
     description: String(formData.get("description") ?? ""),
-    hostingTarget: String(formData.get("hostingTarget") ?? ""),
+    hostingTarget: String(
+      formData.get("hostingTarget") ?? template.hostingTarget,
+    ),
+    databaseProvider: String(
+      formData.get("databaseProvider") ??
+        template.features.database.defaultProvider,
+    ),
+    entraLogin: String(
+      formData.get("entraLogin") ?? template.features.entraLogin.defaultEnabled,
+    ),
   };
 
-  const hostingTargetField = template.fields.find(
-    (field) => field.name === "hostingTarget" && field.type === "select",
-  );
-
-  if (!hostingTargetField) {
-    throw new Error("Template is missing hosting target configuration.");
-  }
-
-  if (hostingTargetField.options.length === 0) {
-    throw new Error("Template is missing hosting target options.");
-  }
-
-  const hostingTargets = hostingTargetField.options as [string, ...string[]];
-  const parsed = createAppSchema(hostingTargets).parse(payload);
+  const parsed = createAppSchema({
+    hostingTarget: template.hostingTarget,
+    features: template.features,
+  }).parse(payload);
 
   return { ...parsed, templateSlug: payload.templateSlug };
 }
