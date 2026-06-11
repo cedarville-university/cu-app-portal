@@ -37,6 +37,7 @@ export type CompatibilityFinding = {
     | "UNSUPPORTED_LOCKFILE"
     | "UNSUPPORTED_APP_SHAPE"
     | "MISSING_FASTAPI_ENTRYPOINT"
+    | "MISSING_FASTAPI_SERVER_DEPENDENCY"
     | "AMBIGUOUS_APP_RUNTIME"
     | "UNSUPPORTED_APP_RUNTIME"
     | "UNSUPPORTED_WORKSPACE_ROOT"
@@ -136,9 +137,74 @@ function hasNextDependency(packageJson: PackageJson) {
   return Boolean(packageJson.dependencies?.next ?? packageJson.devDependencies?.next);
 }
 
+function parsePythonDependencyName(rawDependency: string) {
+  const withoutInlineComment = rawDependency.split("#", 1)[0]?.trim() ?? "";
+  const match = withoutInlineComment.match(
+    /^([a-z0-9][a-z0-9_.-]*)(?:\s*(?:\[|===|==|~=|!=|<=|>=|<|>|;|,|\s|$))/i,
+  );
+
+  return match?.[1].toLowerCase() ?? null;
+}
+
+function collectPythonDependencies(files: RepositoryFileMap) {
+  const dependencies = new Set<string>();
+
+  for (const line of (files["requirements.txt"] ?? "").split(/\r?\n/)) {
+    if (line.trim().startsWith("#")) {
+      continue;
+    }
+
+    const name = parsePythonDependencyName(line);
+
+    if (name) {
+      dependencies.add(name);
+    }
+  }
+
+  let isInDependencyList = false;
+
+  for (const line of (files["pyproject.toml"] ?? "").split(/\r?\n/)) {
+    const trimmedLine = line.trim();
+
+    if (trimmedLine.startsWith("#")) {
+      continue;
+    }
+
+    const startsDependencyList = /^dependencies\s*=/.test(trimmedLine);
+
+    if (!startsDependencyList && !isInDependencyList) {
+      continue;
+    }
+
+    for (const match of trimmedLine.matchAll(/["']([^"']+)["']/g)) {
+      const name = parsePythonDependencyName(match[1]);
+
+      if (name) {
+        dependencies.add(name);
+      }
+    }
+
+    const structureLine = trimmedLine.replaceAll(/["'][^"']*["']/g, "\"\"");
+
+    if (startsDependencyList) {
+      isInDependencyList =
+        structureLine.includes("[") && !structureLine.includes("]");
+    } else if (structureLine.includes("]")) {
+      isInDependencyList = false;
+    }
+  }
+
+  return dependencies;
+}
+
 function hasFastApiDependency(files: RepositoryFileMap) {
-  return /\bfastapi\b/i.test(files["requirements.txt"] ?? "") ||
-    /\bfastapi\b/i.test(files["pyproject.toml"] ?? "");
+  return collectPythonDependencies(files).has("fastapi");
+}
+
+function hasFastApiServerDependencies(files: RepositoryFileMap) {
+  const dependencies = collectPythonDependencies(files);
+
+  return dependencies.has("gunicorn") && dependencies.has("uvicorn");
 }
 
 function detectFastApiEntrypoint(files: RepositoryFileMap) {
@@ -188,10 +254,13 @@ export function scanRepositoryCompatibility(
   const fastApiEntrypoint = hasFastApiRuntime
     ? detectFastApiEntrypoint(files)
     : null;
+  const hasSupportedFastApiServer = hasFastApiRuntime
+    ? hasFastApiServerDependencies(files)
+    : false;
   const runtime =
     hasNextRuntime && !isAmbiguousRuntime
       ? IMPORTED_NEXT_RUNTIME
-      : fastApiEntrypoint && !isAmbiguousRuntime
+      : fastApiEntrypoint && hasSupportedFastApiServer && !isAmbiguousRuntime
         ? importedFastApiRuntime(fastApiEntrypoint)
         : null;
 
@@ -206,19 +275,30 @@ export function scanRepositoryCompatibility(
       message:
         "Repository matches multiple supported runtimes. Keep one root Next.js or FastAPI app for portal-managed Azure publishing.",
     });
-  } else if (hasFastApiRuntime && !fastApiEntrypoint) {
-    findings.push({
-      code: "MISSING_FASTAPI_ENTRYPOINT",
-      severity: "error",
-      message:
-        "FastAPI imports must include a root main.py or app.py entrypoint.",
-    });
   } else if (!hasNextRuntime && !hasFastApiRuntime) {
     findings.push({
       code: "UNSUPPORTED_APP_RUNTIME",
       severity: "error",
       message:
         "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+    });
+  }
+
+  if (!isAmbiguousRuntime && hasFastApiRuntime && !fastApiEntrypoint) {
+    findings.push({
+      code: "MISSING_FASTAPI_ENTRYPOINT",
+      severity: "error",
+      message:
+        "FastAPI imports must include a root main.py or app.py entrypoint.",
+    });
+  }
+
+  if (!isAmbiguousRuntime && hasFastApiRuntime && !hasSupportedFastApiServer) {
+    findings.push({
+      code: "MISSING_FASTAPI_SERVER_DEPENDENCY",
+      severity: "error",
+      message:
+        "FastAPI imports must include gunicorn and uvicorn dependencies for the portal-managed startup command.",
     });
   }
 

@@ -26,7 +26,8 @@ describe("scanRepositoryCompatibility", () => {
   it("accepts a root FastAPI app with requirements.txt and main.py", () => {
     expect(
       scanRepositoryCompatibility({
-        "requirements.txt": "fastapi==0.115.0\nuvicorn[standard]==0.30.0\n",
+        "requirements.txt":
+          "fastapi==0.115.0\ngunicorn==23.0.0\nuvicorn[standard]==0.30.0\n",
         "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
       }),
     ).toEqual({
@@ -46,7 +47,8 @@ describe("scanRepositoryCompatibility", () => {
   it("accepts a root FastAPI app with pyproject.toml and app.py", () => {
     expect(
       scanRepositoryCompatibility({
-        "pyproject.toml": '[project]\ndependencies = ["fastapi>=0.115"]\n',
+        "pyproject.toml":
+          '[project]\ndependencies = ["fastapi>=0.115", "gunicorn>=23", "uvicorn[standard]>=0.30"]\n',
         "app.py": "from fastapi import FastAPI\napp = FastAPI()\n",
       }).runtime,
     ).toMatchObject({
@@ -57,6 +59,122 @@ describe("scanRepositoryCompatibility", () => {
     });
   });
 
+  it("rejects FastAPI apps without gunicorn", () => {
+    const result = scanRepositoryCompatibility({
+      "requirements.txt": "fastapi==0.115.0\nuvicorn[standard]==0.30.0\n",
+      "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+    });
+
+    expect(result.status).toBe("UNSUPPORTED");
+    expect(result.canDirectCommit).toBe(false);
+    expect(result.runtime).toBeNull();
+    expect(result.findings).toContainEqual({
+      code: "MISSING_FASTAPI_SERVER_DEPENDENCY",
+      severity: "error",
+      message:
+        "FastAPI imports must include gunicorn and uvicorn dependencies for the portal-managed startup command.",
+    });
+  });
+
+  it("rejects FastAPI apps without uvicorn", () => {
+    const result = scanRepositoryCompatibility({
+      "requirements.txt": "fastapi==0.115.0\ngunicorn==23.0.0\n",
+      "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+    });
+
+    expect(result.status).toBe("UNSUPPORTED");
+    expect(result.canDirectCommit).toBe(false);
+    expect(result.runtime).toBeNull();
+    expect(result.findings).toContainEqual({
+      code: "MISSING_FASTAPI_SERVER_DEPENDENCY",
+      severity: "error",
+      message:
+        "FastAPI imports must include gunicorn and uvicorn dependencies for the portal-managed startup command.",
+    });
+  });
+
+  it("rejects FastAPI apps without a root entrypoint", () => {
+    const result = scanRepositoryCompatibility({
+      "requirements.txt":
+        "fastapi==0.115.0\ngunicorn==23.0.0\nuvicorn[standard]==0.30.0\n",
+    });
+
+    expect(result.status).toBe("UNSUPPORTED");
+    expect(result.canDirectCommit).toBe(false);
+    expect(result.runtime).toBeNull();
+    expect(result.findings).toContainEqual({
+      code: "MISSING_FASTAPI_ENTRYPOINT",
+      severity: "error",
+      message:
+        "FastAPI imports must include a root main.py or app.py entrypoint.",
+    });
+  });
+
+  it("does not detect FastAPI from comment-only requirements lines", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "requirements.txt": "# fastapi\n# gunicorn\n# uvicorn[standard]\n",
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "UNSUPPORTED_APP_RUNTIME",
+          severity: "error",
+          message:
+            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+        },
+      ],
+      canDirectCommit: false,
+      runtime: null,
+    });
+  });
+
+  it("does not detect FastAPI from adjacent package names", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "requirements.txt":
+          "fastapi-users==14.0.0\ngunicorn==23.0.0\nuvicorn==0.30.0\n",
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "UNSUPPORTED_APP_RUNTIME",
+          severity: "error",
+          message:
+            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+        },
+      ],
+      canDirectCommit: false,
+      runtime: null,
+    });
+  });
+
+  it("does not detect FastAPI from pyproject project metadata", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "pyproject.toml":
+          '[project]\nname = "fastapi"\ndependencies = ["gunicorn>=23", "uvicorn>=0.30"]\n',
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "UNSUPPORTED_APP_RUNTIME",
+          severity: "error",
+          message:
+            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+        },
+      ],
+      canDirectCommit: false,
+      runtime: null,
+    });
+  });
+
   it("rejects ambiguous Next.js and FastAPI repositories", () => {
     const result = scanRepositoryCompatibility({
       "package.json": JSON.stringify({
@@ -64,7 +182,8 @@ describe("scanRepositoryCompatibility", () => {
         dependencies: { next: "15.5.15" },
         engines: { node: ">=24" },
       }),
-      "requirements.txt": "fastapi==0.115.0\n",
+      "requirements.txt":
+        "fastapi==0.115.0\ngunicorn==23.0.0\nuvicorn[standard]==0.30.0\n",
       "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
     });
 
