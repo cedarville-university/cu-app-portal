@@ -550,6 +550,26 @@ describe("publishing setup service", () => {
     );
   });
 
+  it("fails safely when a generated app template is missing during preflight", async () => {
+    const deps = createDeps();
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      {
+        ...appRequest,
+        template: { slug: "renamed-generated-template" },
+      } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
+    );
+
+    await expect(preflightPublishingSetup("req_123", deps)).rejects.toThrow(
+      'Template "renamed-generated-template" is not configured for publishing setup.',
+    );
+
+    expect(deps.arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(deps.arm.putWebApp).not.toHaveBeenCalled();
+    expect(deps.arm.putAppSettings).not.toHaveBeenCalled();
+    expect(deps.graph.ensureRedirectUri).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalled();
+  });
+
   it("repairs setup without database or Entra resources when features are disabled", async () => {
     const baseDeps = createDeps();
     const deps = createDeps({
@@ -585,14 +605,6 @@ describe("publishing setup service", () => {
       resourceGroup: "rg-cu-apps-published",
       name: "app-campus-dashboard-req123",
       settings: {
-        DATABASE_URL: "postgresql://stale",
-        AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
-        NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
-        AUTH_SECRET: "custom-auth-secret",
-        AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
-        AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
-        AUTH_MICROSOFT_ENTRA_ID_ISSUER:
-          "https://login.microsoftonline.com/custom/v2.0",
         EXISTING_CUSTOM_SETTING: "keep-me",
         NODE_ENV: "production",
         SCM_DO_BUILD_DURING_DEPLOYMENT: "false",

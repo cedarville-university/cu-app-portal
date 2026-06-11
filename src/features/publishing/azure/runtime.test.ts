@@ -289,6 +289,27 @@ describe("createAzurePublishRuntime", () => {
     expect(arm.putPostgresDatabase).toHaveBeenCalled();
   });
 
+  it("fails safely when a generated app template is missing from the catalog", async () => {
+    const { deps, arm, graph } = createDeps({
+      appRequest: {
+        ...readyAppRequest,
+        template: { slug: "renamed-generated-template" },
+      },
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await expect(
+      runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz"),
+    ).rejects.toThrow(
+      'Template "renamed-generated-template" is not configured for Azure publishing.',
+    );
+
+    expect(arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(arm.putWebApp).not.toHaveBeenCalled();
+    expect(arm.putAppSettings).not.toHaveBeenCalled();
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
+  });
+
   it("requires a ready repository status before provisioning or deploying", async () => {
     const { deps } = createDeps({
       appRequest: {

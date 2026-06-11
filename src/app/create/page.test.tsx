@@ -59,7 +59,7 @@ describe("CreatePage", () => {
     ).toBeInTheDocument();
     expect(fastApi.getByText("Python 3.14 / FastAPI")).toBeInTheDocument();
     expect(fastApi.getByText("Python APIs")).toBeInTheDocument();
-    expect(fastApi.getByText(/database: optional/i)).toBeInTheDocument();
+    expect(fastApi.getByText(/database: unsupported/i)).toBeInTheDocument();
     expect(fastApi.getByText(/login: no entra/i)).toBeInTheDocument();
   });
 

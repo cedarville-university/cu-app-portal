@@ -32,6 +32,9 @@ describe("buildArchive", () => {
     expect(workflow).toContain("workflow_dispatch");
     expect(workflow).not.toContain("push:");
     expect(workflow).toContain(".python_packages/lib/site-packages");
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.not.toContain("DATABASE_URL");
     expect(zip.file("docs/github-setup.md")).toBeTruthy();
     expect(zip.file("docs/deployment-guide.md")).toBeTruthy();
     expect(archive.files["docs/github-setup.md"]).toContain(

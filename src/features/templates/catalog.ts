@@ -78,8 +78,8 @@ const templates: PortalTemplate[] = [
     },
     features: {
       database: {
-        mode: "optional",
-        providerOptions: ["postgresql"],
+        mode: "unsupported",
+        providerOptions: [],
         defaultProvider: "none",
       },
       entraLogin: {

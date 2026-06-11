@@ -27,6 +27,7 @@ import {
 const WORKFLOW_PATH = ".github/workflows/deploy-azure-app-service.yml";
 const STARTUP_COMMAND = "npm start";
 const ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
+const IMPORTED_WEB_APP_TEMPLATE_SLUG = "imported-web-app";
 const REQUIRED_PORTAL_MANAGED_SECRETS = [
   "AZURE_CLIENT_ID",
   "AZURE_TENANT_ID",
@@ -240,6 +241,22 @@ function resolveSetupTemplate(appRequest: SetupAppRequest): PortalTemplate | nul
   return getTemplateBySlug(appRequest.template.slug);
 }
 
+function isImportedAppRequest(appRequest: SetupAppRequest) {
+  return appRequest.template.slug === IMPORTED_WEB_APP_TEMPLATE_SLUG;
+}
+
+function requireSetupTemplate(appRequest: SetupAppRequest): PortalTemplate {
+  const template = resolveSetupTemplate(appRequest);
+
+  if (template) {
+    return template;
+  }
+
+  throw new Error(
+    `Template "${appRequest.template.slug}" is not configured for publishing setup.`,
+  );
+}
+
 function submittedConfigObject(
   appRequest: SetupAppRequest,
 ): Record<string, unknown> | null {
@@ -262,8 +279,10 @@ function selectedDatabaseProvider(appRequest: SetupAppRequest): DatabaseProvider
   }
 
   return (
-    resolveSetupTemplate(appRequest)?.features.database.defaultProvider ??
-    "postgresql"
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requireSetupTemplate(appRequest)
+    )?.features.database.defaultProvider ?? "postgresql"
   );
 }
 
@@ -275,7 +294,10 @@ function selectedEntraLogin(appRequest: SetupAppRequest): boolean {
   }
 
   return (
-    resolveSetupTemplate(appRequest)?.features.entraLogin.defaultEnabled ?? true
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requireSetupTemplate(appRequest)
+    )?.features.entraLogin.defaultEnabled ?? true
   );
 }
 
@@ -284,12 +306,25 @@ function selectedAppServiceRuntime(
   config: AzurePublishConfig,
 ): { azureRuntimeStack: string; startupCommand: string } {
   return (
-    resolveSetupTemplate(appRequest)?.appServiceRuntime ?? {
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requireSetupTemplate(appRequest)
+    )?.appServiceRuntime ?? {
       azureRuntimeStack: config.runtimeStack,
       startupCommand: STARTUP_COMMAND,
     }
   );
 }
+
+const DATABASE_APP_SETTINGS = ["DATABASE_URL"] as const;
+const ENTRA_APP_SETTINGS = [
+  "AUTH_URL",
+  "NEXTAUTH_URL",
+  "AUTH_SECRET",
+  "AUTH_MICROSOFT_ENTRA_ID_ID",
+  "AUTH_MICROSOFT_ENTRA_ID_SECRET",
+  "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
+] as const;
 
 function ownerUsername(appRequest: SetupAppRequest) {
   return (
@@ -372,6 +407,18 @@ function buildRepairAppSettings({
   entraLogin: boolean;
 }) {
   const settings = { ...existingSettings };
+
+  if (databaseProvider !== "postgresql") {
+    for (const settingName of DATABASE_APP_SETTINGS) {
+      delete settings[settingName];
+    }
+  }
+
+  if (!entraLogin) {
+    for (const settingName of ENTRA_APP_SETTINGS) {
+      delete settings[settingName];
+    }
+  }
 
   if (databaseProvider === "postgresql") {
     settings.DATABASE_URL = buildDatabaseUrl(config, databaseName);

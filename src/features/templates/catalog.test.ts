@@ -104,6 +104,11 @@ describe("getActiveTemplates", () => {
         workflowFileName: "deploy-azure-app-service.yml",
       },
       features: {
+        database: {
+          mode: "unsupported",
+          providerOptions: [],
+          defaultProvider: "none",
+        },
         entraLogin: {
           mode: "unsupported",
           defaultEnabled: false,

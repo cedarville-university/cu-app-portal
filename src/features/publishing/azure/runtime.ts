@@ -113,6 +113,7 @@ type PublishableAppRequest = {
 const WORKFLOW_FILE_NAME = "deploy-azure-app-service.yml";
 const STARTUP_COMMAND = "npm start";
 const ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
+const IMPORTED_WEB_APP_TEMPLATE_SLUG = "imported-web-app";
 const DEFAULT_WORKFLOW_RUN_POLL_ATTEMPTS = 5;
 const DEFAULT_WORKFLOW_RUN_POLL_INTERVAL_MS = 1000;
 const DEFAULT_WORKFLOW_COMPLETION_POLL_ATTEMPTS = 30;
@@ -162,6 +163,24 @@ function resolvePublishTemplate(
   return getTemplateBySlug(appRequest.template.slug);
 }
 
+function isImportedAppRequest(appRequest: PublishableAppRequest) {
+  return appRequest.template.slug === IMPORTED_WEB_APP_TEMPLATE_SLUG;
+}
+
+function requirePublishTemplate(
+  appRequest: PublishableAppRequest,
+): PortalTemplate {
+  const template = resolvePublishTemplate(appRequest);
+
+  if (template) {
+    return template;
+  }
+
+  throw new Error(
+    `Template "${appRequest.template.slug}" is not configured for Azure publishing.`,
+  );
+}
+
 function submittedConfigObject(
   appRequest: PublishableAppRequest,
 ): Record<string, unknown> | null {
@@ -186,8 +205,10 @@ function selectedDatabaseProvider(
   }
 
   return (
-    resolvePublishTemplate(appRequest)?.features.database.defaultProvider ??
-    "postgresql"
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requirePublishTemplate(appRequest)
+    )?.features.database.defaultProvider ?? "postgresql"
   );
 }
 
@@ -199,7 +220,10 @@ function selectedEntraLogin(appRequest: PublishableAppRequest): boolean {
   }
 
   return (
-    resolvePublishTemplate(appRequest)?.features.entraLogin.defaultEnabled ?? true
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requirePublishTemplate(appRequest)
+    )?.features.entraLogin.defaultEnabled ?? true
   );
 }
 
@@ -208,7 +232,10 @@ function selectedAppServiceRuntime(
   config: AzurePublishConfig,
 ) {
   return (
-    resolvePublishTemplate(appRequest)?.appServiceRuntime ?? {
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requirePublishTemplate(appRequest)
+    )?.appServiceRuntime ?? {
       azureRuntimeStack: config.runtimeStack,
       startupCommand: STARTUP_COMMAND,
     }
