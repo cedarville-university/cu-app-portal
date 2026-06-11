@@ -2,6 +2,7 @@ import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PortalTemplate } from "@/features/templates/types";
+import { getTemplateBySlug } from "@/features/templates/catalog";
 import { TemplateFormFields } from "./template-form-fields";
 
 afterEach(() => {
@@ -55,6 +56,32 @@ function buildTemplate(overrides: Partial<PortalTemplate> = {}): PortalTemplate 
 }
 
 describe("TemplateFormFields", () => {
+  it("shows optional database and login choices for the web app template", () => {
+    render(<TemplateFormFields template={buildTemplate()} />);
+
+    expect(
+      screen.getByRole("group", { name: /database/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/postgresql/i)).toBeChecked();
+    expect(screen.getByLabelText(/no database/i)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/microsoft entra login/i)).toBeChecked();
+  });
+
+  it("submits false for Entra login when a template does not support it", () => {
+    const fastApiTemplate = getTemplateBySlug("python-fastapi");
+
+    expect(fastApiTemplate).not.toBeNull();
+
+    const { container } = render(
+      <TemplateFormFields template={fastApiTemplate!} />,
+    );
+    const entraInput = container.querySelector('input[name="entraLogin"]');
+
+    expect(entraInput).toHaveAttribute("type", "hidden");
+    expect(entraInput).toHaveAttribute("value", "false");
+  });
+
   it("submits a single select option without showing a visible choice", () => {
     const { container } = render(
       <TemplateFormFields

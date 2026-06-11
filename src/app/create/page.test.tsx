@@ -19,6 +19,15 @@ describe("CreatePage", () => {
     expect(
       screen.getByRole("link", { name: /use next.js web app/i }),
     ).toHaveAttribute("href", "/create/web-app");
+    expect(
+      screen.getByText(
+        /choose this when you need pages, forms, server-side logic/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Node.js 24 / Next.js")).toBeInTheDocument();
+    expect(screen.getByText("Staff-facing web apps")).toBeInTheDocument();
+    expect(screen.getByText(/database: optional/i)).toBeInTheDocument();
+    expect(screen.getByText(/login: entra available/i)).toBeInTheDocument();
   });
 
   it("shows an expandable GitHub explanation help box", async () => {

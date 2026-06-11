@@ -107,4 +107,13 @@ describe("TemplateForm", () => {
       screen.getByRole("button", { name: "Create and Publish" }),
     ).toHaveAttribute("value", "createAndPublish");
   });
+
+  it("includes template feature choices in submitted form values", () => {
+    render(<TemplateForm template={template} />);
+
+    expect(screen.getByRole("group", { name: /database/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/postgresql/i)).toBeChecked();
+    expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/microsoft entra login/i)).toBeChecked();
+  });
 });
