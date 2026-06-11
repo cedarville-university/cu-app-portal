@@ -264,7 +264,10 @@ export function scanRepositoryCompatibility(
         ? importedFastApiRuntime(fastApiEntrypoint)
         : null;
 
-  if (finding) {
+  const isClearlyFastApiRuntime =
+    hasFastApiRuntime && hasSupportedFastApiServer && Boolean(fastApiEntrypoint);
+
+  if (finding && !isClearlyFastApiRuntime) {
     findings.push(finding);
   }
 

@@ -44,6 +44,28 @@ describe("scanRepositoryCompatibility", () => {
     });
   });
 
+  it("accepts a root FastAPI app even when package.json is invalid", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "requirements.txt":
+          "fastapi==0.115.0\ngunicorn==23.0.0\nuvicorn[standard]==0.30.0\n",
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+        "package.json": "not json",
+      }),
+    ).toEqual({
+      status: "COMPATIBLE",
+      findings: [],
+      canDirectCommit: true,
+      runtime: expect.objectContaining({
+        family: "python",
+        framework: "fastapi",
+        azureRuntimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    });
+  });
+
   it("accepts a root FastAPI app with pyproject.toml and app.py", () => {
     expect(
       scanRepositoryCompatibility({
