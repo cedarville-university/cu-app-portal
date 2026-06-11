@@ -10,15 +10,18 @@ Users can also add an existing compatible GitHub app repository. If the source r
 
 For apps developed locally with Codex that are not on GitHub yet, the portal can create an empty managed repository in the shared org first. The app details page then provides Codex-ready git instructions to initialize the local project when needed, add the managed repository as a remote, and push the code without requiring GitHub CLI.
 
-The current `web-app` template now includes an Azure-first publishing bundle for generated apps:
+The portal offers App Service starter templates for full-stack Next.js apps and runtime-specific API starters. Each template explains when to use it and declares whether PostgreSQL and Microsoft Entra login are available.
+
+The current initial templates are Next.js Web App and Python FastAPI. They include Azure-first publishing bundles for generated apps:
 
 - a minimal Next.js starter repo skeleton
+- a compact Python FastAPI API starter
 - Azure App Service publishing docs
 - a generated deployment manifest
 - a GitHub Actions deployment workflow
 - a generated-app Codex publishing skill
 
-Portal-managed Azure publishing for generated apps uses one shared resource group, one shared App Service Plan, and one shared PostgreSQL flexible server. Each published app gets its own Azure Web App and its own PostgreSQL database on that shared server.
+Portal-managed Azure publishing for generated apps uses one shared resource group, one shared App Service Plan, and one shared PostgreSQL flexible server. Each published app gets its own Azure Web App. When PostgreSQL is selected, it also gets its own database on the shared server.
 
 For generated and imported apps, the portal tracks whether publishing setup is ready. If Azure, Entra, or GitHub credentials drift or rotate, the app can offer Repair Publishing Setup to refresh portal-managed setup instead of blindly retrying with stale configuration.
 

@@ -78,7 +78,9 @@ Current v1 design decisions:
 - Generated user apps share one App Service Plan: `asp-cu-apps-published`.
 - Generated user apps share one PostgreSQL flexible server: `psql-cu-apps-published`.
 - Each published app gets its own Azure Web App and its own PostgreSQL database on the shared server.
-- `AZURE_PUBLISH_RUNTIME_STACK` is fixed to `NODE|24-lts` for the current `web-app` template runtime.
+- `AZURE_PUBLISH_RUNTIME_STACK=NODE|24-lts` remains the current default for the legacy/imported Node publishing path.
+- Runtime-specific generated templates carry their App Service runtime stack in the generated deployment manifest. The portal-managed publisher uses that template runtime when creating the Web App.
+- Database and auth publishing are conditional based on the selected template features. Templates that do not select PostgreSQL skip per-app database setup, and templates that do not select Microsoft Entra login skip generated-app auth settings and redirect URI setup.
 
 Deletion behavior:
 
