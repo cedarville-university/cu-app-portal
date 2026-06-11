@@ -50,6 +50,11 @@ const readyNoFeatureRequest = {
   },
 };
 
+const readyImportedAppRequest = {
+  ...readyAppRequest,
+  template: { slug: "imported-web-app" },
+};
+
 function emptyWorkflowRunsError() {
   return new Error(
     "No GitHub workflow runs found for cedarville-it/campus-dashboard deploy-azure-app-service.yml.",
@@ -258,6 +263,30 @@ describe("createAzurePublishRuntime", () => {
           "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
       }),
     );
+  });
+
+  it("uses the legacy runtime fallback when provisioning an imported app", async () => {
+    const { deps, arm } = createDeps({
+      appRequest: readyImportedAppRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await expect(
+      runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz"),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        azureDatabaseName: "db_campus_dashboard_clx9abc1",
+        primaryPublishUrl:
+          "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
+      }),
+    );
+    expect(arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
+      }),
+    );
+    expect(arm.putPostgresDatabase).toHaveBeenCalled();
   });
 
   it("requires a ready repository status before provisioning or deploying", async () => {

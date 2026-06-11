@@ -111,6 +111,7 @@ type PublishableAppRequest = {
 };
 
 const WORKFLOW_FILE_NAME = "deploy-azure-app-service.yml";
+const STARTUP_COMMAND = "npm start";
 const ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
 const DEFAULT_WORKFLOW_RUN_POLL_ATTEMPTS = 5;
 const DEFAULT_WORKFLOW_RUN_POLL_INTERVAL_MS = 1000;
@@ -157,16 +158,8 @@ async function loadPublishableRequest(
 
 function resolvePublishTemplate(
   appRequest: PublishableAppRequest,
-): PortalTemplate {
-  const template = getTemplateBySlug(appRequest.template.slug);
-
-  if (!template) {
-    throw new Error(
-      `Template "${appRequest.template.slug}" is not configured for publishing.`,
-    );
-  }
-
-  return template;
+): PortalTemplate | null {
+  return getTemplateBySlug(appRequest.template.slug);
 }
 
 function submittedConfigObject(
@@ -192,7 +185,10 @@ function selectedDatabaseProvider(
     return value;
   }
 
-  return resolvePublishTemplate(appRequest).features.database.defaultProvider;
+  return (
+    resolvePublishTemplate(appRequest)?.features.database.defaultProvider ??
+    "postgresql"
+  );
 }
 
 function selectedEntraLogin(appRequest: PublishableAppRequest): boolean {
@@ -202,7 +198,21 @@ function selectedEntraLogin(appRequest: PublishableAppRequest): boolean {
     return value;
   }
 
-  return resolvePublishTemplate(appRequest).features.entraLogin.defaultEnabled;
+  return (
+    resolvePublishTemplate(appRequest)?.features.entraLogin.defaultEnabled ?? true
+  );
+}
+
+function selectedAppServiceRuntime(
+  appRequest: PublishableAppRequest,
+  config: AzurePublishConfig,
+) {
+  return (
+    resolvePublishTemplate(appRequest)?.appServiceRuntime ?? {
+      azureRuntimeStack: config.runtimeStack,
+      startupCommand: STARTUP_COMMAND,
+    }
+  );
 }
 
 function ownerUsername(appRequest: PublishableAppRequest) {
@@ -360,7 +370,10 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       appRequestId: string,
     ): Promise<ProvisionedPublishTarget> {
       const appRequest = await loadPublishableRequest(deps, appRequestId);
-      const template = resolvePublishTemplate(appRequest);
+      const appServiceRuntime = selectedAppServiceRuntime(
+        appRequest,
+        deps.config,
+      );
       const names = buildPublishTargetNames({
         requestId: appRequest.id,
         appName: appRequest.appName,
@@ -395,8 +408,8 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
           deps.config.resourceGroup,
           deps.config.appServicePlan,
         ),
-        runtimeStack: template.appServiceRuntime.azureRuntimeStack,
-        startupCommand: template.appServiceRuntime.startupCommand,
+        runtimeStack: appServiceRuntime.azureRuntimeStack,
+        startupCommand: appServiceRuntime.startupCommand,
         tags,
       });
       const azureDefaultHostName =
