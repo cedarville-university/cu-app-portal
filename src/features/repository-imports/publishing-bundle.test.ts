@@ -36,6 +36,11 @@ describe("planPublishingBundle", () => {
       JSON.parse(plan.filesToWrite["app-portal/deployment-manifest.json"]),
     ).toMatchObject({
       templateSlug: "imported-web-app",
+      runtime: {
+        family: "node",
+        framework: "nextjs",
+        azureRuntimeStack: "NODE|24-lts",
+      },
       defaults: { githubRepository: "campus-dashboard" },
     });
   });

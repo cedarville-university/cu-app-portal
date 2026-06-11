@@ -4,6 +4,15 @@ import {
   type RepositoryFileMap,
 } from "./compatibility";
 
+const IMPORTED_WEB_APP_RUNTIME = {
+  family: "node",
+  framework: "nextjs",
+  displayName: "Node.js 24 / Next.js",
+  azureRuntimeStack: "NODE|24-lts",
+  startupCommand: "npm start",
+  workflowFileName: "deploy-azure-app-service.yml",
+} as const;
+
 type PublishingBundleInput = {
   appName: string;
   repositoryOwner: string;
@@ -87,14 +96,17 @@ jobs:
 `;
 
 function buildImportedManifest(appName: string, repositoryName: string) {
-  const manifest = buildDeploymentManifest({
-    templateSlug: "imported-web-app",
-    appName,
-    description: `Imported app ${appName}`,
-    hostingTarget: "Azure App Service",
-    databaseProvider: "postgresql",
-    entraLogin: true,
-  });
+  const manifest = buildDeploymentManifest(
+    {
+      templateSlug: "imported-web-app",
+      appName,
+      description: `Imported app ${appName}`,
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    },
+    { runtime: IMPORTED_WEB_APP_RUNTIME },
+  );
 
   return `${JSON.stringify(
     {

@@ -69,6 +69,10 @@ export type DeploymentManifest = {
   };
 };
 
+export type DeploymentManifestOptions = {
+  runtime?: AppServiceRuntime;
+};
+
 function toSlug(value: string) {
   const slug = value
     .trim()
@@ -85,14 +89,15 @@ function toDatabaseNameSegment(value: string) {
 
 export function buildDeploymentManifest(
   input: DeploymentManifestInput,
+  options: DeploymentManifestOptions = {},
 ): DeploymentManifest {
   const template = getTemplateBySlug(input.templateSlug);
 
-  if (!template) {
+  if (!template && !options.runtime) {
     throw new Error(`Template "${input.templateSlug}" not found.`);
   }
 
-  const runtime = template.appServiceRuntime;
+  const runtime = options.runtime ?? template!.appServiceRuntime;
   const appSlug = toSlug(input.appName);
   const databaseNameSegment = toDatabaseNameSegment(appSlug);
   const hasDatabase = input.databaseProvider === "postgresql";

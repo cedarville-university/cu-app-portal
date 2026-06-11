@@ -222,4 +222,17 @@ describe("buildDeploymentManifest", () => {
       "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
     );
   });
+
+  it("throws when a normal generated manifest references an unknown template", () => {
+    expect(() =>
+      buildDeploymentManifest({
+        templateSlug: "missing-template",
+        appName: "Missing Template",
+        description: "Unknown template coverage",
+        hostingTarget: "Azure App Service",
+        databaseProvider: "none",
+        entraLogin: false,
+      }),
+    ).toThrow('Template "missing-template" not found.');
+  });
 });
