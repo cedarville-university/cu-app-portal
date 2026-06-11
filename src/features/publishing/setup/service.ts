@@ -301,11 +301,37 @@ function selectedEntraLogin(appRequest: SetupAppRequest): boolean {
   );
 }
 
+function importedRuntimeFromSubmittedConfig(appRequest: SetupAppRequest) {
+  if (!isImportedAppRequest(appRequest)) {
+    return null;
+  }
+
+  const runtime = submittedConfigObject(appRequest)?.importRuntime;
+
+  if (
+    runtime &&
+    typeof runtime === "object" &&
+    !Array.isArray(runtime) &&
+    "azureRuntimeStack" in runtime &&
+    "startupCommand" in runtime &&
+    typeof runtime.azureRuntimeStack === "string" &&
+    typeof runtime.startupCommand === "string"
+  ) {
+    return {
+      azureRuntimeStack: runtime.azureRuntimeStack,
+      startupCommand: runtime.startupCommand,
+    };
+  }
+
+  return null;
+}
+
 function selectedAppServiceRuntime(
   appRequest: SetupAppRequest,
   config: AzurePublishConfig,
 ): { azureRuntimeStack: string; startupCommand: string } {
   return (
+    importedRuntimeFromSubmittedConfig(appRequest) ??
     (isImportedAppRequest(appRequest)
       ? null
       : requireSetupTemplate(appRequest)

@@ -227,11 +227,37 @@ function selectedEntraLogin(appRequest: PublishableAppRequest): boolean {
   );
 }
 
+function importedRuntimeFromSubmittedConfig(appRequest: PublishableAppRequest) {
+  if (!isImportedAppRequest(appRequest)) {
+    return null;
+  }
+
+  const runtime = submittedConfigObject(appRequest)?.importRuntime;
+
+  if (
+    runtime &&
+    typeof runtime === "object" &&
+    !Array.isArray(runtime) &&
+    "azureRuntimeStack" in runtime &&
+    "startupCommand" in runtime &&
+    typeof runtime.azureRuntimeStack === "string" &&
+    typeof runtime.startupCommand === "string"
+  ) {
+    return {
+      azureRuntimeStack: runtime.azureRuntimeStack,
+      startupCommand: runtime.startupCommand,
+    };
+  }
+
+  return null;
+}
+
 function selectedAppServiceRuntime(
   appRequest: PublishableAppRequest,
   config: AzurePublishConfig,
 ) {
   return (
+    importedRuntimeFromSubmittedConfig(appRequest) ??
     (isImportedAppRequest(appRequest)
       ? null
       : requirePublishTemplate(appRequest)

@@ -55,6 +55,25 @@ const readyImportedAppRequest = {
   template: { slug: "imported-web-app" },
 };
 
+const readyImportedFastApiAppRequest = {
+  ...readyImportedAppRequest,
+  appName: "Campus API",
+  submittedConfig: {
+    templateSlug: "imported-web-app",
+    importRuntime: {
+      family: "python",
+      framework: "fastapi",
+      displayName: "Python 3.14 / FastAPI",
+      azureRuntimeStack: "PYTHON|3.14",
+      startupCommand:
+        "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      workflowFileName: "deploy-azure-app-service.yml",
+    },
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
 function emptyWorkflowRunsError() {
   return new Error(
     "No GitHub workflow runs found for cedarville-it/campus-dashboard deploy-azure-app-service.yml.",
@@ -287,6 +306,36 @@ describe("createAzurePublishRuntime", () => {
       }),
     );
     expect(arm.putPostgresDatabase).toHaveBeenCalled();
+  });
+
+  it("uses imported FastAPI runtime and skips database/auth provisioning", async () => {
+    const { deps, arm, graph } = createDeps({
+      appRequest: readyImportedFastApiAppRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    const target = await runtime.provisionInfrastructure(
+      "clx9abc123zzzzzzzzzz",
+    );
+
+    expect(target.azureDatabaseName).toBeNull();
+    expect(arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    );
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.not.objectContaining({
+          DATABASE_URL: expect.any(String),
+          AUTH_MICROSOFT_ENTRA_ID_ID: expect.any(String),
+        }),
+      }),
+    );
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
   });
 
   it("fails safely when a generated app template is missing from the catalog", async () => {
