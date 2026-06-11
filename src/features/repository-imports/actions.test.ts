@@ -172,6 +172,19 @@ describe("repository import actions", () => {
         repositoryStatus: "READY",
         repositoryOwner: "cedarville-it",
         repositoryName: "campus-dashboard",
+        submittedConfig: expect.objectContaining({
+          repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+          description: "Existing dashboard.",
+          hostingTarget: "Azure App Service",
+          templateSlug: "imported-web-app",
+          databaseProvider: "postgresql",
+          entraLogin: true,
+          importRuntime: expect.objectContaining({
+            family: "node",
+            framework: "nextjs",
+            azureRuntimeStack: "NODE|24-lts",
+          }),
+        }),
       }),
     });
     expect(prisma.repositoryImport.create).toHaveBeenCalledWith({
@@ -237,8 +250,17 @@ describe("repository import actions", () => {
         userId: "user-123",
         appName: "Campus Dashboard",
         submittedConfig: expect.objectContaining({
+          repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
           description: "Built locally with Codex.",
           hostingTarget: "Azure App Service",
+          templateSlug: "imported-web-app",
+          databaseProvider: "postgresql",
+          entraLogin: true,
+          importRuntime: expect.objectContaining({
+            family: "node",
+            framework: "nextjs",
+            azureRuntimeStack: "NODE|24-lts",
+          }),
           localOnlySource: true,
         }),
         sourceOfTruth: "IMPORTED_REPOSITORY",

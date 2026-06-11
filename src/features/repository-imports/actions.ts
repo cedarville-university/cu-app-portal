@@ -10,6 +10,7 @@ import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { createSupportReference } from "@/lib/support-reference";
+import { IMPORTED_NEXT_RUNTIME } from "./compatibility";
 import { importRepositoryWithHistory } from "./import-repository";
 import { prepareImportedRepository } from "./prepare-repository";
 import { verifyImportedPublishReadiness } from "./publish-readiness";
@@ -290,6 +291,27 @@ function buildPublishingFileConflictFeedback(message: string) {
   return `${message} The portal will not overwrite existing publishing files directly. Open an Azure publishing PR to review the generated changes in Git, or resolve them manually and verify readiness here.`;
 }
 
+function buildImportedSubmittedConfig({
+  repositoryUrl,
+  description,
+  localOnlySource = false,
+}: {
+  repositoryUrl: string;
+  description: string;
+  localOnlySource?: boolean;
+}) {
+  return {
+    repositoryUrl,
+    description,
+    hostingTarget: "Azure App Service",
+    templateSlug: "imported-web-app",
+    importRuntime: IMPORTED_NEXT_RUNTIME,
+    databaseProvider: "postgresql",
+    entraLogin: true,
+    ...(localOnlySource ? { localOnlySource: true } : {}),
+  };
+}
+
 function getFailedTargetRepository({
   error,
   fallback,
@@ -422,11 +444,10 @@ export async function addExistingAppAction(
         templateId: template.id,
         templateVersion: "1.0.0",
         appName: parsed.appName,
-        submittedConfig: {
+        submittedConfig: buildImportedSubmittedConfig({
           repositoryUrl: source.normalizedUrl,
           description: parsed.description ?? "",
-          hostingTarget: "Azure App Service",
-        },
+        }),
         generationStatus: "SUCCEEDED",
         supportReference,
         deploymentTarget: "Azure App Service",
@@ -530,12 +551,11 @@ export async function createManagedRepositoryForLocalAppAction(
         templateId: template.id,
         templateVersion: "1.0.0",
         appName: parsed.appName,
-        submittedConfig: {
-          description: parsed.description ?? "",
-          hostingTarget: "Azure App Service",
-          localOnlySource: true,
+        submittedConfig: buildImportedSubmittedConfig({
           repositoryUrl: repository.url,
-        },
+          description: parsed.description ?? "",
+          localOnlySource: true,
+        }),
         generationStatus: "SUCCEEDED",
         supportReference,
         deploymentTarget: "Azure App Service",
