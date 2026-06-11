@@ -209,7 +209,7 @@ describe("prepareImportedRepository", () => {
         github,
       }),
     ).rejects.toThrow(
-      "Repository is not compatible with v1 Azure publishing. package.json: package.json must include a build script. V1 supports root Next.js apps only.",
+      "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
     );
   });
 });

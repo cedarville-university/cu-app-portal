@@ -107,7 +107,7 @@ describe("verifyImportedPublishReadiness", () => {
       ready: false,
       missingPaths: ["package.json"],
       packageIssues: [
-        "package.json: A root package.json is required for v1 Azure publishing.",
+        "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
       ],
     });
   });
