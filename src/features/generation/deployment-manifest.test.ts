@@ -184,6 +184,14 @@ describe("buildDeploymentManifest", () => {
     const manifest = buildDeploymentManifest(input);
 
     expect(manifest.defaults.azure.database).toBeUndefined();
+    expect(manifest.defaults.azure.shared.postgresServer).toBeUndefined();
+    expect(
+      Object.hasOwn(manifest.defaults.azure.shared, "postgresServer"),
+    ).toBe(false);
+    expect(manifest.defaults.azure.perApp.databaseNamePattern).toBeUndefined();
+    expect(
+      Object.hasOwn(manifest.defaults.azure.perApp, "databaseNamePattern"),
+    ).toBe(false);
     expect(manifest.auth).toBeUndefined();
     expect(manifest.environments.development.databaseUrl).toBeUndefined();
     expect(manifest.environments.production.databaseUrlAppSetting).toBeUndefined();

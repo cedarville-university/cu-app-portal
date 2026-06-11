@@ -39,11 +39,11 @@ export type DeploymentManifest = {
       shared: {
         resourceGroup: string;
         appServicePlan: string;
-        postgresServer: string;
+        postgresServer?: string;
       };
       perApp: {
         webAppNamePattern: string;
-        databaseNamePattern: string;
+        databaseNamePattern?: string;
         federatedCredentialNamePattern: string;
       };
       database?: {
@@ -148,12 +148,20 @@ export function buildDeploymentManifest(
         shared: {
           resourceGroup: "rg-cu-apps-published",
           appServicePlan: "asp-cu-apps-published",
-          postgresServer: "psql-cu-apps-published",
+          ...(hasDatabase
+            ? {
+                postgresServer: "psql-cu-apps-published",
+              }
+            : {}),
         },
         perApp: {
           webAppNamePattern: `app-${appSlug}-<short-request-id>`,
-          databaseNamePattern: `db_${databaseNameSegment}_<short_request_id>`,
           federatedCredentialNamePattern: `github-${appSlug}-<short-request-id>`,
+          ...(hasDatabase
+            ? {
+                databaseNamePattern: `db_${databaseNameSegment}_<short_request_id>`,
+              }
+            : {}),
         },
         ...(hasDatabase
           ? {
