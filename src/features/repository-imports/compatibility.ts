@@ -163,6 +163,7 @@ function collectPythonDependencies(files: RepositoryFileMap) {
 
   let isInDependencyList = false;
   let isInPoetryDependencyTable = false;
+  let currentTable: string | null = null;
 
   for (const line of (files["pyproject.toml"] ?? "").split(/\r?\n/)) {
     const trimmedLine = line.trim();
@@ -174,9 +175,9 @@ function collectPythonDependencies(files: RepositoryFileMap) {
     const tableMatch = trimmedLine.match(/^\[([^\]]+)]$/);
 
     if (tableMatch) {
+      currentTable = tableMatch[1].trim();
       isInDependencyList = false;
-      isInPoetryDependencyTable =
-        tableMatch[1].trim() === "tool.poetry.dependencies";
+      isInPoetryDependencyTable = currentTable === "tool.poetry.dependencies";
       continue;
     }
 
@@ -194,7 +195,10 @@ function collectPythonDependencies(files: RepositoryFileMap) {
 
     const startsDependencyList = /^dependencies\s*=/.test(trimmedLine);
 
-    if (!startsDependencyList && !isInDependencyList) {
+    if (
+      currentTable !== "project" ||
+      (!startsDependencyList && !isInDependencyList)
+    ) {
       continue;
     }
 

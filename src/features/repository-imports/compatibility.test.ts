@@ -229,6 +229,28 @@ describe("scanRepositoryCompatibility", () => {
     });
   });
 
+  it("does not detect FastAPI from unrelated pyproject dependency arrays", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "pyproject.toml":
+          '[tool.some-plugin]\ndependencies = ["fastapi>=0.115", "gunicorn>=23", "uvicorn[standard]>=0.32"]\n',
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "UNSUPPORTED_APP_RUNTIME",
+          severity: "error",
+          message:
+            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+        },
+      ],
+      canDirectCommit: false,
+      runtime: null,
+    });
+  });
+
   it("rejects ambiguous Next.js and FastAPI repositories", () => {
     const result = scanRepositoryCompatibility({
       "package.json": JSON.stringify({
