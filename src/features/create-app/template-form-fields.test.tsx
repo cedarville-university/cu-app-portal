@@ -2,7 +2,6 @@ import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { PortalTemplate } from "@/features/templates/types";
-import { getTemplateBySlug } from "@/features/templates/catalog";
 import { TemplateFormFields } from "./template-form-fields";
 
 afterEach(() => {
@@ -68,16 +67,31 @@ describe("TemplateFormFields", () => {
     expect(screen.getByLabelText(/microsoft entra login/i)).toBeChecked();
   });
 
-  it("submits false for Entra login when a template does not support it", () => {
-    const fastApiTemplate = getTemplateBySlug("python-fastapi");
-
-    expect(fastApiTemplate).not.toBeNull();
-
+  it("submits explicit hidden values when features are unsupported", () => {
     const { container } = render(
-      <TemplateFormFields template={fastApiTemplate!} />,
+      <TemplateFormFields
+        template={buildTemplate({
+          features: {
+            database: {
+              mode: "unsupported",
+              providerOptions: [],
+              defaultProvider: "none",
+            },
+            entraLogin: {
+              mode: "unsupported",
+              defaultEnabled: false,
+            },
+          },
+        })}
+      />,
+    );
+    const databaseInput = container.querySelector(
+      'input[name="databaseProvider"]',
     );
     const entraInput = container.querySelector('input[name="entraLogin"]');
 
+    expect(databaseInput).toHaveAttribute("type", "hidden");
+    expect(databaseInput).toHaveAttribute("value", "none");
     expect(entraInput).toHaveAttribute("type", "hidden");
     expect(entraInput).toHaveAttribute("value", "false");
   });

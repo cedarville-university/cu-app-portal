@@ -1,5 +1,5 @@
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PortalTemplate } from "@/features/templates/types";
 import { TemplateForm } from "./template-form";
@@ -115,5 +115,20 @@ describe("TemplateForm", () => {
     expect(screen.getByLabelText(/postgresql/i)).toBeChecked();
     expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/microsoft entra login/i)).toBeChecked();
+  });
+
+  it("submits explicit values when optional features are turned off", () => {
+    const { container } = render(<TemplateForm template={template} />);
+    const form = container.querySelector("form");
+
+    expect(form).not.toBeNull();
+
+    fireEvent.click(screen.getByLabelText(/no database/i));
+    fireEvent.click(screen.getByLabelText(/no login/i));
+
+    const formData = new FormData(form!);
+
+    expect(formData.get("databaseProvider")).toBe("none");
+    expect(formData.get("entraLogin")).toBe("false");
   });
 });
