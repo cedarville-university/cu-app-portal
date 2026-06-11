@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
+import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/status";
 import { prisma } from "@/lib/db";
 
 type BadgeVariant = "success" | "error" | "warning" | "info" | "default";
@@ -170,7 +171,10 @@ export default async function MyAppsPage() {
                     />
                     <StatusBadge
                       label="Pub. config"
-                      status={request.publishingSetupStatus}
+                      status={getEffectivePublishingSetupStatus({
+                        publishStatus: request.publishStatus,
+                        publishingSetupStatus: request.publishingSetupStatus,
+                      })}
                       title="Whether Azure, login, and GitHub publishing settings are ready"
                     />
                     {repositoryImport ? (

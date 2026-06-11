@@ -1,9 +1,30 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyPublishingSetupError,
+  getEffectivePublishingSetupStatus,
   summarizePublishingSetupChecks,
   type PublishingSetupCheckResult,
 } from "./status";
+
+describe("getEffectivePublishingSetupStatus", () => {
+  it("treats legacy successfully published apps with unchecked setup as ready", () => {
+    expect(
+      getEffectivePublishingSetupStatus({
+        publishStatus: "SUCCEEDED",
+        publishingSetupStatus: "NOT_CHECKED",
+      }),
+    ).toBe("READY");
+  });
+
+  it("preserves explicit setup repair states for published apps", () => {
+    expect(
+      getEffectivePublishingSetupStatus({
+        publishStatus: "SUCCEEDED",
+        publishingSetupStatus: "NEEDS_REPAIR",
+      }),
+    ).toBe("NEEDS_REPAIR");
+  });
+});
 
 describe("classifyPublishingSetupError", () => {
   it("classifies Graph Authorization_RequestDenied during stale credential repair as repairable", () => {

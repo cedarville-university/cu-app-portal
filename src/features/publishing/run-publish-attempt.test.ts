@@ -89,6 +89,8 @@ describe("runPublishAttempt", () => {
       data: expect.objectContaining({
         publishStatus: "SUCCEEDED",
         publishUrl: "https://campus-dashboard.azurewebsites.net",
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
       }),
     });
   });
