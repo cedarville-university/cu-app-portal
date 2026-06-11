@@ -1,5 +1,4 @@
 import {
-  IMPORTED_NEXT_RUNTIME,
   PUBLISHING_BUNDLE_PATHS,
   type CompatibilityFinding,
   scanRepositoryCompatibility,
@@ -61,6 +60,10 @@ const READ_PATHS = [
   "turbo.json",
   "lerna.json",
   "nx.json",
+  "requirements.txt",
+  "pyproject.toml",
+  "main.py",
+  "app.py",
   ...PUBLISHING_BUNDLE_PATHS,
 ];
 
@@ -155,11 +158,20 @@ export async function prepareImportedRepository({
     );
   }
 
+  if (!compatibility.runtime) {
+    throw new Error(
+      formatCompatibilityError(
+        "Repository is not compatible with v1 Azure publishing.",
+        compatibility.findings,
+      ),
+    );
+  }
+
   const plan = planPublishingBundle({
     appName,
     repositoryOwner: owner,
     repositoryName: name,
-    runtime: compatibility.runtime ?? IMPORTED_NEXT_RUNTIME,
+    runtime: compatibility.runtime,
     files,
     allowPublishingPathConflicts: mode === "PULL_REQUEST",
   });

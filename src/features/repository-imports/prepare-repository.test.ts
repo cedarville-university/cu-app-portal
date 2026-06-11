@@ -52,6 +52,52 @@ describe("prepareImportedRepository", () => {
     );
   });
 
+  it("commits FastAPI publishing additions directly", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({
+        "requirements.txt":
+          "fastapi==0.115.0\nuvicorn[standard]==0.30.0\ngunicorn==23.0.0\n",
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      }),
+      commitFiles: vi.fn().mockResolvedValue({ commitSha: "commit-sha" }),
+      createPullRequestWithFiles: vi.fn(),
+    };
+
+    await expect(
+      prepareImportedRepository({
+        appName: "Reports API",
+        owner: "cedarville-it",
+        name: "reports-api",
+        defaultBranch: "main",
+        mode: "DIRECT_COMMIT",
+        github,
+      }),
+    ).resolves.toEqual({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+    });
+    expect(github.readRepositoryTextFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paths: expect.arrayContaining([
+          "requirements.txt",
+          "pyproject.toml",
+          "main.py",
+          "app.py",
+        ]),
+      }),
+    );
+    expect(github.commitFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: expect.objectContaining({
+          ".github/workflows/deploy-azure-app-service.yml":
+            expect.stringContaining("Setup Python"),
+        }),
+      }),
+    );
+  });
+
   it("opens a PR when requested", async () => {
     const github = {
       getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
