@@ -11,6 +11,8 @@ describe("buildArchive", () => {
       appName: "Campus <Beta>",
       description: 'Tracks {housing} and "retention".',
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     } as const;
     const archive = await buildArchive(input);
 
@@ -293,9 +295,48 @@ describe("buildArchive", () => {
       appName: "!!!",
       description: "Fallback filename coverage.",
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
 
     expect(archive.filename).toBe("app.zip");
+  });
+
+  it("ships feature-aware docs when generated without a database", async () => {
+    const archive = await buildArchive({
+      templateSlug: "web-app",
+      appName: "Campus Hub",
+      description: "Student services portal",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    const zip = await JSZip.loadAsync(archive.buffer);
+    const azurePublishingDoc =
+      (await zip.file("docs/publishing/azure-app-service.md")?.async(
+        "string",
+      )) ?? "";
+    const lessonsLearnedDoc =
+      (await zip.file("docs/publishing/lessons-learned.md")?.async(
+        "string",
+      )) ?? "";
+    const readme = (await zip.file("README.md")?.async("string")) ?? "";
+
+    expect(azurePublishingDoc).toContain(
+      "This app was generated without a database.",
+    );
+    expect(azurePublishingDoc).toContain(
+      "This app was generated without built-in login.",
+    );
+    expect(azurePublishingDoc).not.toContain("Azure Database for PostgreSQL");
+    expect(azurePublishingDoc).not.toContain("DATABASE_URL");
+    expect(lessonsLearnedDoc).toContain(
+      "This app was generated without a database.",
+    );
+    expect(lessonsLearnedDoc).not.toContain("DATABASE_URL");
+    expect(readme).not.toContain("DATABASE_URL");
+    expect(readme).not.toContain("Azure PostgreSQL");
+    expect(readme).not.toContain("Persistent app data is already wired in");
   });
 
   it("rejects unsupported hosting targets for the Azure-first publishing bundle", async () => {
@@ -305,6 +346,8 @@ describe("buildArchive", () => {
         appName: "Campus Hub",
         description: "Unsupported target coverage.",
         hostingTarget: "Vercel",
+        databaseProvider: "postgresql",
+        entraLogin: true,
       }),
     ).rejects.toThrow(
       'Deployment manifest generation requires "Azure App Service" hosting, received "Vercel".',
