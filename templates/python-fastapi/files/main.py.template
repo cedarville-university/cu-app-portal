@@ -1,14 +1,14 @@
 import os
 from fastapi import FastAPI
 
-app = FastAPI(title="{{APP_NAME}}")
+app = FastAPI(title={{APP_NAME_JS}})
 
 
 @app.get("/api/health")
 def health():
     return {
         "status": "ok",
-        "app": "{{APP_NAME}}",
+        "app": {{APP_NAME_JS}},
         "database": os.environ.get("DATABASE_URL") is not None,
     }
 
@@ -16,7 +16,7 @@ def health():
 @app.get("/")
 def root():
     return {
-        "name": "{{APP_NAME}}",
-        "description": "{{APP_DESCRIPTION}}",
+        "name": {{APP_NAME_JS}},
+        "description": {{APP_DESCRIPTION_JS}},
         "runtime": "{{APP_SERVICE_RUNTIME}}",
     }

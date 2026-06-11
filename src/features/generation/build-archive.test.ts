@@ -59,6 +59,30 @@ describe("buildArchive", () => {
     expect(zip.file("src/app/layout.tsx")).toBeNull();
   });
 
+  it("escapes FastAPI Python string literals from app metadata", async () => {
+    const appName = 'Reports "API" \\ nightly\nBeta';
+    const description = 'Line "one" with \\ path\nSecond line';
+    const archive = await buildArchive({
+      templateSlug: "python-fastapi",
+      appName,
+      description,
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    const mainPy = archive.files["main.py"];
+
+    expect(mainPy).toContain(
+      `app = FastAPI(title=${JSON.stringify(appName)})`,
+    );
+    expect(mainPy).toContain(`"app": ${JSON.stringify(appName)},`);
+    expect(mainPy).toContain(`"name": ${JSON.stringify(appName)},`);
+    expect(mainPy).toContain(
+      `"description": ${JSON.stringify(description)},`,
+    );
+    expect(mainPy).not.toContain(`title="${appName}"`);
+  });
+
   it("creates a zip containing starter files and publishing bundle assets", async () => {
     const input = {
       templateSlug: "web-app",
