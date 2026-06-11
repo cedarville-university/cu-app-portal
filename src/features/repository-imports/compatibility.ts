@@ -1,5 +1,32 @@
 export type RepositoryFileMap = Record<string, string>;
 
+export type ImportedAppRuntime =
+  | {
+      family: "node";
+      framework: "nextjs";
+      displayName: "Node.js 24 / Next.js";
+      azureRuntimeStack: "NODE|24-lts";
+      startupCommand: "npm start";
+      workflowFileName: "deploy-azure-app-service.yml";
+    }
+  | {
+      family: "python";
+      framework: "fastapi";
+      displayName: "Python 3.14 / FastAPI";
+      azureRuntimeStack: "PYTHON|3.14";
+      startupCommand: string;
+      workflowFileName: "deploy-azure-app-service.yml";
+    };
+
+export const IMPORTED_NEXT_RUNTIME = {
+  family: "node",
+  framework: "nextjs",
+  displayName: "Node.js 24 / Next.js",
+  azureRuntimeStack: "NODE|24-lts",
+  startupCommand: "npm start",
+  workflowFileName: "deploy-azure-app-service.yml",
+} as const satisfies ImportedAppRuntime;
+
 export type CompatibilityFinding = {
   code:
     | "MISSING_PACKAGE_JSON"
@@ -9,6 +36,9 @@ export type CompatibilityFinding = {
     | "MISSING_NODE_ENGINE"
     | "UNSUPPORTED_LOCKFILE"
     | "UNSUPPORTED_APP_SHAPE"
+    | "MISSING_FASTAPI_ENTRYPOINT"
+    | "AMBIGUOUS_APP_RUNTIME"
+    | "UNSUPPORTED_APP_RUNTIME"
     | "UNSUPPORTED_WORKSPACE_ROOT"
     | "FILE_CONFLICT";
   severity: "info" | "warning" | "error";
@@ -26,6 +56,7 @@ export type CompatibilityResult = {
   status: CompatibilityStatus;
   findings: CompatibilityFinding[];
   canDirectCommit: boolean;
+  runtime: ImportedAppRuntime | null;
 };
 
 type PackageJson = {
@@ -44,16 +75,22 @@ export const PUBLISHING_BUNDLE_PATHS = [
   "app-portal/deployment-manifest.json",
 ] as const;
 
+function importedFastApiRuntime(moduleName: "main" | "app") {
+  return {
+    family: "python",
+    framework: "fastapi",
+    displayName: "Python 3.14 / FastAPI",
+    azureRuntimeStack: "PYTHON|3.14",
+    startupCommand: `python -m gunicorn ${moduleName}:app -k uvicorn.workers.UvicornWorker`,
+    workflowFileName: "deploy-azure-app-service.yml",
+  } as const satisfies ImportedAppRuntime;
+}
+
 function parsePackageJson(files: RepositoryFileMap) {
   if (!hasFile(files, "package.json")) {
     return {
       packageJson: null,
-      finding: {
-        code: "MISSING_PACKAGE_JSON" as const,
-        severity: "error" as const,
-        message: "A root package.json is required for v1 Azure publishing.",
-        path: "package.json",
-      },
+      finding: null,
     };
   }
 
@@ -99,6 +136,17 @@ function hasNextDependency(packageJson: PackageJson) {
   return Boolean(packageJson.dependencies?.next ?? packageJson.devDependencies?.next);
 }
 
+function hasFastApiDependency(files: RepositoryFileMap) {
+  return /\bfastapi\b/i.test(files["requirements.txt"] ?? "") ||
+    /\bfastapi\b/i.test(files["pyproject.toml"] ?? "");
+}
+
+function detectFastApiEntrypoint(files: RepositoryFileMap) {
+  if (hasFile(files, "main.py")) return "main";
+  if (hasFile(files, "app.py")) return "app";
+  return null;
+}
+
 function hasUnsupportedLockfile(files: RepositoryFileMap) {
   return (
     hasFile(files, "pnpm-lock.yaml") ||
@@ -134,12 +182,47 @@ export function scanRepositoryCompatibility(
 ): CompatibilityResult {
   const findings: CompatibilityFinding[] = [];
   const { packageJson, finding } = parsePackageJson(files);
+  const hasNextRuntime = packageJson ? hasNextDependency(packageJson) : false;
+  const hasFastApiRuntime = hasFastApiDependency(files);
+  const isAmbiguousRuntime = hasNextRuntime && hasFastApiRuntime;
+  const fastApiEntrypoint = hasFastApiRuntime
+    ? detectFastApiEntrypoint(files)
+    : null;
+  const runtime =
+    hasNextRuntime && !isAmbiguousRuntime
+      ? IMPORTED_NEXT_RUNTIME
+      : fastApiEntrypoint && !isAmbiguousRuntime
+        ? importedFastApiRuntime(fastApiEntrypoint)
+        : null;
 
   if (finding) {
     findings.push(finding);
   }
 
-  if (packageJson) {
+  if (isAmbiguousRuntime) {
+    findings.push({
+      code: "AMBIGUOUS_APP_RUNTIME",
+      severity: "error",
+      message:
+        "Repository matches multiple supported runtimes. Keep one root Next.js or FastAPI app for portal-managed Azure publishing.",
+    });
+  } else if (hasFastApiRuntime && !fastApiEntrypoint) {
+    findings.push({
+      code: "MISSING_FASTAPI_ENTRYPOINT",
+      severity: "error",
+      message:
+        "FastAPI imports must include a root main.py or app.py entrypoint.",
+    });
+  } else if (!hasNextRuntime && !hasFastApiRuntime) {
+    findings.push({
+      code: "UNSUPPORTED_APP_RUNTIME",
+      severity: "error",
+      message:
+        "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+    });
+  }
+
+  if (packageJson && hasNextRuntime) {
     if (!packageJson.scripts?.build) {
       findings.push({
         code: "MISSING_BUILD_SCRIPT",
@@ -167,16 +250,9 @@ export function scanRepositoryCompatibility(
       });
     }
 
-    if (!hasNextDependency(packageJson)) {
-      findings.push({
-        code: "UNSUPPORTED_APP_SHAPE",
-        severity: "error",
-        message: "V1 supports root Next.js apps only.",
-      });
-    }
   }
 
-  if (hasUnsupportedLockfile(files)) {
+  if ((hasNextRuntime || isAmbiguousRuntime) && hasUnsupportedLockfile(files)) {
     findings.push({
       code: "UNSUPPORTED_LOCKFILE",
       severity: "error",
@@ -191,7 +267,7 @@ export function scanRepositoryCompatibility(
     findings.push({
       code: "UNSUPPORTED_WORKSPACE_ROOT",
       severity: "error",
-      message: "V1 supports single root Next.js apps, not workspace roots.",
+      message: "V1 supports single root Next.js or FastAPI apps, not workspace roots.",
       path: workspaceRootPath,
     });
   }
@@ -212,16 +288,16 @@ export function scanRepositoryCompatibility(
   const hasWarnings = findings.some((item) => item.severity === "warning");
 
   if (hasConflicts) {
-    return { status: "CONFLICTED", findings, canDirectCommit: false };
+    return { status: "CONFLICTED", findings, canDirectCommit: false, runtime };
   }
 
   if (hasErrors) {
-    return { status: "UNSUPPORTED", findings, canDirectCommit: false };
+    return { status: "UNSUPPORTED", findings, canDirectCommit: false, runtime };
   }
 
   if (hasWarnings) {
-    return { status: "NEEDS_ADDITIONS", findings, canDirectCommit: true };
+    return { status: "NEEDS_ADDITIONS", findings, canDirectCommit: true, runtime };
   }
 
-  return { status: "COMPATIBLE", findings, canDirectCommit: true };
+  return { status: "COMPATIBLE", findings, canDirectCommit: true, runtime };
 }
