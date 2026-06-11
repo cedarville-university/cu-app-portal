@@ -1,33 +1,40 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { getActiveTemplateBySlug } from "@/features/templates/catalog";
+import type { PortalTemplate } from "@/features/templates/types";
 import { TemplateFormFields } from "./template-form-fields";
 
 afterEach(() => {
   cleanup();
 });
 
+function buildTemplate(fields: PortalTemplate["fields"]): PortalTemplate {
+  const template = getActiveTemplateBySlug("web-app");
+
+  if (!template) {
+    throw new Error("Missing active web-app template fixture");
+  }
+
+  return {
+    ...template,
+    fields,
+  };
+}
+
 describe("TemplateFormFields", () => {
   it("submits a single select option without showing a visible choice", () => {
     const { container } = render(
       <TemplateFormFields
-        template={{
-          id: "web-app-v1",
-          slug: "web-app",
-          name: "Web App Starter",
-          description: "A Cedarville-styled web application starter.",
-          version: "1.0.0",
-          status: "ACTIVE",
-          fields: [
-            {
-              name: "hostingTarget",
-              label: "Hosting Target",
-              type: "select",
-              required: true,
-              options: ["Azure App Service"],
-            },
-          ],
-        }}
+        template={buildTemplate([
+          {
+            name: "hostingTarget",
+            label: "Hosting Target",
+            type: "select",
+            required: true,
+            options: ["Azure App Service"],
+          },
+        ])}
       />,
     );
 
@@ -42,23 +49,15 @@ describe("TemplateFormFields", () => {
   it("shows a select when a field has multiple options", () => {
     render(
       <TemplateFormFields
-        template={{
-          id: "web-app-v1",
-          slug: "web-app",
-          name: "Web App Starter",
-          description: "A Cedarville-styled web application starter.",
-          version: "1.0.0",
-          status: "ACTIVE",
-          fields: [
-            {
-              name: "hostingTarget",
-              label: "Hosting Target",
-              type: "select",
-              required: true,
-              options: ["Azure App Service", "Static Site"],
-            },
-          ],
-        }}
+        template={buildTemplate([
+          {
+            name: "hostingTarget",
+            label: "Hosting Target",
+            type: "select",
+            required: true,
+            options: ["Azure App Service", "Static Site"],
+          },
+        ])}
       />,
     );
 

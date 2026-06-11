@@ -51,17 +51,30 @@ describe("getActiveTemplates", () => {
   it("serializes capability metadata for storage", () => {
     const template = getActiveTemplateBySlug("web-app");
 
-    expect(serializeTemplateForStorage(template!)).toMatchObject({
+    if (!template) {
+      throw new Error("Missing active web-app template fixture");
+    }
+
+    expect(serializeTemplateForStorage(template)).toMatchObject({
       hostingOptions: ["Azure App Service"],
       inputSchema: expect.objectContaining({
+        fields: template.fields,
+        decisionSummary: template.decisionSummary,
+        bestFor: template.bestFor,
         appServiceRuntime: expect.objectContaining({
           family: "node",
           framework: "nextjs",
           azureRuntimeStack: "NODE|24-lts",
         }),
         features: expect.objectContaining({
-          database: expect.objectContaining({ mode: "optional" }),
-          entraLogin: expect.objectContaining({ mode: "optional" }),
+          database: expect.objectContaining({
+            mode: "optional",
+            defaultProvider: "postgresql",
+          }),
+          entraLogin: expect.objectContaining({
+            mode: "optional",
+            defaultEnabled: true,
+          }),
         }),
       }),
     });

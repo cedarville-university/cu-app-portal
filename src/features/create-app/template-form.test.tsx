@@ -1,8 +1,8 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getActiveTemplateBySlug } from "@/features/templates/catalog";
 import { TemplateForm } from "./template-form";
-import type { PortalTemplate } from "@/features/templates/types";
 
 const mockUseFormStatus = vi.hoisted(() => vi.fn());
 
@@ -19,24 +19,11 @@ vi.mock("@/app/create/actions", () => ({
   createAppAction: vi.fn(),
 }));
 
-const template: PortalTemplate = {
-  id: "web-app-v1",
-  slug: "web-app",
-  name: "Web App Starter",
-  description: "A Cedarville-styled web application starter.",
-  version: "1.0.0",
-  status: "ACTIVE",
-  fields: [
-    { name: "appName", label: "App Name", type: "text", required: true },
-    {
-      name: "hostingTarget",
-      label: "Hosting Target",
-      type: "select",
-      required: true,
-      options: ["Azure App Service"],
-    },
-  ],
-};
+const template = getActiveTemplateBySlug("web-app");
+
+if (!template) {
+  throw new Error("Missing active web-app template fixture");
+}
 
 describe("TemplateForm", () => {
   beforeEach(() => {

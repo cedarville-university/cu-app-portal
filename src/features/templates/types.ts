@@ -21,24 +21,50 @@ export type TemplateField =
 
 export type AppServiceRuntimeFamily = "node" | "python" | "java";
 
-export type AppServiceRuntime = {
-  family: AppServiceRuntimeFamily;
-  framework: "nextjs" | "express" | "fastapi" | "spring-boot";
+type AppServiceRuntimeBase = {
   displayName: string;
   azureRuntimeStack: string;
   startupCommand: string;
   workflowFileName: string;
 };
 
+export type AppServiceRuntime =
+  | (AppServiceRuntimeBase & {
+      family: "node";
+      framework: "nextjs" | "express";
+    })
+  | (AppServiceRuntimeBase & {
+      family: "python";
+      framework: "fastapi";
+    })
+  | (AppServiceRuntimeBase & {
+      family: "java";
+      framework: "spring-boot";
+    });
+
 export type FeatureMode = "unsupported" | "optional" | "required";
 export type DatabaseProvider = "none" | "postgresql";
+type EnabledDatabaseProvider = Exclude<DatabaseProvider, "none">;
+
+export type TemplateDatabaseFeature =
+  | {
+      mode: "unsupported";
+      providerOptions: [];
+      defaultProvider: "none";
+    }
+  | {
+      mode: "optional";
+      providerOptions: EnabledDatabaseProvider[];
+      defaultProvider: DatabaseProvider;
+    }
+  | {
+      mode: "required";
+      providerOptions: [EnabledDatabaseProvider, ...EnabledDatabaseProvider[]];
+      defaultProvider: EnabledDatabaseProvider;
+    };
 
 export type TemplateFeatures = {
-  database: {
-    mode: FeatureMode;
-    providerOptions: Exclude<DatabaseProvider, "none">[];
-    defaultProvider: DatabaseProvider;
-  };
+  database: TemplateDatabaseFeature;
   entraLogin: {
     mode: FeatureMode;
     defaultEnabled: boolean;
