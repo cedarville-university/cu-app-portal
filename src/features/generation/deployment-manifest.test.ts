@@ -9,6 +9,8 @@ describe("buildDeploymentManifest", () => {
       appName: "Campus Hub",
       description: "Student services portal",
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     } satisfies DeploymentManifestInput;
 
     expect(
@@ -19,7 +21,9 @@ describe("buildDeploymentManifest", () => {
       runtime: {
         family: "node",
         framework: "nextjs",
-        nodeVersion: "24",
+        displayName: "Node.js 24 / Next.js",
+        azureRuntimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
       },
       hosting: {
         provider: "azure",
@@ -33,6 +37,7 @@ describe("buildDeploymentManifest", () => {
         azure: {
           resourceModel: "shared-portal-managed",
           runtimeStack: "NODE|24-lts",
+          startupCommand: "npm start",
           shared: {
             resourceGroup: "rg-cu-apps-published",
             appServicePlan: "asp-cu-apps-published",
@@ -45,10 +50,15 @@ describe("buildDeploymentManifest", () => {
               "github-campus-hub-<short-request-id>",
           },
           database: {
+            provider: "postgresql",
             adminUser: "portaladmin",
             sslMode: "require",
           },
         },
+      },
+      auth: {
+        provider: "microsoft-entra-id",
+        callbackPath: "/api/auth/callback/microsoft-entra-id",
       },
       environments: {
         development: {
@@ -62,6 +72,7 @@ describe("buildDeploymentManifest", () => {
         },
       },
       applicationSettings: [
+        "NODE_ENV",
         "DATABASE_URL",
         "AUTH_URL",
         "NEXTAUTH_URL",
@@ -82,6 +93,8 @@ describe("buildDeploymentManifest", () => {
       appName: "   !!!   ",
       description: "Student services portal",
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     } satisfies DeploymentManifestInput;
 
     expect(
@@ -92,7 +105,9 @@ describe("buildDeploymentManifest", () => {
       runtime: {
         family: "node",
         framework: "nextjs",
-        nodeVersion: "24",
+        displayName: "Node.js 24 / Next.js",
+        azureRuntimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
       },
       hosting: {
         provider: "azure",
@@ -106,6 +121,7 @@ describe("buildDeploymentManifest", () => {
         azure: {
           resourceModel: "shared-portal-managed",
           runtimeStack: "NODE|24-lts",
+          startupCommand: "npm start",
           shared: {
             resourceGroup: "rg-cu-apps-published",
             appServicePlan: "asp-cu-apps-published",
@@ -118,10 +134,15 @@ describe("buildDeploymentManifest", () => {
               "github-app-<short-request-id>",
           },
           database: {
+            provider: "postgresql",
             adminUser: "portaladmin",
             sslMode: "require",
           },
         },
+      },
+      auth: {
+        provider: "microsoft-entra-id",
+        callbackPath: "/api/auth/callback/microsoft-entra-id",
       },
       environments: {
         development: {
@@ -135,6 +156,7 @@ describe("buildDeploymentManifest", () => {
         },
       },
       applicationSettings: [
+        "NODE_ENV",
         "DATABASE_URL",
         "AUTH_URL",
         "NEXTAUTH_URL",
@@ -147,5 +169,49 @@ describe("buildDeploymentManifest", () => {
         skillPath: ".codex/skills/publish-to-azure/SKILL.md",
       },
     });
+  });
+
+  it("omits database and Entra defaults when those features are not selected", () => {
+    const input = {
+      templateSlug: "web-app",
+      appName: "Campus Hub",
+      description: "Student services portal",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    } satisfies DeploymentManifestInput;
+
+    const manifest = buildDeploymentManifest(input);
+
+    expect(manifest.defaults.azure.database).toBeUndefined();
+    expect(manifest.auth).toBeUndefined();
+    expect(manifest.environments.development.databaseUrl).toBeUndefined();
+    expect(manifest.environments.production.databaseUrlAppSetting).toBeUndefined();
+    expect(manifest.environments.production.authUrlAppSetting).toBeUndefined();
+    expect(manifest.applicationSettings).not.toContain("DATABASE_URL");
+    expect(manifest.applicationSettings).not.toContain(
+      "AUTH_MICROSOFT_ENTRA_ID_ID",
+    );
+  });
+
+  it("uses FastAPI runtime metadata from the template catalog", () => {
+    const manifest = buildDeploymentManifest({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+
+    expect(manifest.runtime).toMatchObject({
+      family: "python",
+      framework: "fastapi",
+      azureRuntimeStack: "PYTHON|3.14",
+    });
+    expect(manifest.defaults.azure.runtimeStack).toBe("PYTHON|3.14");
+    expect(manifest.defaults.azure.startupCommand).toBe(
+      "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+    );
   });
 });

@@ -19,6 +19,8 @@ describe("buildTokenMap", () => {
       appName: "Campus <Beta>",
       description: 'Tracks {housing} and "retention".',
       hostingTarget: "Vercel",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
 
     expect(tokens).toEqual({
@@ -28,6 +30,10 @@ describe("buildTokenMap", () => {
       APP_DESCRIPTION: 'Tracks {housing} and "retention".',
       APP_DESCRIPTION_JS: '"Tracks {housing} and \\"retention\\"."',
       HOSTING_TARGET: "Vercel",
+      DATABASE_PROVIDER: "postgresql",
+      ENTRA_LOGIN_ENABLED: "true",
+      AZURE_RUNTIME_STACK: "NODE|24-lts",
+      APP_SERVICE_RUNTIME: "Node.js 24 / Next.js",
     });
   });
 });

@@ -1,28 +1,58 @@
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
 
 export function buildPublishingFiles(input: CreateAppRequestInput) {
+  const databaseText =
+    input.databaseProvider === "postgresql"
+      ? "This app is configured for a portal-managed PostgreSQL database."
+      : "This app was generated without a database.";
+  const authText = input.entraLogin
+    ? "This app is configured for Microsoft Entra login."
+    : "This app was generated without built-in login.";
+  const firstDeploymentText =
+    input.databaseProvider === "postgresql"
+      ? "the first Azure Database for PostgreSQL and App Service deployment"
+      : "the first Azure App Service deployment";
+  const localEnvironmentText =
+    input.databaseProvider === "postgresql"
+      ? "Keep local development on the localhost `DATABASE_URL` in `.env.example`."
+      : "Use `.env.example` as the generated local environment reference.";
+  const sharedTargetText =
+    input.databaseProvider === "postgresql"
+      ? "Portal-managed publishing uses the configured shared Azure resource group, App Service plan, and PostgreSQL flexible server. Each app gets its own Web App and database inside that shared target."
+      : "Portal-managed publishing uses the configured shared Azure resource group and App Service plan. Each app gets its own Web App inside that shared target.";
+  const databaseLessonsText =
+    input.databaseProvider === "postgresql"
+      ? "- which Azure PostgreSQL server and database names were used\n- how production `DATABASE_URL` was wired into App Service"
+      : "- whether the app later needs a managed database";
+
   return {
     "docs/publishing/azure-app-service.md": `# Publish to Azure App Service
 
 This bundle includes the recommended portal-managed GitHub + Azure App Service path, even if your selected hosting target is ${input.hostingTarget}.
+
+${databaseText}
+${authText}
 
 The usual flow is:
 
 1. Let the portal create and track the managed GitHub repository.
 2. Open that repo locally in Codex on your machine.
 3. Let Codex clone, edit, commit, and push your changes.
-4. Return to the portal and use its publish flow for the first Azure Database for PostgreSQL and App Service deployment.
+4. Return to the portal and use its publish flow for ${firstDeploymentText}.
 5. Let the portal dispatch the first GitHub Actions workflow run after Azure resources, OIDC, and repository secrets are ready.
 6. After a successful portal publish, enable push-to-deploy in the portal if default-branch pushes should deploy automatically.
-7. Keep local development on the localhost \`DATABASE_URL\` in \`.env.example\`.
+7. ${localEnvironmentText}
 8. Treat manual GitHub or Azure CLI work as a recovery path, not the primary workflow.
 
-Portal-managed publishing uses the configured shared Azure resource group, App Service plan, and PostgreSQL flexible server. Each app gets its own Web App and database inside that shared target.
+${sharedTargetText}
 
 If automation gets blocked, use docs/publishing/lessons-learned.md to record what happened and what to try next.`,
     "docs/publishing/lessons-learned.md": `# Publishing Lessons Learned
 
 The supported hosting path for this bundle is portal-managed GitHub + Azure App Service for Node/Next.js apps.
+
+${databaseText}
+${authText}
 
 Keep this file up to date with the operational details that matter:
 
@@ -30,8 +60,7 @@ Keep this file up to date with the operational details that matter:
 - what the portal automation completed
 - what required manual setup
 - which auth model worked for GitHub Actions
-- which Azure PostgreSQL server and database names were used
-- how production \`DATABASE_URL\` was wired into App Service
+${databaseLessonsText}
 - any Azure permission, naming, or startup issues
 - which recovery steps are safe for a non-technical user
 - which issues should be escalated to a technical operator

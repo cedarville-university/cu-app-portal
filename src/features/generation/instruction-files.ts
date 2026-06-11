@@ -2,6 +2,14 @@ import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import { buildPublishingFiles } from "./publishing-files";
 
 export function buildInstructionFiles(input: CreateAppRequestInput) {
+  const databaseText =
+    input.databaseProvider === "postgresql"
+      ? "This app is configured for a portal-managed PostgreSQL database."
+      : "This app was generated without a database.";
+  const authText = input.entraLogin
+    ? "This app is configured for Microsoft Entra login."
+    : "This app was generated without built-in login.";
+
   return {
     ...buildPublishingFiles(input),
     "docs/github-setup.md": `# GitHub Setup
@@ -11,11 +19,17 @@ export function buildInstructionFiles(input: CreateAppRequestInput) {
 3. Your selected hosting target is ${input.hostingTarget}.
 4. This archive still includes the recommended publishing docs in docs/publishing/.
 5. Start with docs/publishing/azure-app-service.md for the GitHub + Azure App Service path.
-6. Use docs/publishing/lessons-learned.md for recovery notes and operational lessons.`,
+6. Use docs/publishing/lessons-learned.md for recovery notes and operational lessons.
+
+${databaseText}
+${authText}`,
     "docs/deployment-guide.md": `# Deployment Guide
 
 Your selected hosting target is ${input.hostingTarget}, and this archive still includes the recommended GitHub + Azure App Service publishing path.
 Read docs/publishing/azure-app-service.md first, then check docs/publishing/lessons-learned.md for the operational details.
+
+${databaseText}
+${authText}
 
 The portal-managed repository and configured AZURE_PUBLISH_* target values are authoritative for supported publishing. The ZIP and generated manifest are fallback handoff aids.`,
   };
