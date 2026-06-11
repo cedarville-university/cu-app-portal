@@ -127,7 +127,64 @@ jobs:
           if [ -f requirements.txt ]; then
             python -m pip install -r requirements.txt --target=".python_packages/lib/site-packages"
           elif [ -f pyproject.toml ]; then
-            python -m pip install . --target=".python_packages/lib/site-packages"
+            python - <<'PY'
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+          requirements = []
+          version_prefixes = ("==", "!=", "~=", "<=", ">=", "<", ">", "===")
+
+          def add_requirement(value):
+              if isinstance(value, str) and value.strip():
+                  requirements.append(value.strip())
+
+          def format_poetry_requirement(name, spec):
+              base_name = name
+
+              if isinstance(spec, dict):
+                  extras = spec.get("extras", [])
+                  if isinstance(extras, list) and extras:
+                      extras_suffix = ",".join(str(extra) for extra in extras)
+                      base_name = f"{name}[{extras_suffix}]"
+                  spec = spec.get("version", "")
+
+              if isinstance(spec, str):
+                  specifier = spec.strip()
+                  if not specifier or specifier == "*":
+                      return base_name
+                  if specifier.startswith(version_prefixes):
+                      return f"{base_name}{specifier}"
+
+              return base_name
+
+          for dependency in pyproject.get("project", {}).get("dependencies", []):
+              add_requirement(dependency)
+
+          poetry_dependencies = (
+              pyproject.get("tool", {}).get("poetry", {}).get("dependencies", {})
+          )
+          for name, spec in poetry_dependencies.items():
+              normalized_name = str(name).strip()
+              if not normalized_name or normalized_name.lower() == "python":
+                  continue
+
+              if isinstance(spec, list):
+                  for item in spec:
+                      add_requirement(format_poetry_requirement(normalized_name, item))
+              else:
+                  add_requirement(format_poetry_requirement(normalized_name, spec))
+
+          unique_requirements = list(dict.fromkeys(requirements))
+          if not unique_requirements:
+              sys.exit("No installable dependencies found in pyproject.toml.")
+
+          Path("pyproject-requirements.txt").write_text(
+              "\\n".join(unique_requirements) + "\\n",
+          )
+          PY
+            python -m pip install -r pyproject-requirements.txt --target=".python_packages/lib/site-packages"
           else
             echo "Expected requirements.txt or pyproject.toml for FastAPI dependency installation."
             exit 1

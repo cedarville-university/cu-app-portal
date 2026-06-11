@@ -2,6 +2,16 @@ import { describe, expect, it } from "vitest";
 import { IMPORTED_NEXT_RUNTIME } from "./compatibility";
 import { planPublishingBundle } from "./publishing-bundle";
 
+const FASTAPI_RUNTIME = {
+  family: "python",
+  framework: "fastapi",
+  displayName: "Python 3.14 / FastAPI",
+  azureRuntimeStack: "PYTHON|3.14",
+  startupCommand:
+    "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+  workflowFileName: "deploy-azure-app-service.yml",
+} as const;
+
 describe("planPublishingBundle", () => {
   it("adds publishing files and narrow package.json changes", () => {
     const plan = planPublishingBundle({
@@ -93,15 +103,7 @@ describe("planPublishingBundle", () => {
       appName: "Reports API",
       repositoryOwner: "cedarville-it",
       repositoryName: "reports-api",
-      runtime: {
-        family: "python",
-        framework: "fastapi",
-        displayName: "Python 3.14 / FastAPI",
-        azureRuntimeStack: "PYTHON|3.14",
-        startupCommand:
-          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
-        workflowFileName: "deploy-azure-app-service.yml",
-      },
+      runtime: FASTAPI_RUNTIME,
       files: {
         "requirements.txt":
           "fastapi==0.115.0\ngunicorn==23.0.0\nuvicorn[standard]==0.30.0\n",
@@ -140,5 +142,66 @@ describe("planPublishingBundle", () => {
     expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
       "Python 3.14 / FastAPI",
     );
+  });
+
+  it("extracts FastAPI dependencies from project pyproject dependencies", () => {
+    const plan = planPublishingBundle({
+      appName: "Reports API",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "reports-api",
+      runtime: FASTAPI_RUNTIME,
+      files: {
+        "pyproject.toml": [
+          "[project]",
+          "dependencies = [",
+          '  "fastapi==0.115.0",',
+          '  "gunicorn==23.0.0",',
+          '  "uvicorn[standard]==0.30.0",',
+          "]",
+          "",
+        ].join("\n"),
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      },
+    });
+
+    const workflow =
+      plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"];
+
+    expect(plan.filesToWrite["package.json"]).toBeUndefined();
+    expect(workflow).toContain("tomllib");
+    expect(workflow).toContain("project\", {}).get(\"dependencies\"");
+    expect(workflow).toContain("pyproject-requirements.txt");
+    expect(workflow).toContain(
+      "python -m pip install -r pyproject-requirements.txt",
+    );
+    expect(workflow).not.toContain("python -m pip install . --target");
+  });
+
+  it("extracts FastAPI dependencies from Poetry pyproject tables", () => {
+    const plan = planPublishingBundle({
+      appName: "Reports API",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "reports-api",
+      runtime: FASTAPI_RUNTIME,
+      files: {
+        "pyproject.toml": [
+          "[tool.poetry.dependencies]",
+          'python = "^3.14"',
+          'fastapi = "^0.115.0"',
+          'gunicorn = "^23.0.0"',
+          'uvicorn = { version = "^0.30.0", extras = ["standard"] }',
+          "",
+        ].join("\n"),
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      },
+    });
+
+    const workflow =
+      plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"];
+
+    expect(workflow).toContain("poetry_dependencies");
+    expect(workflow).toContain("normalized_name.lower() == \"python\"");
+    expect(workflow).toContain("pyproject-requirements.txt");
+    expect(workflow).not.toContain("python -m pip install . --target");
   });
 });
