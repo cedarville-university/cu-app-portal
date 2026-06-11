@@ -26,7 +26,7 @@ describe("prepareImportedRepository", () => {
         mode: "DIRECT_COMMIT",
         github,
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       status: "COMMITTED",
       commitSha: "commit-sha",
       pullRequestUrl: null,
@@ -73,10 +73,16 @@ describe("prepareImportedRepository", () => {
         mode: "DIRECT_COMMIT",
         github,
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       status: "COMMITTED",
       commitSha: "commit-sha",
       pullRequestUrl: null,
+      runtime: {
+        family: "python",
+        framework: "fastapi",
+      },
+      databaseProvider: "none",
+      entraLogin: false,
     });
     expect(github.readRepositoryTextFiles).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -119,7 +125,7 @@ describe("prepareImportedRepository", () => {
         mode: "PULL_REQUEST",
         github,
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       status: "PULL_REQUEST_OPENED",
       commitSha: "commit-sha",
       pullRequestUrl:
@@ -210,7 +216,7 @@ describe("prepareImportedRepository", () => {
         mode: "PULL_REQUEST",
         github,
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       status: "PULL_REQUEST_OPENED",
       commitSha: "commit-sha",
       pullRequestUrl:

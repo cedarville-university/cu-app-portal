@@ -1,6 +1,7 @@
 import {
   PUBLISHING_BUNDLE_PATHS,
   type CompatibilityFinding,
+  type ImportedAppRuntime,
   scanRepositoryCompatibility,
 } from "./compatibility";
 import { planPublishingBundle } from "./publishing-bundle";
@@ -115,6 +116,20 @@ function sanitizeBranchSegment(value: string) {
   return sanitized || "repository";
 }
 
+function getFeatureDefaults(runtime: ImportedAppRuntime) {
+  if (runtime.framework === "nextjs") {
+    return {
+      databaseProvider: "postgresql" as const,
+      entraLogin: true,
+    };
+  }
+
+  return {
+    databaseProvider: "none" as const,
+    entraLogin: false,
+  };
+}
+
 export async function prepareImportedRepository({
   appName,
   owner,
@@ -175,6 +190,7 @@ export async function prepareImportedRepository({
     files,
     allowPublishingPathConflicts: mode === "PULL_REQUEST",
   });
+  const featureDefaults = getFeatureDefaults(compatibility.runtime);
 
   if (mode === "DIRECT_COMMIT") {
     const commit = await github.commitFiles({
@@ -190,6 +206,8 @@ export async function prepareImportedRepository({
       status: "COMMITTED" as const,
       commitSha: commit.commitSha,
       pullRequestUrl: null,
+      runtime: compatibility.runtime,
+      ...featureDefaults,
     };
   }
 
@@ -212,5 +230,7 @@ export async function prepareImportedRepository({
     status: "PULL_REQUEST_OPENED" as const,
     commitSha: pullRequest.commitSha,
     pullRequestUrl: pullRequest.pullRequestUrl,
+    runtime: compatibility.runtime,
+    ...featureDefaults,
   };
 }
