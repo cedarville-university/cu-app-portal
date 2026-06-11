@@ -139,6 +139,7 @@ ${databaseText}
 
 function buildPublishSkillFile(input: CreateAppRequestInput) {
   const hasDatabase = input.databaseProvider === "postgresql";
+  const hasEntraLogin = input.entraLogin;
   const databaseBehavior = hasDatabase
     ? `5. Create or verify the Azure resource group, Azure Database for PostgreSQL flexible server, and Azure database described by the manifest.
 6. Build the production \`DATABASE_URL\` from the Azure PostgreSQL server, database, admin user, and password, using \`sslmode=require\`.
@@ -154,6 +155,13 @@ function buildPublishSkillFile(input: CreateAppRequestInput) {
   const databaseNotes = hasDatabase
     ? `- Keep development \`DATABASE_URL\` on localhost and put the production \`DATABASE_URL\` only in Azure App Service settings.`
     : `- This app was generated without a database. Keep publish work focused on the Web App, identity, workflow, and non-database app settings.`;
+  const authBehavior = hasEntraLogin
+    ? `- Microsoft Entra login is configured. Set \`AUTH_URL\`, \`NEXTAUTH_URL\`, \`AUTH_SECRET\`, \`AUTH_MICROSOFT_ENTRA_ID_ID\`, \`AUTH_MICROSOFT_ENTRA_ID_SECRET\`, and \`AUTH_MICROSOFT_ENTRA_ID_ISSUER\` in Azure App Service settings using the public Azure hostname.
+- Confirm the Microsoft Entra app registration includes the production redirect URI before sign-in verification.`
+    : `- This app was generated without built-in login. Do not add Microsoft Entra app settings or redirect URI work unless the app is intentionally changed later.`;
+  const authNotes = hasEntraLogin
+    ? `- Keep Microsoft Entra app settings aligned with the generated manifest and the public App Service URL.`
+    : `- This app was generated without built-in login. Keep publish work free of Entra auth app-setting guidance.`;
 
   return `---
 name: publish-to-azure
@@ -176,10 +184,15 @@ ${packageStepNumber}. Prefer the GitHub Actions workflow to build the deployable
 ${verifyStepNumber}. Run the safest available verification after wiring deployment and report what succeeded, what still needs manual work, and where the release is now blocked.
 ${fallbackStepNumber}. If \`gh\` or \`az\` cannot complete the flow, fall back to \`docs/publishing/azure-app-service.md\` and capture the blocked step in \`docs/publishing/lessons-learned.md\`.
 
+## Login Posture
+
+${authBehavior}
+
 ## Notes
 
 - Prefer the generated manifest over guessed names.
 ${databaseNotes}
+${authNotes}
 - Prefer the existing GitHub Actions workflow over inventing a second deployment path.
 - Keep operator-facing updates concise and actionable.
 `;

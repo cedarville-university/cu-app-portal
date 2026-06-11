@@ -176,6 +176,15 @@ describe("buildArchive", () => {
       zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
     ).resolves.toContain("Set the App Service `DATABASE_URL` app setting");
     await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("Microsoft Entra login is configured");
+    await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("AUTH_MICROSOFT_ENTRA_ID_ID");
+    await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("redirect URI");
+    await expect(
       zip.file(".github/workflows/deploy-azure-app-service.yml")?.async(
         "string",
       ),
@@ -351,10 +360,16 @@ describe("buildArchive", () => {
       "This app was generated without a database.",
     );
     expect(publishSkill).toContain(
+      "This app was generated without built-in login.",
+    );
+    expect(publishSkill).toContain(
       "Create or verify the Azure App Service app described by the manifest.",
     );
     expect(publishSkill).not.toContain("PostgreSQL");
     expect(publishSkill).not.toContain("DATABASE_URL");
+    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_ID");
+    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_SECRET");
+    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_ISSUER");
   });
 
   it("rejects unsupported hosting targets for the Azure-first publishing bundle", async () => {
