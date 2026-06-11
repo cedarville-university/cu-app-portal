@@ -3,6 +3,11 @@ import type { PrismaClient } from "@prisma/client";
 
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
+import { getTemplateBySlug } from "@/features/templates/catalog";
+import type {
+  DatabaseProvider,
+  PortalTemplate,
+} from "@/features/templates/types";
 import { createAzureArmClient } from "@/features/publishing/azure/arm-client";
 import {
   type AzurePublishConfig,
@@ -71,6 +76,7 @@ type SetupAppRequest = {
     email: string;
   };
   template: { slug: string };
+  submittedConfig: unknown;
 };
 
 export type PublishingSetupServiceDeps = {
@@ -229,7 +235,51 @@ async function loadSetupRequest(
       email: appRequest.user.email,
     },
     template: { slug: appRequest.template.slug },
+    submittedConfig: appRequest.submittedConfig,
   };
+}
+
+function resolveSetupTemplate(appRequest: SetupAppRequest): PortalTemplate | null {
+  return getTemplateBySlug(appRequest.template.slug);
+}
+
+function submittedConfigObject(
+  appRequest: SetupAppRequest,
+): Record<string, unknown> | null {
+  if (
+    !appRequest.submittedConfig ||
+    typeof appRequest.submittedConfig !== "object" ||
+    Array.isArray(appRequest.submittedConfig)
+  ) {
+    return null;
+  }
+
+  return appRequest.submittedConfig as Record<string, unknown>;
+}
+
+function selectedDatabaseProvider(appRequest: SetupAppRequest): DatabaseProvider {
+  const value = submittedConfigObject(appRequest)?.databaseProvider;
+
+  if (value === "postgresql" || value === "none") {
+    return value;
+  }
+
+  return (
+    resolveSetupTemplate(appRequest)?.features.database.defaultProvider ??
+    "postgresql"
+  );
+}
+
+function selectedEntraLogin(appRequest: SetupAppRequest): boolean {
+  const value = submittedConfigObject(appRequest)?.entraLogin;
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  return (
+    resolveSetupTemplate(appRequest)?.features.entraLogin.defaultEnabled ?? true
+  );
 }
 
 function ownerUsername(appRequest: SetupAppRequest) {
@@ -295,6 +345,48 @@ function buildSecretValues(config: AzurePublishConfig, webAppName: string) {
     AZURE_SUBSCRIPTION_ID: config.azureSubscriptionId,
     AZURE_WEBAPP_NAME: webAppName,
   };
+}
+
+function buildRepairAppSettings({
+  existingSettings,
+  config,
+  databaseName,
+  databaseProvider,
+  publishUrl,
+  entraLogin,
+}: {
+  existingSettings: Record<string, string>;
+  config: AzurePublishConfig;
+  databaseName: string;
+  databaseProvider: DatabaseProvider;
+  publishUrl: string;
+  entraLogin: boolean;
+}) {
+  const settings = { ...existingSettings };
+
+  for (const settingName of REQUIRED_PORTAL_MANAGED_APP_SETTINGS) {
+    delete settings[settingName];
+  }
+
+  if (databaseProvider === "postgresql") {
+    settings.DATABASE_URL = buildDatabaseUrl(config, databaseName);
+  }
+
+  if (entraLogin) {
+    settings.AUTH_URL = publishUrl;
+    settings.NEXTAUTH_URL = publishUrl;
+    settings.AUTH_SECRET = config.authSecret;
+    settings.AUTH_MICROSOFT_ENTRA_ID_ID = config.entraClientId;
+    settings.AUTH_MICROSOFT_ENTRA_ID_SECRET = config.entraClientSecret;
+    settings.AUTH_MICROSOFT_ENTRA_ID_ISSUER = config.entraIssuer;
+  }
+
+  settings.NODE_ENV = "production";
+  settings.SCM_DO_BUILD_DURING_DEPLOYMENT = "false";
+  settings.ENABLE_ORYX_BUILD = "false";
+  settings.WEBSITE_RUN_FROM_PACKAGE = "1";
+
+  return settings;
 }
 
 function pass(
@@ -432,22 +524,54 @@ async function checkActionsSecrets({
   );
 }
 
-function requiredAppSettings() {
-  return [...REQUIRED_PORTAL_MANAGED_APP_SETTINGS];
+function requiredAppSettings({
+  databaseProvider,
+  entraLogin,
+}: {
+  databaseProvider: DatabaseProvider;
+  entraLogin: boolean;
+}) {
+  return REQUIRED_PORTAL_MANAGED_APP_SETTINGS.filter((settingName) => {
+    if (databaseProvider !== "postgresql" && settingName === "DATABASE_URL") {
+      return false;
+    }
+
+    if (
+      !entraLogin &&
+      [
+        "AUTH_URL",
+        "NEXTAUTH_URL",
+        "AUTH_SECRET",
+        "AUTH_MICROSOFT_ENTRA_ID_ID",
+        "AUTH_MICROSOFT_ENTRA_ID_SECRET",
+        "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
+      ].includes(settingName)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 function expectedPublicAppSettings({
   config,
   publishUrl,
+  entraLogin,
 }: {
   config: AzurePublishConfig;
   publishUrl: string;
+  entraLogin: boolean;
 }) {
   return {
-    AUTH_URL: publishUrl,
-    NEXTAUTH_URL: publishUrl,
-    AUTH_MICROSOFT_ENTRA_ID_ID: config.entraClientId,
-    AUTH_MICROSOFT_ENTRA_ID_ISSUER: config.entraIssuer,
+    ...(entraLogin
+      ? {
+          AUTH_URL: publishUrl,
+          NEXTAUTH_URL: publishUrl,
+          AUTH_MICROSOFT_ENTRA_ID_ID: config.entraClientId,
+          AUTH_MICROSOFT_ENTRA_ID_ISSUER: config.entraIssuer,
+        }
+      : {}),
     NODE_ENV: "production",
     SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
     ENABLE_ORYX_BUILD: "false",
@@ -483,10 +607,14 @@ async function checkAzureAppSettings({
   deps,
   webAppName,
   publishUrl,
+  databaseProvider,
+  entraLogin,
 }: {
   deps: PublishingSetupServiceDeps;
   webAppName: string;
   publishUrl: string;
+  databaseProvider: DatabaseProvider;
+  entraLogin: boolean;
 }) {
   try {
     const appSettings = await deps.arm.getAppSettings({
@@ -501,7 +629,11 @@ async function checkAzureAppSettings({
       });
     }
 
-    const missingSettingNames = requiredAppSettings().filter(
+    const requiredSettingNames = requiredAppSettings({
+      databaseProvider,
+      entraLogin,
+    });
+    const missingSettingNames = requiredSettingNames.filter(
       (settingName) => !(settingName in appSettings.settings),
     );
 
@@ -518,6 +650,7 @@ async function checkAzureAppSettings({
       expected: expectedPublicAppSettings({
         config: deps.config,
         publishUrl,
+        entraLogin,
       }),
     });
 
@@ -532,7 +665,7 @@ async function checkAzureAppSettings({
     return pass(
       "azure_app_settings",
       "Required Azure App Service settings are present.",
-      { webAppName, settingNames: requiredAppSettings() },
+      { webAppName, settingNames: requiredSettingNames },
     );
   } catch (error) {
     if (!isAzureArmForbidden(error)) {
@@ -698,6 +831,8 @@ async function runPreflightChecks(
 ) {
   const repo = repository(appRequest);
   const names = targetNames(appRequest);
+  const databaseProvider = selectedDatabaseProvider(appRequest);
+  const entraLogin = selectedEntraLogin(appRequest);
   const redirectUri = `${publishUrlFor(appRequest)}${ENTRA_CALLBACK_PATH}`;
   const expectedSubject = federatedCredentialSubject({
     repositoryFullName: repo.fullName,
@@ -721,20 +856,22 @@ async function runPreflightChecks(
     }),
   );
 
-  const redirect = await deps.graph.hasRedirectUri({
-    applicationObjectId: deps.config.entraAppObjectId,
-    redirectUri,
-  });
-  checks.push(
-    redirect.exists
-      ? pass("entra_redirect_uri", "Entra redirect URI is registered.", {
-          redirectUri,
-        })
-      : fail("entra_redirect_uri", "Entra redirect URI is missing.", {
-          redirectUri,
-          repairable: true,
-        }),
-  );
+  if (entraLogin) {
+    const redirect = await deps.graph.hasRedirectUri({
+      applicationObjectId: deps.config.entraAppObjectId,
+      redirectUri,
+    });
+    checks.push(
+      redirect.exists
+        ? pass("entra_redirect_uri", "Entra redirect URI is registered.", {
+            redirectUri,
+          })
+        : fail("entra_redirect_uri", "Entra redirect URI is missing.", {
+            redirectUri,
+            repairable: true,
+          }),
+    );
+  }
 
   const credentials = await deps.graph.listFederatedCredentials({
     applicationAppId: deps.config.azureClientId,
@@ -761,7 +898,9 @@ async function runPreflightChecks(
     pass("azure_resource_access", "Azure target names can be derived.", {
       resourceGroup: deps.config.resourceGroup,
       webAppName: names.webAppName,
-      databaseName: names.databaseName,
+      ...(databaseProvider === "postgresql"
+        ? { databaseName: names.databaseName }
+        : {}),
     }),
   );
   checks.push(
@@ -769,6 +908,8 @@ async function runPreflightChecks(
       deps,
       webAppName: names.webAppName,
       publishUrl: publishUrlFor(appRequest),
+      databaseProvider,
+      entraLogin,
     }),
   );
   checks.push(
@@ -799,6 +940,8 @@ export async function repairPublishingSetup(
   const appRequest = await loadSetupRequest(appRequestId, db);
   const repo = repository(appRequest);
   const names = targetNames(appRequest);
+  const databaseProvider = selectedDatabaseProvider(appRequest);
+  const entraLogin = selectedEntraLogin(appRequest);
   const tags = buildPublishResourceTags({
     requestId: appRequest.id,
     appName: appRequest.appName,
@@ -821,12 +964,14 @@ export async function repairPublishingSetup(
 
   try {
     repairStep = "azure_resource_access";
-    await deps.arm.putPostgresDatabase({
-      resourceGroup: deps.config.resourceGroup,
-      serverName: deps.config.postgresServer,
-      databaseName: names.databaseName,
-      tags,
-    });
+    if (databaseProvider === "postgresql") {
+      await deps.arm.putPostgresDatabase({
+        resourceGroup: deps.config.resourceGroup,
+        serverName: deps.config.postgresServer,
+        databaseName: names.databaseName,
+        tags,
+      });
+    }
 
     repairStep = "azure_resource_access";
     const webApp = await deps.arm.putWebApp({
@@ -854,27 +999,25 @@ export async function repairPublishingSetup(
     await deps.arm.putAppSettings({
       resourceGroup: deps.config.resourceGroup,
       name: names.webAppName,
-      settings: {
-        ...(existingAppSettings.exists ? existingAppSettings.settings : {}),
-        DATABASE_URL: buildDatabaseUrl(deps.config, names.databaseName),
-        AUTH_URL: effectivePublishUrl,
-        NEXTAUTH_URL: effectivePublishUrl,
-        AUTH_SECRET: deps.config.authSecret,
-        AUTH_MICROSOFT_ENTRA_ID_ID: deps.config.entraClientId,
-        AUTH_MICROSOFT_ENTRA_ID_SECRET: deps.config.entraClientSecret,
-        AUTH_MICROSOFT_ENTRA_ID_ISSUER: deps.config.entraIssuer,
-        NODE_ENV: "production",
-        SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
-        ENABLE_ORYX_BUILD: "false",
-        WEBSITE_RUN_FROM_PACKAGE: "1",
-      },
+      settings: buildRepairAppSettings({
+        existingSettings: existingAppSettings.exists
+          ? existingAppSettings.settings
+          : {},
+        config: deps.config,
+        databaseName: names.databaseName,
+        databaseProvider,
+        publishUrl: effectivePublishUrl,
+        entraLogin,
+      }),
     });
 
-    repairStep = "entra_redirect_uri";
-    await deps.graph.ensureRedirectUri({
-      applicationObjectId: deps.config.entraAppObjectId,
-      redirectUri: `${effectivePublishUrl}${ENTRA_CALLBACK_PATH}`,
-    });
+    if (entraLogin) {
+      repairStep = "entra_redirect_uri";
+      await deps.graph.ensureRedirectUri({
+        applicationObjectId: deps.config.entraAppObjectId,
+        redirectUri: `${effectivePublishUrl}${ENTRA_CALLBACK_PATH}`,
+      });
+    }
     repairStep = "github_federated_credential";
     await deps.graph.replaceFederatedCredential({
       applicationAppId: deps.config.azureClientId,
@@ -907,7 +1050,8 @@ export async function repairPublishingSetup(
         azureAppServicePlan: deps.config.appServicePlan,
         azureWebAppName: names.webAppName,
         azurePostgresServer: deps.config.postgresServer,
-        azureDatabaseName: names.databaseName,
+        azureDatabaseName:
+          databaseProvider === "postgresql" ? names.databaseName : null,
         azureDefaultHostName,
         primaryPublishUrl: effectivePublishUrl,
         publishingSetupRepairedAt: new Date(),
