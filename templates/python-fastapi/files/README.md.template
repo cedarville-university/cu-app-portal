@@ -14,3 +14,7 @@ python -m uvicorn main:app --reload
 ```
 
 The health endpoint is available at `/api/health`.
+
+## Deployment
+
+The included GitHub Actions workflow is intended for portal-managed, manual first publish. It installs Python dependencies into `.python_packages/lib/site-packages` before deploying the repository contents to Azure App Service.

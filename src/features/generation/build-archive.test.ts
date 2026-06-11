@@ -21,6 +21,21 @@ describe("buildArchive", () => {
     expect(archive.files["app-portal/deployment-manifest.json"]).toContain(
       "PYTHON|3.14",
     );
+
+    const zip = await JSZip.loadAsync(archive.buffer);
+    const workflow =
+      (await zip
+        .file(".github/workflows/deploy-azure-app-service.yml")
+        ?.async("string")) ?? "";
+
+    expect(workflow).toContain("workflow_dispatch");
+    expect(workflow).not.toContain("push:");
+    expect(workflow).toContain(".python_packages/lib/site-packages");
+    expect(zip.file("docs/github-setup.md")).toBeTruthy();
+    expect(zip.file("docs/deployment-guide.md")).toBeTruthy();
+    expect(zip.file("app-portal/deployment-manifest.json")).toBeTruthy();
+    expect(zip.file("next-env.d.ts")).toBeNull();
+    expect(zip.file("src/app/layout.tsx")).toBeNull();
   });
 
   it("creates a zip containing starter files and publishing bundle assets", async () => {
