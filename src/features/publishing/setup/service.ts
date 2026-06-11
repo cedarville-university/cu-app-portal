@@ -93,7 +93,7 @@ export type PublishingSetupServiceDeps = {
       name: string;
       location: string;
       appServicePlanId: string;
-      runtimeStack: "NODE|24-lts";
+      runtimeStack: string;
       startupCommand: string;
       tags: Record<string, string>;
     }): Promise<{ properties?: { defaultHostName?: string } }>;

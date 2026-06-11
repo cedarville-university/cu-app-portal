@@ -1,3 +1,5 @@
+import type { PortalTemplate } from "@/features/templates/types";
+
 export type WorkflowTriggerPolicy = "portal_dispatch" | "push" | "external";
 
 export type PublishingProviderCapabilities = {
@@ -31,11 +33,8 @@ export function getPublishingProviderCapabilities(hostingTarget: string) {
     : null;
 }
 
-export function supportsGeneratedTemplateOneStep(hostingTarget: string) {
-  return (
-    getPublishingProviderCapabilities(hostingTarget)
-      ?.supportsGeneratedTemplateOneStep ?? false
-  );
+export function supportsGeneratedTemplateOneStep(template: PortalTemplate) {
+  return template.hostingTarget === "Azure App Service";
 }
 
 export function supportsPostSuccessPushToDeploy(hostingTarget: string) {

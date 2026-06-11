@@ -6,13 +6,7 @@ import { SubmitButton } from "./submit-button";
 import { TemplateFormFields } from "./template-form-fields";
 
 export function TemplateForm({ template }: { template: PortalTemplate }) {
-  const hostingTargetField = template.fields.find(
-    (field) => field.name === "hostingTarget" && field.type === "select",
-  );
-  const canCreateAndPublish =
-    hostingTargetField?.options.some((option) =>
-      supportsGeneratedTemplateOneStep(option),
-    ) ?? false;
+  const canCreateAndPublish = supportsGeneratedTemplateOneStep(template);
 
   return (
     <form action={createAppAction} className="form-stack">

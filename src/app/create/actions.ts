@@ -76,7 +76,7 @@ export async function createAppAction(formData: FormData) {
 
   if (
     createIntent === "createAndPublish" &&
-    !supportsGeneratedTemplateOneStep(input.hostingTarget)
+    !supportsGeneratedTemplateOneStep(template)
   ) {
     throw new Error(
       `Create and publish is not supported for ${input.hostingTarget}.`,

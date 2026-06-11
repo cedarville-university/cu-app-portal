@@ -48,14 +48,16 @@ describe("loadAzurePublishConfig", () => {
     });
   });
 
-  it("rejects non-node-24 runtime stacks", () => {
-    expect(() =>
+  it("allows non-node runtime stacks as a legacy default", () => {
+    expect(
       loadAzurePublishConfig(
         buildAzurePublishConfigSource({
-          AZURE_PUBLISH_RUNTIME_STACK: "NODE|20-lts",
+          AZURE_PUBLISH_RUNTIME_STACK: "PYTHON|3.14",
         }),
       ),
-    ).toThrow(/NODE\|24-lts/);
+    ).toMatchObject({
+      runtimeStack: "PYTHON|3.14",
+    });
   });
 
   it("rejects whitespace-only config values", () => {

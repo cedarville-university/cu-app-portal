@@ -38,6 +38,18 @@ const readyAppRequest = {
   primaryPublishUrl: null,
 };
 
+const readyNoFeatureRequest = {
+  ...readyAppRequest,
+  submittedConfig: {
+    templateSlug: "web-app",
+    appName: "Campus Dashboard",
+    description: "Campus metrics",
+    hostingTarget: "Azure App Service",
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
 function emptyWorkflowRunsError() {
   return new Error(
     "No GitHub workflow runs found for cedarville-it/campus-dashboard deploy-azure-app-service.yml.",
@@ -191,6 +203,61 @@ describe("createAzurePublishRuntime", () => {
       githubWorkflowRunId: "123",
       githubWorkflowRunUrl: "https://github.com/org/repo/actions/runs/123",
     });
+  });
+
+  it("skips optional database and Entra resources when disabled in submitted config", async () => {
+    const { deps, arm, graph } = createDeps({
+      appRequest: readyNoFeatureRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    const target = await runtime.provisionInfrastructure(
+      "clx9abc123zzzzzzzzzz",
+    );
+
+    expect(target).toEqual(
+      expect.objectContaining({
+        azureDatabaseName: null,
+        primaryPublishUrl:
+          "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
+      }),
+    );
+    expect(arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.not.objectContaining({
+          DATABASE_URL: expect.any(String),
+          AUTH_MICROSOFT_ENTRA_ID_ID: expect.any(String),
+        }),
+      }),
+    );
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
+  });
+
+  it("uses the selected template runtime when provisioning the web app", async () => {
+    const { deps, arm } = createDeps({
+      appRequest: {
+        ...readyNoFeatureRequest,
+        appName: "Campus API",
+        template: { slug: "python-fastapi" },
+        submittedConfig: {
+          ...readyNoFeatureRequest.submittedConfig,
+          templateSlug: "python-fastapi",
+          appName: "Campus API",
+        },
+      },
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz");
+
+    expect(arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    );
   });
 
   it("requires a ready repository status before provisioning or deploying", async () => {
