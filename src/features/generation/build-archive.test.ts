@@ -270,16 +270,26 @@ describe("buildArchive", () => {
 
     const templateManifest = JSON.parse(
       await readFile("templates/web-app/template.json", "utf8"),
-    ) as { generatedFiles: string[] };
+    ) as { generatedFiles: string[]; generatedOverrides?: string[] };
 
     expect(templateManifest.generatedFiles.sort()).toEqual([
       "app-portal/deployment-manifest.json",
       "docs/deployment-guide.md",
       "docs/github-setup.md",
     ]);
+    expect(templateManifest.generatedOverrides?.sort()).toEqual([
+      ".codex/skills/publish-to-azure/SKILL.md",
+      "README.md",
+      "docs/publishing/azure-app-service.md",
+      "docs/publishing/lessons-learned.md",
+    ]);
 
     for (const generatedFile of templateManifest.generatedFiles) {
       expect(zip.file(generatedFile)).toBeTruthy();
+    }
+
+    for (const generatedOverride of templateManifest.generatedOverrides ?? []) {
+      expect(zip.file(generatedOverride)).toBeTruthy();
     }
 
     expect(templateManifest.entryFiles).toEqual(
@@ -370,6 +380,56 @@ describe("buildArchive", () => {
     expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_ID");
     expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_SECRET");
     expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_ISSUER");
+  });
+
+  it("keeps README database and login guidance independent for mixed feature selections", async () => {
+    const databaseOnlyArchive = await buildArchive({
+      templateSlug: "web-app",
+      appName: "Database Only",
+      description: "Database without login.",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: false,
+    });
+    const authOnlyArchive = await buildArchive({
+      templateSlug: "web-app",
+      appName: "Auth Only",
+      description: "Login without database.",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: true,
+    });
+    const databaseOnlyZip = await JSZip.loadAsync(databaseOnlyArchive.buffer);
+    const authOnlyZip = await JSZip.loadAsync(authOnlyArchive.buffer);
+    const databaseOnlyReadme =
+      (await databaseOnlyZip.file("README.md")?.async("string")) ?? "";
+    const authOnlyReadme =
+      (await authOnlyZip.file("README.md")?.async("string")) ?? "";
+
+    expect(databaseOnlyArchive.files["README.md"]).toBe(databaseOnlyReadme);
+    expect(authOnlyArchive.files["README.md"]).toBe(authOnlyReadme);
+    expect(databaseOnlyReadme).toContain("Azure PostgreSQL");
+    expect(databaseOnlyReadme).toContain(
+      "Persistent app data is already wired in",
+    );
+    expect(databaseOnlyReadme).toContain(
+      "This app was generated without built-in login.",
+    );
+    expect(databaseOnlyReadme).not.toContain("production auth settings");
+    expect(databaseOnlyReadme).not.toContain("Microsoft Entra login.");
+
+    expect(authOnlyReadme).toContain(
+      "This app is configured for Microsoft Entra login.",
+    );
+    expect(authOnlyReadme).toContain("production auth settings");
+    expect(authOnlyReadme).toContain(
+      "This app was generated without a database.",
+    );
+    expect(authOnlyReadme).not.toContain("DATABASE_URL");
+    expect(authOnlyReadme).not.toContain("Azure PostgreSQL");
+    expect(authOnlyReadme).not.toContain(
+      "Persistent app data is already wired in",
+    );
   });
 
   it("rejects unsupported hosting targets for the Azure-first publishing bundle", async () => {

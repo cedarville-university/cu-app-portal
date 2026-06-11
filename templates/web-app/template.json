@@ -26,5 +26,11 @@
     "docs/github-setup.md",
     "docs/deployment-guide.md",
     "app-portal/deployment-manifest.json"
+  ],
+  "generatedOverrides": [
+    "README.md",
+    "docs/publishing/azure-app-service.md",
+    "docs/publishing/lessons-learned.md",
+    ".codex/skills/publish-to-azure/SKILL.md"
   ]
 }

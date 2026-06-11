@@ -15,6 +15,7 @@ type TemplateManifest = {
   version: string;
   entryFiles: string[];
   generatedFiles: string[];
+  generatedOverrides?: string[];
 };
 
 function stripTemplateExtension(filePath: string) {
@@ -99,10 +100,14 @@ function buildReadmeFile(input: CreateAppRequestInput) {
     input.databaseProvider === "postgresql"
       ? "Keep local development on the localhost `DATABASE_URL` in `.env.example`."
       : "Use `.env.example` as the generated local environment reference.";
-  const publishResourcesText =
-    input.databaseProvider === "postgresql"
-      ? "Let the portal provision Azure PostgreSQL, App Service settings, and production auth settings during publish."
-      : "Let the portal provision App Service settings during publish.";
+  const publishResources = [
+    ...(input.databaseProvider === "postgresql" ? ["Azure PostgreSQL"] : []),
+    "App Service settings",
+    ...(input.entraLogin ? ["production auth settings"] : []),
+  ];
+  const publishResourcesText = `Let the portal provision ${formatList(
+    publishResources,
+  )} during publish.`;
   const authText = input.entraLogin
     ? "This app is configured for Microsoft Entra login."
     : "This app was generated without built-in login.";
@@ -222,7 +227,10 @@ export async function buildSourceSnapshot(
     );
   }
 
-  for (const filePath of manifest.generatedFiles) {
+  for (const filePath of [
+    ...manifest.generatedFiles,
+    ...(manifest.generatedOverrides ?? []),
+  ]) {
     const content = generatedTemplateFiles[filePath];
 
     if (content === undefined) {
@@ -234,10 +242,17 @@ export async function buildSourceSnapshot(
     files[filePath] = content;
   }
 
-  // Generated files intentionally override rendered entries so feature-aware docs win path collisions.
-  for (const [filePath, content] of Object.entries(generatedTemplateFiles)) {
-    files[filePath] = content;
+  return files;
+}
+
+function formatList(values: string[]) {
+  if (values.length === 1) {
+    return values[0];
   }
 
-  return files;
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+
+  return `${values.slice(0, -1).join(", ")}, and ${values[values.length - 1]}`;
 }
