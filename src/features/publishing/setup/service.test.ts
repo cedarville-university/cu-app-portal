@@ -37,6 +37,20 @@ const noFeatureAppRequest = {
   },
 };
 
+const fastApiAppRequest = {
+  ...appRequest,
+  appName: "Campus API",
+  template: { slug: "python-fastapi" },
+  submittedConfig: {
+    templateSlug: "python-fastapi",
+    appName: "Campus API",
+    description: "Campus API service",
+    hostingTarget: "Azure App Service",
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction: vi.fn((operations) => Promise.all(operations)),
@@ -488,6 +502,12 @@ describe("publishing setup service", () => {
         branch: "main",
       }),
     );
+    expect(deps.arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
+      }),
+    );
     expect("dispatchWorkflow" in deps.github).toBe(false);
     expect(prisma.appRequest.update).toHaveBeenLastCalledWith({
       where: { id: "req_123" },
@@ -496,6 +516,25 @@ describe("publishing setup service", () => {
         publishingSetupErrorSummary: null,
       }),
     });
+  });
+
+  it("uses the template runtime when repairing a FastAPI app", async () => {
+    const deps = createDeps();
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      fastApiAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    );
   });
 
   it("repairs setup without database or Entra resources when features are disabled", async () => {

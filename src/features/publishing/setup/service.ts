@@ -4,10 +4,7 @@ import type { PrismaClient } from "@prisma/client";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { getTemplateBySlug } from "@/features/templates/catalog";
-import type {
-  DatabaseProvider,
-  PortalTemplate,
-} from "@/features/templates/types";
+import type { DatabaseProvider, PortalTemplate } from "@/features/templates/types";
 import { createAzureArmClient } from "@/features/publishing/azure/arm-client";
 import {
   type AzurePublishConfig,
@@ -279,6 +276,18 @@ function selectedEntraLogin(appRequest: SetupAppRequest): boolean {
 
   return (
     resolveSetupTemplate(appRequest)?.features.entraLogin.defaultEnabled ?? true
+  );
+}
+
+function selectedAppServiceRuntime(
+  appRequest: SetupAppRequest,
+  config: AzurePublishConfig,
+): { azureRuntimeStack: string; startupCommand: string } {
+  return (
+    resolveSetupTemplate(appRequest)?.appServiceRuntime ?? {
+      azureRuntimeStack: config.runtimeStack,
+      startupCommand: STARTUP_COMMAND,
+    }
   );
 }
 
@@ -942,6 +951,7 @@ export async function repairPublishingSetup(
   const names = targetNames(appRequest);
   const databaseProvider = selectedDatabaseProvider(appRequest);
   const entraLogin = selectedEntraLogin(appRequest);
+  const appServiceRuntime = selectedAppServiceRuntime(appRequest, deps.config);
   const tags = buildPublishResourceTags({
     requestId: appRequest.id,
     appName: appRequest.appName,
@@ -982,8 +992,8 @@ export async function repairPublishingSetup(
         deps.config.resourceGroup,
         deps.config.appServicePlan,
       ),
-      runtimeStack: deps.config.runtimeStack,
-      startupCommand: STARTUP_COMMAND,
+      runtimeStack: appServiceRuntime.azureRuntimeStack,
+      startupCommand: appServiceRuntime.startupCommand,
       tags,
     });
     const azureDefaultHostName =
