@@ -7,6 +7,7 @@ vi.mock("@/lib/db", () => ({
     $transaction: vi.fn((operations) => Promise.all(operations)),
     publishSetupCheck: {
       upsert: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }));
@@ -21,6 +22,10 @@ describe("persistPublishingSetupChecks", () => {
     vi.mocked(prisma.publishSetupCheck.upsert).mockResolvedValue(
       {} as Awaited<ReturnType<typeof prisma.publishSetupCheck.upsert>>,
     );
+    vi.mocked(prisma.publishSetupCheck.deleteMany).mockReset();
+    vi.mocked(prisma.publishSetupCheck.deleteMany).mockResolvedValue({
+      count: 0,
+    } as Awaited<ReturnType<typeof prisma.publishSetupCheck.deleteMany>>);
   });
 
   it("upserts setup checks by app request and check key", async () => {
@@ -49,7 +54,16 @@ describe("persistPublishingSetupChecks", () => {
     });
 
     expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.publishSetupCheck.deleteMany).toHaveBeenCalledWith({
+      where: {
+        appRequestId: "request-123",
+        checkKey: {
+          notIn: ["github_workflow_file", "github_actions_secrets"],
+        },
+      },
+    });
     expect(prisma.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
       expect.any(Promise),
       expect.any(Promise),
     ]);
@@ -81,6 +95,43 @@ describe("persistPublishingSetupChecks", () => {
         checkedAt,
       },
     });
+  });
+
+  it("deletes stale checks that are not in the fresh check set", async () => {
+    const checkedAt = new Date("2026-05-14T16:03:00.000Z");
+
+    await persistPublishingSetupChecks({
+      appRequestId: "request-123",
+      checkedAt,
+      checks: [
+        {
+          checkKey: "github_workflow_file",
+          status: "PASS",
+          message: "Deployment workflow exists.",
+          metadata: { workflowPath: ".github/workflows/deploy.yml" },
+        },
+        {
+          checkKey: "azure_app_settings",
+          status: "PASS",
+          message: "Required Azure App Service settings are present.",
+          metadata: { webAppName: "app-campus-dashboard" },
+        },
+      ],
+    });
+
+    expect(prisma.publishSetupCheck.deleteMany).toHaveBeenCalledWith({
+      where: {
+        appRequestId: "request-123",
+        checkKey: {
+          notIn: ["github_workflow_file", "azure_app_settings"],
+        },
+      },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
+      expect.any(Promise),
+      expect.any(Promise),
+    ]);
   });
 
   it("recursively removes secret-like metadata before persistence", async () => {
@@ -336,6 +387,7 @@ describe("persistPublishingSetupChecks", () => {
       $transaction: vi.fn((operations) => Promise.all(operations)),
       publishSetupCheck: {
         upsert: vi.fn().mockResolvedValue({}),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
     };
     const appRequestUpdate = Promise.resolve({ id: "request-123" });
@@ -357,8 +409,17 @@ describe("persistPublishingSetupChecks", () => {
 
     expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(injectedPrisma.publishSetupCheck.deleteMany).toHaveBeenCalledWith({
+      where: {
+        appRequestId: "request-123",
+        checkKey: {
+          notIn: ["azure_resource_access"],
+        },
+      },
+    });
     expect(injectedPrisma.publishSetupCheck.upsert).toHaveBeenCalledTimes(1);
     expect(injectedPrisma.$transaction).toHaveBeenCalledWith([
+      expect.any(Promise),
       expect.any(Promise),
       appRequestUpdate,
     ]);

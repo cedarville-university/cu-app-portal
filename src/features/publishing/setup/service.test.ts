@@ -60,6 +60,7 @@ vi.mock("@/lib/db", () => ({
     },
     publishSetupCheck: {
       upsert: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }));
@@ -151,6 +152,10 @@ describe("publishing setup service", () => {
     vi.mocked(prisma.publishSetupCheck.upsert).mockResolvedValue(
       {} as Awaited<ReturnType<typeof prisma.publishSetupCheck.upsert>>,
     );
+    vi.mocked(prisma.publishSetupCheck.deleteMany).mockReset();
+    vi.mocked(prisma.publishSetupCheck.deleteMany).mockResolvedValue({
+      count: 0,
+    } as Awaited<ReturnType<typeof prisma.publishSetupCheck.deleteMany>>);
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
       appRequest as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
     );
@@ -267,6 +272,14 @@ describe("publishing setup service", () => {
     await preflightPublishingSetup("req_123", deps);
 
     expect(deps.graph.hasRedirectUri).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.deleteMany).toHaveBeenCalledWith({
+      where: {
+        appRequestId: "req_123",
+        checkKey: {
+          notIn: expect.not.arrayContaining(["entra_redirect_uri"]),
+        },
+      },
+    });
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
       where: { id: "req_123" },
       data: expect.objectContaining({
