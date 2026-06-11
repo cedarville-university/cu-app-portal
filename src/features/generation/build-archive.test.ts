@@ -18,6 +18,7 @@ describe("buildArchive", () => {
     expect(archive.filename).toBe("reports-api.zip");
     expect(archive.files["main.py"]).toContain("FastAPI");
     expect(archive.files["requirements.txt"]).toContain("fastapi");
+    expect(archive.files["requirements.txt"]).not.toContain("psycopg");
     expect(archive.files["app-portal/deployment-manifest.json"]).toContain(
       "PYTHON|3.14",
     );
@@ -33,6 +34,26 @@ describe("buildArchive", () => {
     expect(workflow).toContain(".python_packages/lib/site-packages");
     expect(zip.file("docs/github-setup.md")).toBeTruthy();
     expect(zip.file("docs/deployment-guide.md")).toBeTruthy();
+    expect(archive.files["docs/github-setup.md"]).toContain(
+      "docs/publishing/azure-app-service.md",
+    );
+    expect(archive.files["docs/github-setup.md"]).toContain(
+      "docs/publishing/lessons-learned.md",
+    );
+    expect(archive.files["docs/deployment-guide.md"]).toContain(
+      "docs/publishing/azure-app-service.md",
+    );
+    expect(archive.files["docs/deployment-guide.md"]).toContain(
+      "docs/publishing/lessons-learned.md",
+    );
+    expect(zip.file("docs/publishing/azure-app-service.md")).toBeTruthy();
+    expect(zip.file("docs/publishing/lessons-learned.md")).toBeTruthy();
+    await expect(
+      zip.file("docs/publishing/lessons-learned.md")?.async("string"),
+    ).resolves.toContain("Python 3.14 / FastAPI");
+    await expect(
+      zip.file("docs/publishing/lessons-learned.md")?.async("string"),
+    ).resolves.not.toContain("Node/Next.js");
     expect(zip.file("app-portal/deployment-manifest.json")).toBeTruthy();
     expect(zip.file("next-env.d.ts")).toBeNull();
     expect(zip.file("src/app/layout.tsx")).toBeNull();

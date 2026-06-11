@@ -1,6 +1,12 @@
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
+import { getTemplateBySlug } from "@/features/templates/catalog";
 
 export function buildPublishingFiles(input: CreateAppRequestInput) {
+  const template = getTemplateBySlug(input.templateSlug);
+  const runtimeDescription =
+    template === null
+      ? "generated apps"
+      : `${template.appServiceRuntime.displayName} apps`;
   const databaseText =
     input.databaseProvider === "postgresql"
       ? "This app is configured for a portal-managed PostgreSQL database."
@@ -49,7 +55,7 @@ ${sharedTargetText}
 If automation gets blocked, use docs/publishing/lessons-learned.md to record what happened and what to try next.`,
     "docs/publishing/lessons-learned.md": `# Publishing Lessons Learned
 
-The supported hosting path for this bundle is portal-managed GitHub + Azure App Service for Node/Next.js apps.
+The supported hosting path for this bundle is portal-managed GitHub + Azure App Service for ${runtimeDescription}.
 
 ${databaseText}
 ${authText}
