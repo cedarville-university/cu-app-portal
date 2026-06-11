@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { deleteArtifact } from "@/features/generation/storage";
 import { recordAuditEvent, type AuditEvent } from "@/lib/audit";
@@ -175,6 +176,7 @@ export async function deleteAppAction(requestId: string, formData: FormData) {
     github: false,
     azure: false,
   };
+  let redirectToApps = false;
 
   if (targets.github) {
     assertGitHubDeletionDetails(appRequest);
@@ -219,6 +221,7 @@ export async function deleteAppAction(requestId: string, formData: FormData) {
 
     if (targets.portal) {
       await deletePortalRecord(appRequest);
+      redirectToApps = true;
     } else {
       await markExternalDeletions(requestId, completed);
     }
@@ -250,5 +253,9 @@ export async function deleteAppAction(requestId: string, formData: FormData) {
     throw error;
   } finally {
     revalidateDeletionViews(requestId);
+  }
+
+  if (redirectToApps) {
+    redirect("/apps");
   }
 }

@@ -3,6 +3,7 @@ import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { deleteArtifact } from "@/features/generation/storage";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
 import { deleteAppAction } from "./actions";
 import {
   deleteAzureDeployment,
@@ -11,6 +12,10 @@ import {
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: vi.fn(),
 }));
 
 vi.mock("@/features/app-requests/current-user", () => ({
@@ -149,6 +154,7 @@ describe("deleteAppAction", () => {
         deletedAzure: true,
       }),
     );
+    expect(redirect).toHaveBeenCalledWith("/apps");
   });
 
   it("keeps the portal record and marks external resources deleted when portal is not selected", async () => {
@@ -170,6 +176,7 @@ describe("deleteAppAction", () => {
         azureDatabaseName: null,
       }),
     });
+    expect(redirect).not.toHaveBeenCalled();
   });
 
   it("requires confirmation and at least one deletion target", async () => {
