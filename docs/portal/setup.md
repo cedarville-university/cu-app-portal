@@ -77,7 +77,7 @@ Current v1 design decisions:
 - Generated user apps share one Azure resource group: `rg-cu-apps-published`.
 - Generated user apps share one App Service Plan: `asp-cu-apps-published`.
 - Generated user apps share one PostgreSQL flexible server: `psql-cu-apps-published`.
-- Each published app gets its own Azure Web App and its own PostgreSQL database on the shared server.
+- Each published app gets its own Azure Web App. When PostgreSQL is selected for that app, it also gets its own PostgreSQL database on the shared server.
 - `AZURE_PUBLISH_RUNTIME_STACK=NODE|24-lts` remains the current default for the legacy/imported Node publishing path.
 - Runtime-specific generated templates carry their App Service runtime stack in the generated deployment manifest. The portal-managed publisher uses that template runtime when creating the Web App.
 - Database and auth publishing are conditional based on the selected template features. Templates that do not select PostgreSQL skip per-app database setup, and templates that do not select Microsoft Entra login skip generated-app auth settings and redirect URI setup.
@@ -85,7 +85,7 @@ Current v1 design decisions:
 Deletion behavior:
 
 - `My Apps` deletion is scoped. Users can delete the portal record and artifact, the managed GitHub repository, and the Azure deployment independently.
-- Azure deletion removes the selected app's Azure Web App and the selected app's PostgreSQL database on the shared server.
+- Azure deletion removes the selected app's Azure Web App and, if one was provisioned, the selected app's PostgreSQL database on the shared server.
 - Azure deletion never deletes the shared PostgreSQL flexible server.
 - If a user leaves GitHub or Azure unchecked while deleting the portal record, those resources must be deleted manually later because the portal record will no longer appear in `My Apps`.
 
