@@ -88,7 +88,7 @@ const templates: PortalTemplate[] = [
       },
     },
     version: "1.0.0",
-    status: "DISABLED",
+    status: "ACTIVE",
     fields: [
       { name: "appName", label: "App Name", type: "text", required: true },
       {

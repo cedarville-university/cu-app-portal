@@ -5,6 +5,24 @@ import { buildArchive } from "./build-archive";
 import { buildDeploymentManifest } from "./deployment-manifest";
 
 describe("buildArchive", () => {
+  it("builds the FastAPI Azure App Service starter archive", async () => {
+    const archive = await buildArchive({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+
+    expect(archive.filename).toBe("reports-api.zip");
+    expect(archive.files["main.py"]).toContain("FastAPI");
+    expect(archive.files["requirements.txt"]).toContain("fastapi");
+    expect(archive.files["app-portal/deployment-manifest.json"]).toContain(
+      "PYTHON|3.14",
+    );
+  });
+
   it("creates a zip containing starter files and publishing bundle assets", async () => {
     const input = {
       templateSlug: "web-app",

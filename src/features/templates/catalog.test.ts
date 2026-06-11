@@ -35,7 +35,10 @@ describe("getActiveTemplates", () => {
   it("describes active templates with decision-focused runtime metadata", () => {
     const templates = getActiveTemplates();
 
-    expect(templates.map((template) => template.slug)).toEqual(["web-app"]);
+    expect(templates.map((template) => template.slug)).toEqual([
+      "web-app",
+      "python-fastapi",
+    ]);
     for (const template of templates) {
       expect(template.decisionSummary.length).toBeGreaterThan(20);
       expect(template.bestFor.length).toBeGreaterThan(0);
@@ -85,12 +88,12 @@ describe("getActiveTemplates", () => {
     });
   });
 
-  it("keeps the FastAPI template disabled until template files are ready", () => {
+  it("keeps the FastAPI template runtime metadata ready for Azure App Service", () => {
     const template = getTemplateBySlug("python-fastapi");
 
     expect(template).toMatchObject({
       slug: "python-fastapi",
-      status: "DISABLED",
+      status: "ACTIVE",
       appServiceRuntime: {
         family: "python",
         framework: "fastapi",
