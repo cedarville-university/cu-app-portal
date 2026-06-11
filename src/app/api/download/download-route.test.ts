@@ -202,6 +202,8 @@ describe("createDownloadHeaders", () => {
       appName: "Campus Dashboard",
       description: "Shows campus metrics.",
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
     expect(recordAuditEventMock).toHaveBeenCalledWith(
       "ARTIFACT_DOWNLOADED",

@@ -5,11 +5,15 @@ import { deleteArtifact, saveArtifact } from "@/features/generation/storage";
 import { grantManagedRepositoryAccess } from "@/features/repositories/access";
 import { bootstrapManagedRepository } from "@/features/repositories/bootstrap-managed-repository";
 import { publishToAzureAction } from "@/features/publishing/actions";
+import type { PortalTemplate } from "@/features/templates/types";
 import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { createAppAction, extractCreateAppInput } from "./actions";
 
 const mockRedirect = vi.hoisted(() => vi.fn());
+const catalogMock = vi.hoisted(() => ({
+  activeTemplateOverrides: new Map<string, PortalTemplate>(),
+}));
 
 vi.mock("next/navigation", () => ({
   redirect: mockRedirect,
@@ -44,6 +48,21 @@ vi.mock("@/features/publishing/actions", () => ({
   publishToAzureAction: vi.fn(),
 }));
 
+vi.mock("@/features/templates/catalog", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/features/templates/catalog")>();
+
+  return {
+    ...actual,
+    getActiveTemplateBySlug: vi.fn((slug: string) => {
+      return (
+        catalogMock.activeTemplateOverrides.get(slug) ??
+        actual.getActiveTemplateBySlug(slug)
+      );
+    }),
+  };
+});
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: {
@@ -62,8 +81,56 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+const noDatabaseTemplate = {
+  id: "no-database-v1",
+  slug: "no-database",
+  name: "No Database Template",
+  description: "A template without database support.",
+  decisionSummary: "Use this when no database is needed.",
+  bestFor: ["Static content"],
+  hostingTarget: "Azure App Service",
+  appServiceRuntime: {
+    family: "node",
+    framework: "nextjs",
+    displayName: "Node.js 24 / Next.js",
+    azureRuntimeStack: "NODE|24-lts",
+    startupCommand: "npm start",
+    workflowFileName: "deploy-azure-app-service.yml",
+  },
+  features: {
+    database: {
+      mode: "unsupported",
+      providerOptions: [],
+      defaultProvider: "none",
+    },
+    entraLogin: {
+      mode: "optional",
+      defaultEnabled: true,
+    },
+  },
+  version: "1.0.0",
+  status: "ACTIVE",
+  fields: [
+    { name: "appName", label: "App Name", type: "text", required: true },
+    {
+      name: "description",
+      label: "Short Description",
+      type: "textarea",
+      required: true,
+    },
+    {
+      name: "hostingTarget",
+      label: "Hosting Target",
+      type: "select",
+      required: true,
+      options: ["Azure App Service"],
+    },
+  ],
+} satisfies PortalTemplate;
+
 describe("extractCreateAppInput", () => {
   beforeEach(() => {
+    catalogMock.activeTemplateOverrides.clear();
     mockRedirect.mockReset();
     vi.mocked(buildArchive).mockReset();
     vi.mocked(deleteArtifact).mockReset();
@@ -91,6 +158,8 @@ describe("extractCreateAppInput", () => {
 
     expect(input.appName).toBe("Campus Dashboard");
     expect(input.templateSlug).toBe("web-app");
+    expect(input.databaseProvider).toBe("postgresql");
+    expect(input.entraLogin).toBe(true);
   });
 
   it("rejects unknown templates", async () => {
@@ -104,12 +173,30 @@ describe("extractCreateAppInput", () => {
       "Invalid template selection.",
     );
   });
+
+  it("rejects PostgreSQL for a template that does not support a database", async () => {
+    catalogMock.activeTemplateOverrides.set(
+      noDatabaseTemplate.slug,
+      noDatabaseTemplate,
+    );
+    const formData = new FormData();
+    formData.set("templateSlug", "no-database");
+    formData.set("appName", "Campus Dashboard");
+    formData.set("description", "Shows campus metrics.");
+    formData.set("hostingTarget", "Azure App Service");
+    formData.set("databaseProvider", "postgresql");
+
+    await expect(extractCreateAppInput(formData)).rejects.toThrow(
+      "This template does not support a database.",
+    );
+  });
 });
 
 describe("createAppAction", () => {
   const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
   beforeEach(() => {
+    catalogMock.activeTemplateOverrides.clear();
     mockRedirect.mockReset();
     vi.mocked(buildArchive).mockReset();
     vi.mocked(deleteArtifact).mockReset();
@@ -173,13 +260,24 @@ describe("createAppAction", () => {
       appName: "Campus Dashboard",
       description: "Shows campus metrics.",
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
     expect(saveArtifact).toHaveBeenCalledWith(
       "campus-dashboard.zip",
       Buffer.from("zip"),
     );
     expect(prisma.template.upsert).toHaveBeenCalled();
-    expect(prisma.appRequest.create).toHaveBeenCalled();
+    expect(prisma.appRequest.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          submittedConfig: expect.objectContaining({
+            databaseProvider: "postgresql",
+            entraLogin: true,
+          }),
+        }),
+      }),
+    );
     expect(prisma.generatedArtifact.create).toHaveBeenCalled();
     expect(bootstrapManagedRepository).toHaveBeenCalledWith({
       appRequestId: "request-123",
@@ -188,6 +286,8 @@ describe("createAppAction", () => {
         appName: "Campus Dashboard",
         description: "Shows campus metrics.",
         hostingTarget: "Azure App Service",
+        databaseProvider: "postgresql",
+        entraLogin: true,
       },
       files: {
         "README.md": "# Campus Dashboard\n",

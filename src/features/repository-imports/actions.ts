@@ -10,6 +10,7 @@ import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { createSupportReference } from "@/lib/support-reference";
+import { IMPORTED_NEXT_RUNTIME, type ImportedAppRuntime } from "./compatibility";
 import { importRepositoryWithHistory } from "./import-repository";
 import { prepareImportedRepository } from "./prepare-repository";
 import { verifyImportedPublishReadiness } from "./publish-readiness";
@@ -290,6 +291,77 @@ function buildPublishingFileConflictFeedback(message: string) {
   return `${message} The portal will not overwrite existing publishing files directly. Open an Azure publishing PR to review the generated changes in Git, or resolve them manually and verify readiness here.`;
 }
 
+function buildImportedSubmittedConfig({
+  repositoryUrl,
+  description,
+  localOnlySource = false,
+}: {
+  repositoryUrl: string;
+  description: string;
+  localOnlySource?: boolean;
+}) {
+  return {
+    repositoryUrl,
+    description,
+    hostingTarget: "Azure App Service",
+    templateSlug: "imported-web-app",
+    importRuntime: IMPORTED_NEXT_RUNTIME,
+    databaseProvider: "postgresql",
+    entraLogin: true,
+    ...(localOnlySource ? { localOnlySource: true } : {}),
+  };
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function mergeDetectedImportedConfig({
+  submittedConfig,
+  runtime,
+  databaseProvider,
+  entraLogin,
+}: {
+  submittedConfig: unknown;
+  runtime: ImportedAppRuntime;
+  databaseProvider: "postgresql" | "none";
+  entraLogin: boolean;
+}) {
+  return {
+    ...(isJsonObject(submittedConfig) ? submittedConfig : {}),
+    templateSlug: "imported-web-app",
+    importRuntime: runtime,
+    databaseProvider,
+    entraLogin,
+  };
+}
+
+async function persistDetectedImportedConfig({
+  requestId,
+  submittedConfig,
+  runtime,
+  databaseProvider,
+  entraLogin,
+}: {
+  requestId: string;
+  submittedConfig: unknown;
+  runtime: ImportedAppRuntime;
+  databaseProvider: "postgresql" | "none";
+  entraLogin: boolean;
+}) {
+  await prisma.appRequest.update({
+    where: { id: requestId },
+    data: {
+      submittedConfig: mergeDetectedImportedConfig({
+        submittedConfig,
+        runtime,
+        databaseProvider,
+        entraLogin,
+      }),
+    },
+  });
+}
+
 function getFailedTargetRepository({
   error,
   fallback,
@@ -422,11 +494,10 @@ export async function addExistingAppAction(
         templateId: template.id,
         templateVersion: "1.0.0",
         appName: parsed.appName,
-        submittedConfig: {
+        submittedConfig: buildImportedSubmittedConfig({
           repositoryUrl: source.normalizedUrl,
           description: parsed.description ?? "",
-          hostingTarget: "Azure App Service",
-        },
+        }),
         generationStatus: "SUCCEEDED",
         supportReference,
         deploymentTarget: "Azure App Service",
@@ -530,12 +601,11 @@ export async function createManagedRepositoryForLocalAppAction(
         templateId: template.id,
         templateVersion: "1.0.0",
         appName: parsed.appName,
-        submittedConfig: {
-          description: parsed.description ?? "",
-          hostingTarget: "Azure App Service",
-          localOnlySource: true,
+        submittedConfig: buildImportedSubmittedConfig({
           repositoryUrl: repository.url,
-        },
+          description: parsed.description ?? "",
+          localOnlySource: true,
+        }),
         generationStatus: "SUCCEEDED",
         supportReference,
         deploymentTarget: "Azure App Service",
@@ -671,6 +741,13 @@ export async function prepareExistingAppAction(
         preparationErrorSummary: null,
       },
     });
+    await persistDetectedImportedConfig({
+      requestId,
+      submittedConfig: appRequest.submittedConfig,
+      runtime: result.runtime,
+      databaseProvider: result.databaseProvider,
+      entraLogin: result.entraLogin,
+    });
 
     await recordAuditEvent(
       result.status === "COMMITTED"
@@ -786,6 +863,10 @@ export async function verifyExistingAppPreparationAction(
     return;
   }
 
+  if (!readiness.runtime) {
+    throw new Error("Imported app readiness did not identify a runtime.");
+  }
+
   const verifiedImport = await prisma.repositoryImport.updateMany({
     where: {
       id: appRequest.repositoryImport.id,
@@ -802,6 +883,14 @@ export async function verifyExistingAppPreparationAction(
       "Imported app preparation is not awaiting PR merge verification.",
     );
   }
+
+  await persistDetectedImportedConfig({
+    requestId,
+    submittedConfig: appRequest.submittedConfig,
+    runtime: readiness.runtime,
+    databaseProvider: readiness.databaseProvider,
+    entraLogin: readiness.entraLogin,
+  });
 
   await recordAuditEvent("REPOSITORY_PREPARATION_VERIFIED", {
     requestId,

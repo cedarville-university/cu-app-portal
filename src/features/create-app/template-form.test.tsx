@@ -1,8 +1,8 @@
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TemplateForm } from "./template-form";
 import type { PortalTemplate } from "@/features/templates/types";
+import { TemplateForm } from "./template-form";
 
 const mockUseFormStatus = vi.hoisted(() => vi.fn());
 
@@ -19,24 +19,53 @@ vi.mock("@/app/create/actions", () => ({
   createAppAction: vi.fn(),
 }));
 
-const template: PortalTemplate = {
-  id: "web-app-v1",
-  slug: "web-app",
-  name: "Web App Starter",
-  description: "A Cedarville-styled web application starter.",
-  version: "1.0.0",
-  status: "ACTIVE",
-  fields: [
-    { name: "appName", label: "App Name", type: "text", required: true },
-    {
-      name: "hostingTarget",
-      label: "Hosting Target",
-      type: "select",
-      required: true,
-      options: ["Azure App Service"],
+function buildTemplate(overrides: Partial<PortalTemplate> = {}): PortalTemplate {
+  return {
+    id: "web-app-v1",
+    slug: "web-app",
+    name: "Next.js Web App",
+    description:
+      "A Cedarville-styled full-stack web application starter for Azure App Service.",
+    decisionSummary:
+      "Choose this when you need pages, forms, server-side logic, and Cedarville-styled UI in one project.",
+    bestFor: ["Staff-facing web apps", "Forms and dashboards"],
+    hostingTarget: "Azure App Service",
+    appServiceRuntime: {
+      family: "node",
+      framework: "nextjs",
+      displayName: "Node.js 24 / Next.js",
+      azureRuntimeStack: "NODE|24-lts",
+      startupCommand: "npm start",
+      workflowFileName: "deploy-azure-app-service.yml",
     },
-  ],
-};
+    features: {
+      database: {
+        mode: "optional",
+        providerOptions: ["postgresql"],
+        defaultProvider: "postgresql",
+      },
+      entraLogin: {
+        mode: "optional",
+        defaultEnabled: true,
+      },
+    },
+    version: "1.0.0",
+    status: "ACTIVE",
+    fields: [
+      { name: "appName", label: "App Name", type: "text", required: true },
+      {
+        name: "hostingTarget",
+        label: "Hosting Target",
+        type: "select",
+        required: true,
+        options: ["Azure App Service"],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+const template = buildTemplate();
 
 describe("TemplateForm", () => {
   beforeEach(() => {
@@ -77,5 +106,29 @@ describe("TemplateForm", () => {
     expect(
       screen.getByRole("button", { name: "Create and Publish" }),
     ).toHaveAttribute("value", "createAndPublish");
+  });
+
+  it("includes template feature choices in submitted form values", () => {
+    render(<TemplateForm template={template} />);
+
+    expect(screen.getByRole("group", { name: /database/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/postgresql/i)).toBeChecked();
+    expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/microsoft entra login/i)).toBeChecked();
+  });
+
+  it("submits explicit values when optional features are turned off", () => {
+    const { container } = render(<TemplateForm template={template} />);
+    const form = container.querySelector("form");
+
+    expect(form).not.toBeNull();
+
+    fireEvent.click(screen.getByLabelText(/no database/i));
+    fireEvent.click(screen.getByLabelText(/no login/i));
+
+    const formData = new FormData(form!);
+
+    expect(formData.get("databaseProvider")).toBe("none");
+    expect(formData.get("entraLogin")).toBe("false");
   });
 });

@@ -353,6 +353,17 @@ main {
   margin-bottom: 1rem;
 }
 
+.template-best-for {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin: 0 0 1rem;
+  padding-left: 1.125rem;
+}
+
+.template-best-for li {
+  margin-bottom: 0.125rem;
+}
+
 /* ─── Grid ─── */
 
 .grid {
@@ -547,6 +558,21 @@ main {
   color: var(--cu-navy);
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.choice-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  color: var(--text-dark);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.choice-row input {
+  accent-color: var(--cu-navy);
 }
 
 .form-control {

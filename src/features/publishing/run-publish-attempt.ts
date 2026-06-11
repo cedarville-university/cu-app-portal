@@ -17,7 +17,7 @@ export type ProvisionedPublishTarget = {
   azureAppServicePlan: string;
   azureWebAppName: string;
   azurePostgresServer: string;
-  azureDatabaseName: string;
+  azureDatabaseName: string | null;
   azureDefaultHostName: string;
   primaryPublishUrl: string;
 };

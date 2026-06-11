@@ -50,7 +50,7 @@ When a submitted repository is outside `GITHUB_DEFAULT_ORG`, the portal imports 
 
 If a user has built an app locally with Codex but has not created any GitHub repository yet, the portal can create the destination repository directly in `GITHUB_DEFAULT_ORG`. The resulting app details page gives Codex a handoff prompt and plain `git` commands to initialize the local folder if needed, add the managed repository as a `portal` remote, and push the current code. GitHub CLI (`gh`) is not required for this path.
 
-V1 supports root Node/Next apps that build with `npm run build` and run on Azure App Service Node 24. After import or scan, the portal prepares the repository for the supported Azure App Service publishing path.
+V1 supports root Next.js and Python FastAPI apps for Azure App Service publishing. After import or scan, the portal prepares the repository for the matching supported Azure App Service publishing path.
 
 ### Portal-Managed Azure Publishing
 
@@ -77,13 +77,15 @@ Current v1 design decisions:
 - Generated user apps share one Azure resource group: `rg-cu-apps-published`.
 - Generated user apps share one App Service Plan: `asp-cu-apps-published`.
 - Generated user apps share one PostgreSQL flexible server: `psql-cu-apps-published`.
-- Each published app gets its own Azure Web App and its own PostgreSQL database on the shared server.
-- `AZURE_PUBLISH_RUNTIME_STACK` is fixed to `NODE|24-lts` for the current `web-app` template runtime.
+- Each published app gets its own Azure Web App. When PostgreSQL is selected for that app, it also gets its own PostgreSQL database on the shared server.
+- `AZURE_PUBLISH_RUNTIME_STACK=NODE|24-lts` remains the current default for the legacy/imported Node publishing path.
+- Runtime-specific generated templates carry their App Service runtime stack in the generated deployment manifest. The portal-managed publisher uses that template runtime when creating the Web App.
+- Database and auth publishing are conditional based on the selected template features. Templates that do not select PostgreSQL skip per-app database setup, and templates that do not select Microsoft Entra login skip generated-app auth settings and redirect URI setup.
 
 Deletion behavior:
 
 - `My Apps` deletion is scoped. Users can delete the portal record and artifact, the managed GitHub repository, and the Azure deployment independently.
-- Azure deletion removes the selected app's Azure Web App and the selected app's PostgreSQL database on the shared server.
+- Azure deletion removes the selected app's Azure Web App and, if one was provisioned, the selected app's PostgreSQL database on the shared server.
 - Azure deletion never deletes the shared PostgreSQL flexible server.
 - If a user leaves GitHub or Azure unchecked while deleting the portal record, those resources must be deleted manually later because the portal record will no longer appear in `My Apps`.
 

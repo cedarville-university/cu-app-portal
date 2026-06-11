@@ -1,4 +1,6 @@
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
+import { getTemplateBySlug } from "@/features/templates/catalog";
+import type { AppServiceRuntime } from "@/features/templates/types";
 
 export type DeploymentManifestInput = Omit<
   CreateAppRequestInput,
@@ -11,9 +13,15 @@ export type DeploymentManifest = {
   schemaVersion: "1.0.0";
   templateSlug: string;
   runtime: {
-    family: "node";
-    framework: "nextjs";
-    nodeVersion: "24";
+    family: AppServiceRuntime["family"];
+    framework: AppServiceRuntime["framework"];
+    displayName: string;
+    azureRuntimeStack: string;
+    startupCommand: string;
+  };
+  auth?: {
+    provider: "microsoft-entra-id";
+    callbackPath: "/api/auth/callback/microsoft-entra-id";
   };
   hosting: {
     provider: "azure";
@@ -26,18 +34,20 @@ export type DeploymentManifest = {
     githubRepository: string;
     azure: {
       resourceModel: "shared-portal-managed";
-      runtimeStack: "NODE|24-lts";
+      runtimeStack: string;
+      startupCommand: string;
       shared: {
         resourceGroup: string;
         appServicePlan: string;
-        postgresServer: string;
+        postgresServer?: string;
       };
       perApp: {
         webAppNamePattern: string;
-        databaseNamePattern: string;
+        databaseNamePattern?: string;
         federatedCredentialNamePattern: string;
       };
-      database: {
+      database?: {
+        provider: "postgresql";
         adminUser: string;
         sslMode: "require";
       };
@@ -45,26 +55,22 @@ export type DeploymentManifest = {
   };
   environments: {
     development: {
-      databaseUrl: string;
+      databaseUrl?: string;
     };
     production: {
-      databaseUrlAppSetting: "DATABASE_URL";
-      authUrlAppSetting: "AUTH_URL";
-      nextauthUrlAppSetting: "NEXTAUTH_URL";
+      databaseUrlAppSetting?: "DATABASE_URL";
+      authUrlAppSetting?: "AUTH_URL";
+      nextauthUrlAppSetting?: "NEXTAUTH_URL";
     };
   };
-  applicationSettings: [
-    "DATABASE_URL",
-    "AUTH_URL",
-    "NEXTAUTH_URL",
-    "AUTH_SECRET",
-    "AUTH_MICROSOFT_ENTRA_ID_ID",
-    "AUTH_MICROSOFT_ENTRA_ID_SECRET",
-    "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
-  ];
+  applicationSettings: string[];
   automation: {
     skillPath: ".codex/skills/publish-to-azure/SKILL.md";
   };
+};
+
+export type DeploymentManifestOptions = {
+  runtime?: AppServiceRuntime;
 };
 
 function toSlug(value: string) {
@@ -83,18 +89,54 @@ function toDatabaseNameSegment(value: string) {
 
 export function buildDeploymentManifest(
   input: DeploymentManifestInput,
+  options: DeploymentManifestOptions = {},
 ): DeploymentManifest {
+  const template = getTemplateBySlug(input.templateSlug);
+
+  if (!template && !options.runtime) {
+    throw new Error(`Template "${input.templateSlug}" not found.`);
+  }
+
+  const runtime = options.runtime ?? template!.appServiceRuntime;
   const appSlug = toSlug(input.appName);
   const databaseNameSegment = toDatabaseNameSegment(appSlug);
+  const hasDatabase = input.databaseProvider === "postgresql";
+  const hasEntraLogin = input.entraLogin;
+  const applicationSettings = ["NODE_ENV"];
+
+  if (hasDatabase) {
+    applicationSettings.push("DATABASE_URL");
+  }
+
+  if (hasEntraLogin) {
+    applicationSettings.push(
+      "AUTH_URL",
+      "NEXTAUTH_URL",
+      "AUTH_SECRET",
+      "AUTH_MICROSOFT_ENTRA_ID_ID",
+      "AUTH_MICROSOFT_ENTRA_ID_SECRET",
+      "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
+    );
+  }
 
   return {
     schemaVersion: "1.0.0",
     templateSlug: input.templateSlug,
     runtime: {
-      family: "node",
-      framework: "nextjs",
-      nodeVersion: "24",
+      family: runtime.family,
+      framework: runtime.framework,
+      displayName: runtime.displayName,
+      azureRuntimeStack: runtime.azureRuntimeStack,
+      startupCommand: runtime.startupCommand,
     },
+    ...(hasEntraLogin
+      ? {
+          auth: {
+            provider: "microsoft-entra-id",
+            callbackPath: "/api/auth/callback/microsoft-entra-id",
+          },
+        }
+      : {}),
     hosting: {
       provider: "azure",
       service: "app-service",
@@ -106,42 +148,60 @@ export function buildDeploymentManifest(
       githubRepository: appSlug,
       azure: {
         resourceModel: "shared-portal-managed",
-        runtimeStack: "NODE|24-lts",
+        runtimeStack: runtime.azureRuntimeStack,
+        startupCommand: runtime.startupCommand,
         shared: {
           resourceGroup: "rg-cu-apps-published",
           appServicePlan: "asp-cu-apps-published",
-          postgresServer: "psql-cu-apps-published",
+          ...(hasDatabase
+            ? {
+                postgresServer: "psql-cu-apps-published",
+              }
+            : {}),
         },
         perApp: {
           webAppNamePattern: `app-${appSlug}-<short-request-id>`,
-          databaseNamePattern: `db_${databaseNameSegment}_<short_request_id>`,
           federatedCredentialNamePattern: `github-${appSlug}-<short-request-id>`,
+          ...(hasDatabase
+            ? {
+                databaseNamePattern: `db_${databaseNameSegment}_<short_request_id>`,
+              }
+            : {}),
         },
-        database: {
-          adminUser: "portaladmin",
-          sslMode: "require",
-        },
+        ...(hasDatabase
+          ? {
+              database: {
+                provider: "postgresql",
+                adminUser: "portaladmin",
+                sslMode: "require",
+              },
+            }
+          : {}),
       },
     },
     environments: {
       development: {
-        databaseUrl: `postgresql://portal:portal@localhost:5432/${appSlug}?schema=public`,
+        ...(hasDatabase
+          ? {
+              databaseUrl: `postgresql://portal:portal@localhost:5432/${appSlug}?schema=public`,
+            }
+          : {}),
       },
       production: {
-        databaseUrlAppSetting: "DATABASE_URL",
-        authUrlAppSetting: "AUTH_URL",
-        nextauthUrlAppSetting: "NEXTAUTH_URL",
+        ...(hasDatabase
+          ? {
+              databaseUrlAppSetting: "DATABASE_URL",
+            }
+          : {}),
+        ...(hasEntraLogin
+          ? {
+              authUrlAppSetting: "AUTH_URL",
+              nextauthUrlAppSetting: "NEXTAUTH_URL",
+            }
+          : {}),
       },
     },
-    applicationSettings: [
-      "DATABASE_URL",
-      "AUTH_URL",
-      "NEXTAUTH_URL",
-      "AUTH_SECRET",
-      "AUTH_MICROSOFT_ENTRA_ID_ID",
-      "AUTH_MICROSOFT_ENTRA_ID_SECRET",
-      "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
-    ],
+    applicationSettings,
     automation: {
       skillPath: ".codex/skills/publish-to-azure/SKILL.md",
     },

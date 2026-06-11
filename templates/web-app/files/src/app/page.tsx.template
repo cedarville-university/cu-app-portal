@@ -1,26 +1,4 @@
-import { auth, signIn, signOut } from "@/auth";
-import { getAppDataStatus } from "@/lib/app-data";
-
-async function signInAction() {
-  "use server";
-
-  await signIn("microsoft-entra-id");
-}
-
-async function signOutAction() {
-  "use server";
-
-  await signOut();
-}
-
 export default async function HomePage() {
-  const [session, dataStatus] = await Promise.all([
-    auth(),
-    getAppDataStatus(),
-  ]);
-  const userName =
-    session?.user?.name ?? session?.user?.email ?? "Cedarville user";
-
   return (
     <main className="app-shell">
       <section className="hero">
@@ -32,26 +10,9 @@ export default async function HomePage() {
 
       <section className="status-panel" aria-label="Application status">
         <div>
-          <p className="panel-label">Authentication</p>
-          {session?.user ? (
-            <p className="panel-value">Signed in as {userName}</p>
-          ) : (
-            <p className="panel-value">Ready for Cedarville Entra sign-in</p>
-          )}
+          <p className="panel-label">Starter status</p>
+          <p className="panel-value">Ready to customize</p>
         </div>
-        <div>
-          <p className="panel-label">{dataStatus.label}</p>
-          <p className="panel-value">{dataStatus.value}</p>
-        </div>
-        {session?.user ? (
-          <form action={signOutAction}>
-            <button type="submit">Sign out</button>
-          </form>
-        ) : (
-          <form action={signInAction}>
-            <button type="submit">Sign in with Cedarville</button>
-          </form>
-        )}
       </section>
     </main>
   );

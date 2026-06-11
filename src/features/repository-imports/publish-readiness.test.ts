@@ -15,6 +15,20 @@ const readyPackageJson = JSON.stringify({
   },
 });
 
+const fastApiRuntime = {
+  family: "python",
+  framework: "fastapi",
+  displayName: "Python 3.14 / FastAPI",
+  azureRuntimeStack: "PYTHON|3.14",
+  startupCommand: "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+  workflowFileName: "deploy-azure-app-service.yml",
+};
+
+const fastApiManifest = JSON.stringify({
+  templateSlug: "imported-web-app",
+  runtime: fastApiRuntime,
+});
+
 describe("verifyImportedPublishReadiness", () => {
   it("reads package.json and publishing bundle paths from the default branch", async () => {
     const github = {
@@ -37,6 +51,16 @@ describe("verifyImportedPublishReadiness", () => {
       ready: true,
       missingPaths: [],
       packageIssues: [],
+      runtime: {
+        family: "node",
+        framework: "nextjs",
+        displayName: "Node.js 24 / Next.js",
+        azureRuntimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
+        workflowFileName: "deploy-azure-app-service.yml",
+      },
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
 
     expect(github.readRepositoryTextFiles).toHaveBeenCalledWith({
@@ -54,8 +78,53 @@ describe("verifyImportedPublishReadiness", () => {
         "turbo.json",
         "lerna.json",
         "nx.json",
+        "requirements.txt",
+        "pyproject.toml",
+        "main.py",
+        "app.py",
         ...PUBLISHING_BUNDLE_PATHS,
       ],
+    });
+  });
+
+  it("verifies FastAPI publishing readiness without package.json", async () => {
+    const github = {
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({
+        "requirements.txt": [
+          "fastapi==0.115.0",
+          "uvicorn==0.32.0",
+          "gunicorn==23.0.0",
+        ].join("\n"),
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+        ...Object.fromEntries(
+          PUBLISHING_BUNDLE_PATHS.map((path) => [
+            path,
+            path === "app-portal/deployment-manifest.json"
+              ? fastApiManifest
+              : "content",
+          ]),
+        ),
+      }),
+    };
+
+    await expect(
+      verifyImportedPublishReadiness({
+        owner: "cedarville-it",
+        name: "reports-api",
+        defaultBranch: "main",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      ready: true,
+      missingPaths: [],
+      packageIssues: [],
+      runtime: {
+        family: "python",
+        framework: "fastapi",
+        azureRuntimeStack: "PYTHON|3.14",
+      },
+      databaseProvider: "none",
+      entraLogin: false,
     });
   });
 
@@ -84,14 +153,29 @@ describe("verifyImportedPublishReadiness", () => {
       ready: false,
       missingPaths: [firstBundlePath, secondBundlePath],
       packageIssues: [],
+      runtime: {
+        family: "node",
+        framework: "nextjs",
+        displayName: "Node.js 24 / Next.js",
+        azureRuntimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
+        workflowFileName: "deploy-azure-app-service.yml",
+      },
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
   });
 
-  it("reports missing package.json even when publishing bundle paths exist", async () => {
+  it("returns manifest runtime fallback when source runtime cannot be detected", async () => {
     const github = {
       readRepositoryTextFiles: vi.fn().mockResolvedValue({
         ...Object.fromEntries(
-          PUBLISHING_BUNDLE_PATHS.map((path) => [path, "content"]),
+          PUBLISHING_BUNDLE_PATHS.map((path) => [
+            path,
+            path === "app-portal/deployment-manifest.json"
+              ? fastApiManifest
+              : "content",
+          ]),
         ),
       }),
     };
@@ -105,10 +189,13 @@ describe("verifyImportedPublishReadiness", () => {
       }),
     ).resolves.toEqual({
       ready: false,
-      missingPaths: ["package.json"],
+      missingPaths: [],
       packageIssues: [
-        "package.json: A root package.json is required for v1 Azure publishing.",
+        "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
       ],
+      runtime: fastApiRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
     });
   });
 
@@ -139,6 +226,16 @@ describe("verifyImportedPublishReadiness", () => {
         'package.json is missing a start script; the portal can add "next start".',
         'package.json is missing engines.node; the portal can add ">=24".',
       ],
+      runtime: {
+        family: "node",
+        framework: "nextjs",
+        displayName: "Node.js 24 / Next.js",
+        azureRuntimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
+        workflowFileName: "deploy-azure-app-service.yml",
+      },
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
   });
 });

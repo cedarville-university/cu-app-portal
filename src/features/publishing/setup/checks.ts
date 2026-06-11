@@ -34,7 +34,10 @@ const SAFE_METADATA_KEYS = new Set([
 type PersistPublishingSetupChecksInput = {
   prisma?: {
     $transaction(operations: Promise<unknown>[]): Promise<unknown>;
-    publishSetupCheck: typeof prisma.publishSetupCheck;
+    publishSetupCheck: Pick<
+      typeof prisma.publishSetupCheck,
+      "deleteMany" | "upsert"
+    >;
   };
   appRequestId: string;
   checks: PublishingSetupCheckResult[];
@@ -111,8 +114,18 @@ export async function persistPublishingSetupChecks({
   checkedAt,
   additionalOperations = [],
 }: PersistPublishingSetupChecksInput) {
+  const currentCheckKeys = checks.map((check) => check.checkKey);
+
   await prismaClient.$transaction(
     [
+      prismaClient.publishSetupCheck.deleteMany({
+        where: {
+          appRequestId,
+          checkKey: {
+            notIn: currentCheckKeys,
+          },
+        },
+      }),
       ...checks.map((check) => {
         const metadata = sanitizeMetadata(check.metadata);
 

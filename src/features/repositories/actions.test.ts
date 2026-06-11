@@ -108,6 +108,8 @@ describe("retryRepositoryBootstrapAction", () => {
       appName: "Campus Dashboard",
       description: "Shows campus metrics.",
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
     expect(bootstrapManagedRepository).toHaveBeenCalledWith({
       appRequestId: "req_123",
@@ -116,6 +118,8 @@ describe("retryRepositoryBootstrapAction", () => {
         appName: "Campus Dashboard",
         description: "Shows campus metrics.",
         hostingTarget: "Azure App Service",
+        databaseProvider: "postgresql",
+        entraLogin: true,
       },
       files: {
         "README.md": "# Campus Dashboard\n",

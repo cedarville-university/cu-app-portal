@@ -8,6 +8,8 @@ const input = {
   appName: "Campus Hub",
   description: "Student services portal",
   hostingTarget: "Azure App Service",
+  databaseProvider: "postgresql",
+  entraLogin: true,
 } satisfies CreateAppRequestInput;
 
 const vercelInput = {
@@ -15,6 +17,8 @@ const vercelInput = {
   appName: "Campus Hub",
   description: "Student services portal",
   hostingTarget: "Vercel",
+  databaseProvider: "none",
+  entraLogin: false,
 } satisfies CreateAppRequestInput;
 
 describe("buildPublishingFiles", () => {
@@ -39,6 +43,12 @@ describe("buildPublishingFiles", () => {
     );
     expect(files["docs/publishing/azure-app-service.md"]).toContain(
       "Azure Database for PostgreSQL",
+    );
+    expect(files["docs/publishing/azure-app-service.md"]).toContain(
+      "This app is configured for a portal-managed PostgreSQL database.",
+    );
+    expect(files["docs/publishing/azure-app-service.md"]).toContain(
+      "This app is configured for Microsoft Entra login.",
     );
     expect(files["docs/publishing/azure-app-service.md"]).toContain(
       "dispatch the first GitHub Actions workflow run",
@@ -72,6 +82,12 @@ describe("buildPublishingFiles", () => {
     expect(files["docs/publishing/azure-app-service.md"]).not.toContain(
       "selected hosting target is Azure App Service",
     );
+    expect(files["docs/publishing/azure-app-service.md"]).toContain(
+      "This app was generated without a database.",
+    );
+    expect(files["docs/publishing/azure-app-service.md"]).toContain(
+      "This app was generated without built-in login.",
+    );
   });
 });
 
@@ -97,6 +113,12 @@ describe("buildInstructionFiles", () => {
     expect(files["docs/deployment-guide.md"]).toContain(
       "docs/publishing/lessons-learned.md",
     );
+    expect(files["docs/deployment-guide.md"]).toContain(
+      "This app is configured for a portal-managed PostgreSQL database.",
+    );
+    expect(files["docs/deployment-guide.md"]).toContain(
+      "This app is configured for Microsoft Entra login.",
+    );
   });
 
   it("keeps the instruction docs truthful for a non-Azure hosting target", () => {
@@ -113,6 +135,12 @@ describe("buildInstructionFiles", () => {
     );
     expect(files["docs/deployment-guide.md"]).toContain(
       "recommended GitHub + Azure App Service publishing path",
+    );
+    expect(files["docs/deployment-guide.md"]).toContain(
+      "This app was generated without a database.",
+    );
+    expect(files["docs/deployment-guide.md"]).toContain(
+      "This app was generated without built-in login.",
     );
   });
 });

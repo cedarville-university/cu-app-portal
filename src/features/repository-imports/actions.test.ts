@@ -12,7 +12,11 @@ import {
   prepareExistingAppAction,
   verifyExistingAppPreparationAction,
 } from "./actions";
-import { PUBLISHING_BUNDLE_PATHS } from "./compatibility";
+import {
+  IMPORTED_NEXT_RUNTIME,
+  PUBLISHING_BUNDLE_PATHS,
+  type ImportedAppRuntime,
+} from "./compatibility";
 import { importRepositoryWithHistory } from "./import-repository";
 import { prepareImportedRepository } from "./prepare-repository";
 
@@ -28,6 +32,25 @@ const readyPackageJson = JSON.stringify({
     node: ">=24",
   },
 });
+
+const fastApiRuntime = {
+  family: "python",
+  framework: "fastapi",
+  displayName: "Python 3.14 / FastAPI",
+  azureRuntimeStack: "PYTHON|3.14",
+  startupCommand:
+    "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+  workflowFileName: "deploy-azure-app-service.yml",
+} satisfies ImportedAppRuntime;
+
+const fastApiReadyFiles = {
+  "requirements.txt":
+    "fastapi==0.115.0\nuvicorn[standard]==0.30.0\ngunicorn==23.0.0\n",
+  "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+  ...Object.fromEntries(
+    PUBLISHING_BUNDLE_PATHS.map((path) => [path, "content"]),
+  ),
+};
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -172,6 +195,19 @@ describe("repository import actions", () => {
         repositoryStatus: "READY",
         repositoryOwner: "cedarville-it",
         repositoryName: "campus-dashboard",
+        submittedConfig: expect.objectContaining({
+          repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+          description: "Existing dashboard.",
+          hostingTarget: "Azure App Service",
+          templateSlug: "imported-web-app",
+          databaseProvider: "postgresql",
+          entraLogin: true,
+          importRuntime: expect.objectContaining({
+            family: "node",
+            framework: "nextjs",
+            azureRuntimeStack: "NODE|24-lts",
+          }),
+        }),
       }),
     });
     expect(prisma.repositoryImport.create).toHaveBeenCalledWith({
@@ -237,8 +273,17 @@ describe("repository import actions", () => {
         userId: "user-123",
         appName: "Campus Dashboard",
         submittedConfig: expect.objectContaining({
+          repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
           description: "Built locally with Codex.",
           hostingTarget: "Azure App Service",
+          templateSlug: "imported-web-app",
+          databaseProvider: "postgresql",
+          entraLogin: true,
+          importRuntime: expect.objectContaining({
+            family: "node",
+            framework: "nextjs",
+            azureRuntimeStack: "NODE|24-lts",
+          }),
           localOnlySource: true,
         }),
         sourceOfTruth: "IMPORTED_REPOSITORY",
@@ -815,6 +860,9 @@ describe("repository import actions", () => {
       status: "COMMITTED",
       commitSha: "commit-sha",
       pullRequestUrl: null,
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
 
     const formData = new FormData();
@@ -862,6 +910,70 @@ describe("repository import actions", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_123");
   });
 
+  it("persists detected FastAPI config before direct-commit preflight", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_fastapi_prepare",
+      userId: "user-123",
+      appName: "Reports API",
+      submittedConfig: {
+        repositoryUrl: "https://github.com/cedarville-it/reports-api",
+        description: "Existing API.",
+        customField: "preserved",
+      },
+      repositoryOwner: "cedarville-it",
+      repositoryName: "reports-api",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_fastapi_prepare",
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: fastApiRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+
+    const formData = new FormData();
+    formData.set("preparationMode", "DIRECT_COMMIT");
+
+    await prepareExistingAppAction("req_fastapi_prepare", formData, {
+      github: {
+        getBranchHead: vi.fn(),
+        readRepositoryTextFiles: vi.fn(),
+        commitFiles: vi.fn(),
+        createPullRequestWithFiles: vi.fn(),
+      },
+    });
+
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_fastapi_prepare" },
+      data: {
+        submittedConfig: {
+          repositoryUrl: "https://github.com/cedarville-it/reports-api",
+          description: "Existing API.",
+          customField: "preserved",
+          templateSlug: "imported-web-app",
+          importRuntime: fastApiRuntime,
+          databaseProvider: "none",
+          entraLogin: false,
+        },
+      },
+    });
+    expect(
+      vi.mocked(prisma.appRequest.update).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(preflightPublishingSetup).mock.invocationCallOrder[0],
+    );
+    expect(preflightPublishingSetup).toHaveBeenCalledWith(
+      "req_fastapi_prepare",
+    );
+  });
+
   it("retries a failed imported app preparation", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
@@ -882,6 +994,9 @@ describe("repository import actions", () => {
       status: "PULL_REQUEST_OPENED",
       commitSha: "commit-sha",
       pullRequestUrl: "https://github.com/cedarville-it/campus-dashboard/pull/7",
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
 
     const formData = new FormData();
@@ -952,6 +1067,9 @@ describe("repository import actions", () => {
       status: "COMMITTED",
       commitSha: "commit-sha",
       pullRequestUrl: null,
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
     vi.mocked(preflightPublishingSetup).mockRejectedValue(
       new Error("Azure app settings are missing."),
@@ -1065,6 +1183,9 @@ describe("repository import actions", () => {
       status: "PULL_REQUEST_OPENED",
       commitSha: "commit-sha",
       pullRequestUrl: "https://github.com/cedarville-it/campus-dashboard/pull/8",
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
 
     const formData = new FormData();
@@ -1326,6 +1447,9 @@ describe("repository import actions", () => {
       status: "PULL_REQUEST_OPENED",
       commitSha: "commit-sha",
       pullRequestUrl: "https://github.com/Cedarville-IT/campus-dashboard/pull/1",
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
 
     const formData = new FormData();
@@ -1385,6 +1509,10 @@ describe("repository import actions", () => {
         "turbo.json",
         "lerna.json",
         "nx.json",
+        "requirements.txt",
+        "pyproject.toml",
+        "main.py",
+        "app.py",
         ...PUBLISHING_BUNDLE_PATHS,
       ],
     });
@@ -1408,6 +1536,64 @@ describe("repository import actions", () => {
     expect(preflightPublishingSetup).toHaveBeenCalledWith("req_verify");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_verify");
+  });
+
+  it("persists verified FastAPI config before PR-verification preflight", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_verify_fastapi",
+      userId: "user-123",
+      submittedConfig: {
+        repositoryUrl: "https://github.com/cedarville-it/reports-api",
+        description: "Existing API.",
+        customField: "preserved",
+      },
+      repositoryOwner: "cedarville-it",
+      repositoryName: "reports-api",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_verify_fastapi",
+        preparationStatus: "PULL_REQUEST_OPENED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    const github = {
+      readRepositoryTextFiles: vi.fn().mockResolvedValue(fastApiReadyFiles),
+    };
+
+    await verifyExistingAppPreparationAction("req_verify_fastapi", { github });
+
+    expect(prisma.repositoryImport.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "import_verify_fastapi",
+        preparationStatus: "PULL_REQUEST_OPENED",
+      },
+      data: {
+        preparationStatus: "COMMITTED",
+        preparationErrorSummary: null,
+      },
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_verify_fastapi" },
+      data: {
+        submittedConfig: {
+          repositoryUrl: "https://github.com/cedarville-it/reports-api",
+          description: "Existing API.",
+          customField: "preserved",
+          templateSlug: "imported-web-app",
+          importRuntime: fastApiRuntime,
+          databaseProvider: "none",
+          entraLogin: false,
+        },
+      },
+    });
+    expect(
+      vi.mocked(prisma.appRequest.update).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(preflightPublishingSetup).mock.invocationCallOrder[0],
+    );
+    expect(preflightPublishingSetup).toHaveBeenCalledWith(
+      "req_verify_fastapi",
+    );
   });
 
   it("marks publishing setup as needing repair when verification preflight fails", async () => {

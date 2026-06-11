@@ -24,6 +24,52 @@ const appRequest = {
   template: { slug: "imported-web-app" },
 };
 
+const noFeatureAppRequest = {
+  ...appRequest,
+  template: { slug: "web-app" },
+  submittedConfig: {
+    templateSlug: "web-app",
+    appName: "Campus Dashboard",
+    description: "Campus metrics",
+    hostingTarget: "Azure App Service",
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
+const fastApiAppRequest = {
+  ...appRequest,
+  appName: "Campus API",
+  template: { slug: "python-fastapi" },
+  submittedConfig: {
+    templateSlug: "python-fastapi",
+    appName: "Campus API",
+    description: "Campus API service",
+    hostingTarget: "Azure App Service",
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
+const importedFastApiAppRequest = {
+  ...appRequest,
+  appName: "Campus API",
+  submittedConfig: {
+    templateSlug: "imported-web-app",
+    importRuntime: {
+      family: "python",
+      framework: "fastapi",
+      displayName: "Python 3.14 / FastAPI",
+      azureRuntimeStack: "PYTHON|3.14",
+      startupCommand:
+        "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      workflowFileName: "deploy-azure-app-service.yml",
+    },
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction: vi.fn((operations) => Promise.all(operations)),
@@ -33,6 +79,7 @@ vi.mock("@/lib/db", () => ({
     },
     publishSetupCheck: {
       upsert: vi.fn(),
+      deleteMany: vi.fn(),
     },
   },
 }));
@@ -124,6 +171,10 @@ describe("publishing setup service", () => {
     vi.mocked(prisma.publishSetupCheck.upsert).mockResolvedValue(
       {} as Awaited<ReturnType<typeof prisma.publishSetupCheck.upsert>>,
     );
+    vi.mocked(prisma.publishSetupCheck.deleteMany).mockReset();
+    vi.mocked(prisma.publishSetupCheck.deleteMany).mockResolvedValue({
+      count: 0,
+    } as Awaited<ReturnType<typeof prisma.publishSetupCheck.deleteMany>>);
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
       appRequest as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
     );
@@ -213,6 +264,125 @@ describe("publishing setup service", () => {
           "Required Azure App Service settings are missing.",
       }),
     });
+  });
+
+  it("skips database and Entra setup checks when features are disabled", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            NODE_ENV: "production",
+            SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+            ENABLE_ORYX_BUILD: "false",
+            WEBSITE_RUN_FROM_PACKAGE: "1",
+          },
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      noFeatureAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.graph.hasRedirectUri).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.deleteMany).toHaveBeenCalledWith({
+      where: {
+        appRequestId: "req_123",
+        checkKey: {
+          notIn: expect.not.arrayContaining(["entra_redirect_uri"]),
+        },
+      },
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
+      }),
+    });
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "entra_redirect_uri",
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_resource_access",
+          metadata: expect.not.objectContaining({
+            databaseName: expect.any(String),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("preflights imported FastAPI setup without database or Entra checks", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            NODE_ENV: "production",
+            SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+            ENABLE_ORYX_BUILD: "false",
+            WEBSITE_RUN_FROM_PACKAGE: "1",
+          },
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      importedFastApiAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.graph.hasRedirectUri).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_resource_access",
+          metadata: expect.not.objectContaining({
+            databaseName: expect.any(String),
+          }),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_app_settings",
+          status: "PASS",
+          metadata: expect.objectContaining({
+            settingNames: [
+              "NODE_ENV",
+              "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "ENABLE_ORYX_BUILD",
+              "WEBSITE_RUN_FROM_PACKAGE",
+            ],
+          }),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "entra_redirect_uri",
+        }),
+      }),
+    );
   });
 
   it("marks setup needs repair when a public Azure app setting is stale", async () => {
@@ -424,12 +594,164 @@ describe("publishing setup service", () => {
         branch: "main",
       }),
     );
+    expect(deps.arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
+      }),
+    );
     expect("dispatchWorkflow" in deps.github).toBe(false);
     expect(prisma.appRequest.update).toHaveBeenLastCalledWith({
       where: { id: "req_123" },
       data: expect.objectContaining({
         publishingSetupStatus: "READY",
         publishingSetupErrorSummary: null,
+      }),
+    });
+  });
+
+  it("uses the template runtime when repairing a FastAPI app", async () => {
+    const deps = createDeps();
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      fastApiAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    );
+  });
+
+  it("uses imported FastAPI runtime and skips database/auth repair", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            DATABASE_URL: "postgresql://stale",
+            AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+            NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+            AUTH_SECRET: "custom-auth-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
+            AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+              "https://login.microsoftonline.com/custom/v2.0",
+            EXISTING_CUSTOM_SETTING: "keep-me",
+          },
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      importedFastApiAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(deps.arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    );
+    expect(deps.graph.ensureRedirectUri).not.toHaveBeenCalled();
+    expect(deps.arm.putAppSettings).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      name: "app-campus-api-req123",
+      settings: {
+        EXISTING_CUSTOM_SETTING: "keep-me",
+        NODE_ENV: "production",
+        SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+        ENABLE_ORYX_BUILD: "false",
+        WEBSITE_RUN_FROM_PACKAGE: "1",
+      },
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        azureDatabaseName: null,
+      }),
+    });
+  });
+
+  it("fails safely when a generated app template is missing during preflight", async () => {
+    const deps = createDeps();
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      {
+        ...appRequest,
+        template: { slug: "renamed-generated-template" },
+      } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
+    );
+
+    await expect(preflightPublishingSetup("req_123", deps)).rejects.toThrow(
+      'Template "renamed-generated-template" is not configured for publishing setup.',
+    );
+
+    expect(deps.arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(deps.arm.putWebApp).not.toHaveBeenCalled();
+    expect(deps.arm.putAppSettings).not.toHaveBeenCalled();
+    expect(deps.graph.ensureRedirectUri).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalled();
+  });
+
+  it("repairs setup without database or Entra resources when features are disabled", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            DATABASE_URL: "postgresql://stale",
+            AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+            NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+            AUTH_SECRET: "custom-auth-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
+            AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+              "https://login.microsoftonline.com/custom/v2.0",
+            EXISTING_CUSTOM_SETTING: "keep-me",
+          },
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      noFeatureAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(deps.graph.ensureRedirectUri).not.toHaveBeenCalled();
+    expect(deps.arm.putAppSettings).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      name: "app-campus-dashboard-req123",
+      settings: {
+        EXISTING_CUSTOM_SETTING: "keep-me",
+        NODE_ENV: "production",
+        SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+        ENABLE_ORYX_BUILD: "false",
+        WEBSITE_RUN_FROM_PACKAGE: "1",
+      },
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        azureDatabaseName: null,
       }),
     });
   });

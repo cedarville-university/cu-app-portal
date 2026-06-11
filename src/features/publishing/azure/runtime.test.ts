@@ -38,6 +38,42 @@ const readyAppRequest = {
   primaryPublishUrl: null,
 };
 
+const readyNoFeatureRequest = {
+  ...readyAppRequest,
+  submittedConfig: {
+    templateSlug: "web-app",
+    appName: "Campus Dashboard",
+    description: "Campus metrics",
+    hostingTarget: "Azure App Service",
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
+const readyImportedAppRequest = {
+  ...readyAppRequest,
+  template: { slug: "imported-web-app" },
+};
+
+const readyImportedFastApiAppRequest = {
+  ...readyImportedAppRequest,
+  appName: "Campus API",
+  submittedConfig: {
+    templateSlug: "imported-web-app",
+    importRuntime: {
+      family: "python",
+      framework: "fastapi",
+      displayName: "Python 3.14 / FastAPI",
+      azureRuntimeStack: "PYTHON|3.14",
+      startupCommand:
+        "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      workflowFileName: "deploy-azure-app-service.yml",
+    },
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
 function emptyWorkflowRunsError() {
   return new Error(
     "No GitHub workflow runs found for cedarville-it/campus-dashboard deploy-azure-app-service.yml.",
@@ -191,6 +227,136 @@ describe("createAzurePublishRuntime", () => {
       githubWorkflowRunId: "123",
       githubWorkflowRunUrl: "https://github.com/org/repo/actions/runs/123",
     });
+  });
+
+  it("skips optional database and Entra resources when disabled in submitted config", async () => {
+    const { deps, arm, graph } = createDeps({
+      appRequest: readyNoFeatureRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    const target = await runtime.provisionInfrastructure(
+      "clx9abc123zzzzzzzzzz",
+    );
+
+    expect(target).toEqual(
+      expect.objectContaining({
+        azureDatabaseName: null,
+        primaryPublishUrl:
+          "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
+      }),
+    );
+    expect(arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.not.objectContaining({
+          DATABASE_URL: expect.any(String),
+          AUTH_MICROSOFT_ENTRA_ID_ID: expect.any(String),
+        }),
+      }),
+    );
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
+  });
+
+  it("uses the selected template runtime when provisioning the web app", async () => {
+    const { deps, arm } = createDeps({
+      appRequest: {
+        ...readyNoFeatureRequest,
+        appName: "Campus API",
+        template: { slug: "python-fastapi" },
+        submittedConfig: {
+          ...readyNoFeatureRequest.submittedConfig,
+          templateSlug: "python-fastapi",
+          appName: "Campus API",
+        },
+      },
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz");
+
+    expect(arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    );
+  });
+
+  it("uses the legacy runtime fallback when provisioning an imported app", async () => {
+    const { deps, arm } = createDeps({
+      appRequest: readyImportedAppRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await expect(
+      runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz"),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        azureDatabaseName: "db_campus_dashboard_clx9abc1",
+        primaryPublishUrl:
+          "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
+      }),
+    );
+    expect(arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
+      }),
+    );
+    expect(arm.putPostgresDatabase).toHaveBeenCalled();
+  });
+
+  it("uses imported FastAPI runtime and skips database/auth provisioning", async () => {
+    const { deps, arm, graph } = createDeps({
+      appRequest: readyImportedFastApiAppRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    const target = await runtime.provisionInfrastructure(
+      "clx9abc123zzzzzzzzzz",
+    );
+
+    expect(target.azureDatabaseName).toBeNull();
+    expect(arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    );
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.not.objectContaining({
+          DATABASE_URL: expect.any(String),
+          AUTH_MICROSOFT_ENTRA_ID_ID: expect.any(String),
+        }),
+      }),
+    );
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
+  });
+
+  it("fails safely when a generated app template is missing from the catalog", async () => {
+    const { deps, arm, graph } = createDeps({
+      appRequest: {
+        ...readyAppRequest,
+        template: { slug: "renamed-generated-template" },
+      },
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await expect(
+      runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz"),
+    ).rejects.toThrow(
+      'Template "renamed-generated-template" is not configured for Azure publishing.',
+    );
+
+    expect(arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(arm.putWebApp).not.toHaveBeenCalled();
+    expect(arm.putAppSettings).not.toHaveBeenCalled();
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
   });
 
   it("requires a ready repository status before provisioning or deploying", async () => {

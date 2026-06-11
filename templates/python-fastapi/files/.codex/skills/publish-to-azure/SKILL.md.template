@@ -1,0 +1,5 @@
+# Publish FastAPI To Azure App Service
+
+Use the portal-managed publishing flow first. This generated repository includes `app-portal/deployment-manifest.json`, which describes the Azure App Service runtime, startup command, and selected database/auth options.
+
+When changing deployment behavior, keep the GitHub Actions workflow and deployment manifest aligned.

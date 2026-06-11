@@ -7,6 +7,11 @@ import type {
   PublishRuntime,
   VerificationResult,
 } from "../run-publish-attempt";
+import { getTemplateBySlug } from "@/features/templates/catalog";
+import type {
+  DatabaseProvider,
+  PortalTemplate,
+} from "@/features/templates/types";
 import type { AzurePublishConfig } from "./config";
 import { buildPublishResourceTags, buildPublishTargetNames } from "./naming";
 import { verifyPublishedUrl as defaultVerifyPublishedUrl } from "./verify-deployment";
@@ -27,7 +32,7 @@ type RuntimeDeps = {
       name: string;
       location: string;
       appServicePlanId: string;
-      runtimeStack: "NODE|24-lts";
+      runtimeStack: string;
       startupCommand: string;
       tags: Record<string, string>;
     }): Promise<{ properties?: { defaultHostName?: string } }>;
@@ -102,11 +107,13 @@ type PublishableAppRequest = {
     email: string;
   };
   template: { slug: string };
+  submittedConfig: unknown;
 };
 
 const WORKFLOW_FILE_NAME = "deploy-azure-app-service.yml";
 const STARTUP_COMMAND = "npm start";
 const ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
+const IMPORTED_WEB_APP_TEMPLATE_SLUG = "imported-web-app";
 const DEFAULT_WORKFLOW_RUN_POLL_ATTEMPTS = 5;
 const DEFAULT_WORKFLOW_RUN_POLL_INTERVAL_MS = 1000;
 const DEFAULT_WORKFLOW_COMPLETION_POLL_ATTEMPTS = 30;
@@ -146,7 +153,119 @@ async function loadPublishableRequest(
       email: appRequest.user.email,
     },
     template: { slug: appRequest.template.slug },
+    submittedConfig: appRequest.submittedConfig,
   };
+}
+
+function resolvePublishTemplate(
+  appRequest: PublishableAppRequest,
+): PortalTemplate | null {
+  return getTemplateBySlug(appRequest.template.slug);
+}
+
+function isImportedAppRequest(appRequest: PublishableAppRequest) {
+  return appRequest.template.slug === IMPORTED_WEB_APP_TEMPLATE_SLUG;
+}
+
+function requirePublishTemplate(
+  appRequest: PublishableAppRequest,
+): PortalTemplate {
+  const template = resolvePublishTemplate(appRequest);
+
+  if (template) {
+    return template;
+  }
+
+  throw new Error(
+    `Template "${appRequest.template.slug}" is not configured for Azure publishing.`,
+  );
+}
+
+function submittedConfigObject(
+  appRequest: PublishableAppRequest,
+): Record<string, unknown> | null {
+  if (
+    !appRequest.submittedConfig ||
+    typeof appRequest.submittedConfig !== "object" ||
+    Array.isArray(appRequest.submittedConfig)
+  ) {
+    return null;
+  }
+
+  return appRequest.submittedConfig as Record<string, unknown>;
+}
+
+function selectedDatabaseProvider(
+  appRequest: PublishableAppRequest,
+): DatabaseProvider {
+  const value = submittedConfigObject(appRequest)?.databaseProvider;
+
+  if (value === "postgresql" || value === "none") {
+    return value;
+  }
+
+  return (
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requirePublishTemplate(appRequest)
+    )?.features.database.defaultProvider ?? "postgresql"
+  );
+}
+
+function selectedEntraLogin(appRequest: PublishableAppRequest): boolean {
+  const value = submittedConfigObject(appRequest)?.entraLogin;
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  return (
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requirePublishTemplate(appRequest)
+    )?.features.entraLogin.defaultEnabled ?? true
+  );
+}
+
+function importedRuntimeFromSubmittedConfig(appRequest: PublishableAppRequest) {
+  if (!isImportedAppRequest(appRequest)) {
+    return null;
+  }
+
+  const runtime = submittedConfigObject(appRequest)?.importRuntime;
+
+  if (
+    runtime &&
+    typeof runtime === "object" &&
+    !Array.isArray(runtime) &&
+    "azureRuntimeStack" in runtime &&
+    "startupCommand" in runtime &&
+    typeof runtime.azureRuntimeStack === "string" &&
+    typeof runtime.startupCommand === "string"
+  ) {
+    return {
+      azureRuntimeStack: runtime.azureRuntimeStack,
+      startupCommand: runtime.startupCommand,
+    };
+  }
+
+  return null;
+}
+
+function selectedAppServiceRuntime(
+  appRequest: PublishableAppRequest,
+  config: AzurePublishConfig,
+) {
+  return (
+    importedRuntimeFromSubmittedConfig(appRequest) ??
+    (isImportedAppRequest(appRequest)
+      ? null
+      : requirePublishTemplate(appRequest)
+    )?.appServiceRuntime ?? {
+      azureRuntimeStack: config.runtimeStack,
+      startupCommand: STARTUP_COMMAND,
+    }
+  );
 }
 
 function ownerUsername(appRequest: PublishableAppRequest) {
@@ -304,6 +423,10 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       appRequestId: string,
     ): Promise<ProvisionedPublishTarget> {
       const appRequest = await loadPublishableRequest(deps, appRequestId);
+      const appServiceRuntime = selectedAppServiceRuntime(
+        appRequest,
+        deps.config,
+      );
       const names = buildPublishTargetNames({
         requestId: appRequest.id,
         appName: appRequest.appName,
@@ -319,12 +442,16 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         supportReference: appRequest.supportReference,
       });
 
-      await deps.arm.putPostgresDatabase({
-        resourceGroup: deps.config.resourceGroup,
-        serverName: deps.config.postgresServer,
-        databaseName: names.databaseName,
-        tags,
-      });
+      const databaseProvider = selectedDatabaseProvider(appRequest);
+
+      if (databaseProvider === "postgresql") {
+        await deps.arm.putPostgresDatabase({
+          resourceGroup: deps.config.resourceGroup,
+          serverName: deps.config.postgresServer,
+          databaseName: names.databaseName,
+          tags,
+        });
+      }
 
       const webApp = await deps.arm.putWebApp({
         resourceGroup: deps.config.resourceGroup,
@@ -334,43 +461,53 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
           deps.config.resourceGroup,
           deps.config.appServicePlan,
         ),
-        runtimeStack: deps.config.runtimeStack,
-        startupCommand: STARTUP_COMMAND,
+        runtimeStack: appServiceRuntime.azureRuntimeStack,
+        startupCommand: appServiceRuntime.startupCommand,
         tags,
       });
       const azureDefaultHostName =
         webApp.properties?.defaultHostName ?? names.azureDefaultHostName;
       const primaryPublishUrl = `https://${azureDefaultHostName}`;
+      const settings: Record<string, string> = {
+        NODE_ENV: "production",
+        SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+        ENABLE_ORYX_BUILD: "false",
+        WEBSITE_RUN_FROM_PACKAGE: "1",
+      };
+
+      if (databaseProvider === "postgresql") {
+        settings.DATABASE_URL = buildDatabaseUrl(deps.config, names.databaseName);
+      }
+
+      if (selectedEntraLogin(appRequest)) {
+        settings.AUTH_URL = primaryPublishUrl;
+        settings.NEXTAUTH_URL = primaryPublishUrl;
+        settings.AUTH_SECRET = deps.config.authSecret;
+        settings.AUTH_MICROSOFT_ENTRA_ID_ID = deps.config.entraClientId;
+        settings.AUTH_MICROSOFT_ENTRA_ID_SECRET = deps.config.entraClientSecret;
+        settings.AUTH_MICROSOFT_ENTRA_ID_ISSUER = deps.config.entraIssuer;
+      }
 
       await deps.arm.putAppSettings({
         resourceGroup: deps.config.resourceGroup,
         name: names.webAppName,
-        settings: {
-          DATABASE_URL: buildDatabaseUrl(deps.config, names.databaseName),
-          AUTH_URL: primaryPublishUrl,
-          NEXTAUTH_URL: primaryPublishUrl,
-          AUTH_SECRET: deps.config.authSecret,
-          AUTH_MICROSOFT_ENTRA_ID_ID: deps.config.entraClientId,
-          AUTH_MICROSOFT_ENTRA_ID_SECRET: deps.config.entraClientSecret,
-          AUTH_MICROSOFT_ENTRA_ID_ISSUER: deps.config.entraIssuer,
-          NODE_ENV: "production",
-          SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
-          ENABLE_ORYX_BUILD: "false",
-          WEBSITE_RUN_FROM_PACKAGE: "1",
-        },
+        settings,
       });
 
-      await deps.graph.ensureRedirectUri({
-        applicationObjectId: deps.config.entraAppObjectId,
-        redirectUri: `${primaryPublishUrl}${ENTRA_CALLBACK_PATH}`,
-      });
+      if (selectedEntraLogin(appRequest)) {
+        await deps.graph.ensureRedirectUri({
+          applicationObjectId: deps.config.entraAppObjectId,
+          redirectUri: `${primaryPublishUrl}${ENTRA_CALLBACK_PATH}`,
+        });
+      }
 
       return {
         azureResourceGroup: deps.config.resourceGroup,
         azureAppServicePlan: deps.config.appServicePlan,
         azureWebAppName: names.webAppName,
         azurePostgresServer: deps.config.postgresServer,
-        azureDatabaseName: names.databaseName,
+        azureDatabaseName:
+          databaseProvider === "postgresql" ? names.databaseName : null,
         azureDefaultHostName,
         primaryPublishUrl,
       };

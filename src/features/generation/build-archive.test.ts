@@ -5,12 +5,95 @@ import { buildArchive } from "./build-archive";
 import { buildDeploymentManifest } from "./deployment-manifest";
 
 describe("buildArchive", () => {
+  it("builds the FastAPI Azure App Service starter archive", async () => {
+    const archive = await buildArchive({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+
+    expect(archive.filename).toBe("reports-api.zip");
+    expect(archive.files["main.py"]).toContain("FastAPI");
+    expect(archive.files["requirements.txt"]).toContain("fastapi");
+    expect(archive.files["requirements.txt"]).not.toContain("psycopg");
+    expect(archive.files["app-portal/deployment-manifest.json"]).toContain(
+      "PYTHON|3.14",
+    );
+
+    const zip = await JSZip.loadAsync(archive.buffer);
+    const workflow =
+      (await zip
+        .file(".github/workflows/deploy-azure-app-service.yml")
+        ?.async("string")) ?? "";
+
+    expect(workflow).toContain("workflow_dispatch");
+    expect(workflow).not.toContain("push:");
+    expect(workflow).toContain(".python_packages/lib/site-packages");
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.not.toContain("DATABASE_URL");
+    expect(zip.file("docs/github-setup.md")).toBeTruthy();
+    expect(zip.file("docs/deployment-guide.md")).toBeTruthy();
+    expect(archive.files["docs/github-setup.md"]).toContain(
+      "docs/publishing/azure-app-service.md",
+    );
+    expect(archive.files["docs/github-setup.md"]).toContain(
+      "docs/publishing/lessons-learned.md",
+    );
+    expect(archive.files["docs/deployment-guide.md"]).toContain(
+      "docs/publishing/azure-app-service.md",
+    );
+    expect(archive.files["docs/deployment-guide.md"]).toContain(
+      "docs/publishing/lessons-learned.md",
+    );
+    expect(zip.file("docs/publishing/azure-app-service.md")).toBeTruthy();
+    expect(zip.file("docs/publishing/lessons-learned.md")).toBeTruthy();
+    await expect(
+      zip.file("docs/publishing/lessons-learned.md")?.async("string"),
+    ).resolves.toContain("Python 3.14 / FastAPI");
+    await expect(
+      zip.file("docs/publishing/lessons-learned.md")?.async("string"),
+    ).resolves.not.toContain("Node/Next.js");
+    expect(zip.file("app-portal/deployment-manifest.json")).toBeTruthy();
+    expect(zip.file("next-env.d.ts")).toBeNull();
+    expect(zip.file("src/app/layout.tsx")).toBeNull();
+  });
+
+  it("escapes FastAPI Python string literals from app metadata", async () => {
+    const appName = 'Reports "API" \\ nightly\nBeta';
+    const description = 'Line "one" with \\ path\nSecond line';
+    const archive = await buildArchive({
+      templateSlug: "python-fastapi",
+      appName,
+      description,
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    const mainPy = archive.files["main.py"];
+
+    expect(mainPy).toContain(
+      `app = FastAPI(title=${JSON.stringify(appName)})`,
+    );
+    expect(mainPy).toContain(`"app": ${JSON.stringify(appName)},`);
+    expect(mainPy).toContain(`"name": ${JSON.stringify(appName)},`);
+    expect(mainPy).toContain(
+      `"description": ${JSON.stringify(description)},`,
+    );
+    expect(mainPy).not.toContain(`title="${appName}"`);
+  });
+
   it("creates a zip containing starter files and publishing bundle assets", async () => {
     const input = {
       templateSlug: "web-app",
       appName: "Campus <Beta>",
       description: 'Tracks {housing} and "retention".',
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     } as const;
     const archive = await buildArchive(input);
 
@@ -168,6 +251,21 @@ describe("buildArchive", () => {
       zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
     ).resolves.toContain("DATABASE_URL");
     await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("Azure Database for PostgreSQL flexible server");
+    await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("Set the App Service `DATABASE_URL` app setting");
+    await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("Microsoft Entra login is configured");
+    await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("AUTH_MICROSOFT_ENTRA_ID_ID");
+    await expect(
+      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
+    ).resolves.toContain("redirect URI");
+    await expect(
       zip.file(".github/workflows/deploy-azure-app-service.yml")?.async(
         "string",
       ),
@@ -253,16 +351,30 @@ describe("buildArchive", () => {
 
     const templateManifest = JSON.parse(
       await readFile("templates/web-app/template.json", "utf8"),
-    ) as { generatedFiles: string[] };
+    ) as { generatedFiles: string[]; generatedOverrides?: string[] };
 
     expect(templateManifest.generatedFiles.sort()).toEqual([
       "app-portal/deployment-manifest.json",
       "docs/deployment-guide.md",
       "docs/github-setup.md",
     ]);
+    expect(templateManifest.generatedOverrides?.sort()).toEqual([
+      ".codex/skills/publish-to-azure/SKILL.md",
+      ".env.example",
+      "README.md",
+      "docs/publishing/azure-app-service.md",
+      "docs/publishing/lessons-learned.md",
+      "package.json",
+      "src/app/page.tsx",
+      "src/lib/app-data.ts",
+    ]);
 
     for (const generatedFile of templateManifest.generatedFiles) {
       expect(zip.file(generatedFile)).toBeTruthy();
+    }
+
+    for (const generatedOverride of templateManifest.generatedOverrides ?? []) {
+      expect(zip.file(generatedOverride)).toBeTruthy();
     }
 
     expect(templateManifest.entryFiles).toEqual(
@@ -271,8 +383,6 @@ describe("buildArchive", () => {
         ".gitignore.template",
         "tsconfig.json.template",
         "next-env.d.ts",
-        "prisma/schema.prisma.template",
-        "prisma/migrations/00000000000000_init/migration.sql",
         ".github/workflows/deploy-azure-app-service.yml.template",
         ".codex/skills/publish-to-azure/SKILL.md.template",
         "docs/publishing/azure-app-service.md.template",
@@ -280,11 +390,29 @@ describe("buildArchive", () => {
         "src/app/layout.tsx.template",
         "src/app/page.tsx.template",
         "src/lib/app-data.ts.template",
-        "src/auth.ts.template",
-        "src/app/api/auth/[...nextauth]/route.ts.template",
         "src/app/api/health/route.ts.template",
       ]),
     );
+    expect(templateManifest.entryFiles).not.toEqual(
+      expect.arrayContaining([
+        "prisma/schema.prisma.template",
+        "prisma/migrations/00000000000000_init/migration.sql",
+        "src/auth.ts.template",
+        "src/app/api/auth/[...nextauth]/route.ts.template",
+      ]),
+    );
+    expect(templateManifest).toMatchObject({
+      conditionalEntryFiles: {
+        databasePostgresql: [
+          "prisma/schema.prisma.template",
+          "prisma/migrations/00000000000000_init/migration.sql",
+        ],
+        entraLogin: [
+          "src/app/api/auth/[...nextauth]/route.ts.template",
+          "src/auth.ts.template",
+        ],
+      },
+    });
   });
 
   it('falls back to "app.zip" when the app name normalizes to an empty slug', async () => {
@@ -293,9 +421,150 @@ describe("buildArchive", () => {
       appName: "!!!",
       description: "Fallback filename coverage.",
       hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
     });
 
     expect(archive.filename).toBe("app.zip");
+  });
+
+  it("ships feature-aware docs when generated without a database", async () => {
+    const archive = await buildArchive({
+      templateSlug: "web-app",
+      appName: "Campus Hub",
+      description: "Student services portal",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    const zip = await JSZip.loadAsync(archive.buffer);
+    const azurePublishingDoc =
+      (await zip.file("docs/publishing/azure-app-service.md")?.async(
+        "string",
+      )) ?? "";
+    const lessonsLearnedDoc =
+      (await zip.file("docs/publishing/lessons-learned.md")?.async(
+        "string",
+      )) ?? "";
+    const readme = (await zip.file("README.md")?.async("string")) ?? "";
+    const publishSkill =
+      (await zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async(
+        "string",
+      )) ?? "";
+    const packageJson = JSON.parse(
+      (await zip.file("package.json")?.async("string")) ?? "{}",
+    ) as {
+      dependencies: Record<string, string>;
+      scripts: Record<string, string>;
+    };
+
+    expect(zip.file("prisma/schema.prisma")).toBeNull();
+    expect(
+      zip.file("prisma/migrations/00000000000000_init/migration.sql"),
+    ).toBeNull();
+    expect(zip.file("src/app/api/auth/[...nextauth]/route.ts")).toBeNull();
+    expect(zip.file("src/auth.ts")).toBeNull();
+    await expect(
+      zip.file("src/app/page.tsx")?.async("string"),
+    ).resolves.not.toContain("@/auth");
+    await expect(
+      zip.file("src/app/page.tsx")?.async("string"),
+    ).resolves.not.toContain("getAppDataStatus");
+    await expect(
+      zip.file("src/lib/app-data.ts")?.async("string"),
+    ).resolves.not.toContain("@prisma/client");
+    expect(packageJson.dependencies["@prisma/client"]).toBeUndefined();
+    expect(packageJson.dependencies.prisma).toBeUndefined();
+    expect(packageJson.dependencies["next-auth"]).toBeUndefined();
+    expect(packageJson.scripts.predev).toBeUndefined();
+    expect(packageJson.scripts.prebuild).toBeUndefined();
+    expect(packageJson.scripts.pretypecheck).toBeUndefined();
+    expect(packageJson.scripts.start).toBe("next start");
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.not.toContain("DATABASE_URL");
+    await expect(
+      zip.file(".env.example")?.async("string"),
+    ).resolves.not.toContain("AUTH_");
+    expect(azurePublishingDoc).toContain(
+      "This app was generated without a database.",
+    );
+    expect(azurePublishingDoc).toContain(
+      "This app was generated without built-in login.",
+    );
+    expect(azurePublishingDoc).not.toContain("Azure Database for PostgreSQL");
+    expect(azurePublishingDoc).not.toContain("DATABASE_URL");
+    expect(lessonsLearnedDoc).toContain(
+      "This app was generated without a database.",
+    );
+    expect(lessonsLearnedDoc).not.toContain("DATABASE_URL");
+    expect(readme).not.toContain("DATABASE_URL");
+    expect(readme).not.toContain("Azure PostgreSQL");
+    expect(readme).not.toContain("Persistent app data is already wired in");
+    expect(publishSkill).toContain(
+      "This app was generated without a database.",
+    );
+    expect(publishSkill).toContain(
+      "This app was generated without built-in login.",
+    );
+    expect(publishSkill).toContain(
+      "Create or verify the Azure App Service app described by the manifest.",
+    );
+    expect(publishSkill).not.toContain("PostgreSQL");
+    expect(publishSkill).not.toContain("DATABASE_URL");
+    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_ID");
+    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_SECRET");
+    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_ISSUER");
+  });
+
+  it("keeps README database and login guidance independent for mixed feature selections", async () => {
+    const databaseOnlyArchive = await buildArchive({
+      templateSlug: "web-app",
+      appName: "Database Only",
+      description: "Database without login.",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: false,
+    });
+    const authOnlyArchive = await buildArchive({
+      templateSlug: "web-app",
+      appName: "Auth Only",
+      description: "Login without database.",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: true,
+    });
+    const databaseOnlyZip = await JSZip.loadAsync(databaseOnlyArchive.buffer);
+    const authOnlyZip = await JSZip.loadAsync(authOnlyArchive.buffer);
+    const databaseOnlyReadme =
+      (await databaseOnlyZip.file("README.md")?.async("string")) ?? "";
+    const authOnlyReadme =
+      (await authOnlyZip.file("README.md")?.async("string")) ?? "";
+
+    expect(databaseOnlyArchive.files["README.md"]).toBe(databaseOnlyReadme);
+    expect(authOnlyArchive.files["README.md"]).toBe(authOnlyReadme);
+    expect(databaseOnlyReadme).toContain("Azure PostgreSQL");
+    expect(databaseOnlyReadme).toContain(
+      "Persistent app data is already wired in",
+    );
+    expect(databaseOnlyReadme).toContain(
+      "This app was generated without built-in login.",
+    );
+    expect(databaseOnlyReadme).not.toContain("production auth settings");
+    expect(databaseOnlyReadme).not.toContain("Microsoft Entra login.");
+
+    expect(authOnlyReadme).toContain(
+      "This app is configured for Microsoft Entra login.",
+    );
+    expect(authOnlyReadme).toContain("production auth settings");
+    expect(authOnlyReadme).toContain(
+      "This app was generated without a database.",
+    );
+    expect(authOnlyReadme).not.toContain("DATABASE_URL");
+    expect(authOnlyReadme).not.toContain("Azure PostgreSQL");
+    expect(authOnlyReadme).not.toContain(
+      "Persistent app data is already wired in",
+    );
   });
 
   it("rejects unsupported hosting targets for the Azure-first publishing bundle", async () => {
@@ -305,6 +574,8 @@ describe("buildArchive", () => {
         appName: "Campus Hub",
         description: "Unsupported target coverage.",
         hostingTarget: "Vercel",
+        databaseProvider: "postgresql",
+        entraLogin: true,
       }),
     ).rejects.toThrow(
       'Deployment manifest generation requires "Azure App Service" hosting, received "Vercel".',

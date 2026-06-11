@@ -57,16 +57,10 @@ function parseStoredCreateAppInput(
     throw new Error("Stored app request template is no longer available.");
   }
 
-  const hostingTargetField = template.fields.find(
-    (field) => field.name === "hostingTarget" && field.type === "select",
-  );
-
-  if (!hostingTargetField || hostingTargetField.options.length === 0) {
-    throw new Error("Stored app request template is missing hosting targets.");
-  }
-
-  const hostingTargets = hostingTargetField.options as [string, ...string[]];
-  const parsed = createAppSchema(hostingTargets).parse(submittedConfig);
+  const parsed = createAppSchema({
+    hostingTarget: template.hostingTarget,
+    features: template.features,
+  }).parse(submittedConfig);
 
   return {
     ...parsed,

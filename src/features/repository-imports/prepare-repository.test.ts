@@ -26,7 +26,7 @@ describe("prepareImportedRepository", () => {
         mode: "DIRECT_COMMIT",
         github,
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       status: "COMMITTED",
       commitSha: "commit-sha",
       pullRequestUrl: null,
@@ -52,6 +52,58 @@ describe("prepareImportedRepository", () => {
     );
   });
 
+  it("commits FastAPI publishing additions directly", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({
+        "requirements.txt":
+          "fastapi==0.115.0\nuvicorn[standard]==0.30.0\ngunicorn==23.0.0\n",
+        "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      }),
+      commitFiles: vi.fn().mockResolvedValue({ commitSha: "commit-sha" }),
+      createPullRequestWithFiles: vi.fn(),
+    };
+
+    await expect(
+      prepareImportedRepository({
+        appName: "Reports API",
+        owner: "cedarville-it",
+        name: "reports-api",
+        defaultBranch: "main",
+        mode: "DIRECT_COMMIT",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: {
+        family: "python",
+        framework: "fastapi",
+      },
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    expect(github.readRepositoryTextFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paths: expect.arrayContaining([
+          "requirements.txt",
+          "pyproject.toml",
+          "main.py",
+          "app.py",
+        ]),
+      }),
+    );
+    expect(github.commitFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: expect.objectContaining({
+          ".github/workflows/deploy-azure-app-service.yml":
+            expect.stringContaining("Setup Python"),
+        }),
+      }),
+    );
+  });
+
   it("opens a PR when requested", async () => {
     const github = {
       getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
@@ -73,7 +125,7 @@ describe("prepareImportedRepository", () => {
         mode: "PULL_REQUEST",
         github,
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       status: "PULL_REQUEST_OPENED",
       commitSha: "commit-sha",
       pullRequestUrl:
@@ -164,7 +216,7 @@ describe("prepareImportedRepository", () => {
         mode: "PULL_REQUEST",
         github,
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       status: "PULL_REQUEST_OPENED",
       commitSha: "commit-sha",
       pullRequestUrl:
@@ -209,7 +261,7 @@ describe("prepareImportedRepository", () => {
         github,
       }),
     ).rejects.toThrow(
-      "Repository is not compatible with v1 Azure publishing. package.json: package.json must include a build script. V1 supports root Next.js apps only.",
+      "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
     );
   });
 });
