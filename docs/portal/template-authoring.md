@@ -27,6 +27,10 @@ Template files currently support these tokens:
 - `{{HOSTING_TARGET}}`
 - `{{APP_NAME_JS}}`
 - `{{APP_DESCRIPTION_JS}}`
+- `{{DATABASE_PROVIDER}}`, the selected database provider such as `postgresql` or `none`
+- `{{ENTRA_LOGIN_ENABLED}}`, `true` when generated Microsoft Entra login is enabled
+- `{{AZURE_RUNTIME_STACK}}`, the Azure App Service runtime stack such as `NODE|24-lts` or `PYTHON|3.14`
+- `{{APP_SERVICE_RUNTIME}}`, the display runtime label such as `Node.js 24 / Next.js` or `Python 3.14 / FastAPI`
 
 Use the `*_JS` tokens when rendering into JavaScript or JSX string-expression contexts so user input is escaped safely.
 
