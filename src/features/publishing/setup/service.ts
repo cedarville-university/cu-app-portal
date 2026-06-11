@@ -373,10 +373,6 @@ function buildRepairAppSettings({
 }) {
   const settings = { ...existingSettings };
 
-  for (const settingName of REQUIRED_PORTAL_MANAGED_APP_SETTINGS) {
-    delete settings[settingName];
-  }
-
   if (databaseProvider === "postgresql") {
     settings.DATABASE_URL = buildDatabaseUrl(config, databaseName);
   }

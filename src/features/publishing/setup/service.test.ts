@@ -547,6 +547,12 @@ describe("publishing setup service", () => {
           settings: {
             DATABASE_URL: "postgresql://stale",
             AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+            NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+            AUTH_SECRET: "custom-auth-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
+            AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+              "https://login.microsoftonline.com/custom/v2.0",
             EXISTING_CUSTOM_SETTING: "keep-me",
           },
         }),
@@ -566,6 +572,14 @@ describe("publishing setup service", () => {
       resourceGroup: "rg-cu-apps-published",
       name: "app-campus-dashboard-req123",
       settings: {
+        DATABASE_URL: "postgresql://stale",
+        AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+        NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+        AUTH_SECRET: "custom-auth-secret",
+        AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
+        AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
+        AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+          "https://login.microsoftonline.com/custom/v2.0",
         EXISTING_CUSTOM_SETTING: "keep-me",
         NODE_ENV: "production",
         SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
