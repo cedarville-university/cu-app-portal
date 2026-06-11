@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getActiveTemplateBySlug,
   getActiveTemplates,
+  getTemplateBySlug,
   serializeTemplateForStorage,
 } from "./catalog";
 
@@ -57,26 +58,54 @@ describe("getActiveTemplates", () => {
 
     expect(serializeTemplateForStorage(template)).toMatchObject({
       hostingOptions: ["Azure App Service"],
-      inputSchema: expect.objectContaining({
+      inputSchema: {
         fields: template.fields,
         decisionSummary: template.decisionSummary,
         bestFor: template.bestFor,
-        appServiceRuntime: expect.objectContaining({
+        appServiceRuntime: {
           family: "node",
           framework: "nextjs",
+          displayName: "Node.js 24 / Next.js",
           azureRuntimeStack: "NODE|24-lts",
-        }),
-        features: expect.objectContaining({
-          database: expect.objectContaining({
+          startupCommand: "npm start",
+          workflowFileName: "deploy-azure-app-service.yml",
+        },
+        features: {
+          database: {
             mode: "optional",
+            providerOptions: ["postgresql"],
             defaultProvider: "postgresql",
-          }),
-          entraLogin: expect.objectContaining({
+          },
+          entraLogin: {
             mode: "optional",
             defaultEnabled: true,
-          }),
-        }),
-      }),
+          },
+        },
+      },
+    });
+  });
+
+  it("keeps the FastAPI template disabled until template files are ready", () => {
+    const template = getTemplateBySlug("python-fastapi");
+
+    expect(template).toMatchObject({
+      slug: "python-fastapi",
+      status: "DISABLED",
+      appServiceRuntime: {
+        family: "python",
+        framework: "fastapi",
+        displayName: "Python 3.14 / FastAPI",
+        azureRuntimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+        workflowFileName: "deploy-azure-app-service.yml",
+      },
+      features: {
+        entraLogin: {
+          mode: "unsupported",
+          defaultEnabled: false,
+        },
+      },
     });
   });
 });

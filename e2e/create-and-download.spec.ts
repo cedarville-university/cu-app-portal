@@ -6,7 +6,7 @@ test("authenticated user can create an app package", async ({ page }) => {
     page.getByRole("heading", { name: /create new app/i }),
   ).toBeVisible();
 
-  await page.getByRole("link", { name: /use web app starter/i }).click();
+  await page.getByRole("link", { name: /use next.js web app/i }).click();
   await page.getByLabel("App Name").fill("Campus Dashboard");
   await page
     .getByLabel("Short Description")

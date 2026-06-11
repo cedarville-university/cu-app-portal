@@ -17,7 +17,7 @@ describe("CreatePage", () => {
       screen.getByRole("heading", { name: /create new app/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /use web app starter/i }),
+      screen.getByRole("link", { name: /use next.js web app/i }),
     ).toHaveAttribute("href", "/create/web-app");
   });
 
