@@ -89,11 +89,67 @@ jobs:
           package: \${{ env.DEPLOY_PACKAGE_PATH }}
 `;
 
+const HTTP_SERVER_START = `from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import os
+from pathlib import Path
+
+
+port = int(os.environ.get("PORT", "8000"))
+repository_root = Path(__file__).resolve().parents[1]
+handler = partial(SimpleHTTPRequestHandler, directory=str(repository_root))
+
+with ThreadingHTTPServer(("0.0.0.0", port), handler) as server:
+    server.serve_forever()
+`;
+
 function usesNextPublishingDefaults(runtime: ImportedAppRuntime) {
   return runtime.framework === IMPORTED_NEXT_RUNTIME.framework;
 }
 
 function buildDeployWorkflow(runtime: ImportedAppRuntime) {
+  if (runtime.framework === "http-server") {
+    return `name: Deploy to Azure App Service
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  AZURE_WEBAPP_NAME: \${{ secrets.AZURE_WEBAPP_NAME }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: \${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: \${{ env.AZURE_WEBAPP_NAME }}
+          package: .
+`;
+  }
+
   if (runtime.framework === "fastapi") {
     return `name: Deploy to Azure App Service
 
@@ -292,6 +348,9 @@ export function planPublishingBundle({
 
   filesToWrite[".github/workflows/deploy-azure-app-service.yml"] =
     buildDeployWorkflow(runtime);
+  if (runtime.framework === "http-server") {
+    filesToWrite["app-portal/http_server_start.py"] = HTTP_SERVER_START;
+  }
   filesToWrite[".codex/skills/publish-to-azure/SKILL.md"] =
     `# Publish to Azure\n\nUse the Cedarville App Portal as the supported Azure publishing path for this imported ${runtime.displayName} app.\n`;
   filesToWrite["docs/publishing/azure-app-service.md"] =
