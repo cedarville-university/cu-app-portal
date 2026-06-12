@@ -81,12 +81,23 @@ describe("buildArchive", () => {
     expect(archive.files[".env.example"]).toContain(
       "AUTH_MICROSOFT_ENTRA_ID_ID=",
     );
+    expect(archive.files["README.md"]).toContain("/auth/callback");
+    expect(
+      archive.files[".codex/skills/publish-to-azure/SKILL.md"],
+    ).toContain("/auth/callback");
+    expect(
+      archive.files["docs/publishing/azure-app-service.md"],
+    ).toContain("/login");
 
     const zip = await JSZip.loadAsync(archive.buffer);
+    const manifest = JSON.parse(
+      archive.files["app-portal/deployment-manifest.json"],
+    ) as { auth?: { callbackPath?: string } };
 
     await expect(zip.file("main.py")?.async("string")).resolves.toContain(
       "psycopg.connect",
     );
+    expect(manifest.auth?.callbackPath).toBe("/auth/callback");
     expect(zip.file("package.json")).toBeNull();
   });
 

@@ -223,6 +223,22 @@ describe("buildDeploymentManifest", () => {
     );
   });
 
+  it("uses the FastAPI auth callback path when Entra login is selected", () => {
+    const manifest = buildDeploymentManifest({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: true,
+    });
+
+    expect(manifest.auth).toEqual({
+      provider: "microsoft-entra-id",
+      callbackPath: "/auth/callback",
+    });
+  });
+
   it("throws when a normal generated manifest references an unknown template", () => {
     expect(() =>
       buildDeploymentManifest({

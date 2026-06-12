@@ -74,6 +74,20 @@ const readyImportedFastApiAppRequest = {
   },
 };
 
+const readyGeneratedFastApiWithEntraRequest = {
+  ...readyAppRequest,
+  appName: "Campus API",
+  template: { slug: "python-fastapi" },
+  submittedConfig: {
+    templateSlug: "python-fastapi",
+    appName: "Campus API",
+    description: "Campus API service",
+    hostingTarget: "Azure App Service",
+    databaseProvider: "none",
+    entraLogin: true,
+  },
+};
+
 function emptyWorkflowRunsError() {
   return new Error(
     "No GitHub workflow runs found for cedarville-it/campus-dashboard deploy-azure-app-service.yml.",
@@ -282,6 +296,21 @@ describe("createAzurePublishRuntime", () => {
           "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
       }),
     );
+  });
+
+  it("registers the FastAPI auth callback path for generated FastAPI apps", async () => {
+    const { deps, graph } = createDeps({
+      appRequest: readyGeneratedFastApiWithEntraRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz");
+
+    expect(graph.ensureRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri:
+        "https://app-campus-dashboard-clx9abc1.azurewebsites.net/auth/callback",
+    });
   });
 
   it("uses the legacy runtime fallback when provisioning an imported app", async () => {

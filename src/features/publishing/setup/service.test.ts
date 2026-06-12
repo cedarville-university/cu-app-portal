@@ -51,6 +51,14 @@ const fastApiAppRequest = {
   },
 };
 
+const fastApiWithEntraAppRequest = {
+  ...fastApiAppRequest,
+  submittedConfig: {
+    ...fastApiAppRequest.submittedConfig,
+    entraLogin: true,
+  },
+};
+
 const importedFastApiAppRequest = {
   ...appRequest,
   appName: "Campus API",
@@ -383,6 +391,22 @@ describe("publishing setup service", () => {
         }),
       }),
     );
+  });
+
+  it("preflights generated FastAPI setup with the FastAPI auth callback path", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      fastApiWithEntraAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+    const deps = createDeps();
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.graph.hasRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri: "https://app-campus-dashboard.azurewebsites.net/auth/callback",
+    });
   });
 
   it("marks setup needs repair when a public Azure app setting is stale", async () => {
@@ -786,6 +810,23 @@ describe("publishing setup service", () => {
       data: expect.objectContaining({
         primaryPublishUrl: "https://campus-dashboard.cedarville.edu",
       }),
+    });
+  });
+
+  it("repairs generated FastAPI setup with the FastAPI auth callback path", async () => {
+    const deps = createDeps();
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      {
+        ...fastApiWithEntraAppRequest,
+        primaryPublishUrl: "https://campus-api.cedarville.edu",
+      } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.graph.ensureRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri: "https://campus-api.cedarville.edu/auth/callback",
     });
   });
 
