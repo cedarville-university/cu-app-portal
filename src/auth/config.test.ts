@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const recordAuditEventMock = vi.hoisted(() => vi.fn());
 const prismaUserUpsertMock = vi.hoisted(() => vi.fn());
+const ensureInitialAdminRoleMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/audit", () => ({
   recordAuditEvent: recordAuditEventMock,
@@ -13,6 +14,10 @@ vi.mock("@/lib/db", () => ({
       upsert: prismaUserUpsertMock,
     },
   },
+}));
+
+vi.mock("@/features/admin/roles", () => ({
+  ensureInitialAdminRole: ensureInitialAdminRoleMock,
 }));
 
 describe("authConfig", () => {
@@ -32,6 +37,7 @@ describe("authConfig", () => {
     vi.unstubAllEnvs();
     recordAuditEventMock.mockReset();
     prismaUserUpsertMock.mockReset();
+    ensureInitialAdminRoleMock.mockReset();
   });
 
   it("uses jwt sessions and microsoft entra id provider", async () => {
@@ -72,7 +78,10 @@ describe("authConfig", () => {
   });
 
   it("keeps sign-in successful when audit logging fails", async () => {
-    prismaUserUpsertMock.mockResolvedValueOnce({ id: "user-123" });
+    prismaUserUpsertMock.mockResolvedValueOnce({
+      id: "user-123",
+      email: "staff@cedarville.edu",
+    });
     recordAuditEventMock.mockRejectedValueOnce(new Error("audit sink down"));
 
     const { authConfig } = await import("./config");
@@ -102,7 +111,10 @@ describe("authConfig", () => {
   });
 
   it("syncs authenticated users into the local database", async () => {
-    prismaUserUpsertMock.mockResolvedValueOnce({ id: "user-123" });
+    prismaUserUpsertMock.mockResolvedValueOnce({
+      id: "user-123",
+      email: "staff@cedarville.edu",
+    });
 
     const { authConfig } = await import("./config");
     const config = await authConfig();
@@ -127,6 +139,12 @@ describe("authConfig", () => {
         email: "staff@cedarville.edu",
         displayName: "Portal Staff",
       },
+    });
+
+    const { ensureInitialAdminRole } = await import("@/features/admin/roles");
+    expect(ensureInitialAdminRole).toHaveBeenCalledWith({
+      userId: "user-123",
+      email: "staff@cedarville.edu",
     });
   });
 

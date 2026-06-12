@@ -77,6 +77,15 @@ export async function authConfig() {
 
           user.id = syncedUser.id;
 
+          const { ensureInitialAdminRole } = await import(
+            "@/features/admin/roles"
+          );
+
+          await ensureInitialAdminRole({
+            userId: syncedUser.id,
+            email: syncedUser.email,
+          });
+
           await recordAuditEvent("SIGN_IN", {
             provider: account?.provider ?? "microsoft-entra-id",
             entraOid: profile.oid,
