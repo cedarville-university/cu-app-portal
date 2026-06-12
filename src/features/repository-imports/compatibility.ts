@@ -16,6 +16,14 @@ export type ImportedAppRuntime =
       azureRuntimeStack: "PYTHON|3.14";
       startupCommand: string;
       workflowFileName: "deploy-azure-app-service.yml";
+    }
+  | {
+      family: "python";
+      framework: "http-server";
+      displayName: "Python 3.14 / http.server";
+      azureRuntimeStack: "PYTHON|3.14";
+      startupCommand: "python app-portal/http_server_start.py";
+      workflowFileName: "deploy-azure-app-service.yml";
     };
 
 export const IMPORTED_NEXT_RUNTIME = {
@@ -24,6 +32,15 @@ export const IMPORTED_NEXT_RUNTIME = {
   displayName: "Node.js 24 / Next.js",
   azureRuntimeStack: "NODE|24-lts",
   startupCommand: "npm start",
+  workflowFileName: "deploy-azure-app-service.yml",
+} as const satisfies ImportedAppRuntime;
+
+const IMPORTED_HTTP_SERVER_RUNTIME = {
+  family: "python",
+  framework: "http-server",
+  displayName: "Python 3.14 / http.server",
+  azureRuntimeStack: "PYTHON|3.14",
+  startupCommand: "python app-portal/http_server_start.py",
   workflowFileName: "deploy-azure-app-service.yml",
 } as const satisfies ImportedAppRuntime;
 
@@ -239,6 +256,10 @@ function detectFastApiEntrypoint(files: RepositoryFileMap) {
   return null;
 }
 
+function hasHttpServerStaticRoot(files: RepositoryFileMap) {
+  return hasFile(files, "index.html");
+}
+
 function hasUnsupportedLockfile(files: RepositoryFileMap) {
   return (
     hasFile(files, "pnpm-lock.yaml") ||
@@ -276,7 +297,9 @@ export function scanRepositoryCompatibility(
   const { packageJson, finding } = parsePackageJson(files);
   const hasNextRuntime = packageJson ? hasNextDependency(packageJson) : false;
   const hasFastApiRuntime = hasFastApiDependency(files);
-  const isAmbiguousRuntime = hasNextRuntime && hasFastApiRuntime;
+  const hasHttpServerRuntime = hasHttpServerStaticRoot(files);
+  const isAmbiguousRuntime =
+    hasNextRuntime && (hasFastApiRuntime || hasHttpServerRuntime);
   const fastApiEntrypoint = hasFastApiRuntime
     ? detectFastApiEntrypoint(files)
     : null;
@@ -288,7 +311,9 @@ export function scanRepositoryCompatibility(
       ? IMPORTED_NEXT_RUNTIME
       : fastApiEntrypoint && hasSupportedFastApiServer && !isAmbiguousRuntime
         ? importedFastApiRuntime(fastApiEntrypoint)
-        : null;
+        : hasHttpServerRuntime && !hasFastApiRuntime && !isAmbiguousRuntime
+          ? IMPORTED_HTTP_SERVER_RUNTIME
+          : null;
 
   const isClearlyFastApiRuntime =
     hasFastApiRuntime && hasSupportedFastApiServer && Boolean(fastApiEntrypoint);
@@ -302,14 +327,14 @@ export function scanRepositoryCompatibility(
       code: "AMBIGUOUS_APP_RUNTIME",
       severity: "error",
       message:
-        "Repository matches multiple supported runtimes. Keep one root Next.js or FastAPI app for portal-managed Azure publishing.",
+        "Repository matches multiple supported runtimes. Keep one root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
     });
-  } else if (!hasNextRuntime && !hasFastApiRuntime) {
+  } else if (!hasNextRuntime && !hasFastApiRuntime && !hasHttpServerRuntime) {
     findings.push({
       code: "UNSUPPORTED_APP_RUNTIME",
       severity: "error",
       message:
-        "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+        "Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
     });
   }
 
@@ -376,7 +401,7 @@ export function scanRepositoryCompatibility(
     findings.push({
       code: "UNSUPPORTED_WORKSPACE_ROOT",
       severity: "error",
-      message: "V1 supports single root Next.js or FastAPI apps, not workspace roots.",
+      message: "V1 supports single root Next.js, FastAPI, or Python static apps, not workspace roots.",
       path: workspaceRootPath,
     });
   }
