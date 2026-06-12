@@ -96,6 +96,29 @@ describe("authConfig", () => {
     ).resolves.toBe(true);
   });
 
+  it("fails sign-in when initial admin bootstrap fails", async () => {
+    prismaUserUpsertMock.mockResolvedValueOnce({
+      id: "user-123",
+      email: "staff@cedarville.edu",
+    });
+    ensureInitialAdminRoleMock.mockRejectedValueOnce(
+      new Error("role table unavailable"),
+    );
+
+    const { authConfig } = await import("./config");
+    const config = await authConfig();
+
+    await expect(
+      config.callbacks?.signIn?.({
+        user: { email: "staff@cedarville.edu", name: "Portal Staff" },
+        account: { provider: "microsoft-entra-id" },
+        profile: { oid: "entra-oid" },
+      } as never),
+    ).rejects.toThrow("role table unavailable");
+
+    expect(recordAuditEventMock).not.toHaveBeenCalled();
+  });
+
   it("allows authorized requests in e2e bypass mode", async () => {
     vi.unstubAllEnvs();
     vi.stubEnv("E2E_AUTH_BYPASS", "true");

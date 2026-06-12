@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ensureInitialAdminRole,
   getInitialAdminEmails,
@@ -31,6 +31,10 @@ describe("admin roles", () => {
     vi.mocked(prisma.userRole.count).mockReset();
     vi.mocked(prisma.userRole.findFirst).mockReset();
     vi.mocked(prisma.userRole.upsert).mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("parses initial admin emails from the environment", () => {

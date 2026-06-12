@@ -60,32 +60,32 @@ export async function authConfig() {
           return false;
         }
 
+        const { prisma } = await import("@/lib/db");
+        const syncedUser = await prisma.user.upsert({
+          where: { entraOid: profile.oid },
+          update: {
+            email: user.email,
+            displayName: user.name,
+          },
+          create: {
+            entraOid: profile.oid,
+            email: user.email,
+            displayName: user.name,
+          },
+        });
+
+        user.id = syncedUser.id;
+
+        const { ensureInitialAdminRole } = await import(
+          "@/features/admin/roles"
+        );
+
+        await ensureInitialAdminRole({
+          userId: syncedUser.id,
+          email: syncedUser.email,
+        });
+
         try {
-          const { prisma } = await import("@/lib/db");
-          const syncedUser = await prisma.user.upsert({
-            where: { entraOid: profile.oid },
-            update: {
-              email: user.email,
-              displayName: user.name,
-            },
-            create: {
-              entraOid: profile.oid,
-              email: user.email,
-              displayName: user.name,
-            },
-          });
-
-          user.id = syncedUser.id;
-
-          const { ensureInitialAdminRole } = await import(
-            "@/features/admin/roles"
-          );
-
-          await ensureInitialAdminRole({
-            userId: syncedUser.id,
-            email: syncedUser.email,
-          });
-
           await recordAuditEvent("SIGN_IN", {
             provider: account?.provider ?? "microsoft-entra-id",
             entraOid: profile.oid,
