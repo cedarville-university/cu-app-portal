@@ -25,7 +25,7 @@ stores such as Azure App Service application settings and GitHub Actions
 secrets. Do not paste real secret values into tracked docs, examples, tests,
 or templates.
 
-Use `PORTAL_INITIAL_ADMIN_EMAILS` to bootstrap portal-managed admin access with comma-separated Cedarville email addresses. On sign-in, matching users receive the portal-managed `ADMIN` role. After the first admin exists, use `/admin` to add or remove admin access.
+Use `PORTAL_INITIAL_ADMIN_EMAILS` to bootstrap portal-managed admin access with comma-separated Cedarville email addresses. When the portal has no admins yet, a matching signed-in user receives the portal-managed `ADMIN` role. After the first admin exists, use `/admin` to add or remove admin access.
 
 To enable portal-managed GitHub repository creation during the create flow, also set:
 

@@ -705,6 +705,8 @@ export default async function DownloadPage({
     notFound();
   }
 
+  const canDeleteAppRequest = isAdmin || appRequest.userId === userId;
+
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },
     select: { githubUsername: true },
@@ -1066,15 +1068,17 @@ export default async function DownloadPage({
           })}
         </div>
 
-        {renderDeletePanel({
-          id: appRequest.id,
-          repositoryOwner: appRequest.repositoryOwner,
-          repositoryName: appRequest.repositoryName,
-          repositoryStatus: appRequest.repositoryStatus,
-          publishStatus: appRequest.publishStatus,
-          azureWebAppName: appRequest.azureWebAppName,
-          azureDatabaseName: appRequest.azureDatabaseName,
-        })}
+        {canDeleteAppRequest
+          ? renderDeletePanel({
+              id: appRequest.id,
+              repositoryOwner: appRequest.repositoryOwner,
+              repositoryName: appRequest.repositoryName,
+              repositoryStatus: appRequest.repositoryStatus,
+              publishStatus: appRequest.publishStatus,
+              azureWebAppName: appRequest.azureWebAppName,
+              azureDatabaseName: appRequest.azureDatabaseName,
+            })
+          : null}
 
       </div>
 

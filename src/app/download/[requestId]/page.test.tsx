@@ -960,6 +960,7 @@ describe("DownloadPage", () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_delete",
+      userId: "user-123",
       appName: "Campus Dashboard",
       sourceOfTruth: "PORTAL_MANAGED_REPO",
       repositoryStatus: "READY",
@@ -1032,6 +1033,51 @@ describe("DownloadPage", () => {
     expect(
       screen.getByRole("button", { name: /^delete app$/i }),
     ).toBeEnabled();
+  });
+
+  it("hides scoped deletion controls for collaborators", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_collab_delete_hidden",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      publishStatus: "SUCCEEDED",
+      publishingSetupStatus: "READY",
+      publishingSetupErrorSummary: null,
+      publishUrl: "https://app-campus-dashboard.azurewebsites.net",
+      primaryPublishUrl: "https://app-campus-dashboard.azurewebsites.net",
+      azureWebAppName: "app-campus-dashboard-clx9abc1",
+      azureDatabaseName: "db_campus_dashboard_clx9abc1",
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-delete-hidden",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collabdev",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_collab_delete_hidden" }),
+      }),
+    );
+
+    expect(screen.queryByText("Delete App")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /delete selected resources/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows auto-deploy enablement for successfully published generated apps", async () => {

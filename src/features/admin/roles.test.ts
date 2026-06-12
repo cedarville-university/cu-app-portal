@@ -45,11 +45,16 @@ describe("admin roles", () => {
   });
 
   it("upserts admin role for configured email idempotently", async () => {
+    vi.mocked(prisma.userRole.count).mockResolvedValueOnce(0);
+
     await ensureInitialAdminRole({
       userId: "user_123",
       email: " STAFF@Cedarville.edu ",
     });
 
+    expect(prisma.userRole.count).toHaveBeenCalledWith({
+      where: { role: "ADMIN" },
+    });
     expect(prisma.userRole.upsert).toHaveBeenCalledWith({
       where: {
         userId_role: {
@@ -63,6 +68,20 @@ describe("admin roles", () => {
         role: "ADMIN",
       },
     });
+  });
+
+  it("does not restore configured users after an admin already exists", async () => {
+    vi.mocked(prisma.userRole.count).mockResolvedValueOnce(1);
+
+    await ensureInitialAdminRole({
+      userId: "user_123",
+      email: " STAFF@Cedarville.edu ",
+    });
+
+    expect(prisma.userRole.count).toHaveBeenCalledWith({
+      where: { role: "ADMIN" },
+    });
+    expect(prisma.userRole.upsert).not.toHaveBeenCalled();
   });
 
   it("does not upsert admin role for unconfigured users", async () => {

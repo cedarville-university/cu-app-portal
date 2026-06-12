@@ -21,6 +21,14 @@ export async function ensureInitialAdminRole({
     return;
   }
 
+  const adminCount = await prisma.userRole.count({
+    where: { role: "ADMIN" },
+  });
+
+  if (adminCount > 0) {
+    return;
+  }
+
   await prisma.userRole.upsert({
     where: {
       userId_role: {
