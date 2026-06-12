@@ -88,6 +88,14 @@ const readyGeneratedFastApiWithEntraRequest = {
   },
 };
 
+const readyGeneratedFastApiWithDatabaseAndEntraRequest = {
+  ...readyGeneratedFastApiWithEntraRequest,
+  submittedConfig: {
+    ...readyGeneratedFastApiWithEntraRequest.submittedConfig,
+    databaseProvider: "postgresql",
+  },
+};
+
 function emptyWorkflowRunsError() {
   return new Error(
     "No GitHub workflow runs found for cedarville-it/campus-dashboard deploy-azure-app-service.yml.",
@@ -306,6 +314,55 @@ describe("createAzurePublishRuntime", () => {
 
     await runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz");
 
+    expect(graph.ensureRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri:
+        "https://app-campus-dashboard-clx9abc1.azurewebsites.net/auth/callback",
+    });
+  });
+
+  it("provisions generated FastAPI apps with PostgreSQL and FastAPI auth settings", async () => {
+    const { deps, arm, graph } = createDeps({
+      appRequest: readyGeneratedFastApiWithDatabaseAndEntraRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    const target = await runtime.provisionInfrastructure(
+      "clx9abc123zzzzzzzzzz",
+    );
+
+    expect(target).toEqual(
+      expect.objectContaining({
+        azureDatabaseName: "db_campus_api_clx9abc1",
+        primaryPublishUrl:
+          "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
+      }),
+    );
+    expect(arm.putPostgresDatabase).toHaveBeenCalledWith(
+      expect.objectContaining({
+        databaseName: "db_campus_api_clx9abc1",
+      }),
+    );
+    expect(arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
+    );
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          DATABASE_URL:
+            "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_api_clx9abc1?sslmode=require",
+          AUTH_URL:
+            "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
+          NEXTAUTH_URL:
+            "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
+          AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
+        }),
+      }),
+    );
     expect(graph.ensureRedirectUri).toHaveBeenCalledWith({
       applicationObjectId: "entra-object-id",
       redirectUri:

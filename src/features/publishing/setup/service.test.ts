@@ -59,6 +59,14 @@ const fastApiWithEntraAppRequest = {
   },
 };
 
+const fastApiWithDatabaseAndEntraAppRequest = {
+  ...fastApiWithEntraAppRequest,
+  submittedConfig: {
+    ...fastApiWithEntraAppRequest.submittedConfig,
+    databaseProvider: "postgresql",
+  },
+};
+
 const importedFastApiAppRequest = {
   ...appRequest,
   appName: "Campus API",
@@ -407,6 +415,51 @@ describe("publishing setup service", () => {
       applicationObjectId: "entra-object-id",
       redirectUri: "https://app-campus-dashboard.azurewebsites.net/auth/callback",
     });
+  });
+
+  it("preflights generated FastAPI setup with PostgreSQL and the FastAPI auth callback path", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      fastApiWithDatabaseAndEntraAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+    const deps = createDeps();
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.graph.hasRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri: "https://app-campus-dashboard.azurewebsites.net/auth/callback",
+    });
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_resource_access",
+          metadata: expect.objectContaining({
+            databaseName: "db_campus_api_req123",
+          }),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_app_settings",
+          status: "PASS",
+          metadata: expect.objectContaining({
+            settingNames: expect.arrayContaining([
+              "DATABASE_URL",
+              "AUTH_URL",
+              "NEXTAUTH_URL",
+              "AUTH_SECRET",
+              "AUTH_MICROSOFT_ENTRA_ID_ID",
+              "AUTH_MICROSOFT_ENTRA_ID_SECRET",
+              "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
+            ]),
+          }),
+        }),
+      }),
+    );
   });
 
   it("marks setup needs repair when a public Azure app setting is stale", async () => {
@@ -827,6 +880,50 @@ describe("publishing setup service", () => {
     expect(deps.graph.ensureRedirectUri).toHaveBeenCalledWith({
       applicationObjectId: "entra-object-id",
       redirectUri: "https://campus-api.cedarville.edu/auth/callback",
+    });
+  });
+
+  it("repairs generated FastAPI setup with PostgreSQL and the FastAPI auth callback path", async () => {
+    const deps = createDeps();
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      {
+        ...fastApiWithDatabaseAndEntraAppRequest,
+        primaryPublishUrl: "https://campus-api.cedarville.edu",
+      } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putPostgresDatabase).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      serverName: "psql-cu-apps-published",
+      databaseName: "db_campus_api_req123",
+      tags: expect.objectContaining({
+        appRequestId: "req_123",
+      }),
+    });
+    expect(deps.arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "app-campus-api-req123",
+        settings: expect.objectContaining({
+          DATABASE_URL:
+            "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_api_req123?sslmode=require",
+          AUTH_URL: "https://campus-api.cedarville.edu",
+          NEXTAUTH_URL: "https://campus-api.cedarville.edu",
+          AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
+        }),
+      }),
+    );
+    expect(deps.graph.ensureRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri: "https://campus-api.cedarville.edu/auth/callback",
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        azureDatabaseName: "db_campus_api_req123",
+        primaryPublishUrl: "https://campus-api.cedarville.edu",
+      }),
     });
   });
 
