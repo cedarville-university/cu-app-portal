@@ -884,7 +884,60 @@ describe("publishing setup service", () => {
   });
 
   it("repairs generated FastAPI setup with PostgreSQL and the FastAPI auth callback path", async () => {
-    const deps = createDeps();
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn()
+          .mockResolvedValueOnce({
+            exists: true,
+            settings: {
+              DATABASE_URL: "postgresql://stale",
+              AUTH_URL: "https://stale-campus-api.azurewebsites.net",
+              NEXTAUTH_URL: "https://stale-campus-api.azurewebsites.net",
+              AUTH_SECRET: "old-auth-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ID: "old-client-id",
+              AUTH_MICROSOFT_ENTRA_ID_SECRET: "old-client-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+                "https://login.microsoftonline.com/old/v2.0",
+              NODE_ENV: "production",
+              SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+              ENABLE_ORYX_BUILD: "false",
+              WEBSITE_RUN_FROM_PACKAGE: "1",
+              EXISTING_CUSTOM_SETTING: "keep-me",
+            },
+          })
+          .mockResolvedValueOnce({
+            exists: true,
+            settings: {
+              DATABASE_URL:
+                "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_api_req123?sslmode=require",
+              AUTH_URL: "https://campus-api.cedarville.edu",
+              NEXTAUTH_URL: "https://campus-api.cedarville.edu",
+              AUTH_SECRET: "auth-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
+              AUTH_MICROSOFT_ENTRA_ID_SECRET: "entra-client-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+                "https://login.microsoftonline.com/tenant/v2.0",
+              NODE_ENV: "production",
+              SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+              ENABLE_ORYX_BUILD: "false",
+              WEBSITE_RUN_FROM_PACKAGE: "1",
+              EXISTING_CUSTOM_SETTING: "keep-me",
+            },
+          }),
+      },
+      graph: {
+        ...baseDeps.graph,
+        listFederatedCredentials: vi.fn().mockResolvedValue([
+          {
+            id: "credential-id",
+            name: "github-campus-api-req123",
+            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+          },
+        ]),
+      },
+    });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
       {
         ...fastApiWithDatabaseAndEntraAppRequest,
@@ -892,7 +945,7 @@ describe("publishing setup service", () => {
       } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
     );
 
-    await repairPublishingSetup("req_123", deps);
+    const result = await repairPublishingSetup("req_123", deps);
 
     expect(deps.arm.putPostgresDatabase).toHaveBeenCalledWith({
       resourceGroup: "rg-cu-apps-published",
@@ -923,6 +976,14 @@ describe("publishing setup service", () => {
       data: expect.objectContaining({
         azureDatabaseName: "db_campus_api_req123",
         primaryPublishUrl: "https://campus-api.cedarville.edu",
+      }),
+    });
+    expect(result.setupStatus).toBe("READY");
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
       }),
     });
   });

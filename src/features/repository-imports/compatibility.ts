@@ -256,8 +256,17 @@ function detectFastApiEntrypoint(files: RepositoryFileMap) {
   return null;
 }
 
-function hasHttpServerStaticRoot(files: RepositoryFileMap) {
+function hasHttpServerStaticRootSignal(files: RepositoryFileMap) {
   return hasFile(files, "index.html");
+}
+
+function hasHttpServerRuntime(files: RepositoryFileMap) {
+  return (
+    hasHttpServerStaticRootSignal(files) &&
+    !hasFile(files, "package.json") &&
+    !hasFile(files, "requirements.txt") &&
+    !hasFile(files, "pyproject.toml")
+  );
 }
 
 function hasUnsupportedLockfile(files: RepositoryFileMap) {
@@ -297,9 +306,10 @@ export function scanRepositoryCompatibility(
   const { packageJson, finding } = parsePackageJson(files);
   const hasNextRuntime = packageJson ? hasNextDependency(packageJson) : false;
   const hasFastApiRuntime = hasFastApiDependency(files);
-  const hasHttpServerRuntime = hasHttpServerStaticRoot(files);
+  const hasHttpServerStaticRoot = hasHttpServerStaticRootSignal(files);
+  const hasEligibleHttpServerRuntime = hasHttpServerRuntime(files);
   const isAmbiguousRuntime =
-    hasNextRuntime && (hasFastApiRuntime || hasHttpServerRuntime);
+    hasNextRuntime && (hasFastApiRuntime || hasHttpServerStaticRoot);
   const fastApiEntrypoint = hasFastApiRuntime
     ? detectFastApiEntrypoint(files)
     : null;
@@ -311,7 +321,7 @@ export function scanRepositoryCompatibility(
       ? IMPORTED_NEXT_RUNTIME
       : fastApiEntrypoint && hasSupportedFastApiServer && !isAmbiguousRuntime
         ? importedFastApiRuntime(fastApiEntrypoint)
-        : hasHttpServerRuntime && !hasFastApiRuntime && !isAmbiguousRuntime
+        : hasEligibleHttpServerRuntime && !hasFastApiRuntime && !isAmbiguousRuntime
           ? IMPORTED_HTTP_SERVER_RUNTIME
           : null;
 
@@ -329,7 +339,11 @@ export function scanRepositoryCompatibility(
       message:
         "Repository matches multiple supported runtimes. Keep one root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
     });
-  } else if (!hasNextRuntime && !hasFastApiRuntime && !hasHttpServerRuntime) {
+  } else if (
+    !hasNextRuntime &&
+    !hasFastApiRuntime &&
+    !hasEligibleHttpServerRuntime
+  ) {
     findings.push({
       code: "UNSUPPORTED_APP_RUNTIME",
       severity: "error",

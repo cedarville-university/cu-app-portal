@@ -74,6 +74,51 @@ describe("scanRepositoryCompatibility", () => {
     });
   });
 
+  it("does not treat build-based frontend apps as Python http.server imports", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "package.json": JSON.stringify({
+          scripts: { build: "vite build", start: "vite preview" },
+          dependencies: { "@vitejs/plugin-react": "latest", vite: "7.0.0" },
+          engines: { node: ">=24" },
+        }),
+        "index.html": "<div id=\"root\"></div>",
+        "src/App.tsx": "export function App() { return null; }\n",
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "UNSUPPORTED_APP_RUNTIME",
+          severity: "error",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
+        },
+      ],
+      canDirectCommit: false,
+      runtime: null,
+    });
+  });
+
+  it("does not treat packaged Python projects with static docs as http.server imports", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "pyproject.toml": "[project]\nname = \"campus-tools\"\n",
+        "index.html": "<h1>Package docs</h1>",
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "UNSUPPORTED_APP_RUNTIME",
+          severity: "error",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
+        },
+      ],
+      canDirectCommit: false,
+      runtime: null,
+    });
+  });
+
   it("accepts a root FastAPI app even when package.json is invalid", () => {
     expect(
       scanRepositoryCompatibility({
