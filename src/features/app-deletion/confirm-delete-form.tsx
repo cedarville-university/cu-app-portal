@@ -1,16 +1,31 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useActionState, useRef, useState } from "react";
+
+type DeleteAppFormState = {
+  error: string | null;
+};
+
+const initialDeleteAppFormState: DeleteAppFormState = {
+  error: null,
+};
 
 export function ConfirmDeleteForm({
   action,
   children,
   className,
 }: {
-  action: React.ComponentProps<"form">["action"];
+  action: (
+    state: DeleteAppFormState,
+    formData: FormData,
+  ) => Promise<DeleteAppFormState>;
   children: React.ReactNode;
   className?: string;
 }) {
+  const [state, formAction] = useActionState(
+    action,
+    initialDeleteAppFormState,
+  );
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmationText, setConfirmationText] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
@@ -44,11 +59,16 @@ export function ConfirmDeleteForm({
   return (
     <>
       <form
-        action={action}
+        action={formAction}
         className={className}
         onSubmit={handleSubmit}
         ref={formRef}
       >
+        {state.error ? (
+          <div className="error-box" role="alert">
+            {state.error}
+          </div>
+        ) : null}
         {children}
       </form>
       {isConfirming ? (

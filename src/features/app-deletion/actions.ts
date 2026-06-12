@@ -22,6 +22,10 @@ type DeleteTargets = {
   azure: boolean;
 };
 
+export type DeleteAppFormState = {
+  error: string | null;
+};
+
 function isChecked(formData: FormData, name: string) {
   return formData.get(name) === "on";
 }
@@ -182,7 +186,7 @@ async function deletePortalRecord(appRequest: {
   });
 }
 
-export async function deleteAppAction(requestId: string, formData: FormData) {
+async function deleteApp(requestId: string, formData: FormData) {
   const targets = parseDeleteTargets(formData);
   const returnPath = parseDeletionReturnPath(formData);
   const { appRequest, actorUserId, actorIsAdmin } =
@@ -280,6 +284,54 @@ export async function deleteAppAction(requestId: string, formData: FormData) {
   }
 
   if (redirectToApps) {
-    redirect(returnPath);
+    return returnPath;
   }
+
+  return null;
+}
+
+function getDeleteErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    if (error.message.includes("GitHub repository details are missing")) {
+      return "This app does not have a tracked GitHub repository to delete.";
+    }
+
+    if (error.message.includes("Azure deployment details are missing")) {
+      return "This app does not have a tracked Azure deployment to delete.";
+    }
+
+    return error.message;
+  }
+
+  return "The selected app resources could not be deleted. Try again or contact a portal administrator.";
+}
+
+export async function deleteAppAction(requestId: string, formData: FormData) {
+  const redirectPath = await deleteApp(requestId, formData);
+
+  if (redirectPath) {
+    redirect(redirectPath);
+  }
+}
+
+export async function deleteAppFormAction(
+  requestId: string,
+  _state: DeleteAppFormState,
+  formData: FormData,
+): Promise<DeleteAppFormState> {
+  let redirectPath: string | null = null;
+
+  try {
+    redirectPath = await deleteApp(requestId, formData);
+  } catch (error) {
+    return {
+      error: getDeleteErrorMessage(error),
+    };
+  }
+
+  if (redirectPath) {
+    redirect(redirectPath);
+  }
+
+  return { error: null };
 }

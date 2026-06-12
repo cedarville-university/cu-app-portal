@@ -9,7 +9,7 @@ import {
 } from "@/features/admin/actions";
 import { requireAdminUserId } from "@/features/admin/roles";
 import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
-import { deleteAppAction } from "@/features/app-deletion/actions";
+import { deleteAppFormAction } from "@/features/app-deletion/actions";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { prisma } from "@/lib/db";
 
@@ -218,6 +218,12 @@ export default async function AdminPage() {
             const collaborators = request.collaborators.map(
               (access) => access.user,
             );
+            const canDeleteGitHub =
+              request.repositoryStatus !== "DELETED" &&
+              Boolean(request.repositoryOwner && request.repositoryName);
+            const canDeleteAzure =
+              request.publishStatus !== "DELETED" &&
+              Boolean(request.azureWebAppName || request.azureDatabaseName);
 
             return (
               <article className="card" key={request.id}>
@@ -395,7 +401,7 @@ export default async function AdminPage() {
                   ) : null}
 
                   <ConfirmDeleteForm
-                    action={deleteAppAction.bind(null, request.id)}
+                    action={deleteAppFormAction.bind(null, request.id)}
                     className="form-stack"
                   >
                     <details className="delete-panel">
@@ -407,14 +413,53 @@ export default async function AdminPage() {
                             <input name="deletePortal" type="checkbox" />
                             Remove this app from the portal
                           </label>
-                          <label>
-                            <input name="deleteGithub" type="checkbox" />
-                            Delete GitHub repository
-                          </label>
-                          <label>
-                            <input name="deleteAzure" type="checkbox" />
-                            Delete Azure deployment
-                          </label>
+                          {canDeleteGitHub ? (
+                            <label>
+                              <input name="deleteGithub" type="checkbox" />
+                              Delete GitHub repository{" "}
+                              <code style={{ fontSize: "0.875em" }}>
+                                {request.repositoryOwner}/{request.repositoryName}
+                              </code>
+                            </label>
+                          ) : (
+                            <p
+                              style={{
+                                fontSize: "0.875rem",
+                                color: "var(--text-muted)",
+                                margin: 0,
+                              }}
+                            >
+                              GitHub repository already deleted or not tracked.
+                            </p>
+                          )}
+                          {canDeleteAzure ? (
+                            <label>
+                              <input name="deleteAzure" type="checkbox" />
+                              <span>
+                                Delete Azure deployment
+                                {request.azureWebAppName ? (
+                                  <>: Web App {request.azureWebAppName}</>
+                                ) : null}
+                                {request.azureDatabaseName ? (
+                                  <>
+                                    {" "}
+                                    and PostgreSQL database{" "}
+                                    {request.azureDatabaseName}
+                                  </>
+                                ) : null}
+                              </span>
+                            </label>
+                          ) : (
+                            <p
+                              style={{
+                                fontSize: "0.875rem",
+                                color: "var(--text-muted)",
+                                margin: 0,
+                              }}
+                            >
+                              Azure deployment already deleted or not tracked.
+                            </p>
+                          )}
                         </fieldset>
                         <label>
                           <input name="confirmDelete" type="checkbox" required />

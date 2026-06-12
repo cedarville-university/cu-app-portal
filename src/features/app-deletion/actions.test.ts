@@ -4,7 +4,7 @@ import { deleteArtifact } from "@/features/generation/storage";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { deleteAppAction } from "./actions";
+import { deleteAppAction, deleteAppFormAction } from "./actions";
 import {
   deleteAzureDeployment,
   deleteManagedGitHubRepository,
@@ -249,5 +249,21 @@ describe("deleteAppAction", () => {
     await deleteAppAction("request-123", formData);
 
     expect(redirect).toHaveBeenCalledWith("/admin");
+  });
+
+  it("returns a friendly form error instead of throwing from UI submissions", async () => {
+    const formData = deletionForm(["github"]);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      ...ownedRequest,
+      repositoryOwner: null,
+      repositoryName: null,
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(
+      deleteAppFormAction("request-123", { error: null }, formData),
+    ).resolves.toEqual({
+      error: "This app does not have a tracked GitHub repository to delete.",
+    });
+    expect(redirect).not.toHaveBeenCalled();
   });
 });

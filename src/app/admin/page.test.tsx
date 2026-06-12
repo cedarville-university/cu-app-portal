@@ -29,6 +29,7 @@ vi.mock("@/features/admin/actions", () => ({
 
 vi.mock("@/features/app-deletion/actions", () => ({
   deleteAppAction: vi.fn(),
+  deleteAppFormAction: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -132,6 +133,22 @@ describe("AdminPage", () => {
     ).toHaveAttribute("href", "/download/request-123");
     expect(
       container.querySelector('input[name="returnTo"][value="/admin"]'),
+    ).toBeInTheDocument();
+    expect(
+      within(appSection).queryByLabelText(/delete github repository/i),
+    ).not.toBeInTheDocument();
+    expect(
+      within(appSection).queryByLabelText(/delete azure deployment/i),
+    ).not.toBeInTheDocument();
+    expect(
+      within(appSection).getByText(
+        /github repository already deleted or not tracked/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(appSection).getByText(
+        /azure deployment already deleted or not tracked/i,
+      ),
     ).toBeInTheDocument();
   });
 });

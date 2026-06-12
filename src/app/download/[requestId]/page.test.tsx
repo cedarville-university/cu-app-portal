@@ -36,6 +36,7 @@ vi.mock("@/features/publishing/actions", () => ({
 
 vi.mock("@/features/app-deletion/actions", () => ({
   deleteAppAction: vi.fn(),
+  deleteAppFormAction: vi.fn(),
 }));
 
 vi.mock("@/features/publishing/setup/actions", () => ({

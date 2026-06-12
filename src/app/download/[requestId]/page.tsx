@@ -12,7 +12,7 @@ import {
   retryPublishAction,
 } from "@/features/publishing/actions";
 import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
-import { deleteAppAction } from "@/features/app-deletion/actions";
+import { deleteAppFormAction } from "@/features/app-deletion/actions";
 import { repairPublishingSetupAction } from "@/features/publishing/setup/actions";
 import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/status";
 import { supportsPostSuccessPushToDeploy } from "@/features/publishing/providers";
@@ -661,7 +661,7 @@ function renderDeletePanel(request: {
   azureWebAppName: string | null;
   azureDatabaseName: string | null;
 }) {
-  const deleteAction = deleteAppAction.bind(null, request.id);
+  const deleteAction = deleteAppFormAction.bind(null, request.id);
   const canDeleteGitHub =
     request.repositoryStatus !== "DELETED" &&
     Boolean(request.repositoryOwner && request.repositoryName);
