@@ -126,6 +126,89 @@ function getPublishingSetupBlockMessage(
   return null;
 }
 
+function renderUserIdentity(user: {
+  displayName: string;
+  email: string;
+}) {
+  return (
+    <>
+      <strong>{user.displayName}</strong>
+      <span style={{ color: "var(--text-secondary)" }}>{user.email}</span>
+    </>
+  );
+}
+
+function renderAppAccessSummary({
+  owner,
+  collaborators,
+}: {
+  owner?: {
+    displayName: string;
+    email: string;
+  } | null;
+  collaborators?: Array<{
+    user: {
+      displayName: string;
+      email: string;
+    };
+  }>;
+}) {
+  if (!owner) {
+    return null;
+  }
+
+  return (
+    <section aria-label="App access" className="card">
+      <p className="section-title">App Access</p>
+      <div className="status-table">
+        <div className="status-row">
+          <span className="status-row__label">Owner</span>
+          <span
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.125rem",
+            }}
+          >
+            {renderUserIdentity(owner)}
+          </span>
+        </div>
+        <div className="status-row">
+          <span className="status-row__label">Collaborators</span>
+          {collaborators?.length ? (
+            <ul
+              style={{
+                display: "grid",
+                gap: "0.5rem",
+                listStyle: "none",
+                margin: 0,
+                padding: 0,
+              }}
+            >
+              {collaborators.map((collaborator) => (
+                <li
+                  key={collaborator.user.email}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.125rem",
+                  }}
+                >
+                  {renderUserIdentity(collaborator.user)}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span style={{ color: "var(--text-secondary)" }}>
+              No collaborators yet.
+            </span>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const CHECK_KEY_LABELS: Record<string, string> = {
   azure_resource_access: "Azure hosting access",
   azure_app_settings: "Azure app configuration",
@@ -683,6 +766,23 @@ export default async function DownloadPage({
     where: appAccessWhere(requestId, userId, isAdmin),
     include: {
       artifact: true,
+      user: {
+        select: {
+          displayName: true,
+          email: true,
+        },
+      },
+      collaborators: {
+        include: {
+          user: {
+            select: {
+              displayName: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       publishAttempts: {
         orderBy: { createdAt: "desc" },
         take: 1,
@@ -791,6 +891,10 @@ export default async function DownloadPage({
       </div>
 
       <div style={{ display: "grid", gap: "1.25rem" }}>
+        {renderAppAccessSummary({
+          owner: appRequest.user,
+          collaborators: appRequest.collaborators,
+        })}
 
         {/* Repository section */}
         <div className="card card--navy-border">

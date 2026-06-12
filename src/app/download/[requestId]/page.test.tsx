@@ -213,6 +213,82 @@ describe("DownloadPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("lists the app owner and collaborators on the app details page", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("owner-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_access_list",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "NOT_REQUESTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-123",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+      user: {
+        displayName: "Olivia Owner",
+        email: "owner@cedarville.edu",
+      },
+      collaborators: [
+        {
+          user: {
+            displayName: "Casey Collaborator",
+            email: "casey@cedarville.edu",
+          },
+        },
+        {
+          user: {
+            displayName: "Jordan Builder",
+            email: "jordan@cedarville.edu",
+          },
+        },
+      ],
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "ownerhub",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_access_list" }),
+      }),
+    );
+
+    const accessRegion = screen.getByRole("region", { name: /app access/i });
+
+    expect(within(accessRegion).getByText("Owner")).toBeInTheDocument();
+    expect(within(accessRegion).getByText("Olivia Owner")).toBeInTheDocument();
+    expect(
+      within(accessRegion).getByText("owner@cedarville.edu"),
+    ).toBeInTheDocument();
+    expect(
+      within(accessRegion).getByText("Collaborators"),
+    ).toBeInTheDocument();
+    expect(
+      within(accessRegion).getByText("Casey Collaborator"),
+    ).toBeInTheDocument();
+    expect(
+      within(accessRegion).getByText("casey@cedarville.edu"),
+    ).toBeInTheDocument();
+    expect(
+      within(accessRegion).getByText("Jordan Builder"),
+    ).toBeInTheDocument();
+    expect(
+      within(accessRegion).getByText("jordan@cedarville.edu"),
+    ).toBeInTheDocument();
+  });
+
   it("hides publish actions for unprepared imported apps", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
