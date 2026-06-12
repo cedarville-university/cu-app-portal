@@ -139,6 +139,15 @@ describe("AdminPage", () => {
       screen.getByRole("heading", { level: 1, name: "Admin" }),
     ).toBeInTheDocument();
 
+    const usersPanel = screen
+      .getByRole("heading", { name: /users \(2\)/i })
+      .closest("details");
+    const appsPanel = screen
+      .getByRole("heading", { name: /apps \(1\)/i })
+      .closest("details");
+    expect(usersPanel).toHaveAttribute("open");
+    expect(appsPanel).toHaveAttribute("open");
+
     expect(screen.getByText("Olivia Owner")).toBeInTheDocument();
     expect(screen.getByText("owner@cedarville.edu")).toBeInTheDocument();
     expect(screen.getByText("@oliviaowner")).toBeInTheDocument();

@@ -169,11 +169,14 @@ export default async function AdminPage() {
         <p>Manage portal users, app ownership, collaborators, and resources.</p>
       </div>
 
-      <section
+      <details
         aria-labelledby="admin-users-heading"
+        open
         style={{ marginBottom: "2.5rem" }}
       >
-        <h2 id="admin-users-heading">Users</h2>
+        <summary>
+          <h2 id="admin-users-heading">Users ({users.length})</h2>
+        </summary>
         <div className="grid grid--2" style={{ gap: "1rem" }}>
           {users.map((user) => {
             const isAdmin = user.roles.some((role) => role.role === "ADMIN");
@@ -237,10 +240,12 @@ export default async function AdminPage() {
             );
           })}
         </div>
-      </section>
+      </details>
 
-      <section aria-labelledby="admin-apps-heading" role="region">
-        <h2 id="admin-apps-heading">Apps</h2>
+      <details aria-labelledby="admin-apps-heading" open role="region">
+        <summary>
+          <h2 id="admin-apps-heading">Apps ({appRequests.length})</h2>
+        </summary>
         <div className="grid grid--2" style={{ gap: "1rem" }}>
           {appRequests.map((request) => {
             const displayPublishUrl =
@@ -512,7 +517,7 @@ export default async function AdminPage() {
             );
           })}
         </div>
-      </section>
+      </details>
     </main>
   );
 }
