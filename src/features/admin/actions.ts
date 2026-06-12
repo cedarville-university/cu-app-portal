@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
@@ -64,20 +65,48 @@ export async function grantAdminRoleAction(userId: string) {
 
 export async function removeAdminRoleAction(userId: string) {
   const actorUserId = await requireAdminUserId();
-  const adminCount = await prisma.userRole.count({
-    where: { role: "ADMIN" },
-  });
+  const roleRemoved = await prisma.$transaction(
+    async (tx) => {
+      const targetRole = await tx.userRole.findUnique({
+        where: {
+          userId_role: {
+            userId,
+            role: "ADMIN",
+          },
+        },
+      });
 
-  if (adminCount <= 1) {
-    throw new Error("At least one admin must remain.");
+      if (!targetRole) {
+        return false;
+      }
+
+      const adminCount = await tx.userRole.count({
+        where: { role: "ADMIN" },
+      });
+
+      if (adminCount <= 1) {
+        throw new Error("At least one admin must remain.");
+      }
+
+      await tx.userRole.delete({
+        where: {
+          userId_role: {
+            userId,
+            role: "ADMIN",
+          },
+        },
+      });
+
+      return true;
+    },
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+  );
+
+  if (!roleRemoved) {
+    revalidateAdminViews();
+    return;
   }
 
-  await prisma.userRole.deleteMany({
-    where: {
-      userId,
-      role: "ADMIN",
-    },
-  });
   await recordAuditEvent("ADMIN_ROLE_REMOVED", {
     actorUserId,
     targetUserId: userId,

@@ -31,7 +31,9 @@ vi.mock("@/lib/db", () => ({
     },
     userRole: {
       count: vi.fn(),
+      findUnique: vi.fn(),
       upsert: vi.fn(),
+      delete: vi.fn(),
       deleteMany: vi.fn(),
     },
     appRequest: {
@@ -75,9 +77,13 @@ describe("admin actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(requireAdminUserId).mockResolvedValue(adminUserId);
-    vi.mocked(prisma.$transaction).mockImplementation(async (callback) =>
-      callback(prisma),
-    );
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) => {
+      if (typeof callback !== "function") {
+        throw new Error("Expected interactive transaction callback.");
+      }
+
+      return callback(prisma);
+    });
   });
 
   it("grantAdminRoleAction requires an admin, ensures the target user exists, upserts ADMIN role, records audit, and revalidates admin views", async () => {
@@ -122,7 +128,40 @@ describe("admin actions", () => {
     expect(recordAuditEvent).not.toHaveBeenCalled();
   });
 
-  it("removeAdminRoleAction requires an admin and blocks removing the last admin", async () => {
+  it("removeAdminRoleAction does not throw, delete, or audit when the target is not an admin", async () => {
+    vi.mocked(prisma.userRole.findUnique).mockResolvedValueOnce(null);
+
+    await removeAdminRoleAction(targetUserId);
+
+    expect(requireAdminUserId).toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      { isolationLevel: "Serializable" },
+    );
+    expect(prisma.userRole.findUnique).toHaveBeenCalledWith({
+      where: {
+        userId_role: {
+          userId: targetUserId,
+          role: "ADMIN",
+        },
+      },
+    });
+    expect(prisma.userRole.count).not.toHaveBeenCalled();
+    expect(prisma.userRole.delete).not.toHaveBeenCalled();
+    expect(prisma.userRole.deleteMany).not.toHaveBeenCalled();
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith("/admin");
+    expect(revalidatePath).toHaveBeenCalledWith("/apps");
+  });
+
+  it("removeAdminRoleAction requires an admin and blocks removing the last actual admin", async () => {
+    vi.mocked(prisma.userRole.findUnique).mockResolvedValueOnce({
+      id: "role-123",
+      userId: targetUserId,
+      role: "ADMIN",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
     vi.mocked(prisma.userRole.count).mockResolvedValueOnce(1);
 
     await expect(removeAdminRoleAction(targetUserId)).rejects.toThrow(
@@ -133,22 +172,48 @@ describe("admin actions", () => {
     expect(prisma.userRole.count).toHaveBeenCalledWith({
       where: { role: "ADMIN" },
     });
+    expect(prisma.userRole.delete).not.toHaveBeenCalled();
     expect(prisma.userRole.deleteMany).not.toHaveBeenCalled();
     expect(recordAuditEvent).not.toHaveBeenCalled();
   });
 
-  it("removeAdminRoleAction deletes ADMIN role otherwise, records audit, and revalidates admin views", async () => {
+  it("removeAdminRoleAction uses a serializable transaction, deletes ADMIN by compound key otherwise, records audit, and revalidates admin views", async () => {
+    vi.mocked(prisma.userRole.findUnique).mockResolvedValueOnce({
+      id: "role-123",
+      userId: targetUserId,
+      role: "ADMIN",
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
     vi.mocked(prisma.userRole.count).mockResolvedValueOnce(2);
 
     await removeAdminRoleAction(targetUserId);
 
     expect(requireAdminUserId).toHaveBeenCalled();
-    expect(prisma.userRole.deleteMany).toHaveBeenCalledWith({
+    expect(prisma.$transaction).toHaveBeenCalledWith(
+      expect.any(Function),
+      { isolationLevel: "Serializable" },
+    );
+    expect(prisma.userRole.findUnique).toHaveBeenCalledWith({
       where: {
-        userId: targetUserId,
-        role: "ADMIN",
+        userId_role: {
+          userId: targetUserId,
+          role: "ADMIN",
+        },
       },
     });
+    expect(prisma.userRole.count).toHaveBeenCalledWith({
+      where: { role: "ADMIN" },
+    });
+    expect(prisma.userRole.delete).toHaveBeenCalledWith({
+      where: {
+        userId_role: {
+          userId: targetUserId,
+          role: "ADMIN",
+        },
+      },
+    });
+    expect(prisma.userRole.deleteMany).not.toHaveBeenCalled();
     expect(recordAuditEvent).toHaveBeenCalledWith("ADMIN_ROLE_REMOVED", {
       actorUserId: adminUserId,
       targetUserId,
