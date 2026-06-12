@@ -421,6 +421,7 @@ export default async function AdminPage() {
                           I understand that checked items will be permanently
                           deleted.
                         </label>
+                        <input name="returnTo" type="hidden" value="/admin" />
                         <PendingSubmitButton
                           idleLabel="Delete Selected Resources"
                           pendingLabel="Deleting..."

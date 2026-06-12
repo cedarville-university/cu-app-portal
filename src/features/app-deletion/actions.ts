@@ -44,6 +44,12 @@ function parseDeleteTargets(formData: FormData): DeleteTargets {
   return targets;
 }
 
+function parseDeletionReturnPath(formData: FormData) {
+  const returnTo = formData.get("returnTo");
+
+  return returnTo === "/admin" ? "/admin" : "/apps";
+}
+
 async function loadDeletableAppRequest(requestId: string) {
   const actorUserId = await resolveCurrentUserId();
   const actorIsAdmin = await userHasAdminRole(actorUserId);
@@ -178,6 +184,7 @@ async function deletePortalRecord(appRequest: {
 
 export async function deleteAppAction(requestId: string, formData: FormData) {
   const targets = parseDeleteTargets(formData);
+  const returnPath = parseDeletionReturnPath(formData);
   const { appRequest, actorUserId, actorIsAdmin } =
     await loadDeletableAppRequest(requestId);
   const adminInitiated = actorIsAdmin && appRequest.userId !== actorUserId;
@@ -273,6 +280,6 @@ export async function deleteAppAction(requestId: string, formData: FormData) {
   }
 
   if (redirectToApps) {
-    redirect("/apps");
+    redirect(returnPath);
   }
 }

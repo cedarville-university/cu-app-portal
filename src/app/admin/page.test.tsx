@@ -109,7 +109,7 @@ describe("AdminPage", () => {
       },
     ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
 
-    render(await AdminPage());
+    const { container } = render(await AdminPage());
 
     expect(requireAdminUserId).toHaveBeenCalled();
     expect(
@@ -130,5 +130,8 @@ describe("AdminPage", () => {
     expect(
       within(appSection).getByRole("link", { name: /app details/i }),
     ).toHaveAttribute("href", "/download/request-123");
+    expect(
+      container.querySelector('input[name="returnTo"][value="/admin"]'),
+    ).toBeInTheDocument();
   });
 });
