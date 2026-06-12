@@ -1,6 +1,10 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import {
+  appAccessWhere,
+  userHasAdminRole,
+} from "@/features/app-requests/access";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import {
   enablePushToDeployAction,
@@ -674,8 +678,9 @@ export default async function DownloadPage({
     notFound();
   }
 
+  const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
-    where: { id: requestId, userId },
+    where: appAccessWhere(requestId, userId, isAdmin),
     include: {
       artifact: true,
       publishAttempts: {

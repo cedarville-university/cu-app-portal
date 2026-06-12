@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { appAccessWhere, canDeleteApp, userHasAdminRole } from "./access";
+import {
+  appAccessWhere,
+  appListWhereForUser,
+  canDeleteApp,
+  loadAccessibleAppRequest,
+  userHasAdminRole,
+} from "./access";
 import { prisma } from "@/lib/db";
 
 vi.mock("@/lib/db", () => ({
@@ -30,6 +36,37 @@ describe("app request access helpers", () => {
     expect(appAccessWhere("request-123", "admin-123", true)).toEqual({
       id: "request-123",
     });
+  });
+
+  it("loads an app through owner, collaborator, or admin access", async () => {
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "owner-123",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(
+      loadAccessibleAppRequest("request-123", "user-123"),
+    ).resolves.toEqual(expect.objectContaining({ id: "request-123" }));
+    expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "request-123",
+        OR: [
+          { userId: "user-123" },
+          { collaborators: { some: { userId: "user-123" } } },
+        ],
+      },
+    });
+  });
+
+  it("builds a list predicate for apps visible to a user", async () => {
+    expect(appListWhereForUser("user-123", false)).toEqual({
+      OR: [
+        { userId: "user-123" },
+        { collaborators: { some: { userId: "user-123" } } },
+      ],
+    });
+    expect(appListWhereForUser("admin-123", true)).toEqual({});
   });
 
   it("detects portal admins from UserRole records", async () => {

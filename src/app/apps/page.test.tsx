@@ -50,6 +50,9 @@ vi.mock("@/lib/db", () => ({
     user: {
       findUnique: vi.fn(),
     },
+    userRole: {
+      findFirst: vi.fn(),
+    },
     appRequest: {
       findMany: vi.fn(),
     },
@@ -61,6 +64,7 @@ import { prisma } from "@/lib/db";
 
 beforeEach(() => {
   mockUseFormStatus.mockReturnValue({ pending: false });
+  vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -216,6 +220,16 @@ describe("MyAppsPage", () => {
 
     expect(prisma.appRequest.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: {
+          OR: [
+            { userId: "user-123" },
+            {
+              collaborators: {
+                some: { userId: "user-123" },
+              },
+            },
+          ],
+        },
         include: {
           repositoryImport: true,
         },

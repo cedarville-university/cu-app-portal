@@ -1,4 +1,8 @@
 import { getServerSession } from "@/auth/session";
+import {
+  appAccessWhere,
+  userHasAdminRole,
+} from "@/features/app-requests/access";
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import { createAppSchema } from "@/features/create-app/validation";
 import { buildArchive } from "@/features/generation/build-archive";
@@ -76,11 +80,9 @@ export async function GET(
   }
 
   const { requestId } = await params;
+  const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
-    where: {
-      id: requestId,
-      userId,
-    },
+    where: appAccessWhere(requestId, userId, isAdmin),
     select: {
       id: true,
       supportReference: true,

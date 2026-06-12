@@ -30,6 +30,9 @@ vi.mock("@/lib/db", () => ({
     user: {
       upsert: vi.fn(),
     },
+    userRole: {
+      findFirst: vi.fn(),
+    },
     appRequest: {
       findFirst: vi.fn(),
     },
@@ -46,6 +49,8 @@ describe("createDownloadHeaders", () => {
     vi.mocked(buildArchive).mockReset();
     recordAuditEventMock.mockReset();
     vi.mocked(prisma.user.upsert).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.appRequest.findFirst).mockReset();
   });
 
@@ -121,6 +126,57 @@ describe("createDownloadHeaders", () => {
     );
   });
 
+  it("returns the artifact for a collaborator and records the download", async () => {
+    getServerSessionMock.mockResolvedValue({
+      user: { id: "collaborator-123" },
+    });
+    isMissingFileErrorMock.mockReturnValue(false);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_123",
+      supportReference: "SUP-20260423-ABCD1234",
+      submittedConfig: {
+        templateSlug: "web-app",
+        appName: "Campus Dashboard",
+        description: "Shows campus metrics.",
+        hostingTarget: "Azure App Service",
+      },
+      artifact: {
+        storagePath: "/tmp/.artifacts/campus-dashboard.zip",
+        filename: "campus-dashboard.zip",
+        contentType: "application/zip",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    loadArtifactMock.mockResolvedValue(Buffer.from("zip-data"));
+
+    const response = await GET(
+      new Request("http://localhost/api/download/req_123"),
+      { params: Promise.resolve({ requestId: "req_123" }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(prisma.appRequest.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: "req_123",
+          OR: [
+            { userId: "collaborator-123" },
+            {
+              collaborators: {
+                some: { userId: "collaborator-123" },
+              },
+            },
+          ],
+        },
+      }),
+    );
+    expect(recordAuditEventMock).toHaveBeenCalledWith(
+      "ARTIFACT_DOWNLOADED",
+      expect.objectContaining({
+        requestId: "req_123",
+      }),
+    );
+  });
+
   it("uses the fallback e2e user when bypass mode is enabled", async () => {
     vi.stubEnv("E2E_AUTH_BYPASS", "true");
     getServerSessionMock.mockResolvedValue(null);
@@ -154,9 +210,17 @@ describe("createDownloadHeaders", () => {
     expect(prisma.user.upsert).toHaveBeenCalled();
     expect(prisma.appRequest.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({
-          userId: "e2e-user-123",
-        }),
+        where: {
+          id: "req_123",
+          OR: [
+            { userId: "e2e-user-123" },
+            {
+              collaborators: {
+                some: { userId: "e2e-user-123" },
+              },
+            },
+          ],
+        },
       }),
     );
   });

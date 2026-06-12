@@ -57,6 +57,9 @@ vi.mock("@/lib/db", () => ({
     user: {
       findUnique: vi.fn(),
     },
+    userRole: {
+      findFirst: vi.fn(),
+    },
     appRequest: {
       findFirst: vi.fn(),
     },
@@ -68,6 +71,7 @@ import { prisma } from "@/lib/db";
 
 beforeEach(() => {
   mockUseFormStatus.mockReturnValue({ pending: false });
+  vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: {
@@ -139,6 +143,17 @@ describe("DownloadPage", () => {
     ).toBeInTheDocument();
     expect(prisma.appRequest.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
+        where: {
+          id: "req_123",
+          OR: [
+            { userId: "user-123" },
+            {
+              collaborators: {
+                some: { userId: "user-123" },
+              },
+            },
+          ],
+        },
         include: expect.objectContaining({
           repositoryImport: true,
           publishSetupChecks: {
