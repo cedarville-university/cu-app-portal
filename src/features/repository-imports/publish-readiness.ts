@@ -1,5 +1,8 @@
 import {
+  HTTP_SERVER_START_PATH,
+  IMPORTED_HTTP_SERVER_RUNTIME,
   PUBLISHING_BUNDLE_PATHS,
+  publishingBundlePathsForRuntime,
   scanRepositoryCompatibility,
   type ImportedAppRuntime,
   type RepositoryFileMap,
@@ -36,14 +39,15 @@ const READINESS_PATHS = [
   "pyproject.toml",
   "main.py",
   "app.py",
+  "index.html",
+  HTTP_SERVER_START_PATH,
   ...PUBLISHING_BUNDLE_PATHS,
 ];
-const REQUIRED_READINESS_PATHS = [...PUBLISHING_BUNDLE_PATHS];
 
 function removePublishingBundlePaths(files: RepositoryFileMap) {
   const compatibilityFiles = { ...files };
 
-  for (const path of PUBLISHING_BUNDLE_PATHS) {
+  for (const path of [...PUBLISHING_BUNDLE_PATHS, HTTP_SERVER_START_PATH]) {
     delete compatibilityFiles[path];
   }
 
@@ -75,6 +79,15 @@ function isManifestRuntime(value: unknown): value is ImportedAppRuntime {
       value.azureRuntimeStack === "NODE|24-lts" &&
       value.startupCommand === "npm start" &&
       value.workflowFileName === "deploy-azure-app-service.yml"
+    );
+  }
+
+  if (value.family === "python" && value.framework === "http-server") {
+    return (
+      value.displayName === IMPORTED_HTTP_SERVER_RUNTIME.displayName &&
+      value.azureRuntimeStack === IMPORTED_HTTP_SERVER_RUNTIME.azureRuntimeStack &&
+      value.startupCommand === IMPORTED_HTTP_SERVER_RUNTIME.startupCommand &&
+      value.workflowFileName === IMPORTED_HTTP_SERVER_RUNTIME.workflowFileName
     );
   }
 
@@ -125,9 +138,6 @@ export async function verifyImportedPublishReadiness({
     ref: defaultBranch,
     paths: READINESS_PATHS,
   });
-  const missingPaths = REQUIRED_READINESS_PATHS.filter(
-    (path) => !Object.prototype.hasOwnProperty.call(files, path),
-  );
   const compatibility = scanRepositoryCompatibility(
     removePublishingBundlePaths(files),
   );
@@ -135,6 +145,9 @@ export async function verifyImportedPublishReadiness({
     .filter((finding) => finding.code !== "FILE_CONFLICT")
     .map(formatFinding);
   const runtime = compatibility.runtime ?? parseManifestRuntime(files);
+  const missingPaths = publishingBundlePathsForRuntime(runtime).filter(
+    (path) => !Object.prototype.hasOwnProperty.call(files, path),
+  );
 
   return {
     ready: missingPaths.length === 0 && packageIssues.length === 0,

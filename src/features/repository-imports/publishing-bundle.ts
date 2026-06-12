@@ -1,7 +1,9 @@
 import { buildDeploymentManifest } from "@/features/generation/deployment-manifest";
 import {
+  HTTP_SERVER_START_PATH,
   IMPORTED_NEXT_RUNTIME,
   PUBLISHING_BUNDLE_PATHS,
+  publishingBundlePathsForRuntime,
   type ImportedAppRuntime,
   type RepositoryFileMap,
 } from "./compatibility";
@@ -317,8 +319,11 @@ function updatePackageJson(rawPackageJson: string) {
   return changed ? `${JSON.stringify(parsed, null, 2)}\n` : null;
 }
 
-function assertNoPublishingPathConflicts(files: RepositoryFileMap) {
-  for (const path of PUBLISHING_BUNDLE_PATHS) {
+function assertNoPublishingPathConflicts(
+  files: RepositoryFileMap,
+  runtime: ImportedAppRuntime,
+) {
+  for (const path of publishingBundlePathsForRuntime(runtime)) {
     if (Object.prototype.hasOwnProperty.call(files, path)) {
       throw new Error(`${path} already exists and will not be overwritten.`);
     }
@@ -333,7 +338,7 @@ export function planPublishingBundle({
   allowPublishingPathConflicts = false,
 }: PublishingBundleInput): PublishingBundlePlan {
   if (!allowPublishingPathConflicts) {
-    assertNoPublishingPathConflicts(files);
+    assertNoPublishingPathConflicts(files, runtime);
   }
 
   const filesToWrite: Record<string, string> = {};
@@ -349,7 +354,7 @@ export function planPublishingBundle({
   filesToWrite[".github/workflows/deploy-azure-app-service.yml"] =
     buildDeployWorkflow(runtime);
   if (runtime.framework === "http-server") {
-    filesToWrite["app-portal/http_server_start.py"] = HTTP_SERVER_START;
+    filesToWrite[HTTP_SERVER_START_PATH] = HTTP_SERVER_START;
   }
   filesToWrite[".codex/skills/publish-to-azure/SKILL.md"] =
     `# Publish to Azure\n\nUse the Cedarville App Portal as the supported Azure publishing path for this imported ${runtime.displayName} app.\n`;

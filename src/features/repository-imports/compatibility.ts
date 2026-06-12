@@ -35,7 +35,7 @@ export const IMPORTED_NEXT_RUNTIME = {
   workflowFileName: "deploy-azure-app-service.yml",
 } as const satisfies ImportedAppRuntime;
 
-const IMPORTED_HTTP_SERVER_RUNTIME = {
+export const IMPORTED_HTTP_SERVER_RUNTIME = {
   family: "python",
   framework: "http-server",
   displayName: "Python 3.14 / http.server",
@@ -92,6 +92,14 @@ export const PUBLISHING_BUNDLE_PATHS = [
   "docs/publishing/lessons-learned.md",
   "app-portal/deployment-manifest.json",
 ] as const;
+
+export const HTTP_SERVER_START_PATH = "app-portal/http_server_start.py";
+
+export function publishingBundlePathsForRuntime(runtime: ImportedAppRuntime | null) {
+  return runtime?.framework === "http-server"
+    ? [...PUBLISHING_BUNDLE_PATHS, HTTP_SERVER_START_PATH]
+    : [...PUBLISHING_BUNDLE_PATHS];
+}
 
 function importedFastApiRuntime(moduleName: "main" | "app") {
   return {
@@ -420,7 +428,7 @@ export function scanRepositoryCompatibility(
     });
   }
 
-  for (const path of PUBLISHING_BUNDLE_PATHS) {
+  for (const path of publishingBundlePathsForRuntime(runtime)) {
     if (hasFile(files, path)) {
       findings.push({
         code: "FILE_CONFLICT",
