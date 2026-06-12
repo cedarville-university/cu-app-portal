@@ -1,10 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  appListWhereForUser,
-  userHasAdminRole,
-} from "@/features/app-requests/access";
+import { appListWhereForUser } from "@/features/app-requests/access";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/status";
 import { prisma } from "@/lib/db";
@@ -74,9 +71,8 @@ export default async function MyAppsPage() {
     redirect("/");
   }
 
-  const isAdmin = await userHasAdminRole(userId);
   const appRequests = await prisma.appRequest.findMany({
-    where: appListWhereForUser(userId, isAdmin),
+    where: appListWhereForUser(userId),
     orderBy: { createdAt: "desc" },
     include: {
       repositoryImport: true,

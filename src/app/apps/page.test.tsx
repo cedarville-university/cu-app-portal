@@ -238,6 +238,37 @@ describe("MyAppsPage", () => {
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
+  it("does not widen my apps results just because the user is an admin", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("admin-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-123",
+      userId: "admin-123",
+      role: "ADMIN",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    vi.mocked(prisma.appRequest.findMany).mockResolvedValue(
+      [] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>,
+    );
+
+    render(await MyAppsPage());
+
+    expect(prisma.appRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          OR: [
+            { userId: "admin-123" },
+            {
+              collaborators: {
+                some: { userId: "admin-123" },
+              },
+            },
+          ],
+        },
+      }),
+    );
+  });
+
   it("shows legacy published apps with unchecked publishing setup as ready", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue([

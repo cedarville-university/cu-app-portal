@@ -33,9 +33,7 @@ export async function userHasAdminRole(userId: string) {
   return Boolean(role);
 }
 
-export function appListWhereForUser(userId: string, isAdmin: boolean) {
-  if (isAdmin) return {};
-
+export function appListWhereForUser(userId: string) {
   return {
     OR: [
       { userId },

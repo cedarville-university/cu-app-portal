@@ -59,14 +59,19 @@ describe("app request access helpers", () => {
     });
   });
 
-  it("builds a list predicate for apps visible to a user", async () => {
-    expect(appListWhereForUser("user-123", false)).toEqual({
+  it("builds a list predicate for apps directly visible to a user", async () => {
+    expect(appListWhereForUser("user-123")).toEqual({
       OR: [
         { userId: "user-123" },
         { collaborators: { some: { userId: "user-123" } } },
       ],
     });
-    expect(appListWhereForUser("admin-123", true)).toEqual({});
+    expect(appListWhereForUser("admin-123")).toEqual({
+      OR: [
+        { userId: "admin-123" },
+        { collaborators: { some: { userId: "admin-123" } } },
+      ],
+    });
   });
 
   it("detects portal admins from UserRole records", async () => {
