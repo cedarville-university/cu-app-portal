@@ -29,6 +29,32 @@ const fastApiManifest = JSON.stringify({
   runtime: fastApiRuntime,
 });
 
+const httpServerRuntime = {
+  family: "python",
+  framework: "http-server",
+  displayName: "Python 3.14 / http.server",
+  azureRuntimeStack: "PYTHON|3.14",
+  startupCommand: "python app-portal/http_server_start.py",
+  workflowFileName: "deploy-azure-app-service.yml",
+};
+
+const httpServerManifest = JSON.stringify({
+  templateSlug: "imported-web-app",
+  runtime: httpServerRuntime,
+});
+
+const httpServerStartPath = "app-portal/http_server_start.py";
+
+function readRequestedFiles(repositoryFiles: Record<string, string>) {
+  return vi.fn().mockImplementation(({ paths }: { paths: string[] }) =>
+    Object.fromEntries(
+      paths
+        .filter((path) => Object.prototype.hasOwnProperty.call(repositoryFiles, path))
+        .map((path) => [path, repositoryFiles[path]]),
+    ),
+  );
+}
+
 describe("verifyImportedPublishReadiness", () => {
   it("reads package.json and publishing bundle paths from the default branch", async () => {
     const github = {
@@ -82,6 +108,8 @@ describe("verifyImportedPublishReadiness", () => {
         "pyproject.toml",
         "main.py",
         "app.py",
+        "index.html",
+        httpServerStartPath,
         ...PUBLISHING_BUNDLE_PATHS,
       ],
     });
@@ -123,6 +151,111 @@ describe("verifyImportedPublishReadiness", () => {
         framework: "fastapi",
         azureRuntimeStack: "PYTHON|3.14",
       },
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+  });
+
+  it("verifies http.server publishing readiness without package or Python app files", async () => {
+    const github = {
+      readRepositoryTextFiles: readRequestedFiles({
+        "index.html": "<h1>Static site</h1>",
+        [httpServerStartPath]: "wrapper",
+        ...Object.fromEntries(
+          PUBLISHING_BUNDLE_PATHS.map((path) => [
+            path,
+            path === "app-portal/deployment-manifest.json"
+              ? httpServerManifest
+              : "content",
+          ]),
+        ),
+      }),
+    };
+
+    await expect(
+      verifyImportedPublishReadiness({
+        owner: "cedarville-it",
+        name: "static-site",
+        defaultBranch: "main",
+        github,
+      }),
+    ).resolves.toEqual({
+      ready: true,
+      missingPaths: [],
+      packageIssues: [],
+      runtime: httpServerRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+
+    expect(github.readRepositoryTextFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paths: expect.arrayContaining(["index.html"]),
+      }),
+    );
+  });
+
+  it("requires the Python start wrapper for http.server readiness", async () => {
+    const github = {
+      readRepositoryTextFiles: readRequestedFiles({
+        "index.html": "<h1>Static site</h1>",
+        ...Object.fromEntries(
+          PUBLISHING_BUNDLE_PATHS.map((path) => [
+            path,
+            path === "app-portal/deployment-manifest.json"
+              ? httpServerManifest
+              : "content",
+          ]),
+        ),
+      }),
+    };
+
+    await expect(
+      verifyImportedPublishReadiness({
+        owner: "cedarville-it",
+        name: "static-site",
+        defaultBranch: "main",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      ready: false,
+      missingPaths: [httpServerStartPath],
+      packageIssues: [],
+      runtime: httpServerRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+  });
+
+  it("falls back to an http.server manifest runtime while preserving source issues", async () => {
+    const github = {
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({
+        [httpServerStartPath]: "wrapper",
+        ...Object.fromEntries(
+          PUBLISHING_BUNDLE_PATHS.map((path) => [
+            path,
+            path === "app-portal/deployment-manifest.json"
+              ? httpServerManifest
+              : "content",
+          ]),
+        ),
+      }),
+    };
+
+    await expect(
+      verifyImportedPublishReadiness({
+        owner: "cedarville-it",
+        name: "static-site",
+        defaultBranch: "main",
+        github,
+      }),
+    ).resolves.toEqual({
+      ready: false,
+      missingPaths: [],
+      packageIssues: [
+        "Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
+      ],
+      runtime: httpServerRuntime,
       databaseProvider: "none",
       entraLogin: false,
     });
@@ -191,7 +324,7 @@ describe("verifyImportedPublishReadiness", () => {
       ready: false,
       missingPaths: [],
       packageIssues: [
-        "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+        "Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
       ],
       runtime: fastApiRuntime,
       databaseProvider: "none",

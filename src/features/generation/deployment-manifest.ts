@@ -21,7 +21,7 @@ export type DeploymentManifest = {
   };
   auth?: {
     provider: "microsoft-entra-id";
-    callbackPath: "/api/auth/callback/microsoft-entra-id";
+    callbackPath: AuthCallbackPath;
   };
   hosting: {
     provider: "azure";
@@ -72,6 +72,20 @@ export type DeploymentManifest = {
 export type DeploymentManifestOptions = {
   runtime?: AppServiceRuntime;
 };
+
+type AuthCallbackPath =
+  | "/api/auth/callback/microsoft-entra-id"
+  | "/auth/callback";
+
+function authCallbackPathForRuntime(
+  runtime: AppServiceRuntime,
+): AuthCallbackPath {
+  if (runtime.framework === "fastapi") {
+    return "/auth/callback";
+  }
+
+  return "/api/auth/callback/microsoft-entra-id";
+}
 
 function toSlug(value: string) {
   const slug = value
@@ -133,7 +147,7 @@ export function buildDeploymentManifest(
       ? {
           auth: {
             provider: "microsoft-entra-id",
-            callbackPath: "/api/auth/callback/microsoft-entra-id",
+            callbackPath: authCallbackPathForRuntime(runtime),
           },
         }
       : {}),

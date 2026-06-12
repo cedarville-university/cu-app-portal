@@ -57,10 +57,13 @@ describe("CreatePage", () => {
         /choose this for python-backed apis, automation endpoints/i,
       ),
     ).toBeInTheDocument();
+    expect(
+      fastApi.getByText(/database and entra login can be enabled/i),
+    ).toBeInTheDocument();
     expect(fastApi.getByText("Python 3.14 / FastAPI")).toBeInTheDocument();
     expect(fastApi.getByText("Python APIs")).toBeInTheDocument();
-    expect(fastApi.getByText(/database: unsupported/i)).toBeInTheDocument();
-    expect(fastApi.getByText(/login: no entra/i)).toBeInTheDocument();
+    expect(fastApi.getByText(/database: optional/i)).toBeInTheDocument();
+    expect(fastApi.getByText(/login: entra available/i)).toBeInTheDocument();
   });
 
   it("shows an expandable GitHub explanation help box", async () => {

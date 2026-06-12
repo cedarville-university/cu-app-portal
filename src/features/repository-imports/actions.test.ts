@@ -52,6 +52,33 @@ const fastApiReadyFiles = {
   ),
 };
 
+const httpServerRuntime = {
+  family: "python",
+  framework: "http-server",
+  displayName: "Python 3.14 / http.server",
+  azureRuntimeStack: "PYTHON|3.14",
+  startupCommand: "python app-portal/http_server_start.py",
+  workflowFileName: "deploy-azure-app-service.yml",
+} satisfies ImportedAppRuntime;
+
+const httpServerStartPath = "app-portal/http_server_start.py";
+
+const httpServerReadyFiles = {
+  "index.html": "<h1>Static site</h1>",
+  [httpServerStartPath]: "wrapper",
+  ...Object.fromEntries(
+    PUBLISHING_BUNDLE_PATHS.map((path) => [
+      path,
+      path === "app-portal/deployment-manifest.json"
+        ? JSON.stringify({
+            templateSlug: "imported-web-app",
+            runtime: httpServerRuntime,
+          })
+        : "content",
+    ]),
+  ),
+};
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
@@ -974,6 +1001,68 @@ describe("repository import actions", () => {
     );
   });
 
+  it("persists detected http.server config before direct-commit preflight", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_http_prepare",
+      userId: "user-123",
+      appName: "Static Site",
+      submittedConfig: {
+        repositoryUrl: "https://github.com/cedarville-it/static-site",
+        description: "Existing static site.",
+        customField: "preserved",
+      },
+      repositoryOwner: "cedarville-it",
+      repositoryName: "static-site",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_http_prepare",
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: httpServerRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+
+    const formData = new FormData();
+    formData.set("preparationMode", "DIRECT_COMMIT");
+
+    await prepareExistingAppAction("req_http_prepare", formData, {
+      github: {
+        getBranchHead: vi.fn(),
+        readRepositoryTextFiles: vi.fn(),
+        commitFiles: vi.fn(),
+        createPullRequestWithFiles: vi.fn(),
+      },
+    });
+
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_http_prepare" },
+      data: {
+        submittedConfig: {
+          repositoryUrl: "https://github.com/cedarville-it/static-site",
+          description: "Existing static site.",
+          customField: "preserved",
+          templateSlug: "imported-web-app",
+          importRuntime: httpServerRuntime,
+          databaseProvider: "none",
+          entraLogin: false,
+        },
+      },
+    });
+    expect(
+      vi.mocked(prisma.appRequest.update).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(preflightPublishingSetup).mock.invocationCallOrder[0],
+    );
+    expect(preflightPublishingSetup).toHaveBeenCalledWith("req_http_prepare");
+  });
+
   it("retries a failed imported app preparation", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
@@ -1513,6 +1602,8 @@ describe("repository import actions", () => {
         "pyproject.toml",
         "main.py",
         "app.py",
+        "index.html",
+        httpServerStartPath,
         ...PUBLISHING_BUNDLE_PATHS,
       ],
     });
@@ -1594,6 +1685,62 @@ describe("repository import actions", () => {
     expect(preflightPublishingSetup).toHaveBeenCalledWith(
       "req_verify_fastapi",
     );
+  });
+
+  it("persists verified http.server config before PR-verification preflight", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_verify_http",
+      userId: "user-123",
+      submittedConfig: {
+        repositoryUrl: "https://github.com/cedarville-it/static-site",
+        description: "Existing static site.",
+        customField: "preserved",
+      },
+      repositoryOwner: "cedarville-it",
+      repositoryName: "static-site",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_verify_http",
+        preparationStatus: "PULL_REQUEST_OPENED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    const github = {
+      readRepositoryTextFiles: vi.fn().mockResolvedValue(httpServerReadyFiles),
+    };
+
+    await verifyExistingAppPreparationAction("req_verify_http", { github });
+
+    expect(prisma.repositoryImport.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "import_verify_http",
+        preparationStatus: "PULL_REQUEST_OPENED",
+      },
+      data: {
+        preparationStatus: "COMMITTED",
+        preparationErrorSummary: null,
+      },
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_verify_http" },
+      data: {
+        submittedConfig: {
+          repositoryUrl: "https://github.com/cedarville-it/static-site",
+          description: "Existing static site.",
+          customField: "preserved",
+          templateSlug: "imported-web-app",
+          importRuntime: httpServerRuntime,
+          databaseProvider: "none",
+          entraLogin: false,
+        },
+      },
+    });
+    expect(
+      vi.mocked(prisma.appRequest.update).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(preflightPublishingSetup).mock.invocationCallOrder[0],
+    );
+    expect(preflightPublishingSetup).toHaveBeenCalledWith("req_verify_http");
   });
 
   it("marks publishing setup as needing repair when verification preflight fails", async () => {

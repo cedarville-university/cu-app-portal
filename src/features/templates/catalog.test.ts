@@ -105,15 +105,20 @@ describe("getActiveTemplates", () => {
       },
       features: {
         database: {
-          mode: "unsupported",
-          providerOptions: [],
+          mode: "optional",
+          providerOptions: ["postgresql"],
           defaultProvider: "none",
         },
         entraLogin: {
-          mode: "unsupported",
+          mode: "optional",
           defaultEnabled: false,
         },
       },
     });
+    expect(template?.decisionSummary).toMatch(/database/i);
+    expect(template?.decisionSummary).toMatch(/Entra/i);
+    expect(template?.bestFor).toContain(
+      "Apps that may need PostgreSQL or Cedarville login",
+    );
   });
 });

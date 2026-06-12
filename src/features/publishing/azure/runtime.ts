@@ -110,9 +110,16 @@ type PublishableAppRequest = {
   submittedConfig: unknown;
 };
 
+type SelectedAppServiceRuntime = {
+  framework?: string;
+  azureRuntimeStack: string;
+  startupCommand: string;
+};
+
 const WORKFLOW_FILE_NAME = "deploy-azure-app-service.yml";
 const STARTUP_COMMAND = "npm start";
-const ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
+const NEXT_ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
+const FASTAPI_ENTRA_CALLBACK_PATH = "/auth/callback";
 const IMPORTED_WEB_APP_TEMPLATE_SLUG = "imported-web-app";
 const DEFAULT_WORKFLOW_RUN_POLL_ATTEMPTS = 5;
 const DEFAULT_WORKFLOW_RUN_POLL_INTERVAL_MS = 1000;
@@ -244,6 +251,10 @@ function importedRuntimeFromSubmittedConfig(appRequest: PublishableAppRequest) {
     typeof runtime.startupCommand === "string"
   ) {
     return {
+      framework:
+        "framework" in runtime && typeof runtime.framework === "string"
+          ? runtime.framework
+          : undefined,
       azureRuntimeStack: runtime.azureRuntimeStack,
       startupCommand: runtime.startupCommand,
     };
@@ -255,7 +266,7 @@ function importedRuntimeFromSubmittedConfig(appRequest: PublishableAppRequest) {
 function selectedAppServiceRuntime(
   appRequest: PublishableAppRequest,
   config: AzurePublishConfig,
-) {
+): SelectedAppServiceRuntime {
   return (
     importedRuntimeFromSubmittedConfig(appRequest) ??
     (isImportedAppRequest(appRequest)
@@ -266,6 +277,15 @@ function selectedAppServiceRuntime(
       startupCommand: STARTUP_COMMAND,
     }
   );
+}
+
+function selectedEntraCallbackPath(
+  appRequest: PublishableAppRequest,
+  config: AzurePublishConfig,
+) {
+  return selectedAppServiceRuntime(appRequest, config).framework === "fastapi"
+    ? FASTAPI_ENTRA_CALLBACK_PATH
+    : NEXT_ENTRA_CALLBACK_PATH;
 }
 
 function ownerUsername(appRequest: PublishableAppRequest) {
@@ -497,7 +517,10 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       if (selectedEntraLogin(appRequest)) {
         await deps.graph.ensureRedirectUri({
           applicationObjectId: deps.config.entraAppObjectId,
-          redirectUri: `${primaryPublishUrl}${ENTRA_CALLBACK_PATH}`,
+          redirectUri: `${primaryPublishUrl}${selectedEntraCallbackPath(
+            appRequest,
+            deps.config,
+          )}`,
         });
       }
 

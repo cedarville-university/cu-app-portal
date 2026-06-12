@@ -1,4 +1,5 @@
 import {
+  HTTP_SERVER_START_PATH,
   PUBLISHING_BUNDLE_PATHS,
   type CompatibilityFinding,
   type ImportedAppRuntime,
@@ -65,6 +66,8 @@ const READ_PATHS = [
   "pyproject.toml",
   "main.py",
   "app.py",
+  "index.html",
+  HTTP_SERVER_START_PATH,
   ...PUBLISHING_BUNDLE_PATHS,
 ];
 

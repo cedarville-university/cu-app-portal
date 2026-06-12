@@ -8,6 +8,27 @@ const files = {
   }),
 };
 
+const httpServerRuntime = {
+  family: "python",
+  framework: "http-server",
+  displayName: "Python 3.14 / http.server",
+  azureRuntimeStack: "PYTHON|3.14",
+  startupCommand: "python app-portal/http_server_start.py",
+  workflowFileName: "deploy-azure-app-service.yml",
+};
+
+const httpServerStartPath = "app-portal/http_server_start.py";
+
+function readRequestedFiles(repositoryFiles: Record<string, string>) {
+  return vi.fn().mockImplementation(({ paths }: { paths: string[] }) =>
+    Object.fromEntries(
+      paths
+        .filter((path) => Object.prototype.hasOwnProperty.call(repositoryFiles, path))
+        .map((path) => [path, repositoryFiles[path]]),
+    ),
+  );
+}
+
 describe("prepareImportedRepository", () => {
   it("commits publishing additions directly", async () => {
     const github = {
@@ -104,6 +125,76 @@ describe("prepareImportedRepository", () => {
     );
   });
 
+  it("commits http.server publishing additions directly", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
+      readRepositoryTextFiles: readRequestedFiles({
+        "index.html": "<h1>Static site</h1>",
+      }),
+      commitFiles: vi.fn().mockResolvedValue({ commitSha: "commit-sha" }),
+      createPullRequestWithFiles: vi.fn(),
+    };
+
+    await expect(
+      prepareImportedRepository({
+        appName: "Static Site",
+        owner: "cedarville-it",
+        name: "static-site",
+        defaultBranch: "main",
+        mode: "DIRECT_COMMIT",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: httpServerRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    expect(github.readRepositoryTextFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        paths: expect.arrayContaining(["index.html"]),
+      }),
+    );
+    expect(github.commitFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: expect.objectContaining({
+          [httpServerStartPath]: expect.stringContaining("http.server"),
+          "app-portal/deployment-manifest.json": expect.stringContaining(
+            '"framework": "http-server"',
+          ),
+        }),
+      }),
+    );
+  });
+
+  it("blocks direct http.server commits when the Python start wrapper exists", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
+      readRepositoryTextFiles: readRequestedFiles({
+        "index.html": "<h1>Static site</h1>",
+        [httpServerStartPath]: "custom wrapper",
+      }),
+      commitFiles: vi.fn(),
+      createPullRequestWithFiles: vi.fn(),
+    };
+
+    await expect(
+      prepareImportedRepository({
+        appName: "Static Site",
+        owner: "cedarville-it",
+        name: "static-site",
+        defaultBranch: "main",
+        mode: "DIRECT_COMMIT",
+        github,
+      }),
+    ).rejects.toThrow(
+      "Repository has publishing file conflicts. app-portal/http_server_start.py: app-portal/http_server_start.py already exists and will not be overwritten.",
+    );
+    expect(github.commitFiles).not.toHaveBeenCalled();
+  });
+
   it("opens a PR when requested", async () => {
     const github = {
       getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
@@ -137,6 +228,53 @@ describe("prepareImportedRepository", () => {
         expectedHeadSha: "head-sha",
       }),
     );
+  });
+
+  it("opens a PR with http.server publishing additions when requested", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
+      readRepositoryTextFiles: readRequestedFiles({
+        "index.html": "<h1>Static site</h1>",
+      }),
+      commitFiles: vi.fn(),
+      createPullRequestWithFiles: vi.fn().mockResolvedValue({
+        commitSha: "commit-sha",
+        pullRequestUrl:
+          "https://github.com/cedarville-it/static-site/pull/1",
+      }),
+    };
+
+    await expect(
+      prepareImportedRepository({
+        appName: "Static Site",
+        owner: "cedarville-it",
+        name: "static-site",
+        defaultBranch: "main",
+        mode: "PULL_REQUEST",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      status: "PULL_REQUEST_OPENED",
+      commitSha: "commit-sha",
+      pullRequestUrl:
+        "https://github.com/cedarville-it/static-site/pull/1",
+      runtime: httpServerRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    expect(github.createPullRequestWithFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        branch: "portal/add-azure-publishing-static-site",
+        expectedHeadSha: "head-sha",
+        files: expect.objectContaining({
+          [httpServerStartPath]: expect.stringContaining("http.server"),
+          "app-portal/deployment-manifest.json": expect.stringContaining(
+            '"framework": "http-server"',
+          ),
+        }),
+      }),
+    );
+    expect(github.commitFiles).not.toHaveBeenCalled();
   });
 
   it("sanitizes repository names for PR branches", async () => {
@@ -261,7 +399,7 @@ describe("prepareImportedRepository", () => {
         github,
       }),
     ).rejects.toThrow(
-      "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+      "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
     );
   });
 });

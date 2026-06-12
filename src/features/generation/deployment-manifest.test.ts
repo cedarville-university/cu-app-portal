@@ -223,6 +223,78 @@ describe("buildDeploymentManifest", () => {
     );
   });
 
+  it("uses the FastAPI auth callback path when Entra login is selected", () => {
+    const manifest = buildDeploymentManifest({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: true,
+    });
+
+    expect(manifest.auth).toEqual({
+      provider: "microsoft-entra-id",
+      callbackPath: "/auth/callback",
+    });
+  });
+
+  it("builds FastAPI PostgreSQL and Entra settings for Azure publishing", () => {
+    const manifest = buildDeploymentManifest({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    expect(manifest.runtime).toMatchObject({
+      family: "python",
+      framework: "fastapi",
+      azureRuntimeStack: "PYTHON|3.14",
+    });
+    expect(manifest.defaults.azure).toMatchObject({
+      runtimeStack: "PYTHON|3.14",
+      startupCommand:
+        "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      shared: {
+        resourceGroup: "rg-cu-apps-published",
+        appServicePlan: "asp-cu-apps-published",
+        postgresServer: "psql-cu-apps-published",
+      },
+      perApp: {
+        webAppNamePattern: "app-reports-api-<short-request-id>",
+        databaseNamePattern: "db_reports_api_<short_request_id>",
+      },
+      database: {
+        provider: "postgresql",
+        adminUser: "portaladmin",
+        sslMode: "require",
+      },
+    });
+    expect(manifest.auth).toEqual({
+      provider: "microsoft-entra-id",
+      callbackPath: "/auth/callback",
+    });
+    expect(manifest.environments.production).toEqual({
+      databaseUrlAppSetting: "DATABASE_URL",
+      authUrlAppSetting: "AUTH_URL",
+      nextauthUrlAppSetting: "NEXTAUTH_URL",
+    });
+    expect(manifest.applicationSettings).toEqual(
+      expect.arrayContaining([
+        "DATABASE_URL",
+        "AUTH_URL",
+        "NEXTAUTH_URL",
+        "AUTH_SECRET",
+        "AUTH_MICROSOFT_ENTRA_ID_ID",
+        "AUTH_MICROSOFT_ENTRA_ID_SECRET",
+        "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
+      ]),
+    );
+  });
+
   it("throws when a normal generated manifest references an unknown template", () => {
     expect(() =>
       buildDeploymentManifest({

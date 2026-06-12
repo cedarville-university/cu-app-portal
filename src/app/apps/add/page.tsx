@@ -90,7 +90,8 @@ export default async function AddExistingAppPage() {
           <p style={{ color: "var(--text-secondary)", marginBottom: "1rem" }}>
             Paste the repository URL and the portal will copy it into the managed
             Cedarville org when needed. The portal currently detects root Next.js
-            and Python FastAPI apps for Azure App Service publishing.
+            apps, Python FastAPI apps, and plain static Python apps with a root
+            index.html for Azure App Service publishing.
           </p>
           <form action={submitExistingAppAction} className="form-stack">
             <div className="form-group">

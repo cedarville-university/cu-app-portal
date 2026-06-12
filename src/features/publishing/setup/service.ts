@@ -26,7 +26,8 @@ import {
 
 const WORKFLOW_PATH = ".github/workflows/deploy-azure-app-service.yml";
 const STARTUP_COMMAND = "npm start";
-const ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
+const NEXT_ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
+const FASTAPI_ENTRA_CALLBACK_PATH = "/auth/callback";
 const IMPORTED_WEB_APP_TEMPLATE_SLUG = "imported-web-app";
 const REQUIRED_PORTAL_MANAGED_SECRETS = [
   "AZURE_CLIENT_ID",
@@ -75,6 +76,12 @@ type SetupAppRequest = {
   };
   template: { slug: string };
   submittedConfig: unknown;
+};
+
+type SelectedAppServiceRuntime = {
+  framework?: string;
+  azureRuntimeStack: string;
+  startupCommand: string;
 };
 
 export type PublishingSetupServiceDeps = {
@@ -318,6 +325,10 @@ function importedRuntimeFromSubmittedConfig(appRequest: SetupAppRequest) {
     typeof runtime.startupCommand === "string"
   ) {
     return {
+      framework:
+        "framework" in runtime && typeof runtime.framework === "string"
+          ? runtime.framework
+          : undefined,
       azureRuntimeStack: runtime.azureRuntimeStack,
       startupCommand: runtime.startupCommand,
     };
@@ -329,7 +340,7 @@ function importedRuntimeFromSubmittedConfig(appRequest: SetupAppRequest) {
 function selectedAppServiceRuntime(
   appRequest: SetupAppRequest,
   config: AzurePublishConfig,
-): { azureRuntimeStack: string; startupCommand: string } {
+): SelectedAppServiceRuntime {
   return (
     importedRuntimeFromSubmittedConfig(appRequest) ??
     (isImportedAppRequest(appRequest)
@@ -340,6 +351,15 @@ function selectedAppServiceRuntime(
       startupCommand: STARTUP_COMMAND,
     }
   );
+}
+
+function selectedEntraCallbackPath(
+  appRequest: SetupAppRequest,
+  config: AzurePublishConfig,
+) {
+  return selectedAppServiceRuntime(appRequest, config).framework === "fastapi"
+    ? FASTAPI_ENTRA_CALLBACK_PATH
+    : NEXT_ENTRA_CALLBACK_PATH;
 }
 
 const DATABASE_APP_SETTINGS = ["DATABASE_URL"] as const;
@@ -911,7 +931,10 @@ async function runPreflightChecks(
   const names = targetNames(appRequest);
   const databaseProvider = selectedDatabaseProvider(appRequest);
   const entraLogin = selectedEntraLogin(appRequest);
-  const redirectUri = `${publishUrlFor(appRequest)}${ENTRA_CALLBACK_PATH}`;
+  const redirectUri = `${publishUrlFor(appRequest)}${selectedEntraCallbackPath(
+    appRequest,
+    deps.config,
+  )}`;
   const expectedSubject = federatedCredentialSubject({
     repositoryFullName: repo.fullName,
     branch: repo.branch,
@@ -1094,7 +1117,10 @@ export async function repairPublishingSetup(
       repairStep = "entra_redirect_uri";
       await deps.graph.ensureRedirectUri({
         applicationObjectId: deps.config.entraAppObjectId,
-        redirectUri: `${effectivePublishUrl}${ENTRA_CALLBACK_PATH}`,
+        redirectUri: `${effectivePublishUrl}${selectedEntraCallbackPath(
+          appRequest,
+          deps.config,
+        )}`,
       });
     }
     repairStep = "github_federated_credential";

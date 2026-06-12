@@ -4,6 +4,15 @@ import {
   scanRepositoryCompatibility,
 } from "./compatibility";
 
+const UNSUPPORTED_RUNTIME_MESSAGE =
+  "Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.";
+
+const AMBIGUOUS_RUNTIME_MESSAGE =
+  "Repository matches multiple supported runtimes. Keep one root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.";
+
+const UNSUPPORTED_WORKSPACE_MESSAGE =
+  "V1 supports single root Next.js, FastAPI, or Python static apps, not workspace roots.";
+
 describe("scanRepositoryCompatibility", () => {
   it("accepts a root Next-style npm app that already has build and start scripts", () => {
     expect(
@@ -41,6 +50,72 @@ describe("scanRepositoryCompatibility", () => {
         startupCommand:
           "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
       }),
+    });
+  });
+
+  it("accepts a simple static Python http.server app with a root index.html", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "index.html": "<h1>Campus Reports</h1>",
+        "styles.css": "body { font-family: sans-serif; }",
+      }),
+    ).toEqual({
+      status: "COMPATIBLE",
+      findings: [],
+      canDirectCommit: true,
+      runtime: {
+        family: "python",
+        framework: "http-server",
+        displayName: "Python 3.14 / http.server",
+        azureRuntimeStack: "PYTHON|3.14",
+        startupCommand: "python app-portal/http_server_start.py",
+        workflowFileName: "deploy-azure-app-service.yml",
+      },
+    });
+  });
+
+  it("does not treat build-based frontend apps as Python http.server imports", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "package.json": JSON.stringify({
+          scripts: { build: "vite build", start: "vite preview" },
+          dependencies: { "@vitejs/plugin-react": "latest", vite: "7.0.0" },
+          engines: { node: ">=24" },
+        }),
+        "index.html": "<div id=\"root\"></div>",
+        "src/App.tsx": "export function App() { return null; }\n",
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "UNSUPPORTED_APP_RUNTIME",
+          severity: "error",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
+        },
+      ],
+      canDirectCommit: false,
+      runtime: null,
+    });
+  });
+
+  it("does not treat packaged Python projects with static docs as http.server imports", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "pyproject.toml": "[project]\nname = \"campus-tools\"\n",
+        "index.html": "<h1>Package docs</h1>",
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "UNSUPPORTED_APP_RUNTIME",
+          severity: "error",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
+        },
+      ],
+      canDirectCommit: false,
+      runtime: null,
     });
   });
 
@@ -176,8 +251,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -198,8 +272,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -220,8 +293,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -242,8 +314,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -269,8 +340,50 @@ describe("scanRepositoryCompatibility", () => {
     expect(result.findings).toContainEqual({
       code: "AMBIGUOUS_APP_RUNTIME",
       severity: "error",
-      message:
-        "Repository matches multiple supported runtimes. Keep one root Next.js or FastAPI app for portal-managed Azure publishing.",
+      message: AMBIGUOUS_RUNTIME_MESSAGE,
+    });
+  });
+
+  it("rejects ambiguous Next.js and root static repositories", () => {
+    const result = scanRepositoryCompatibility({
+      "package.json": JSON.stringify({
+        scripts: { build: "next build", start: "next start" },
+        dependencies: { next: "15.5.15" },
+        engines: { node: ">=24" },
+      }),
+      "package-lock.json": "{}",
+      "index.html": "<h1>Static app</h1>",
+    });
+
+    expect(result.status).toBe("UNSUPPORTED");
+    expect(result.canDirectCommit).toBe(false);
+    expect(result.runtime).toBeNull();
+    expect(result.findings).toContainEqual({
+      code: "AMBIGUOUS_APP_RUNTIME",
+      severity: "error",
+      message: AMBIGUOUS_RUNTIME_MESSAGE,
+    });
+  });
+
+  it("treats FastAPI apps with root static files as FastAPI", () => {
+    const result = scanRepositoryCompatibility({
+      "requirements.txt":
+        "fastapi==0.115.0\ngunicorn==23.0.0\nuvicorn[standard]==0.30.0\n",
+      "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+      "index.html": "<h1>Docs</h1>",
+    });
+
+    expect(result).toEqual({
+      status: "COMPATIBLE",
+      findings: [],
+      canDirectCommit: true,
+      runtime: expect.objectContaining({
+        family: "python",
+        framework: "fastapi",
+        azureRuntimeStack: "PYTHON|3.14",
+        startupCommand:
+          "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      }),
     });
   });
 
@@ -320,8 +433,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -342,8 +454,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -364,8 +475,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -386,8 +496,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -434,8 +543,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_APP_RUNTIME",
           severity: "error",
-          message:
-            "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+          message: UNSUPPORTED_RUNTIME_MESSAGE,
         },
       ],
       canDirectCommit: false,
@@ -538,8 +646,7 @@ describe("scanRepositoryCompatibility", () => {
     expect(result.findings).toContainEqual({
       code: "UNSUPPORTED_APP_RUNTIME",
       severity: "error",
-      message:
-        "Repository must be a root Next.js or FastAPI app for portal-managed Azure publishing.",
+      message: UNSUPPORTED_RUNTIME_MESSAGE,
     });
   });
 
@@ -559,7 +666,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_WORKSPACE_ROOT",
           severity: "error",
-          message: "V1 supports single root Next.js or FastAPI apps, not workspace roots.",
+          message: UNSUPPORTED_WORKSPACE_MESSAGE,
           path: "package.json",
         },
       ],
@@ -584,7 +691,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_WORKSPACE_ROOT",
           severity: "error",
-          message: "V1 supports single root Next.js or FastAPI apps, not workspace roots.",
+          message: UNSUPPORTED_WORKSPACE_MESSAGE,
           path: "turbo.json",
         },
       ],
@@ -609,7 +716,7 @@ describe("scanRepositoryCompatibility", () => {
         {
           code: "UNSUPPORTED_WORKSPACE_ROOT",
           severity: "error",
-          message: "V1 supports single root Next.js or FastAPI apps, not workspace roots.",
+          message: UNSUPPORTED_WORKSPACE_MESSAGE,
           path: "pnpm-workspace.yaml",
         },
       ],

@@ -12,6 +12,15 @@ const FASTAPI_RUNTIME = {
   workflowFileName: "deploy-azure-app-service.yml",
 } as const;
 
+const HTTP_SERVER_RUNTIME = {
+  family: "python",
+  framework: "http-server",
+  displayName: "Python 3.14 / http.server",
+  azureRuntimeStack: "PYTHON|3.14",
+  startupCommand: "python app-portal/http_server_start.py",
+  workflowFileName: "deploy-azure-app-service.yml",
+} as const;
+
 describe("planPublishingBundle", () => {
   it("adds publishing files and narrow package.json changes", () => {
     const plan = planPublishingBundle({
@@ -141,6 +150,65 @@ describe("planPublishingBundle", () => {
     expect(manifest.applicationSettings).not.toContain("AUTH_SECRET");
     expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
       "Python 3.14 / FastAPI",
+    );
+  });
+
+  it("adds http.server publishing files without package.json rewrites or Python dependency installs", () => {
+    const plan = planPublishingBundle({
+      appName: "Campus Static",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-static",
+      runtime: HTTP_SERVER_RUNTIME,
+      files: {
+        "index.html": "<h1>Campus Static</h1>",
+      },
+    });
+
+    expect(plan.filesToWrite["package.json"]).toBeUndefined();
+
+    const workflow =
+      plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"];
+    expect(workflow).toContain("Setup Python");
+    expect(workflow).not.toContain("requirements.txt");
+    expect(workflow).not.toContain("pyproject.toml");
+    expect(workflow).not.toContain(".python_packages");
+    expect(workflow).not.toContain("gunicorn");
+    expect(workflow).not.toContain("FastAPI");
+
+    const wrapper = plan.filesToWrite["app-portal/http_server_start.py"];
+    expect(wrapper).toContain('os.environ.get("PORT", "8000")');
+    expect(wrapper).toContain('"0.0.0.0"');
+    expect(wrapper).toContain("parents[1]");
+    expect(wrapper).toContain("SimpleHTTPRequestHandler");
+    expect(wrapper).not.toContain("app-portal");
+
+    const manifest = JSON.parse(
+      plan.filesToWrite["app-portal/deployment-manifest.json"],
+    );
+    expect(manifest).toMatchObject({
+      templateSlug: "imported-web-app",
+      runtime: {
+        family: "python",
+        framework: "http-server",
+        azureRuntimeStack: "PYTHON|3.14",
+        startupCommand: "python app-portal/http_server_start.py",
+      },
+      defaults: {
+        githubRepository: "campus-static",
+      },
+    });
+    expect(manifest.auth).toBeUndefined();
+    expect(manifest.defaults.azure).not.toHaveProperty("database");
+    expect(manifest.defaults.azure.shared.postgresServer).toBeUndefined();
+    expect(manifest.defaults.azure.perApp.databaseNamePattern).toBeUndefined();
+    expect(manifest.defaults.appSettings).toBeUndefined();
+    expect(manifest.applicationSettings).not.toContain("DATABASE_URL");
+    expect(manifest.applicationSettings).not.toContain("AUTH_SECRET");
+    expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
+      "Python 3.14 / http.server",
+    );
+    expect(plan.filesToWrite[".codex/skills/publish-to-azure/SKILL.md"]).toContain(
+      "Python 3.14 / http.server",
     );
   });
 

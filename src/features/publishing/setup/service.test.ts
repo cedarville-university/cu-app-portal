@@ -51,6 +51,22 @@ const fastApiAppRequest = {
   },
 };
 
+const fastApiWithEntraAppRequest = {
+  ...fastApiAppRequest,
+  submittedConfig: {
+    ...fastApiAppRequest.submittedConfig,
+    entraLogin: true,
+  },
+};
+
+const fastApiWithDatabaseAndEntraAppRequest = {
+  ...fastApiWithEntraAppRequest,
+  submittedConfig: {
+    ...fastApiWithEntraAppRequest.submittedConfig,
+    databaseProvider: "postgresql",
+  },
+};
+
 const importedFastApiAppRequest = {
   ...appRequest,
   appName: "Campus API",
@@ -63,6 +79,24 @@ const importedFastApiAppRequest = {
       azureRuntimeStack: "PYTHON|3.14",
       startupCommand:
         "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+      workflowFileName: "deploy-azure-app-service.yml",
+    },
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
+const readyImportedHttpServerRequest = {
+  ...appRequest,
+  appName: "Campus Static Site",
+  submittedConfig: {
+    templateSlug: "imported-web-app",
+    importRuntime: {
+      family: "python",
+      framework: "http-server",
+      displayName: "Python 3.14 / http.server",
+      azureRuntimeStack: "PYTHON|3.14",
+      startupCommand: "python app-portal/http_server_start.py",
       workflowFileName: "deploy-azure-app-service.yml",
     },
     databaseProvider: "none",
@@ -340,6 +374,16 @@ describe("publishing setup service", () => {
           },
         }),
       },
+      graph: {
+        ...baseDeps.graph,
+        listFederatedCredentials: vi.fn().mockResolvedValue([
+          {
+            id: "credential-id",
+            name: "github-campus-api-req123",
+            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+          },
+        ]),
+      },
     });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
       importedFastApiAppRequest as Awaited<
@@ -380,6 +424,134 @@ describe("publishing setup service", () => {
       expect.objectContaining({
         create: expect.objectContaining({
           checkKey: "entra_redirect_uri",
+        }),
+      }),
+    );
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
+      }),
+    });
+  });
+
+  it("preflights imported http.server setup without database or Entra checks", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            NODE_ENV: "production",
+            SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+            ENABLE_ORYX_BUILD: "false",
+            WEBSITE_RUN_FROM_PACKAGE: "1",
+          },
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      readyImportedHttpServerRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.graph.hasRedirectUri).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_resource_access",
+          metadata: expect.not.objectContaining({
+            databaseName: expect.any(String),
+          }),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_app_settings",
+          status: "PASS",
+          metadata: expect.objectContaining({
+            settingNames: [
+              "NODE_ENV",
+              "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "ENABLE_ORYX_BUILD",
+              "WEBSITE_RUN_FROM_PACKAGE",
+            ],
+          }),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "entra_redirect_uri",
+        }),
+      }),
+    );
+  });
+
+  it("preflights generated FastAPI setup with the FastAPI auth callback path", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      fastApiWithEntraAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+    const deps = createDeps();
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.graph.hasRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri: "https://app-campus-dashboard.azurewebsites.net/auth/callback",
+    });
+  });
+
+  it("preflights generated FastAPI setup with PostgreSQL and the FastAPI auth callback path", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      fastApiWithDatabaseAndEntraAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+    const deps = createDeps();
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.graph.hasRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri: "https://app-campus-dashboard.azurewebsites.net/auth/callback",
+    });
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_resource_access",
+          metadata: expect.objectContaining({
+            databaseName: "db_campus_api_req123",
+          }),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_app_settings",
+          status: "PASS",
+          metadata: expect.objectContaining({
+            settingNames: expect.arrayContaining([
+              "DATABASE_URL",
+              "AUTH_URL",
+              "NEXTAUTH_URL",
+              "AUTH_SECRET",
+              "AUTH_MICROSOFT_ENTRA_ID_ID",
+              "AUTH_MICROSOFT_ENTRA_ID_SECRET",
+              "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
+            ]),
+          }),
         }),
       }),
     );
@@ -686,6 +858,91 @@ describe("publishing setup service", () => {
     });
   });
 
+  it("uses imported http.server runtime and skips database/auth repair", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn()
+          .mockResolvedValueOnce({
+            exists: true,
+            settings: {
+              DATABASE_URL: "postgresql://stale",
+              AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+              NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+              AUTH_SECRET: "custom-auth-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
+              AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+                "https://login.microsoftonline.com/custom/v2.0",
+              EXISTING_CUSTOM_SETTING: "keep-me",
+            },
+          })
+          .mockResolvedValueOnce({
+            exists: true,
+            settings: {
+              EXISTING_CUSTOM_SETTING: "keep-me",
+              NODE_ENV: "production",
+              SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+              ENABLE_ORYX_BUILD: "false",
+              WEBSITE_RUN_FROM_PACKAGE: "1",
+            },
+          }),
+      },
+      graph: {
+        ...baseDeps.graph,
+        listFederatedCredentials: vi.fn().mockResolvedValue([
+          {
+            id: "credential-id",
+            name: "github-campus-static-site-req123",
+            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+          },
+        ]),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      readyImportedHttpServerRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    const result = await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(deps.arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand: "python app-portal/http_server_start.py",
+      }),
+    );
+    expect(deps.graph.ensureRedirectUri).not.toHaveBeenCalled();
+    expect(deps.arm.putAppSettings).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      name: "app-campus-static-site-req123",
+      settings: {
+        EXISTING_CUSTOM_SETTING: "keep-me",
+        NODE_ENV: "production",
+        SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+        ENABLE_ORYX_BUILD: "false",
+        WEBSITE_RUN_FROM_PACKAGE: "1",
+      },
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        azureDatabaseName: null,
+      }),
+    });
+    expect(result.setupStatus).toBe("READY");
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
+      }),
+    });
+  });
+
   it("fails safely when a generated app template is missing during preflight", async () => {
     const deps = createDeps();
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
@@ -785,6 +1042,128 @@ describe("publishing setup service", () => {
       where: { id: "req_123" },
       data: expect.objectContaining({
         primaryPublishUrl: "https://campus-dashboard.cedarville.edu",
+      }),
+    });
+  });
+
+  it("repairs generated FastAPI setup with the FastAPI auth callback path", async () => {
+    const deps = createDeps();
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      {
+        ...fastApiWithEntraAppRequest,
+        primaryPublishUrl: "https://campus-api.cedarville.edu",
+      } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.graph.ensureRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri: "https://campus-api.cedarville.edu/auth/callback",
+    });
+  });
+
+  it("repairs generated FastAPI setup with PostgreSQL and the FastAPI auth callback path", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn()
+          .mockResolvedValueOnce({
+            exists: true,
+            settings: {
+              DATABASE_URL: "postgresql://stale",
+              AUTH_URL: "https://stale-campus-api.azurewebsites.net",
+              NEXTAUTH_URL: "https://stale-campus-api.azurewebsites.net",
+              AUTH_SECRET: "old-auth-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ID: "old-client-id",
+              AUTH_MICROSOFT_ENTRA_ID_SECRET: "old-client-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+                "https://login.microsoftonline.com/old/v2.0",
+              NODE_ENV: "production",
+              SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+              ENABLE_ORYX_BUILD: "false",
+              WEBSITE_RUN_FROM_PACKAGE: "1",
+              EXISTING_CUSTOM_SETTING: "keep-me",
+            },
+          })
+          .mockResolvedValueOnce({
+            exists: true,
+            settings: {
+              DATABASE_URL:
+                "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_api_req123?sslmode=require",
+              AUTH_URL: "https://campus-api.cedarville.edu",
+              NEXTAUTH_URL: "https://campus-api.cedarville.edu",
+              AUTH_SECRET: "auth-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
+              AUTH_MICROSOFT_ENTRA_ID_SECRET: "entra-client-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+                "https://login.microsoftonline.com/tenant/v2.0",
+              NODE_ENV: "production",
+              SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+              ENABLE_ORYX_BUILD: "false",
+              WEBSITE_RUN_FROM_PACKAGE: "1",
+              EXISTING_CUSTOM_SETTING: "keep-me",
+            },
+          }),
+      },
+      graph: {
+        ...baseDeps.graph,
+        listFederatedCredentials: vi.fn().mockResolvedValue([
+          {
+            id: "credential-id",
+            name: "github-campus-api-req123",
+            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+          },
+        ]),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      {
+        ...fastApiWithDatabaseAndEntraAppRequest,
+        primaryPublishUrl: "https://campus-api.cedarville.edu",
+      } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
+    );
+
+    const result = await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putPostgresDatabase).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      serverName: "psql-cu-apps-published",
+      databaseName: "db_campus_api_req123",
+      tags: expect.objectContaining({
+        appRequestId: "req_123",
+      }),
+    });
+    expect(deps.arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "app-campus-api-req123",
+        settings: expect.objectContaining({
+          DATABASE_URL:
+            "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_api_req123?sslmode=require",
+          AUTH_URL: "https://campus-api.cedarville.edu",
+          NEXTAUTH_URL: "https://campus-api.cedarville.edu",
+          AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
+        }),
+      }),
+    );
+    expect(deps.graph.ensureRedirectUri).toHaveBeenCalledWith({
+      applicationObjectId: "entra-object-id",
+      redirectUri: "https://campus-api.cedarville.edu/auth/callback",
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        azureDatabaseName: "db_campus_api_req123",
+        primaryPublishUrl: "https://campus-api.cedarville.edu",
+      }),
+    });
+    expect(result.setupStatus).toBe("READY");
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
       }),
     });
   });
