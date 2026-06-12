@@ -230,6 +230,53 @@ describe("prepareImportedRepository", () => {
     );
   });
 
+  it("opens a PR with http.server publishing additions when requested", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
+      readRepositoryTextFiles: readRequestedFiles({
+        "index.html": "<h1>Static site</h1>",
+      }),
+      commitFiles: vi.fn(),
+      createPullRequestWithFiles: vi.fn().mockResolvedValue({
+        commitSha: "commit-sha",
+        pullRequestUrl:
+          "https://github.com/cedarville-it/static-site/pull/1",
+      }),
+    };
+
+    await expect(
+      prepareImportedRepository({
+        appName: "Static Site",
+        owner: "cedarville-it",
+        name: "static-site",
+        defaultBranch: "main",
+        mode: "PULL_REQUEST",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      status: "PULL_REQUEST_OPENED",
+      commitSha: "commit-sha",
+      pullRequestUrl:
+        "https://github.com/cedarville-it/static-site/pull/1",
+      runtime: httpServerRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    expect(github.createPullRequestWithFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        branch: "portal/add-azure-publishing-static-site",
+        expectedHeadSha: "head-sha",
+        files: expect.objectContaining({
+          [httpServerStartPath]: expect.stringContaining("http.server"),
+          "app-portal/deployment-manifest.json": expect.stringContaining(
+            '"framework": "http-server"',
+          ),
+        }),
+      }),
+    );
+    expect(github.commitFiles).not.toHaveBeenCalled();
+  });
+
   it("sanitizes repository names for PR branches", async () => {
     const github = {
       getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
