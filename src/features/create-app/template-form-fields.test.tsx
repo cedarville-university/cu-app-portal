@@ -1,6 +1,7 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { getTemplateBySlug } from "@/features/templates/catalog";
 import type { PortalTemplate } from "@/features/templates/types";
 import { TemplateFormFields } from "./template-form-fields";
 
@@ -65,6 +66,29 @@ describe("TemplateFormFields", () => {
     expect(screen.getByLabelText(/no database/i)).toBeInTheDocument();
     expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/microsoft entra login/i)).toBeChecked();
+  });
+
+  it("renders optional database and login controls for FastAPI with no-feature defaults", () => {
+    const template = getTemplateBySlug("python-fastapi");
+
+    if (!template) {
+      throw new Error("python-fastapi template missing");
+    }
+
+    render(<TemplateFormFields template={template} />);
+
+    expect(
+      screen.getByRole("group", { name: /database/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /postgresql/i }),
+    ).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: /no database/i })).toBeChecked();
+    expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: /microsoft entra login/i }),
+    ).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: /no login/i })).toBeChecked();
   });
 
   it("submits explicit hidden values when features are unsupported", () => {

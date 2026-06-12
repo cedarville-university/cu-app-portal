@@ -35,7 +35,7 @@ export type AppServiceRuntime =
     })
   | (AppServiceRuntimeBase & {
       family: "python";
-      framework: "fastapi";
+      framework: "fastapi" | "http-server";
       azureRuntimeStack: `PYTHON|${string}`;
     })
   | (AppServiceRuntimeBase & {

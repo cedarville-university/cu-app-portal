@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getTemplateBySlug } from "@/features/templates/catalog";
 import type { TemplateFeatures } from "@/features/templates/types";
 import { createAppSchema } from "./validation";
 
@@ -114,6 +115,28 @@ describe("createAppSchema", () => {
         entraLogin: true,
       }),
     });
+  });
+
+  it("accepts FastAPI with PostgreSQL and Entra login", () => {
+    const template = getTemplateBySlug("python-fastapi");
+
+    if (!template) {
+      throw new Error("python-fastapi template missing");
+    }
+
+    const parsed = createAppSchema({
+      hostingTarget: "Azure App Service",
+      features: template.features,
+    }).parse({
+      appName: "Reports API",
+      description: "Department reports",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: "true",
+    });
+
+    expect(parsed.databaseProvider).toBe("postgresql");
+    expect(parsed.entraLogin).toBe(true);
   });
 
   it("rejects PostgreSQL when the template does not support a database", () => {

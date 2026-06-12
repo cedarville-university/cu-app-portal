@@ -60,11 +60,12 @@ const templates: PortalTemplate[] = [
     description:
       "A compact Python API starter for Azure App Service with FastAPI health and sample routes.",
     decisionSummary:
-      "Choose this for Python-backed APIs, automation endpoints, and services that benefit from Python libraries.",
+      "Choose this for Python-backed APIs, automation endpoints, and services that benefit from Python libraries. Database and Entra login can be enabled when needed with PostgreSQL and Microsoft Entra.",
     bestFor: [
       "Python APIs",
       "Automation endpoints",
       "Data-adjacent service backends",
+      "Apps that may need PostgreSQL or Cedarville login",
     ],
     hostingTarget: "Azure App Service",
     appServiceRuntime: {
@@ -78,12 +79,12 @@ const templates: PortalTemplate[] = [
     },
     features: {
       database: {
-        mode: "unsupported",
-        providerOptions: [],
+        mode: "optional",
+        providerOptions: ["postgresql"],
         defaultProvider: "none",
       },
       entraLogin: {
-        mode: "unsupported",
+        mode: "optional",
         defaultEnabled: false,
       },
     },
