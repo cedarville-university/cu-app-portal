@@ -2,7 +2,8 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AdminPage from "./page";
 import { prisma } from "@/lib/db";
-import { requireAdminUserId } from "@/features/admin/roles";
+import { isAdminUser } from "@/features/admin/roles";
+import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 
 const mockUseFormStatus = vi.hoisted(() => vi.fn());
 
@@ -16,7 +17,11 @@ vi.mock("react-dom", async (importOriginal) => {
 });
 
 vi.mock("@/features/admin/roles", () => ({
-  requireAdminUserId: vi.fn(),
+  isAdminUser: vi.fn(),
+}));
+
+vi.mock("@/features/app-requests/current-user", () => ({
+  getCurrentUserIdOrNull: vi.fn(),
 }));
 
 vi.mock("@/features/admin/actions", () => ({
@@ -45,7 +50,8 @@ vi.mock("@/lib/db", () => ({
 
 beforeEach(() => {
   mockUseFormStatus.mockReturnValue({ pending: false });
-  vi.mocked(requireAdminUserId).mockResolvedValue("admin-user");
+  vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("admin-user");
+  vi.mocked(isAdminUser).mockResolvedValue(true);
 });
 
 afterEach(() => {
@@ -54,6 +60,22 @@ afterEach(() => {
 });
 
 describe("AdminPage", () => {
+  it("shows a helpful not-authorized view for signed-in non-admin users", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("staff-user");
+    vi.mocked(isAdminUser).mockResolvedValue(false);
+
+    render(await AdminPage());
+
+    expect(
+      screen.getByRole("heading", { name: /not authorized/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/you do not have permission to use the admin tools/i),
+    ).toBeInTheDocument();
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
+    expect(prisma.appRequest.findMany).not.toHaveBeenCalled();
+  });
+
   it("renders users and apps for admins", async () => {
     vi.mocked(prisma.user.findMany).mockResolvedValue([
       {
@@ -112,7 +134,7 @@ describe("AdminPage", () => {
 
     const { container } = render(await AdminPage());
 
-    expect(requireAdminUserId).toHaveBeenCalled();
+    expect(isAdminUser).toHaveBeenCalledWith("admin-user");
     expect(
       screen.getByRole("heading", { level: 1, name: "Admin" }),
     ).toBeInTheDocument();
