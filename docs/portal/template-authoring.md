@@ -48,7 +48,9 @@ Each template entry defines:
 - `appServiceRuntime`, including the App Service runtime family, framework, Azure runtime stack, startup command, and workflow filename
 - `features`, including database support and Microsoft Entra login support
 
-Current active starter templates are Next.js Web App and Python FastAPI. Both target Azure App Service, but each carries its own runtime stack and feature support in catalog metadata.
+Current active starter templates are Next.js Web App and Python FastAPI. Both target Azure App Service, but each carries its own runtime stack and feature support in catalog metadata. FastAPI defaults to no database and no login, with optional PostgreSQL and Microsoft Entra login controls in the create flow.
+
+Python `http.server` support is import-only for plain static repositories. Do not add it to the generated template catalog unless the product scope changes; imported static apps get runtime metadata during repository compatibility scanning and keep PostgreSQL and Microsoft Entra disabled.
 
 `features.database` declares whether PostgreSQL is unsupported, optional, or required, plus the default provider. `features.entraLogin` declares whether generated Microsoft Entra login is unsupported, optional, or required, plus the default enabled state.
 

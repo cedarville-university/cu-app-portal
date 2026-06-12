@@ -34,7 +34,9 @@ describe("portal setup docs", () => {
     expect(setup).toContain("short-lived GitHub App installation token");
     expect(setup).toContain("repository creation permission");
     expect(setup).toContain("GitHub CLI (`gh`) is not required");
-    expect(setup).toContain("root Next.js and Python FastAPI apps");
+    expect(setup).toContain(
+      "root Next.js apps, Python FastAPI apps, and plain static Python `http.server` apps",
+    );
     expect(setup).toContain("Azure App Service publishing");
   });
 });

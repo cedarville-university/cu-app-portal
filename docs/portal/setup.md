@@ -50,7 +50,7 @@ When a submitted repository is outside `GITHUB_DEFAULT_ORG`, the portal imports 
 
 If a user has built an app locally with Codex but has not created any GitHub repository yet, the portal can create the destination repository directly in `GITHUB_DEFAULT_ORG`. The resulting app details page gives Codex a handoff prompt and plain `git` commands to initialize the local folder if needed, add the managed repository as a `portal` remote, and push the current code. GitHub CLI (`gh`) is not required for this path.
 
-V1 supports root Next.js and Python FastAPI apps for Azure App Service publishing. After import or scan, the portal prepares the repository for the matching supported Azure App Service publishing path.
+V1 supports root Next.js apps, Python FastAPI apps, and plain static Python `http.server` apps with a root `index.html` for Azure App Service publishing. After import or scan, the portal prepares the repository for the matching supported Azure App Service publishing path. Static `http.server` imports do not add PostgreSQL or Microsoft Entra login; use the generated FastAPI template when a Python app needs those options.
 
 ### Portal-Managed Azure Publishing
 
@@ -79,8 +79,8 @@ Current v1 design decisions:
 - Generated user apps share one PostgreSQL flexible server: `psql-cu-apps-published`.
 - Each published app gets its own Azure Web App. When PostgreSQL is selected for that app, it also gets its own PostgreSQL database on the shared server.
 - `AZURE_PUBLISH_RUNTIME_STACK=NODE|24-lts` remains the current default for the legacy/imported Node publishing path.
-- Runtime-specific generated templates carry their App Service runtime stack in the generated deployment manifest. The portal-managed publisher uses that template runtime when creating the Web App.
-- Database and auth publishing are conditional based on the selected template features. Templates that do not select PostgreSQL skip per-app database setup, and templates that do not select Microsoft Entra login skip generated-app auth settings and redirect URI setup.
+- Runtime-specific generated templates and prepared imported apps carry their App Service runtime stack in the deployment manifest. The portal-managed publisher uses that runtime when creating the Web App.
+- Database and auth publishing are conditional based on the selected template or imported app features. Apps that do not select PostgreSQL skip per-app database setup, and apps that do not select Microsoft Entra login skip auth settings and redirect URI setup.
 
 Deletion behavior:
 
