@@ -62,6 +62,34 @@ describe("buildArchive", () => {
     expect(zip.file("src/app/layout.tsx")).toBeNull();
   });
 
+  it("builds the FastAPI archive with PostgreSQL and Entra source", async () => {
+    const archive = await buildArchive({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    expect(archive.files["requirements.txt"]).toContain("psycopg[binary]");
+    expect(archive.files["requirements.txt"]).toContain("authlib");
+    expect(archive.files["requirements.txt"]).toContain("itsdangerous");
+    expect(archive.files["main.py"]).toContain('@app.get("/auth/callback")');
+    expect(archive.files["main.py"]).toContain('@app.get("/api/data-status")');
+    expect(archive.files[".env.example"]).toContain("DATABASE_URL=");
+    expect(archive.files[".env.example"]).toContain(
+      "AUTH_MICROSOFT_ENTRA_ID_ID=",
+    );
+
+    const zip = await JSZip.loadAsync(archive.buffer);
+
+    await expect(zip.file("main.py")?.async("string")).resolves.toContain(
+      "psycopg.connect",
+    );
+    expect(zip.file("package.json")).toBeNull();
+  });
+
   it("escapes FastAPI Python string literals from app metadata", async () => {
     const appName = 'Reports "API" \\ nightly\nBeta';
     const description = 'Line "one" with \\ path\nSecond line';

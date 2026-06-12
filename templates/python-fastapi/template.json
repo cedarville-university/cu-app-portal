@@ -17,5 +17,14 @@
     "docs/publishing/azure-app-service.md",
     "docs/publishing/lessons-learned.md",
     "app-portal/deployment-manifest.json"
+  ],
+  "generatedOverrides": [
+    "README.md",
+    "requirements.txt",
+    "main.py",
+    ".env.example",
+    ".codex/skills/publish-to-azure/SKILL.md",
+    "docs/publishing/azure-app-service.md",
+    "docs/publishing/lessons-learned.md"
   ]
 }

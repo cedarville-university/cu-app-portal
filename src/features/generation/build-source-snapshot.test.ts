@@ -124,6 +124,28 @@ describe("buildSourceSnapshot", () => {
     expect(files["src/lib/app-data.ts"]).not.toContain("@prisma/client");
   });
 
+  it("generates FastAPI source with PostgreSQL and Entra feature content", async () => {
+    const buildSourceSnapshot = await loadBuildSourceSnapshot();
+    const files = await buildSourceSnapshot({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Department reports",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    expect(files["main.py"]).toContain("psycopg.connect");
+    expect(files["main.py"]).toContain('@app.get("/api/data-status")');
+    expect(files["main.py"]).toContain('@app.get("/auth/callback")');
+    expect(files[".env.example"]).toContain("DATABASE_URL=");
+    expect(files[".env.example"]).toContain("AUTH_MICROSOFT_ENTRA_ID_ID=");
+    expect(files["requirements.txt"]).toContain("psycopg[binary]");
+    expect(files["requirements.txt"]).toContain("authlib");
+    expect(files["requirements.txt"]).toContain("itsdangerous");
+    expect(files["package.json"]).toBeUndefined();
+  });
+
   it("does not render entry files whose output paths are generated overrides", async () => {
     const templateRoot = path.join(process.cwd(), "templates", "override-test");
     await rm(templateRoot, { recursive: true, force: true });

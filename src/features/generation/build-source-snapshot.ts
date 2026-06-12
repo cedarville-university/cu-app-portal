@@ -6,6 +6,7 @@ import {
   type DeploymentManifestInput,
 } from "./deployment-manifest";
 import { buildInstructionFiles } from "./instruction-files";
+import { buildPythonFastApiGeneratedFiles } from "./python-fastapi-source";
 import { renderTemplateString } from "./render-template";
 import { buildTokenMap } from "./token-replacements";
 import { getTemplateBySlug } from "@/features/templates/catalog";
@@ -80,6 +81,10 @@ function buildGeneratedTemplateFiles(
     null,
     2,
   )}\n`;
+  const pythonFastApiFiles =
+    input.templateSlug === "python-fastapi"
+      ? buildPythonFastApiGeneratedFiles(input)
+      : {};
 
   return {
     ...instructionFiles,
@@ -90,6 +95,7 @@ function buildGeneratedTemplateFiles(
     "README.md": buildReadmeFile(input),
     ".codex/skills/publish-to-azure/SKILL.md": buildPublishSkillFile(input),
     "app-portal/deployment-manifest.json": deploymentManifest,
+    ...pythonFastApiFiles,
   };
 }
 
