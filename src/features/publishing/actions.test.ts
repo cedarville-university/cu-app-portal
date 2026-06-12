@@ -68,6 +68,9 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
       updateMany: vi.fn(),
     },
+    userRole: {
+      findFirst: vi.fn(),
+    },
     publishAttempt: {
       create: vi.fn(),
     },
@@ -94,6 +97,8 @@ describe("publishing actions", () => {
     vi.mocked(prisma.appRequest.findFirst).mockReset();
     vi.mocked(prisma.appRequest.update).mockReset();
     vi.mocked(prisma.appRequest.updateMany).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.publishAttempt.create).mockReset();
     mockGithub.readRepositoryTextFiles.mockReset();
     mockGithub.getBranchHead.mockReset();
@@ -152,7 +157,6 @@ describe("publishing actions", () => {
     expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
       where: {
         id: "request-123",
-        userId: "user-123",
         repositoryStatus: "READY",
         publishingSetupStatus: { in: ["NOT_CHECKED", "READY"] },
         publishStatus: { in: ["NOT_STARTED", "SUCCEEDED"] },
@@ -162,6 +166,37 @@ describe("publishing actions", () => {
         publishErrorSummary: null,
       },
     });
+  });
+
+  it("allows a collaborator with app access to queue a publish attempt", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "owner-123",
+      repositoryStatus: "READY",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "READY",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.publishAttempt.create).mockResolvedValue({
+      id: "attempt-123",
+    } as Awaited<ReturnType<typeof prisma.publishAttempt.create>>);
+
+    await publishToAzureAction("request-123");
+
+    expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "request-123",
+        repositoryStatus: "READY",
+        publishingSetupStatus: { in: ["NOT_CHECKED", "READY"] },
+        publishStatus: { in: ["NOT_STARTED", "SUCCEEDED"] },
+      },
+      data: {
+        publishStatus: "QUEUED",
+        publishErrorSummary: null,
+      },
+    });
+    expect(runPublishAttempt).toHaveBeenCalledWith("attempt-123");
   });
 
   it.each(["NEEDS_REPAIR", "REPAIRING", "BLOCKED"] as const)(
@@ -206,7 +241,6 @@ describe("publishing actions", () => {
     expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
       where: {
         id: "request-123",
-        userId: "user-123",
         repositoryStatus: "READY",
         publishingSetupStatus: { in: ["NOT_CHECKED", "READY"] },
         publishStatus: { in: ["NOT_STARTED", "SUCCEEDED"] },
@@ -241,7 +275,6 @@ describe("publishing actions", () => {
     expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
       where: {
         id: "request-123",
-        userId: "user-123",
         repositoryStatus: "READY",
         publishingSetupStatus: "READY",
         publishStatus: { in: ["NOT_STARTED", "SUCCEEDED"] },
@@ -459,7 +492,6 @@ describe("publishing actions", () => {
     expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
       where: {
         id: "request-123",
-        userId: "user-123",
         repositoryStatus: "READY",
         publishingSetupStatus: { in: ["NOT_CHECKED", "READY"] },
         publishStatus: { in: ["NOT_STARTED", "SUCCEEDED"] },
@@ -508,7 +540,6 @@ describe("publishing actions", () => {
     expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
       where: {
         id: "request-123",
-        userId: "user-123",
         repositoryStatus: "READY",
         publishingSetupStatus: { in: ["NOT_CHECKED", "READY"] },
         publishStatus: { in: ["FAILED"] },

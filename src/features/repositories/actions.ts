@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  appAccessWhere,
+  userHasAdminRole,
+} from "@/features/app-requests/access";
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
@@ -11,23 +15,21 @@ import { grantManagedRepositoryAccess, parseGitHubUsername } from "./access";
 import { bootstrapManagedRepository } from "./bootstrap-managed-repository";
 import { getTemplateBySlug } from "@/features/templates/catalog";
 
-async function loadOwnedAppRequest(requestId: string) {
-  const userId = await resolveCurrentUserId();
+async function loadAccessibleAppRequestForActor(requestId: string) {
+  const actorUserId = await resolveCurrentUserId();
+  const actorIsAdmin = await userHasAdminRole(actorUserId);
   const appRequest = await prisma.appRequest.findFirst({
-    where: {
-      id: requestId,
-      userId,
-    },
+    where: appAccessWhere(requestId, actorUserId, actorIsAdmin),
   });
 
   if (!appRequest) {
     throw new Error("App request not found.");
   }
 
-  return appRequest;
+  return { appRequest, actorUserId };
 }
 
-async function loadOwnedUser(userId: string) {
+async function loadUser(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
   });
@@ -69,8 +71,9 @@ function parseStoredCreateAppInput(
 }
 
 export async function retryRepositoryBootstrapAction(requestId: string) {
-  const appRequest = await loadOwnedAppRequest(requestId);
-  const user = await loadOwnedUser(appRequest.userId);
+  const { appRequest, actorUserId } =
+    await loadAccessibleAppRequestForActor(requestId);
+  const user = await loadUser(actorUserId);
 
   if (appRequest.repositoryStatus !== "FAILED") {
     throw new Error("Only failed repository bootstraps can be retried.");
@@ -215,7 +218,8 @@ export async function saveGitHubUsernameAndGrantAccessAction(
   requestId: string,
   formData: FormData,
 ) {
-  const appRequest = await loadOwnedAppRequest(requestId);
+  const { appRequest, actorUserId } =
+    await loadAccessibleAppRequestForActor(requestId);
 
   if (
     appRequest.repositoryStatus !== "READY" ||
@@ -228,7 +232,7 @@ export async function saveGitHubUsernameAndGrantAccessAction(
   const githubUsername = parseGitHubUsername(formData.get("githubUsername"));
 
   await prisma.user.update({
-    where: { id: appRequest.userId },
+    where: { id: actorUserId },
     data: { githubUsername },
   });
 

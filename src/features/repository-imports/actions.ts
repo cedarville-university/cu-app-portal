@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
+import {
+  appAccessWhere,
+  userHasAdminRole,
+} from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { preflightPublishingSetup } from "@/features/publishing/setup/service";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
@@ -677,8 +681,9 @@ export async function prepareExistingAppAction(
 ) {
   const mode = preparationModeSchema.parse(formData.get("preparationMode"));
   const userId = await resolveCurrentUserId();
+  const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
-    where: { id: requestId, userId },
+    where: appAccessWhere(requestId, userId, isAdmin),
     include: { repositoryImport: true },
   });
 
@@ -817,8 +822,9 @@ export async function verifyExistingAppPreparationAction(
   deps: VerifyExistingAppPreparationDeps = {},
 ) {
   const userId = await resolveCurrentUserId();
+  const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
-    where: { id: requestId, userId },
+    where: appAccessWhere(requestId, userId, isAdmin),
     include: { repositoryImport: true },
   });
 

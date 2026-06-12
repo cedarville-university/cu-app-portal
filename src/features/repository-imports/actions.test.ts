@@ -139,6 +139,7 @@ vi.mock("@/lib/db", () => ({
       template: { upsert: vi.fn() },
       appRequest: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
       repositoryImport: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+      userRole: { findFirst: vi.fn() },
       $transaction: vi.fn((callback) => callback(prismaMock)),
     };
 
@@ -179,6 +180,8 @@ describe("repository import actions", () => {
     vi.mocked(prisma.repositoryImport.update).mockReset();
     vi.mocked(prisma.repositoryImport.updateMany).mockReset();
     vi.mocked(prisma.repositoryImport.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.userRole.findFirst).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.$transaction).mockReset();
     vi.mocked(prisma.$transaction).mockImplementation((callback) =>
       callback(prisma),
@@ -937,6 +940,60 @@ describe("repository import actions", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_123");
   });
 
+  it("allows a collaborator with app access to prepare an imported app", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_123",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      submittedConfig: {},
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_123",
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    const formData = new FormData();
+    formData.set("preparationMode", "DIRECT_COMMIT");
+
+    await prepareExistingAppAction("req_123", formData, {
+      github: {
+        getBranchHead: vi.fn(),
+        readRepositoryTextFiles: vi.fn(),
+        commitFiles: vi.fn(),
+        createPullRequestWithFiles: vi.fn(),
+      },
+    });
+
+    expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "req_123",
+        OR: [
+          { userId: "collaborator-123" },
+          {
+            collaborators: {
+              some: { userId: "collaborator-123" },
+            },
+          },
+        ],
+      },
+      include: { repositoryImport: true },
+    });
+    expect(prepareImportedRepository).toHaveBeenCalled();
+  });
+
   it("persists detected FastAPI config before direct-commit preflight", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
@@ -1627,6 +1684,58 @@ describe("repository import actions", () => {
     expect(preflightPublishingSetup).toHaveBeenCalledWith("req_verify");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_verify");
+  });
+
+  it("allows a collaborator with app access to verify imported app preparation", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_verify",
+      userId: "owner-123",
+      submittedConfig: {},
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_verify",
+        preparationStatus: "PULL_REQUEST_OPENED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    const github = {
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({
+        "package.json": readyPackageJson,
+        ...Object.fromEntries(
+          PUBLISHING_BUNDLE_PATHS.map((path) => [path, "content"]),
+        ),
+      }),
+    };
+
+    await verifyExistingAppPreparationAction("req_verify", { github });
+
+    expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "req_verify",
+        OR: [
+          { userId: "collaborator-123" },
+          {
+            collaborators: {
+              some: { userId: "collaborator-123" },
+            },
+          },
+        ],
+      },
+      include: { repositoryImport: true },
+    });
+    expect(prisma.repositoryImport.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "import_verify",
+        preparationStatus: "PULL_REQUEST_OPENED",
+      },
+      data: {
+        preparationStatus: "COMMITTED",
+        preparationErrorSummary: null,
+      },
+    });
   });
 
   it("persists verified FastAPI config before PR-verification preflight", async () => {

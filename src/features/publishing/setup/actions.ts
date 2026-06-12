@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  appAccessWhere,
+  userHasAdminRole,
+} from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { prisma } from "@/lib/db";
 import { repairPublishingSetup } from "./service";
@@ -20,11 +24,9 @@ function revalidatePublishingSetupViews(requestId: string) {
 
 export async function repairPublishingSetupAction(requestId: string) {
   const userId = await resolveCurrentUserId();
+  const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
-    where: {
-      id: requestId,
-      userId,
-    },
+    where: appAccessWhere(requestId, userId, isAdmin),
   });
 
   if (!appRequest) {

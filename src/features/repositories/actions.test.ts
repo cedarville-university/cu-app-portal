@@ -41,6 +41,9 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    userRole: {
+      findFirst: vi.fn(),
+    },
     appRequest: {
       findFirst: vi.fn(),
       update: vi.fn(),
@@ -59,6 +62,8 @@ describe("retryRepositoryBootstrapAction", () => {
     vi.mocked(bootstrapManagedRepository).mockReset();
     vi.mocked(prisma.user.findUnique).mockReset();
     vi.mocked(prisma.user.update).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.appRequest.findFirst).mockReset();
     vi.mocked(prisma.appRequest.update).mockReset();
     consoleErrorSpy.mockClear();
@@ -255,6 +260,37 @@ describe("retryRepositoryBootstrapAction", () => {
         repositoryAccessStatus: "INVITED",
         repositoryAccessNote: "GitHub invited @portalstaff to this repository.",
       },
+    });
+  });
+
+  it("updates the acting collaborator's GitHub username when granting repository access", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      supportReference: "CU-123",
+      repositoryStatus: "READY",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      id: "collaborator-123",
+      githubUsername: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(grantManagedRepositoryAccess).mockResolvedValue({
+      status: "GRANTED",
+    });
+
+    const formData = new FormData();
+    formData.set("githubUsername", "collabdev");
+
+    await saveGitHubUsernameAndGrantAccessAction("request-123", formData);
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "collaborator-123" },
+      data: { githubUsername: "collabdev" },
     });
   });
 });

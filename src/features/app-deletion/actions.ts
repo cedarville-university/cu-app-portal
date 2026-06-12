@@ -2,6 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  canDeleteApp,
+  userHasAdminRole,
+} from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { deleteArtifact } from "@/features/generation/storage";
 import { recordAuditEvent, type AuditEvent } from "@/lib/audit";
@@ -40,13 +44,18 @@ function parseDeleteTargets(formData: FormData): DeleteTargets {
   return targets;
 }
 
-async function loadOwnedAppRequest(requestId: string) {
-  const userId = await resolveCurrentUserId();
+async function loadDeletableAppRequest(requestId: string) {
+  const actorUserId = await resolveCurrentUserId();
+  const actorIsAdmin = await userHasAdminRole(actorUserId);
+
+  if (!(await canDeleteApp(actorUserId, requestId))) {
+    throw new Error("App request not found.");
+  }
+
   const appRequest = await prisma.appRequest.findFirst({
-    where: {
-      id: requestId,
-      userId,
-    },
+    where: actorIsAdmin
+      ? { id: requestId }
+      : { id: requestId, userId: actorUserId },
     include: {
       artifact: true,
     },
@@ -56,7 +65,7 @@ async function loadOwnedAppRequest(requestId: string) {
     throw new Error("App request not found.");
   }
 
-  return appRequest;
+  return { appRequest, actorUserId, actorIsAdmin };
 }
 
 async function recordDeletionAudit(
@@ -169,7 +178,9 @@ async function deletePortalRecord(appRequest: {
 
 export async function deleteAppAction(requestId: string, formData: FormData) {
   const targets = parseDeleteTargets(formData);
-  const appRequest = await loadOwnedAppRequest(requestId);
+  const { appRequest, actorUserId, actorIsAdmin } =
+    await loadDeletableAppRequest(requestId);
+  const adminInitiated = actorIsAdmin && appRequest.userId !== actorUserId;
   let githubRepository: { owner: string; name: string } | null = null;
   let azureDeployment: DeleteAzureDeploymentInput | null = null;
   const completed = {
@@ -206,6 +217,8 @@ export async function deleteAppAction(requestId: string, formData: FormData) {
     deletePortal: targets.portal,
     deleteGithub: targets.github,
     deleteAzure: targets.azure,
+    actorUserId,
+    adminInitiated,
   });
 
   try {
@@ -232,6 +245,8 @@ export async function deleteAppAction(requestId: string, formData: FormData) {
       deletedPortal: targets.portal,
       deletedGithub: completed.github,
       deletedAzure: completed.azure,
+      actorUserId,
+      adminInitiated,
     });
   } catch (error) {
     await markExternalDeletions(requestId, completed).catch((updateError) => {
@@ -248,6 +263,8 @@ export async function deleteAppAction(requestId: string, formData: FormData) {
       deletedGithub: completed.github,
       deletedAzure: completed.azure,
       error: error instanceof Error ? error.message : "unknown",
+      actorUserId,
+      adminInitiated,
     });
 
     throw error;

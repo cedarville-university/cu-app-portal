@@ -38,6 +38,9 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    userRole: {
+      findFirst: vi.fn(),
+    },
     generatedArtifact: {
       deleteMany: vi.fn(),
     },
@@ -92,6 +95,7 @@ describe("deleteAppAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       ownedRequest as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>,
     );
@@ -192,6 +196,38 @@ describe("deleteAppAction", () => {
 
     await expect(deleteAppAction("request-123", confirmedForm)).rejects.toThrow(
       "Choose at least one app resource to delete.",
+    );
+  });
+
+  it("blocks collaborators from deleting app resources", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(null);
+
+    await expect(
+      deleteAppAction("request-123", deletionForm(["portal"])),
+    ).rejects.toThrow("App request not found.");
+
+    expect(deleteArtifact).not.toHaveBeenCalled();
+  });
+
+  it("allows admins to delete app resources they do not own", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("admin-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-123",
+      userId: "admin-123",
+      role: "ADMIN",
+      createdAt: new Date("2026-06-12T12:00:00Z"),
+      updatedAt: new Date("2026-06-12T12:00:00Z"),
+    } as Awaited<ReturnType<typeof prisma.userRole.findFirst>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      ownedRequest as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>,
+    );
+
+    await deleteAppAction("request-123", deletionForm(["portal"]));
+
+    expect(deleteArtifact).toHaveBeenCalledWith(
+      "/workspace/.artifacts/campus-dashboard.zip",
     );
   });
 });

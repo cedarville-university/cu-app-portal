@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  appAccessWhere,
+  userHasAdminRole,
+} from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
@@ -26,13 +30,11 @@ const GENERATED_APP_QUEUEABLE_SETUP_STATUSES: QueueablePublishingSetupStatus[] =
   "READY",
 ];
 
-async function loadOwnedAppRequest(requestId: string) {
+async function loadAccessibleAppRequest(requestId: string) {
   const userId = await resolveCurrentUserId();
+  const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
-    where: {
-      id: requestId,
-      userId,
-    },
+    where: appAccessWhere(requestId, userId, isAdmin),
     include: {
       repositoryImport: true,
     },
@@ -119,7 +121,7 @@ async function queuePublishAttempt(
   requestId: string,
   allowedStatuses: QueueablePublishStatus[],
 ) {
-  const appRequest = await loadOwnedAppRequest(requestId);
+  const appRequest = await loadAccessibleAppRequest(requestId);
 
   if (appRequest.repositoryStatus !== "READY") {
     throw new Error("Managed repository is not ready for publishing.");
@@ -151,7 +153,6 @@ async function queuePublishAttempt(
     const queuedRequest = await tx.appRequest.updateMany({
       where: {
         id: requestId,
-        userId: appRequest.userId,
         repositoryStatus: "READY",
         publishingSetupStatus: publishingSetupStatusPredicate(appRequest),
         publishStatus: { in: allowedStatuses },
@@ -202,7 +203,7 @@ export async function publishToAzureAction(requestId: string) {
 }
 
 export async function retryPublishAction(requestId: string) {
-  const appRequest = await loadOwnedAppRequest(requestId);
+  const appRequest = await loadAccessibleAppRequest(requestId);
 
   if (appRequest.publishStatus !== "FAILED") {
     throw new Error("Only failed publish attempts can be retried.");
@@ -214,7 +215,7 @@ export async function retryPublishAction(requestId: string) {
 }
 
 export async function enablePushToDeployAction(requestId: string) {
-  const appRequest = await loadOwnedAppRequest(requestId);
+  const appRequest = await loadAccessibleAppRequest(requestId);
 
   if (appRequest.sourceOfTruth !== "PORTAL_MANAGED_REPO") {
     throw new Error(

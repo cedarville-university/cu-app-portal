@@ -18,6 +18,9 @@ vi.mock("@/lib/db", () => ({
     appRequest: {
       findFirst: vi.fn(),
     },
+    userRole: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -30,6 +33,8 @@ describe("publishing setup actions", () => {
     vi.mocked(revalidatePath).mockReset();
     vi.mocked(resolveCurrentUserId).mockReset();
     vi.mocked(prisma.appRequest.findFirst).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockReset();
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
     vi.mocked(repairPublishingSetup).mockReset();
   });
 
@@ -46,7 +51,14 @@ describe("publishing setup actions", () => {
     expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
       where: {
         id: "request-123",
-        userId: "user-123",
+        OR: [
+          { userId: "user-123" },
+          {
+            collaborators: {
+              some: { userId: "user-123" },
+            },
+          },
+        ],
       },
     });
     expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
@@ -65,11 +77,45 @@ describe("publishing setup actions", () => {
     expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
       where: {
         id: "request-123",
-        userId: "user-123",
+        OR: [
+          { userId: "user-123" },
+          {
+            collaborators: {
+              some: { userId: "user-123" },
+            },
+          },
+        ],
       },
     });
     expect(repairPublishingSetup).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("repairs publishing setup for a collaborator with app access", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "owner-123",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(repairPublishingSetup).mockResolvedValue(undefined);
+
+    await repairPublishingSetupAction("request-123");
+
+    expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
+      where: {
+        id: "request-123",
+        OR: [
+          { userId: "collaborator-123" },
+          {
+            collaborators: {
+              some: { userId: "collaborator-123" },
+            },
+          },
+        ],
+      },
+    });
+    expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
   });
 
   it("revalidates app views when repair fails for an owned app request", async () => {
