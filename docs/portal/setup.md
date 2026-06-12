@@ -18,11 +18,14 @@ Add these values to `.env` for local development:
 - `AUTH_MICROSOFT_ENTRA_ID_ID`
 - `AUTH_MICROSOFT_ENTRA_ID_SECRET`
 - `AUTH_MICROSOFT_ENTRA_ID_ISSUER`
+- `PORTAL_INITIAL_ADMIN_EMAILS`
 
 Keep real secret values only in ignored local env files or managed secret
 stores such as Azure App Service application settings and GitHub Actions
 secrets. Do not paste real secret values into tracked docs, examples, tests,
 or templates.
+
+Use `PORTAL_INITIAL_ADMIN_EMAILS` to bootstrap portal-managed admin access with comma-separated Cedarville email addresses. On sign-in, matching users receive the portal-managed `ADMIN` role. After the first admin exists, use `/admin` to add or remove admin access.
 
 To enable portal-managed GitHub repository creation during the create flow, also set:
 
@@ -88,6 +91,13 @@ Deletion behavior:
 - Azure deletion removes the selected app's Azure Web App and, if one was provisioned, the selected app's PostgreSQL database on the shared server.
 - Azure deletion never deletes the shared PostgreSQL flexible server.
 - If a user leaves GitHub or Azure unchecked while deleting the portal record, those resources must be deleted manually later because the portal record will no longer appear in `My Apps`.
+
+### Admin And Collaboration Permissions
+
+- Each app has one primary owner.
+- Admins can see all users and apps, manage admin roles, reassign owners, manage collaborators, and delete scoped app resources.
+- Collaborators can view app details, download artifacts, request GitHub repository access for themselves, repair publishing setup, and publish app changes.
+- Collaborators cannot delete app resources or reassign ownership.
 
 #### Publishing setup repair
 
