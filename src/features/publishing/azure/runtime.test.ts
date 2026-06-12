@@ -74,6 +74,24 @@ const readyImportedFastApiAppRequest = {
   },
 };
 
+const readyImportedHttpServerRequest = {
+  ...readyImportedAppRequest,
+  appName: "Campus Static Site",
+  submittedConfig: {
+    templateSlug: "imported-web-app",
+    importRuntime: {
+      family: "python",
+      framework: "http-server",
+      displayName: "Python 3.14 / http.server",
+      azureRuntimeStack: "PYTHON|3.14",
+      startupCommand: "python app-portal/http_server_start.py",
+      workflowFileName: "deploy-azure-app-service.yml",
+    },
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
 const readyGeneratedFastApiWithEntraRequest = {
   ...readyAppRequest,
   appName: "Campus API",
@@ -418,6 +436,40 @@ describe("createAzurePublishRuntime", () => {
         settings: expect.not.objectContaining({
           DATABASE_URL: expect.any(String),
           AUTH_MICROSOFT_ENTRA_ID_ID: expect.any(String),
+        }),
+      }),
+    );
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
+  });
+
+  it("uses imported http.server runtime and skips database/auth provisioning", async () => {
+    const { deps, arm, graph } = createDeps({
+      appRequest: readyImportedHttpServerRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    const target = await runtime.provisionInfrastructure(
+      "clx9abc123zzzzzzzzzz",
+    );
+
+    expect(target.azureDatabaseName).toBeNull();
+    expect(arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand: "python app-portal/http_server_start.py",
+      }),
+    );
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.not.objectContaining({
+          DATABASE_URL: expect.any(String),
+          AUTH_URL: expect.any(String),
+          NEXTAUTH_URL: expect.any(String),
+          AUTH_SECRET: expect.any(String),
+          AUTH_MICROSOFT_ENTRA_ID_ID: expect.any(String),
+          AUTH_MICROSOFT_ENTRA_ID_SECRET: expect.any(String),
+          AUTH_MICROSOFT_ENTRA_ID_ISSUER: expect.any(String),
         }),
       }),
     );

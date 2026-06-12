@@ -86,6 +86,24 @@ const importedFastApiAppRequest = {
   },
 };
 
+const readyImportedHttpServerRequest = {
+  ...appRequest,
+  appName: "Campus Static Site",
+  submittedConfig: {
+    templateSlug: "imported-web-app",
+    importRuntime: {
+      family: "python",
+      framework: "http-server",
+      displayName: "Python 3.14 / http.server",
+      azureRuntimeStack: "PYTHON|3.14",
+      startupCommand: "python app-portal/http_server_start.py",
+      workflowFileName: "deploy-azure-app-service.yml",
+    },
+    databaseProvider: "none",
+    entraLogin: false,
+  },
+};
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction: vi.fn((operations) => Promise.all(operations)),
@@ -359,6 +377,66 @@ describe("publishing setup service", () => {
     });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
       importedFastApiAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.graph.hasRedirectUri).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_resource_access",
+          metadata: expect.not.objectContaining({
+            databaseName: expect.any(String),
+          }),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_app_settings",
+          status: "PASS",
+          metadata: expect.objectContaining({
+            settingNames: [
+              "NODE_ENV",
+              "SCM_DO_BUILD_DURING_DEPLOYMENT",
+              "ENABLE_ORYX_BUILD",
+              "WEBSITE_RUN_FROM_PACKAGE",
+            ],
+          }),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "entra_redirect_uri",
+        }),
+      }),
+    );
+  });
+
+  it("preflights imported http.server setup without database or Entra checks", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            NODE_ENV: "production",
+            SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+            ENABLE_ORYX_BUILD: "false",
+            WEBSITE_RUN_FROM_PACKAGE: "1",
+          },
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      readyImportedHttpServerRequest as Awaited<
         ReturnType<typeof prisma.appRequest.findUnique>
       >,
     );
@@ -747,6 +825,62 @@ describe("publishing setup service", () => {
     expect(deps.arm.putAppSettings).toHaveBeenCalledWith({
       resourceGroup: "rg-cu-apps-published",
       name: "app-campus-api-req123",
+      settings: {
+        EXISTING_CUSTOM_SETTING: "keep-me",
+        NODE_ENV: "production",
+        SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+        ENABLE_ORYX_BUILD: "false",
+        WEBSITE_RUN_FROM_PACKAGE: "1",
+      },
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        azureDatabaseName: null,
+      }),
+    });
+  });
+
+  it("uses imported http.server runtime and skips database/auth repair", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            DATABASE_URL: "postgresql://stale",
+            AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+            NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+            AUTH_SECRET: "custom-auth-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
+            AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+              "https://login.microsoftonline.com/custom/v2.0",
+            EXISTING_CUSTOM_SETTING: "keep-me",
+          },
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      readyImportedHttpServerRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(deps.arm.putWebApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runtimeStack: "PYTHON|3.14",
+        startupCommand: "python app-portal/http_server_start.py",
+      }),
+    );
+    expect(deps.graph.ensureRedirectUri).not.toHaveBeenCalled();
+    expect(deps.arm.putAppSettings).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      name: "app-campus-static-site-req123",
       settings: {
         EXISTING_CUSTOM_SETTING: "keep-me",
         NODE_ENV: "production",
