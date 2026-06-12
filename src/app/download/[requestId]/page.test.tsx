@@ -137,7 +137,9 @@ describe("DownloadPage", () => {
     expect(
       screen.queryByRole("link", { name: /download zip/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/repository access granted/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/repository access has been granted for this app/i),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /publish to azure/i }),
     ).toBeInTheDocument();
@@ -163,6 +165,52 @@ describe("DownloadPage", () => {
         }),
       }),
     );
+  });
+
+  it("lets collaborators request their own repository access after app access was already granted", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_collab_access",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: "GitHub access is ready for @ownerhub.",
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-123",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collabdev",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_collab_access" }),
+      }),
+    );
+
+    expect(
+      screen.getByText(/repository access has been granted for this app/i),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("collabdev")).toHaveAttribute(
+      "name",
+      "githubUsername",
+    );
+    expect(
+      screen.getByRole("button", { name: /request repository access/i }),
+    ).toBeInTheDocument();
   });
 
   it("hides publish actions for unprepared imported apps", async () => {

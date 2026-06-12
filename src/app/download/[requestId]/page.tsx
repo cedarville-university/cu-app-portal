@@ -842,69 +842,68 @@ export default async function DownloadPage({
             <p className="section-title">Connect Codex to Your Repository</p>
             {appRequest.repositoryAccessStatus === "GRANTED" ? (
               <div className="success-box">
-                Repository access granted
-                {currentUser?.githubUsername
-                  ? ` for @${currentUser.githubUsername}`
-                  : ""}
-                .
+                Repository access has been granted for this app.
               </div>
-            ) : (
-              <>
-                <p
-                  style={{
-                    fontSize: "0.9375rem",
-                    marginBottom: "0.875rem",
-                  }}
-                >
-                  Want Codex to edit your app&rsquo;s code?{" "}
-                  <a
-                    href="https://github.com/signup"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Create a free GitHub account
-                  </a>
-                  , then enter your username below. The portal will send you an invite to the repository.
-                </p>
-                {appRequest.repositoryAccessNote ? (
-                  <div
-                    className="warning-box"
-                    style={{ marginBottom: "0.875rem" }}
-                  >
-                    {appRequest.repositoryAccessNote}
-                  </div>
-                ) : null}
-                <form
-                  action={saveGitHubUsernameAndGrantAccessAction.bind(
-                    null,
-                    requestId,
-                  )}
-                  style={{
-                    display: "flex",
-                    gap: "0.625rem",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <input
-                    name="githubUsername"
-                    type="text"
-                    required
-                    placeholder="GitHub username"
-                    defaultValue={currentUser?.githubUsername ?? ""}
-                    className="form-control"
-                    style={{ maxWidth: "240px" }}
-                  />
-                  <button
-                    type="submit"
-                    className="btn btn--secondary-solid"
-                  >
-                    {appRequest.repositoryAccessStatus === "INVITED"
-                      ? "Resend Repo Access Invite"
-                      : "Send Repository Invite"}
-                  </button>
-                </form>
-              </>
-            )}
+            ) : null}
+            <p
+              style={{
+                fontSize: "0.9375rem",
+                marginBottom: "0.875rem",
+                marginTop:
+                  appRequest.repositoryAccessStatus === "GRANTED"
+                    ? "0.875rem"
+                    : undefined,
+              }}
+            >
+              Want Codex to edit your app&rsquo;s code?{" "}
+              <a
+                href="https://github.com/signup"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Create a free GitHub account
+              </a>
+              , then enter your username below. The portal will send you an invite to the repository.
+            </p>
+            {appRequest.repositoryAccessNote ? (
+              <div
+                className="warning-box"
+                style={{ marginBottom: "0.875rem" }}
+              >
+                {appRequest.repositoryAccessNote}
+              </div>
+            ) : null}
+            <form
+              action={saveGitHubUsernameAndGrantAccessAction.bind(
+                null,
+                requestId,
+              )}
+              style={{
+                display: "flex",
+                gap: "0.625rem",
+                flexWrap: "wrap",
+              }}
+            >
+              <input
+                name="githubUsername"
+                type="text"
+                required
+                placeholder="GitHub username"
+                defaultValue={currentUser?.githubUsername ?? ""}
+                className="form-control"
+                style={{ maxWidth: "240px" }}
+              />
+              <button
+                type="submit"
+                className="btn btn--secondary-solid"
+              >
+                {appRequest.repositoryAccessStatus === "INVITED"
+                  ? "Resend Repo Access Invite"
+                  : appRequest.repositoryAccessStatus === "GRANTED"
+                    ? "Request Repository Access"
+                    : "Send Repository Invite"}
+              </button>
+            </form>
           </div>
         ) : null}
 
