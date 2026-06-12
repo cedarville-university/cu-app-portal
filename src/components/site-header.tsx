@@ -3,10 +3,14 @@ import Link from "next/link";
 import { LoginButton } from "@/features/auth/login-button";
 import { LogoutButton } from "@/features/auth/logout-button";
 import { getServerSession } from "@/auth/session";
+import { userHasAdminRole } from "@/features/app-requests/access";
 
 export async function SiteHeader() {
   const session = await getServerSession();
   const userDisplayName = session?.user?.name ?? session?.user?.email;
+  const isAdmin = session?.user?.id
+    ? await userHasAdminRole(session.user.id)
+    : false;
 
   return (
     <header className="site-header">
@@ -23,6 +27,7 @@ export async function SiteHeader() {
           <Link href="/">Home</Link>
           <Link href="/create">Create App</Link>
           <Link href="/apps">My Apps</Link>
+          {isAdmin ? <Link href="/admin">Admin</Link> : null}
           {userDisplayName ? (
             <span className="site-header__user-name">{userDisplayName}</span>
           ) : null}

@@ -39,6 +39,20 @@ function revalidateAdminViews(appRequestId?: string) {
   }
 }
 
+function parseUserId(input: string | FormData) {
+  if (typeof input === "string") {
+    return input;
+  }
+
+  const userId = input.get("userId");
+
+  if (typeof userId !== "string" || userId.length === 0) {
+    throw new Error("User id is required.");
+  }
+
+  return userId;
+}
+
 export async function grantAdminRoleAction(userId: string) {
   const actorUserId = await requireAdminUserId();
 
@@ -116,9 +130,10 @@ export async function removeAdminRoleAction(userId: string) {
 
 export async function addAppCollaboratorAction(
   appRequestId: string,
-  userId: string,
+  userIdInput: string | FormData,
 ) {
   const actorUserId = await requireAdminUserId();
+  const userId = parseUserId(userIdInput);
 
   await ensureUserExists(userId);
   const appRequest = await ensureAppExists(appRequestId);
@@ -172,9 +187,10 @@ export async function removeAppCollaboratorAction(
 
 export async function reassignAppOwnerAction(
   appRequestId: string,
-  newOwnerUserId: string,
+  newOwnerUserIdInput: string | FormData,
 ) {
   const actorUserId = await requireAdminUserId();
+  const newOwnerUserId = parseUserId(newOwnerUserIdInput);
 
   await ensureUserExists(newOwnerUserId);
   const appRequest = await ensureAppExists(appRequestId);

@@ -259,6 +259,32 @@ describe("admin actions", () => {
     expect(revalidatePath).toHaveBeenCalledWith(`/download/${appRequestId}`);
   });
 
+  it("addAppCollaboratorAction accepts a FormData userId for admin page forms", async () => {
+    mockUser();
+    mockApp();
+    const formData = new FormData();
+    formData.set("userId", targetUserId);
+
+    await addAppCollaboratorAction(appRequestId, formData);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: targetUserId },
+    });
+    expect(prisma.appAccess.upsert).toHaveBeenCalledWith({
+      where: {
+        appRequestId_userId: {
+          appRequestId,
+          userId: targetUserId,
+        },
+      },
+      update: {},
+      create: {
+        appRequestId,
+        userId: targetUserId,
+      },
+    });
+  });
+
   it("addAppCollaboratorAction does not add AppAccess when the target is the owner", async () => {
     mockUser(ownerUserId);
     mockApp(ownerUserId);
@@ -360,5 +386,23 @@ describe("admin actions", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith(`/download/${appRequestId}`);
+  });
+
+  it("reassignAppOwnerAction accepts a FormData userId for admin page forms", async () => {
+    const newOwnerUserId = "new-owner-user";
+    mockUser(newOwnerUserId);
+    mockApp(ownerUserId);
+    const formData = new FormData();
+    formData.set("userId", newOwnerUserId);
+
+    await reassignAppOwnerAction(appRequestId, formData);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: newOwnerUserId },
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: appRequestId },
+      data: { userId: newOwnerUserId },
+    });
   });
 });
