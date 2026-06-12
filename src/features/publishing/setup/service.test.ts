@@ -374,6 +374,16 @@ describe("publishing setup service", () => {
           },
         }),
       },
+      graph: {
+        ...baseDeps.graph,
+        listFederatedCredentials: vi.fn().mockResolvedValue([
+          {
+            id: "credential-id",
+            name: "github-campus-api-req123",
+            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+          },
+        ]),
+      },
     });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
       importedFastApiAppRequest as Awaited<
@@ -417,6 +427,13 @@ describe("publishing setup service", () => {
         }),
       }),
     );
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
+      }),
+    });
   });
 
   it("preflights imported http.server setup without database or Entra checks", async () => {
@@ -846,20 +863,41 @@ describe("publishing setup service", () => {
     const deps = createDeps({
       arm: {
         ...baseDeps.arm,
-        getAppSettings: vi.fn().mockResolvedValue({
-          exists: true,
-          settings: {
-            DATABASE_URL: "postgresql://stale",
-            AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
-            NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
-            AUTH_SECRET: "custom-auth-secret",
-            AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
-            AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
-            AUTH_MICROSOFT_ENTRA_ID_ISSUER:
-              "https://login.microsoftonline.com/custom/v2.0",
-            EXISTING_CUSTOM_SETTING: "keep-me",
+        getAppSettings: vi.fn()
+          .mockResolvedValueOnce({
+            exists: true,
+            settings: {
+              DATABASE_URL: "postgresql://stale",
+              AUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+              NEXTAUTH_URL: "https://stale-campus-dashboard.azurewebsites.net",
+              AUTH_SECRET: "custom-auth-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ID: "custom-client-id",
+              AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
+              AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+                "https://login.microsoftonline.com/custom/v2.0",
+              EXISTING_CUSTOM_SETTING: "keep-me",
+            },
+          })
+          .mockResolvedValueOnce({
+            exists: true,
+            settings: {
+              EXISTING_CUSTOM_SETTING: "keep-me",
+              NODE_ENV: "production",
+              SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+              ENABLE_ORYX_BUILD: "false",
+              WEBSITE_RUN_FROM_PACKAGE: "1",
+            },
+          }),
+      },
+      graph: {
+        ...baseDeps.graph,
+        listFederatedCredentials: vi.fn().mockResolvedValue([
+          {
+            id: "credential-id",
+            name: "github-campus-static-site-req123",
+            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
           },
-        }),
+        ]),
       },
     });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
@@ -868,7 +906,7 @@ describe("publishing setup service", () => {
       >,
     );
 
-    await repairPublishingSetup("req_123", deps);
+    const result = await repairPublishingSetup("req_123", deps);
 
     expect(deps.arm.putPostgresDatabase).not.toHaveBeenCalled();
     expect(deps.arm.putWebApp).toHaveBeenCalledWith(
@@ -893,6 +931,14 @@ describe("publishing setup service", () => {
       where: { id: "req_123" },
       data: expect.objectContaining({
         azureDatabaseName: null,
+      }),
+    });
+    expect(result.setupStatus).toBe("READY");
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null,
       }),
     });
   });
