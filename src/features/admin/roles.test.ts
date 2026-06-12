@@ -13,6 +13,7 @@ vi.mock("@/features/app-requests/current-user", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: vi.fn(),
     userRole: {
       count: vi.fn(),
       findFirst: vi.fn(),
@@ -28,6 +29,10 @@ describe("admin roles", () => {
       " Admin@Cedarville.edu, staff@CEDARVILLE.edu ,, ",
     );
     vi.mocked(resolveCurrentUserId).mockReset();
+    vi.mocked(prisma.$transaction).mockReset();
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) =>
+      callback(prisma),
+    );
     vi.mocked(prisma.userRole.count).mockReset();
     vi.mocked(prisma.userRole.findFirst).mockReset();
     vi.mocked(prisma.userRole.upsert).mockReset();
@@ -54,6 +59,9 @@ describe("admin roles", () => {
 
     expect(prisma.userRole.count).toHaveBeenCalledWith({
       where: { role: "ADMIN" },
+    });
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: "Serializable",
     });
     expect(prisma.userRole.upsert).toHaveBeenCalledWith({
       where: {
@@ -84,12 +92,31 @@ describe("admin roles", () => {
     expect(prisma.userRole.upsert).not.toHaveBeenCalled();
   });
 
+  it("retries initial admin bootstrap after a serializable transaction conflict", async () => {
+    vi.mocked(prisma.$transaction)
+      .mockRejectedValueOnce({ code: "P2034" })
+      .mockImplementationOnce(async (callback) => callback(prisma));
+    vi.mocked(prisma.userRole.count).mockResolvedValueOnce(1);
+
+    await ensureInitialAdminRole({
+      userId: "user_123",
+      email: " STAFF@Cedarville.edu ",
+    });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(prisma.userRole.count).toHaveBeenCalledWith({
+      where: { role: "ADMIN" },
+    });
+    expect(prisma.userRole.upsert).not.toHaveBeenCalled();
+  });
+
   it("does not upsert admin role for unconfigured users", async () => {
     await ensureInitialAdminRole({
       userId: "user_456",
       email: "faculty@cedarville.edu",
     });
 
+    expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(prisma.userRole.upsert).not.toHaveBeenCalled();
   });
 

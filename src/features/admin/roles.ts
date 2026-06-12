@@ -1,5 +1,8 @@
+import { Prisma } from "@prisma/client";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { prisma } from "@/lib/db";
+
+const INITIAL_ADMIN_BOOTSTRAP_ATTEMPTS = 3;
 
 export function getInitialAdminEmails() {
   return (process.env.PORTAL_INITIAL_ADMIN_EMAILS ?? "")
@@ -21,27 +24,53 @@ export async function ensureInitialAdminRole({
     return;
   }
 
-  const adminCount = await prisma.userRole.count({
-    where: { role: "ADMIN" },
-  });
+  for (let attempt = 1; attempt <= INITIAL_ADMIN_BOOTSTRAP_ATTEMPTS; attempt++) {
+    try {
+      await prisma.$transaction(
+        async (tx) => {
+          const adminCount = await tx.userRole.count({
+            where: { role: "ADMIN" },
+          });
 
-  if (adminCount > 0) {
-    return;
+          if (adminCount > 0) {
+            return;
+          }
+
+          await tx.userRole.upsert({
+            where: {
+              userId_role: {
+                userId,
+                role: "ADMIN",
+              },
+            },
+            update: {},
+            create: {
+              userId,
+              role: "ADMIN",
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+      return;
+    } catch (error) {
+      if (
+        attempt === INITIAL_ADMIN_BOOTSTRAP_ATTEMPTS ||
+        !isPrismaSerializationConflict(error)
+      ) {
+        throw error;
+      }
+    }
   }
+}
 
-  await prisma.userRole.upsert({
-    where: {
-      userId_role: {
-        userId,
-        role: "ADMIN",
-      },
-    },
-    update: {},
-    create: {
-      userId,
-      role: "ADMIN",
-    },
-  });
+function isPrismaSerializationConflict(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2034"
+  );
 }
 
 export async function isAdminUser(userId: string) {
