@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { getActiveTemplates } from "@/features/templates/catalog";
+import { getActiveTemplateGroups } from "@/features/templates/catalog";
 import type { PortalTemplate } from "@/features/templates/types";
 
 function getLoginLabel(template: PortalTemplate) {
@@ -10,7 +10,7 @@ function getLoginLabel(template: PortalTemplate) {
 }
 
 export default async function CreatePage() {
-  const templates = getActiveTemplates();
+  const templateGroups = getActiveTemplateGroups();
 
   return (
     <main>
@@ -55,25 +55,32 @@ export default async function CreatePage() {
         </div>
       </details>
 
-      <div className="grid grid--2">
-        {templates.map((template) => (
-          <div key={template.id} className="card card--interactive card--navy-border">
-            <div className="card__title">{template.name}</div>
-            <p className="card__desc">{template.decisionSummary}</p>
-            <p className="muted">{template.appServiceRuntime.displayName}</p>
-            <ul className="template-best-for">
-              {template.bestFor.map((item) => (
-                <li key={item}>{item}</li>
+      <div className="form-stack">
+        {templateGroups.map((group) => (
+          <section key={group.category} aria-labelledby={`${group.category}-templates-heading`}>
+            <h2 id={`${group.category}-templates-heading`}>{group.label}</h2>
+            <div className="grid grid--2">
+              {group.templates.map((template) => (
+                <div key={template.id} className="card card--interactive card--navy-border">
+                  <div className="card__title">{template.name}</div>
+                  <p className="card__desc">{template.decisionSummary}</p>
+                  <p className="muted">{template.appServiceRuntime.displayName}</p>
+                  <ul className="template-best-for">
+                    {template.bestFor.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+                    <span className="badge badge--default">Database: {template.features.database.mode}</span>
+                    <span className="badge badge--default">Login: {getLoginLabel(template)}</span>
+                  </div>
+                  <Link href={`/create/${template.slug}`} className="btn btn--primary-solid btn--sm">
+                    Use {template.name}
+                  </Link>
+                </div>
               ))}
-            </ul>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
-              <span className="badge badge--default">Database: {template.features.database.mode}</span>
-              <span className="badge badge--default">Login: {getLoginLabel(template)}</span>
             </div>
-            <Link href={`/create/${template.slug}`} className="btn btn--primary-solid btn--sm">
-              Use {template.name}
-            </Link>
-          </div>
+          </section>
         ))}
       </div>
     </main>

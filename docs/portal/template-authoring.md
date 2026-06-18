@@ -41,6 +41,8 @@ The in-code template catalog lives in `src/features/templates/catalog.ts`.
 Each template entry defines:
 
 - slug and display metadata
+- `category`, either `recommended` for non-technical choices or `developer` for lower-level starters
+- optional `sourceTemplateSlug` when a user-facing preset reuses another template's source files
 - `decisionSummary`, a short chooser explanation for when to pick the template
 - `bestFor`, a concise list of use cases shown with the template
 - status (`ACTIVE` or `DISABLED`)
@@ -48,7 +50,9 @@ Each template entry defines:
 - `appServiceRuntime`, including the App Service runtime family, framework, Azure runtime stack, startup command, and workflow filename
 - `features`, including database support and Microsoft Entra login support
 
-Current active starter templates are Next.js Web App and Python FastAPI. Both target Azure App Service, but each carries its own runtime stack and feature support in catalog metadata. FastAPI defaults to no database and no login, with optional PostgreSQL and Microsoft Entra login controls in the create flow.
+Current active starter templates are grouped into Recommended Templates and Developer Starters. Recommended Templates are non-technical presets such as Department Form + Approval, Simple Data Tracker, and Public Information Page. They can reuse the shared Next.js source through `sourceTemplateSlug: "web-app"` while keeping their own names, descriptions, and database/login defaults.
+
+Developer Starters expose the lower-level Custom Web App and API / Automation Service choices. Both target Azure App Service, but each carries its own runtime stack and feature support in catalog metadata. API / Automation Service defaults to no database and no login, with optional PostgreSQL and Microsoft Entra login controls in the create flow.
 
 Python `http.server` support is import-only for plain static repositories. Do not add it to the generated template catalog unless the product scope changes; imported static apps get runtime metadata during repository compatibility scanning and keep PostgreSQL and Microsoft Entra disabled.
 

@@ -82,13 +82,17 @@ export type TemplateFeatures = {
       };
 };
 
+export type TemplateCategory = "recommended" | "developer";
+
 export type PortalTemplate = {
   id: string;
   slug: string;
+  sourceTemplateSlug?: string;
   name: string;
   description: string;
   decisionSummary: string;
   bestFor: string[];
+  category: TemplateCategory;
   hostingTarget: "Azure App Service";
   appServiceRuntime: AppServiceRuntime;
   features: TemplateFeatures;

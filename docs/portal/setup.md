@@ -84,6 +84,7 @@ Current v1 design decisions:
 - `AZURE_PUBLISH_RUNTIME_STACK=NODE|24-lts` remains the current default for the legacy/imported Node publishing path.
 - Runtime-specific generated templates and prepared imported apps carry their App Service runtime stack in the deployment manifest. The portal-managed publisher uses that runtime when creating the Web App.
 - Database and auth publishing are conditional based on the selected template or imported app features. Apps that do not select PostgreSQL skip per-app database setup, and apps that do not select Microsoft Entra login skip auth settings and redirect URI setup.
+- The create flow groups catalog choices into Recommended Templates for common non-technical app shapes and Developer Starters for lower-level runtime-oriented starts. Some recommended presets reuse the shared Next.js source while applying stricter database and login defaults.
 
 Deletion behavior:
 

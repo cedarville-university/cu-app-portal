@@ -10,9 +10,9 @@ Users can also add an existing compatible GitHub app repository. If the source r
 
 For apps developed locally with Codex that are not on GitHub yet, the portal can create an empty managed repository in the shared org first. The app details page then provides Codex-ready git instructions to initialize the local project when needed, add the managed repository as a remote, and push the code without requiring GitHub CLI.
 
-The portal offers App Service starter templates for full-stack Next.js apps and runtime-specific API starters. Each template explains when to use it and declares whether PostgreSQL and Microsoft Entra login are available.
+The portal offers App Service starter templates as user-facing choices. Recommended Templates describe common non-technical starting points such as Department Form + Approval, Simple Data Tracker, and Public Information Page. Developer Starters keep lower-level Custom Web App and API / Automation Service options available for more technical work. Each template explains when to use it and declares whether PostgreSQL and Microsoft Entra login are available.
 
-The current generated templates are Next.js Web App and Python FastAPI. FastAPI starts compact by default and can opt into PostgreSQL and Microsoft Entra login when an API needs data or Cedarville sign-in. Python `http.server` is supported only for imported plain static apps, not as a generated template. The generated templates include Azure-first publishing bundles:
+The current generated templates reuse shared Next.js and Python FastAPI engines. Non-technical presets can point at the shared Next.js source while keeping their own names, descriptions, and feature defaults. FastAPI starts compact by default and can opt into PostgreSQL and Microsoft Entra login when an API needs data or Cedarville sign-in. Python `http.server` is supported only for imported plain static apps, not as a generated template. The generated templates include Azure-first publishing bundles:
 
 - a minimal Next.js starter repo skeleton
 - a compact Python FastAPI API starter

@@ -473,13 +473,20 @@ export async function buildSourceSnapshot(
   input: CreateAppRequestInput,
 ): Promise<Record<string, string>> {
   const tokens = buildTokenMap(input);
-  const manifest = await loadTemplateManifest(input.templateSlug);
-  assertTemplateManifestMatchesCatalog(input.templateSlug, manifest);
+  const template = getTemplateBySlug(input.templateSlug);
+
+  if (!template) {
+    throw new Error(`Template "${input.templateSlug}" not found in catalog.`);
+  }
+
+  const sourceTemplateSlug = template.sourceTemplateSlug ?? input.templateSlug;
+  const manifest = await loadTemplateManifest(sourceTemplateSlug);
+  assertTemplateManifestMatchesCatalog(sourceTemplateSlug, manifest);
   const generatedTemplateFiles = buildGeneratedTemplateFiles(input);
   const templateRoot = path.join(
     process.cwd(),
     "templates",
-    input.templateSlug,
+    sourceTemplateSlug,
     "files",
   );
   const files: Record<string, string> = {};

@@ -8,7 +8,7 @@ export default defineConfig({
   },
   webServer: {
     command:
-      "AUTH_SECRET=e2e-secret DATABASE_URL=postgresql://portal:portal@localhost:5432/portal?schema=public E2E_AUTH_BYPASS=true npm run dev",
+      "AUTH_SECRET=e2e-secret DATABASE_URL=postgresql://portal:portal@localhost:5432/portal?schema=public E2E_AUTH_BYPASS=true GITHUB_APP_ID= GITHUB_APP_PRIVATE_KEY= GITHUB_APP_INSTALLATION_ID= GITHUB_APP_INSTALLATIONS_JSON= npm run dev",
     port: 3000,
     reuseExistingServer: !process.env.CI,
   },

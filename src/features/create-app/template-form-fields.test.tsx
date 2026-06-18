@@ -91,6 +91,42 @@ describe("TemplateFormFields", () => {
     expect(screen.getByRole("radio", { name: /no login/i })).toBeChecked();
   });
 
+  it("submits required database and login values for workflow presets", () => {
+    const template = getTemplateBySlug("department-form-approval");
+
+    if (!template) {
+      throw new Error("department-form-approval template missing");
+    }
+
+    const { container } = render(<TemplateFormFields template={template} />);
+
+    expect(
+      container.querySelector('input[name="databaseProvider"]'),
+    ).toHaveAttribute("value", "postgresql");
+    expect(container.querySelector('input[name="entraLogin"]')).toHaveAttribute(
+      "value",
+      "true",
+    );
+  });
+
+  it("submits no database and no login values for public information pages", () => {
+    const template = getTemplateBySlug("public-information-page");
+
+    if (!template) {
+      throw new Error("public-information-page template missing");
+    }
+
+    const { container } = render(<TemplateFormFields template={template} />);
+
+    expect(
+      container.querySelector('input[name="databaseProvider"]'),
+    ).toHaveAttribute("value", "none");
+    expect(container.querySelector('input[name="entraLogin"]')).toHaveAttribute(
+      "value",
+      "false",
+    );
+  });
+
   it("submits explicit hidden values when features are unsupported", () => {
     const { container } = render(
       <TemplateFormFields

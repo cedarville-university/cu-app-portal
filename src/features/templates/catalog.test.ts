@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getActiveTemplateBySlug,
+  getActiveTemplateGroups,
   getActiveTemplates,
   getTemplateBySlug,
   serializeTemplateForStorage,
@@ -10,7 +11,7 @@ describe("getActiveTemplates", () => {
   it("returns at least one active template", () => {
     const templates = getActiveTemplates();
     expect(templates.length).toBeGreaterThan(0);
-    expect(templates[0]?.slug).toBe("web-app");
+    expect(templates[0]?.slug).toBe("department-form-approval");
   });
 
   it("keeps the current web-app template Azure-only in UI and stored metadata", () => {
@@ -36,6 +37,9 @@ describe("getActiveTemplates", () => {
     const templates = getActiveTemplates();
 
     expect(templates.map((template) => template.slug)).toEqual([
+      "department-form-approval",
+      "simple-data-tracker",
+      "public-information-page",
       "web-app",
       "python-fastapi",
     ]);
@@ -52,6 +56,62 @@ describe("getActiveTemplates", () => {
     }
   });
 
+  it("groups templates for non-technical users before developer starters", () => {
+    expect(getActiveTemplateGroups()).toEqual([
+      {
+        category: "recommended",
+        label: "Recommended Templates",
+        templates: [
+          expect.objectContaining({ slug: "department-form-approval" }),
+          expect.objectContaining({ slug: "simple-data-tracker" }),
+          expect.objectContaining({ slug: "public-information-page" }),
+        ],
+      },
+      {
+        category: "developer",
+        label: "Developer Starters",
+        templates: [
+          expect.objectContaining({ slug: "web-app", name: "Custom Web App" }),
+          expect.objectContaining({
+            slug: "python-fastapi",
+            name: "API / Automation Service",
+          }),
+        ],
+      },
+    ]);
+  });
+
+  it("defines recommended presets over the shared web app source", () => {
+    expect(getTemplateBySlug("department-form-approval")).toMatchObject({
+      category: "recommended",
+      sourceTemplateSlug: "web-app",
+      appServiceRuntime: {
+        family: "node",
+        framework: "nextjs",
+      },
+      features: {
+        database: { mode: "required", defaultProvider: "postgresql" },
+        entraLogin: { mode: "required", defaultEnabled: true },
+      },
+    });
+    expect(getTemplateBySlug("simple-data-tracker")).toMatchObject({
+      category: "recommended",
+      sourceTemplateSlug: "web-app",
+      features: {
+        database: { mode: "required", defaultProvider: "postgresql" },
+        entraLogin: { mode: "required", defaultEnabled: true },
+      },
+    });
+    expect(getTemplateBySlug("public-information-page")).toMatchObject({
+      category: "recommended",
+      sourceTemplateSlug: "web-app",
+      features: {
+        database: { mode: "unsupported", defaultProvider: "none" },
+        entraLogin: { mode: "unsupported", defaultEnabled: false },
+      },
+    });
+  });
+
   it("serializes capability metadata for storage", () => {
     const template = getActiveTemplateBySlug("web-app");
 
@@ -63,6 +123,7 @@ describe("getActiveTemplates", () => {
       hostingOptions: ["Azure App Service"],
       inputSchema: {
         fields: template.fields,
+        category: "developer",
         decisionSummary: template.decisionSummary,
         bestFor: template.bestFor,
         appServiceRuntime: {
@@ -93,6 +154,8 @@ describe("getActiveTemplates", () => {
 
     expect(template).toMatchObject({
       slug: "python-fastapi",
+      name: "API / Automation Service",
+      category: "developer",
       status: "ACTIVE",
       appServiceRuntime: {
         family: "python",

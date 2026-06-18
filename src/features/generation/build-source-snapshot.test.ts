@@ -146,6 +146,47 @@ describe("buildSourceSnapshot", () => {
     expect(files["package.json"]).toBeUndefined();
   });
 
+  it("generates recommended presets from the shared web app source", async () => {
+    const buildSourceSnapshot = await loadBuildSourceSnapshot();
+    const files = await buildSourceSnapshot({
+      templateSlug: "department-form-approval",
+      appName: "Travel Approval",
+      description: "Department travel requests",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+    const manifest = JSON.parse(files["app-portal/deployment-manifest.json"]);
+
+    expect(files["package.json"]).toContain('"next"');
+    expect(files["prisma/schema.prisma"]).toContain("model AppSetting");
+    expect(files["src/auth.ts"]).toContain("MicrosoftEntraID");
+    expect(files["src/app/page.tsx"]).toContain("Travel Approval");
+    expect(manifest.templateSlug).toBe("department-form-approval");
+    expect(manifest.runtime.framework).toBe("nextjs");
+  });
+
+  it("omits database and auth files for public information page presets", async () => {
+    const buildSourceSnapshot = await loadBuildSourceSnapshot();
+    const files = await buildSourceSnapshot({
+      templateSlug: "public-information-page",
+      appName: "Program Info",
+      description: "Information page",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    const manifest = JSON.parse(files["app-portal/deployment-manifest.json"]);
+
+    expect(files["package.json"]).toContain('"next"');
+    expect(files["prisma/schema.prisma"]).toBeUndefined();
+    expect(files["src/auth.ts"]).toBeUndefined();
+    expect(files[".env.example"]).not.toContain("DATABASE_URL");
+    expect(files[".env.example"]).not.toContain("AUTH_");
+    expect(manifest.templateSlug).toBe("public-information-page");
+    expect(manifest.applicationSettings).toEqual(["NODE_ENV"]);
+  });
+
   it("does not render entry files whose output paths are generated overrides", async () => {
     const templateRoot = path.join(process.cwd(), "templates", "override-test");
     await rm(templateRoot, { recursive: true, force: true });
