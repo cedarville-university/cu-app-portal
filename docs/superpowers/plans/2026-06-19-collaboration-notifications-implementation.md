@@ -1731,6 +1731,7 @@ Create `src/features/collaboration-invites/actions.test.ts` with tests for owner
 
 ```ts
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import {
   acceptCollaborationInviteAction,
   revokeCollaborationInviteAction,
@@ -1825,6 +1826,40 @@ describe("collaboration invite actions", () => {
     expect(prisma.collaborationInvite.create).toHaveBeenCalledWith(expect.any(Object));
   });
 
+  it("refreshes the pending invite when concurrent send hits the pending unique index", async () => {
+    vi.mocked(prisma.collaborationInvite.findFirst)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "invite-123" } as never);
+    vi.mocked(prisma.collaborationInvite.create).mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: "CollaborationInvite_pending_app_email_key" },
+      }),
+    );
+    vi.mocked(prisma.collaborationInvite.update).mockResolvedValue({
+      id: "invite-123",
+      appRequestId: "request-123",
+      normalizedInvitedEmail: "invited@cedarville.edu",
+    } as never);
+
+    const formData = new FormData();
+    formData.set("email", "invited@cedarville.edu");
+
+    await sendCollaborationInviteAction("request-123", formData);
+
+    expect(prisma.collaborationInvite.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "invite-123" },
+        data: expect.objectContaining({
+          tokenHash: expect.any(String),
+          expiresAt: expect.any(Date),
+          lastSentAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
   it("rejects collaborators who are not owners or admins", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("collab-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(null);
@@ -1899,6 +1934,7 @@ Create `src/features/collaboration-invites/actions.ts` with:
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { appAccessWhere, userHasAdminRole } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { loadDirectoryConfig } from "@/features/directory/config";
@@ -2009,18 +2045,47 @@ export async function sendCollaborationInviteAction(
     lastSentAt: new Date(),
   } as const;
 
-  const invite = existingPendingInvite
-    ? await prisma.collaborationInvite.update({
-        where: { id: existingPendingInvite.id },
-        data: inviteData,
-      })
-    : await prisma.collaborationInvite.create({
+  const refreshInvite = (inviteId: string) =>
+    prisma.collaborationInvite.update({
+      where: { id: inviteId },
+      data: inviteData,
+    });
+
+  let invite;
+  if (existingPendingInvite) {
+    invite = await refreshInvite(existingPendingInvite.id);
+  } else {
+    try {
+      invite = await prisma.collaborationInvite.create({
         data: {
           appRequestId,
           normalizedInvitedEmail: normalizedEmail,
           ...inviteData,
         },
       });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const pendingInvite = await prisma.collaborationInvite.findFirst({
+          where: {
+            appRequestId,
+            normalizedInvitedEmail: normalizedEmail,
+            status: "PENDING",
+          },
+        });
+
+        if (!pendingInvite) {
+          throw error;
+        }
+
+        invite = await refreshInvite(pendingInvite.id);
+      } else {
+        throw error;
+      }
+    }
+  }
 
   try {
     const text = inviteText({
