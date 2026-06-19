@@ -23,28 +23,65 @@ describe("CreatePage", () => {
       screen.getByRole("heading", { name: /create new app/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /use next.js web app/i }),
+      screen.getByRole("heading", { name: /recommended templates/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /developer starters/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /use department form \+ approval/i }),
+    ).toHaveAttribute("href", "/create/department-form-approval");
+    expect(
+      screen.getByRole("link", { name: /use simple data tracker/i }),
+    ).toHaveAttribute("href", "/create/simple-data-tracker");
+    expect(
+      screen.getByRole("link", { name: /use public information page/i }),
+    ).toHaveAttribute("href", "/create/public-information-page");
+    expect(
+      screen.getByRole("link", { name: /use custom web app/i }),
     ).toHaveAttribute("href", "/create/web-app");
     expect(
-      screen.getByRole("link", { name: /use python fastapi/i }),
+      screen.getByRole("link", { name: /use api \/ automation service/i }),
     ).toHaveAttribute("href", "/create/python-fastapi");
 
+    const formCard = screen
+      .getByRole("link", { name: /use department form \+ approval/i })
+      .closest(".card");
+    const publicPageCard = screen
+      .getByRole("link", { name: /use public information page/i })
+      .closest(".card");
     const webAppCard = screen
-      .getByRole("link", { name: /use next.js web app/i })
+      .getByRole("link", { name: /use custom web app/i })
       .closest(".card");
     const fastApiCard = screen
-      .getByRole("link", { name: /use python fastapi/i })
+      .getByRole("link", { name: /use api \/ automation service/i })
       .closest(".card");
 
+    expect(formCard).not.toBeNull();
+    expect(publicPageCard).not.toBeNull();
     expect(webAppCard).not.toBeNull();
     expect(fastApiCard).not.toBeNull();
 
+    const form = within(formCard as HTMLElement);
+    const publicPage = within(publicPageCard as HTMLElement);
     const webApp = within(webAppCard as HTMLElement);
     const fastApi = within(fastApiCard as HTMLElement);
 
     expect(
+      form.getByText(/structured request form with reviewer approval/i),
+    ).toBeInTheDocument();
+    expect(form.getByText(/database: required/i)).toBeInTheDocument();
+    expect(form.getByText(/login: entra available/i)).toBeInTheDocument();
+
+    expect(
+      publicPage.getByText(/polished web page or small site/i),
+    ).toBeInTheDocument();
+    expect(publicPage.getByText(/database: unsupported/i)).toBeInTheDocument();
+    expect(publicPage.getByText(/login: no entra/i)).toBeInTheDocument();
+
+    expect(
       webApp.getByText(
-        /choose this when you need pages, forms, server-side logic/i,
+        /start from a blank cedarville-styled web app/i,
       ),
     ).toBeInTheDocument();
     expect(webApp.getByText("Node.js 24 / Next.js")).toBeInTheDocument();
@@ -54,7 +91,7 @@ describe("CreatePage", () => {
 
     expect(
       fastApi.getByText(
-        /choose this for python-backed apis, automation endpoints/i,
+        /use this when the app's main job is processing data/i,
       ),
     ).toBeInTheDocument();
     expect(

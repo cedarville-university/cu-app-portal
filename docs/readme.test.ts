@@ -11,6 +11,9 @@ describe("README", () => {
       "add an existing compatible GitHub app repository",
     );
     expect(readme).toContain("review PR");
+    expect(readme).toContain("Recommended Templates");
+    expect(readme).toContain("Developer Starters");
+    expect(readme).toContain("Department Form + Approval");
   });
 });
 
@@ -38,5 +41,17 @@ describe("portal setup docs", () => {
       "root Next.js apps, Python FastAPI apps, and plain static Python `http.server` apps",
     );
     expect(setup).toContain("Azure App Service publishing");
+  });
+
+  it("documents recommended template presets", () => {
+    const templateAuthoring = readFileSync(
+      "docs/portal/template-authoring.md",
+      "utf8",
+    );
+
+    expect(templateAuthoring).toContain("Recommended Templates");
+    expect(templateAuthoring).toContain("Developer Starters");
+    expect(templateAuthoring).toContain("sourceTemplateSlug");
+    expect(templateAuthoring).toContain("Department Form + Approval");
   });
 });
