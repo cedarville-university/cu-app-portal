@@ -122,11 +122,12 @@ export function createEntraDirectoryClient({
       const aliases = Array.from(new Set(allEmails(user))).filter((alias) =>
         hasAllowedDomain(alias, allowedEmailDomain),
       );
+      const eligibleEmail = aliases.includes(normalizedEmail) ? normalizedEmail : aliases[0];
 
       return {
         entraOid: user.id,
         displayName: user.displayName ?? aliases[0] ?? normalizedEmail,
-        email: normalizeEmail(user.mail ?? user.userPrincipalName ?? normalizedEmail),
+        email: eligibleEmail ?? normalizedEmail,
         aliases,
       };
     },

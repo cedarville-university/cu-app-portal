@@ -139,6 +139,39 @@ describe("createEntraDirectoryClient", () => {
     });
   });
 
+  it("returns the submitted Cedarville alias when primary Entra addresses are external", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          value: [
+            {
+              id: "entra-123",
+              displayName: "Portal Staff",
+              mail: "external@example.com",
+              userPrincipalName: "external@example.com",
+              userType: "Member",
+              proxyAddresses: ["smtp:alias@cedarville.edu"],
+              otherMails: [],
+            },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = createEntraDirectoryClient({
+      tokenProvider: async () => "token-123",
+      allowedEmailDomain: "cedarville.edu",
+      fetchImpl,
+    });
+
+    await expect(client.findEligibleUserByEmail("alias@cedarville.edu")).resolves.toEqual({
+      entraOid: "entra-123",
+      displayName: "Portal Staff",
+      email: "alias@cedarville.edu",
+      aliases: ["alias@cedarville.edu"],
+    });
+  });
+
   it("escapes apostrophes in OData filter string literals before URL encoding", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
