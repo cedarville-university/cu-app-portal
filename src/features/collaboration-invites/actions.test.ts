@@ -11,6 +11,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
   acceptCollaborationInviteAction,
+  resendCollaborationInviteAction,
   revokeCollaborationInviteAction,
   sendCollaborationInviteAction,
 } from "./actions";
@@ -67,6 +68,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     notificationDelivery: {
       create: vi.fn(),
@@ -105,8 +107,13 @@ function inviteForm(email = "Invited@Cedarville.edu") {
 }
 
 describe("collaboration invite actions", () => {
+  const consoleErrorSpy = vi
+    .spyOn(console, "error")
+    .mockImplementation(() => undefined);
+
   beforeEach(() => {
     vi.clearAllMocks();
+    consoleErrorSpy.mockClear();
     vi.mocked(resolveCurrentUserId).mockResolvedValue("owner-123");
     vi.mocked(userHasAdminRole).mockResolvedValue(false);
     vi.mocked(loadDirectoryConfig).mockReturnValue({
@@ -147,6 +154,9 @@ describe("collaboration invite actions", () => {
       appRequestId: "request-123",
       status: "PENDING",
     } as Awaited<ReturnType<typeof prisma.collaborationInvite.update>>);
+    vi.mocked(prisma.collaborationInvite.updateMany).mockResolvedValue({
+      count: 1,
+    });
     vi.mocked(prisma.notificationDelivery.create).mockResolvedValue({
       id: "delivery-123",
     } as Awaited<ReturnType<typeof prisma.notificationDelivery.create>>);
@@ -217,8 +227,42 @@ describe("collaboration invite actions", () => {
       inviteForm("invited@cedarville.edu"),
     );
 
-    expect(prisma.collaborationInvite.update).toHaveBeenCalledWith({
-      where: { id: "invite-123" },
+    expect(prisma.collaborationInvite.updateMany).toHaveBeenCalledWith({
+      where: { id: "invite-123", status: "PENDING" },
+      data: expect.objectContaining({
+        tokenHash: expect.any(String),
+        expiresAt: expect.any(Date),
+        lastSentAt: expect.any(Date),
+      }),
+    });
+  });
+
+  it("refreshes a pending invite when Prisma reports the pending unique conflict as fields", async () => {
+    vi.mocked(prisma.collaborationInvite.findFirst)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: "invite-123",
+        tokenHash: "old-token-hash",
+        expiresAt: new Date("2026-07-01T12:00:00Z"),
+        lastSentAt: new Date("2026-06-20T12:00:00Z"),
+      } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+    vi.mocked(prisma.collaborationInvite.create).mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: ["appRequestId", "normalizedInvitedEmail"] },
+      }),
+    );
+
+    await expect(
+      sendCollaborationInviteAction(
+        "request-123",
+        inviteForm("invited@cedarville.edu"),
+      ),
+    ).resolves.toEqual({ deliveryStatus: "SENT" });
+
+    expect(prisma.collaborationInvite.updateMany).toHaveBeenCalledWith({
+      where: { id: "invite-123", status: "PENDING" },
       data: expect.objectContaining({
         tokenHash: expect.any(String),
         expiresAt: expect.any(Date),
@@ -255,6 +299,114 @@ describe("collaboration invite actions", () => {
         revokedAt: expect.any(Date),
         tokenHash: expect.any(String),
       }),
+    });
+  });
+
+  it("resends a pending invite and reports sent delivery", async () => {
+    const previousExpiresAt = new Date("2026-07-01T12:00:00Z");
+    const previousLastSentAt = new Date("2026-06-20T12:00:00Z");
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValueOnce({
+      id: "invite-123",
+      appRequestId: "request-123",
+      invitedEmail: "invited@cedarville.edu",
+      tokenHash: "old-token-hash",
+      expiresAt: previousExpiresAt,
+      lastSentAt: previousLastSentAt,
+      status: "PENDING",
+    } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+
+    await expect(
+      resendCollaborationInviteAction("request-123", "invite-123"),
+    ).resolves.toEqual({ deliveryStatus: "SENT" });
+
+    expect(prisma.collaborationInvite.updateMany).toHaveBeenCalledWith({
+      where: { id: "invite-123", appRequestId: "request-123", status: "PENDING" },
+      data: expect.objectContaining({
+        tokenHash: expect.any(String),
+        expiresAt: expect.any(Date),
+        lastSentAt: expect.any(Date),
+      }),
+    });
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      "COLLABORATION_INVITE_RESENT",
+      expect.objectContaining({ deliveryStatus: "SENT" }),
+    );
+  });
+
+  it("keeps the pending invite and restores the old resend token when SMTP fails", async () => {
+    const previousExpiresAt = new Date("2026-07-01T12:00:00Z");
+    const previousLastSentAt = new Date("2026-06-20T12:00:00Z");
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValueOnce({
+      id: "invite-123",
+      appRequestId: "request-123",
+      invitedEmail: "invited@cedarville.edu",
+      tokenHash: "old-token-hash",
+      expiresAt: previousExpiresAt,
+      lastSentAt: previousLastSentAt,
+      status: "PENDING",
+    } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+    mocks.mailer.send.mockRejectedValueOnce(new Error("SMTP unavailable"));
+
+    await expect(
+      resendCollaborationInviteAction("request-123", "invite-123"),
+    ).resolves.toEqual({ deliveryStatus: "FAILED" });
+
+    expect(prisma.notificationDelivery.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventKey: "COLLABORATION_INVITE_SENT",
+        category: "COLLABORATION",
+        status: "FAILED",
+        provider: "smtp",
+        recipientEmail: "invited@cedarville.edu",
+        errorSummary: "SMTP unavailable",
+      }),
+    });
+    expect(prisma.collaborationInvite.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "invite-123", status: "PENDING" },
+      data: {
+        tokenHash: "old-token-hash",
+        expiresAt: previousExpiresAt,
+        lastSentAt: previousLastSentAt,
+      },
+    });
+  });
+
+  it("restores the old pending invite token when refreshed send delivery fails", async () => {
+    const previousExpiresAt = new Date("2026-07-01T12:00:00Z");
+    const previousLastSentAt = new Date("2026-06-20T12:00:00Z");
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValueOnce({
+      id: "invite-123",
+      appRequestId: "request-123",
+      invitedEmail: "invited@cedarville.edu",
+      normalizedInvitedEmail: "invited@cedarville.edu",
+      tokenHash: "old-token-hash",
+      expiresAt: previousExpiresAt,
+      lastSentAt: previousLastSentAt,
+      status: "PENDING",
+    } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+    mocks.mailer.send.mockRejectedValueOnce(new Error("SMTP unavailable"));
+
+    await expect(
+      sendCollaborationInviteAction("request-123", inviteForm()),
+    ).resolves.toEqual({ deliveryStatus: "FAILED" });
+
+    expect(prisma.notificationDelivery.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        eventKey: "COLLABORATION_INVITE_SENT",
+        category: "COLLABORATION",
+        status: "FAILED",
+        provider: "smtp",
+        recipientEmail: "invited@cedarville.edu",
+        errorSummary: "SMTP unavailable",
+      }),
+    });
+    expect(prisma.collaborationInvite.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "invite-123", status: "PENDING" },
+      data: {
+        tokenHash: "old-token-hash",
+        expiresAt: previousExpiresAt,
+        lastSentAt: previousLastSentAt,
+      },
     });
   });
 
@@ -300,8 +452,13 @@ describe("collaboration invite actions", () => {
       update: {},
       create: { appRequestId: "request-123", userId: "invited-user-123" },
     });
-    expect(prisma.collaborationInvite.update).toHaveBeenCalledWith({
-      where: { id: "invite-123" },
+    expect(prisma.collaborationInvite.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "invite-123",
+        tokenHash: expect.any(String),
+        status: "PENDING",
+        expiresAt: { gt: expect.any(Date) },
+      },
       data: expect.objectContaining({
         status: "ACCEPTED",
         invitedUserId: "invited-user-123",
@@ -309,5 +466,40 @@ describe("collaboration invite actions", () => {
       }),
     });
     expect(revalidatePath).toHaveBeenCalledWith("/download/request-123");
+  });
+
+  it("does not grant access when the guarded accept transition affects no rows", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("invited-user-123");
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValue({
+      id: "invite-123",
+      appRequestId: "request-123",
+      invitedEntraOid: "entra-456",
+      normalizedInvitedEmail: "invited@cedarville.edu",
+      status: "PENDING",
+      expiresAt: new Date(Date.now() + 1000 * 60),
+    } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+    vi.mocked(prisma.collaborationInvite.updateMany).mockResolvedValueOnce({
+      count: 0,
+    });
+
+    await expect(
+      acceptCollaborationInviteAction("token-123", {
+        entraOid: "entra-456",
+        email: "invited@cedarville.edu",
+        name: "Invited User",
+      }),
+    ).rejects.toThrow("This collaboration invite is no longer valid.");
+
+    expect(prisma.appAccess.upsert).not.toHaveBeenCalled();
+  });
+
+  it("does not fail send when audit logging fails", async () => {
+    vi.mocked(recordAuditEvent).mockRejectedValueOnce(
+      new Error("audit unavailable"),
+    );
+
+    await expect(
+      sendCollaborationInviteAction("request-123", inviteForm()),
+    ).resolves.toEqual({ deliveryStatus: "SENT" });
   });
 });

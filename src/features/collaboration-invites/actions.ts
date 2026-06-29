@@ -42,6 +42,8 @@ type DeliveryResult =
   | { status: "SENT"; result: MailSendResult }
   | { status: "FAILED"; errorSummary: string };
 
+type DeliveryStatus = DeliveryResult["status"];
+
 type InviteEmailInput = {
   inviterName: string;
   appName: string;
@@ -83,11 +85,22 @@ function isPendingInviteUniqueConflict(error: unknown) {
 
   const target = error.meta?.target;
 
+  if (error.code !== "P2002") {
+    return false;
+  }
+
+  if (target === "CollaborationInvite_pending_app_email_key") {
+    return true;
+  }
+
+  if (!Array.isArray(target)) {
+    return false;
+  }
+
   return (
-    error.code === "P2002" &&
-    (target === "CollaborationInvite_pending_app_email_key" ||
-      (Array.isArray(target) &&
-        target.includes("CollaborationInvite_pending_app_email_key")))
+    target.includes("CollaborationInvite_pending_app_email_key") ||
+    (target.includes("appRequestId") &&
+      target.includes("normalizedInvitedEmail"))
   );
 }
 
@@ -269,9 +282,9 @@ async function refreshPendingInvite({
   invitedEntraOid: string;
   invitedDisplayName: string;
   inviterUserId: string;
-}) {
-  return prisma.collaborationInvite.update({
-    where: { id: inviteId },
+}): Promise<{ id: string }> {
+  const result = await prisma.collaborationInvite.updateMany({
+    where: { id: inviteId, status: "PENDING" },
     data: {
       invitedEmail,
       invitedEntraOid,
@@ -284,6 +297,37 @@ async function refreshPendingInvite({
       revokedAt: null,
     },
   });
+
+  if (result.count !== 1) {
+    throw new Error("Pending invite not found.");
+  }
+
+  return { id: inviteId };
+}
+
+async function restorePendingInviteTokenSafely({
+  inviteId,
+  tokenHash,
+  expiresAt,
+  lastSentAt,
+}: {
+  inviteId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  lastSentAt: Date | null;
+}) {
+  try {
+    await prisma.collaborationInvite.updateMany({
+      where: { id: inviteId, status: "PENDING" },
+      data: {
+        tokenHash,
+        expiresAt,
+        lastSentAt,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to restore collaboration invite token.", error);
+  }
 }
 
 export async function sendCollaborationInviteAction(
@@ -324,8 +368,16 @@ export async function sendCollaborationInviteAction(
   });
 
   let invite;
+  let previousToken:
+    | { tokenHash: string; expiresAt: Date; lastSentAt: Date | null }
+    | null = null;
 
   if (existingPendingInvite) {
+    previousToken = {
+      tokenHash: existingPendingInvite.tokenHash,
+      expiresAt: existingPendingInvite.expiresAt,
+      lastSentAt: existingPendingInvite.lastSentAt,
+    };
     invite = await refreshPendingInvite({
       inviteId: existingPendingInvite.id,
       tokenHash,
@@ -369,6 +421,11 @@ export async function sendCollaborationInviteAction(
         throw error;
       }
 
+      previousToken = {
+        tokenHash: pendingInvite.tokenHash,
+        expiresAt: pendingInvite.expiresAt,
+        lastSentAt: pendingInvite.lastSentAt,
+      };
       invite = await refreshPendingInvite({
         inviteId: pendingInvite.id,
         tokenHash,
@@ -391,6 +448,13 @@ export async function sendCollaborationInviteAction(
     token,
   });
 
+  if (delivery.status === "FAILED" && previousToken) {
+    await restorePendingInviteTokenSafely({
+      inviteId: invite.id,
+      ...previousToken,
+    });
+  }
+
   await recordDeliverySafely({
     appRequestId,
     recipientEmail: eligibleUser.email,
@@ -406,6 +470,8 @@ export async function sendCollaborationInviteAction(
   });
 
   revalidatePath(`/download/${appRequestId}`);
+
+  return { deliveryStatus: delivery.status satisfies DeliveryStatus };
 }
 
 export async function revokeCollaborationInviteAction(
@@ -456,14 +522,19 @@ export async function resendCollaborationInviteAction(
   const tokenHash = hashInviteToken(token);
   const expiresAt = addDaysFromNow();
   const lastSentAt = new Date();
-  const updatedInvite = await prisma.collaborationInvite.update({
-    where: { id: invite.id },
+  const refreshResult = await prisma.collaborationInvite.updateMany({
+    where: { id: invite.id, appRequestId, status: "PENDING" },
     data: {
       tokenHash,
       expiresAt,
       lastSentAt,
     },
   });
+
+  if (refreshResult.count !== 1) {
+    throw new Error("Pending invite not found.");
+  }
+
   const smtpConfig = loadSmtpConfig();
   const mailer = createSmtpMailer({ config: smtpConfig });
   const delivery = await sendInviteEmail({
@@ -475,6 +546,15 @@ export async function resendCollaborationInviteAction(
     token,
   });
 
+  if (delivery.status === "FAILED") {
+    await restorePendingInviteTokenSafely({
+      inviteId: invite.id,
+      tokenHash: invite.tokenHash,
+      expiresAt: invite.expiresAt,
+      lastSentAt: invite.lastSentAt,
+    });
+  }
+
   await recordDeliverySafely({
     appRequestId,
     recipientEmail: invite.invitedEmail,
@@ -484,11 +564,13 @@ export async function resendCollaborationInviteAction(
     actorUserId,
     appRequestId,
     supportReference: appRequest.supportReference,
-    inviteId: updatedInvite.id,
+    inviteId: invite.id,
     targetEmail: invite.invitedEmail,
     deliveryStatus: delivery.status,
   });
   revalidatePath(`/download/${appRequestId}`);
+
+  return { deliveryStatus: delivery.status satisfies DeliveryStatus };
 }
 
 export async function acceptCollaborationInviteAction(
@@ -556,7 +638,27 @@ export async function acceptCollaborationInviteAction(
     },
   });
 
+  const acceptedAt = new Date();
+
   await prisma.$transaction(async (tx) => {
+    const acceptResult = await tx.collaborationInvite.updateMany({
+      where: {
+        id: invite.id,
+        tokenHash,
+        status: "PENDING",
+        expiresAt: { gt: acceptedAt },
+      },
+      data: {
+        status: "ACCEPTED",
+        invitedUserId: user.id,
+        acceptedAt,
+      },
+    });
+
+    if (acceptResult.count !== 1) {
+      throw new Error(INVALID_INVITE_ERROR);
+    }
+
     await tx.appAccess.upsert({
       where: {
         appRequestId_userId: {
@@ -568,14 +670,6 @@ export async function acceptCollaborationInviteAction(
       create: {
         appRequestId: invite.appRequestId,
         userId: user.id,
-      },
-    });
-    await tx.collaborationInvite.update({
-      where: { id: invite.id },
-      data: {
-        status: "ACCEPTED",
-        invitedUserId: user.id,
-        acceptedAt: new Date(),
       },
     });
   });
