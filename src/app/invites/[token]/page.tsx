@@ -1,8 +1,9 @@
 import React from "react";
-import { redirect } from "next/navigation";
 import { getServerSession, signIn } from "@/auth/session";
-import { acceptCollaborationInviteAction } from "@/features/collaboration-invites/actions";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
+import { acceptInviteFormAction } from "./actions";
+
+type FormAction = (formData: FormData) => void | Promise<void>;
 
 export default async function InviteAcceptPage({
   params,
@@ -16,7 +17,7 @@ export default async function InviteAcceptPage({
     async function signInAction() {
       "use server";
       await signIn("microsoft-entra-id", {
-        redirectTo: `/invites/${token}`,
+        redirectTo: `/invites/${encodeURIComponent(token)}`,
       });
     }
 
@@ -38,7 +39,25 @@ export default async function InviteAcceptPage({
     );
   }
 
-  const appRequestId = await acceptCollaborationInviteAction(token);
+  const acceptAction = acceptInviteFormAction.bind(
+    null,
+    token,
+  ) as unknown as FormAction;
 
-  redirect(`/download/${appRequestId}`);
+  return (
+    <main>
+      <section className="card">
+        <h1>Accept Collaboration Invite</h1>
+        <p>Accept this collaboration invite to view the app.</p>
+        <form action={acceptAction}>
+          <PendingSubmitButton
+            idleLabel="Accept Invite"
+            pendingLabel="Accepting Invite..."
+            statusText="Accepting collaboration invite."
+            variant="primary-solid"
+          />
+        </form>
+      </section>
+    </main>
+  );
 }

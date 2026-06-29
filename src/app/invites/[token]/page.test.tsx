@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { acceptInviteFormAction } from "./actions";
 import InviteAcceptPage from "./page";
 
 const redirectMock = vi.hoisted(() => vi.fn());
@@ -52,18 +53,37 @@ describe("InviteAcceptPage", () => {
     expect(form).toBeInTheDocument();
   });
 
-  it("accepts the invite and redirects signed-in users to app details", async () => {
+  it("renders an accept prompt for signed-in users without accepting during render", async () => {
     vi.mocked(getServerSession).mockResolvedValue({
       user: {
         id: "user-123",
         email: "staff@cedarville.edu",
       },
     });
+
+    render(
+      await InviteAcceptPage({
+        params: Promise.resolve({ token: "token-123" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Accept Collaboration Invite" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Accept this collaboration invite to view the app."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Accept Invite" }),
+    ).toBeInTheDocument();
+    expect(acceptCollaborationInviteAction).not.toHaveBeenCalled();
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts the invite from the form action and redirects to app details", async () => {
     vi.mocked(acceptCollaborationInviteAction).mockResolvedValue("request-123");
 
-    await InviteAcceptPage({
-      params: Promise.resolve({ token: "token-123" }),
-    });
+    await acceptInviteFormAction("token-123");
 
     expect(acceptCollaborationInviteAction).toHaveBeenCalledWith("token-123");
     expect(acceptCollaborationInviteAction).toHaveBeenCalledTimes(1);

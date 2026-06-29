@@ -40,7 +40,7 @@ export function CollaborationInvitePanel({
 
   return (
     <section aria-label="Invite collaborators" className="card">
-      <p className="section-title">Invite Collaborators</p>
+      <h2 className="section-title">Invite Collaborators</h2>
       <form
         action={sendAction}
         style={{
@@ -111,6 +111,8 @@ export function CollaborationInvitePanel({
                   style={{
                     display: "grid",
                     gap: "0.25rem",
+                    minWidth: 0,
+                    overflowWrap: "anywhere",
                   }}
                 >
                   <strong>{invite.invitedDisplayName}</strong>
@@ -136,6 +138,7 @@ export function CollaborationInvitePanel({
                       statusText="Resending collaboration invite."
                       variant="ghost"
                       size="sm"
+                      ariaLabel={`Resend invite to ${invite.invitedEmail}`}
                     />
                   </form>
                   <form action={revokeAction}>
@@ -145,6 +148,7 @@ export function CollaborationInvitePanel({
                       statusText="Revoking collaboration invite."
                       variant="danger"
                       size="sm"
+                      ariaLabel={`Revoke invite to ${invite.invitedEmail}`}
                     />
                   </form>
                 </span>

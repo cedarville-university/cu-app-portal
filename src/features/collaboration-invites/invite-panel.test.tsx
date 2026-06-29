@@ -59,10 +59,14 @@ describe("CollaborationInvitePanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("staff@cedarville.edu")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Resend" }),
+      screen.getByRole("button", {
+        name: "Resend invite to staff@cedarville.edu",
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Revoke" }),
+      screen.getByRole("button", {
+        name: "Revoke invite to staff@cedarville.edu",
+      }),
     ).toBeInTheDocument();
   });
 });
