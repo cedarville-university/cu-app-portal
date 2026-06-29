@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sendAppNotification } from "./service";
+import {
+  sendAppNotification,
+  sendDeletedAppNotificationSnapshot,
+} from "./service";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -397,5 +400,97 @@ describe("sendAppNotification", () => {
       "Failed to record notification delivery.",
       expect.any(Error),
     );
+  });
+});
+
+describe("sendDeletedAppNotificationSnapshot", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("sends APP_DELETED from a snapshot without loading the deleted app row", async () => {
+    const mailer = { send: vi.fn().mockResolvedValue({ provider: "smtp" }) };
+
+    await sendDeletedAppNotificationSnapshot({
+      appRequestId: "request-deleted",
+      appName: "Campus Forms",
+      actorUserId: "owner-123",
+      recipients: [
+        {
+          id: "owner-123",
+          email: "owner@cedarville.edu",
+          displayName: "Owner User",
+          notificationPreference: null,
+        },
+        {
+          id: "collab-123",
+          email: "collab@cedarville.edu",
+          displayName: "Collaborator User",
+          notificationPreference: null,
+        },
+      ],
+      mailer,
+      appUrl: "https://portal.example.edu",
+    });
+
+    expect(prisma.appRequest.findUnique).not.toHaveBeenCalled();
+    expect(mailer.send).toHaveBeenCalledTimes(2);
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "owner@cedarville.edu",
+        text: expect.stringContaining("/download/request-deleted"),
+      }),
+    );
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "collab@cedarville.edu" }),
+    );
+    expect(prisma.notificationDelivery.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        appRequestId: null,
+        recipientUserId: "owner-123",
+        eventKey: "APP_DELETED",
+        category: "APP_LIFECYCLE",
+        status: "SENT",
+      }),
+    });
+  });
+
+  it("respects app lifecycle preferences for deletion snapshots", async () => {
+    const mailer = { send: vi.fn().mockResolvedValue({ provider: "smtp" }) };
+
+    await sendDeletedAppNotificationSnapshot({
+      appRequestId: "request-deleted",
+      appName: "Campus Forms",
+      recipients: [
+        {
+          id: "owner-123",
+          email: "owner@cedarville.edu",
+          displayName: "Owner User",
+          notificationPreference: {
+            emailNotificationsEnabled: true,
+            collaborationEmailsEnabled: true,
+            appLifecycleEmailsEnabled: false,
+            publishingEmailsEnabled: true,
+          },
+        },
+      ],
+      mailer,
+      appUrl: "https://portal.example.edu",
+    });
+
+    expect(mailer.send).not.toHaveBeenCalled();
+    expect(prisma.notificationDelivery.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        appRequestId: null,
+        recipientUserId: "owner-123",
+        eventKey: "APP_DELETED",
+        category: "APP_LIFECYCLE",
+        status: "SKIPPED",
+      }),
+    });
   });
 });

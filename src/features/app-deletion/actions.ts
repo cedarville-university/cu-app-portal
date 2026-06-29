@@ -8,7 +8,10 @@ import {
 } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { deleteArtifact } from "@/features/generation/storage";
-import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
+import {
+  safeNotifyDeletedAppEvent,
+} from "@/features/notifications/safe-notify";
+import type { DeletedAppNotificationRecipientSnapshot } from "@/features/notifications/service";
 import { recordAuditEvent, type AuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
@@ -22,6 +25,22 @@ type DeleteTargets = {
   github: boolean;
   azure: boolean;
 };
+
+const notificationPreferenceSelect = {
+  emailNotificationsEnabled: true,
+  collaborationEmailsEnabled: true,
+  appLifecycleEmailsEnabled: true,
+  publishingEmailsEnabled: true,
+} as const;
+
+const deletedAppNotificationRecipientSelect = {
+  id: true,
+  email: true,
+  displayName: true,
+  notificationPreference: {
+    select: notificationPreferenceSelect,
+  },
+} as const;
 
 export type DeleteAppFormState = {
   error: string | null;
@@ -69,8 +88,16 @@ async function loadDeletableAppRequest(requestId: string) {
       : { id: requestId, userId: actorUserId },
     include: {
       artifact: true,
+      user: {
+        select: deletedAppNotificationRecipientSelect,
+      },
       collaborators: {
-        select: { userId: true },
+        select: {
+          userId: true,
+          user: {
+            select: deletedAppNotificationRecipientSelect,
+          },
+        },
       },
     },
   });
@@ -169,18 +196,16 @@ async function markExternalDeletions(
   });
 }
 
-function appDeletionRecipientUserIds(appRequest: {
-  userId: string;
-  collaborators?: Array<{ userId: string }>;
+function appDeletionNotificationRecipients(appRequest: {
+  user: DeletedAppNotificationRecipientSnapshot;
+  collaborators?: Array<{ user: DeletedAppNotificationRecipientSnapshot }>;
 }) {
-  return Array.from(
-    new Set([
-      appRequest.userId,
-      ...(appRequest.collaborators ?? []).map(
-        (collaborator) => collaborator.userId,
-      ),
-    ]),
-  );
+  return [
+    appRequest.user,
+    ...(appRequest.collaborators ?? []).map(
+      (collaborator) => collaborator.user,
+    ),
+  ];
 }
 
 async function deletePortalRecord(
@@ -188,13 +213,10 @@ async function deletePortalRecord(
     id: string;
     artifact: { storagePath: string } | null;
   },
-  beforeDelete?: () => Promise<void>,
 ) {
   if (appRequest.artifact?.storagePath) {
     await deleteArtifact(appRequest.artifact.storagePath);
   }
-
-  await beforeDelete?.();
 
   await prisma.$transaction(async (tx) => {
     await tx.publishAttempt.deleteMany({
@@ -267,14 +289,23 @@ async function deleteApp(requestId: string, formData: FormData) {
     }
 
     if (targets.portal) {
-      await deletePortalRecord(appRequest, async () => {
-        await safeNotifyAppEvent({
+      const deletedAppNotificationRecipients =
+        appDeletionNotificationRecipients(appRequest);
+
+      await deletePortalRecord(appRequest);
+      try {
+        await safeNotifyDeletedAppEvent({
           appRequestId: requestId,
-          eventKey: "APP_DELETED",
+          appName: appRequest.appName,
           actorUserId,
-          directRecipientUserIds: appDeletionRecipientUserIds(appRequest),
+          recipients: deletedAppNotificationRecipients,
         });
-      });
+      } catch (error) {
+        console.error("Deleted app notification failed after portal deletion.", {
+          requestId,
+          error,
+        });
+      }
       redirectToApps = true;
     } else {
       await markExternalDeletions(requestId, completed);

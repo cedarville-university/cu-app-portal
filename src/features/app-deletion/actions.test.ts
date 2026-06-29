@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { deleteArtifact } from "@/features/generation/storage";
-import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
+import { safeNotifyDeletedAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
@@ -28,7 +28,7 @@ vi.mock("@/features/generation/storage", () => ({
 }));
 
 vi.mock("@/features/notifications/safe-notify", () => ({
-  safeNotifyAppEvent: vi.fn(),
+  safeNotifyDeletedAppEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/audit", () => ({
@@ -94,9 +94,21 @@ const ownedRequest = {
   artifact: {
     storagePath: "/workspace/.artifacts/campus-dashboard.zip",
   },
+  user: {
+    id: "user-123",
+    email: "owner@cedarville.edu",
+    displayName: "Owner User",
+    notificationPreference: null,
+  },
   collaborators: [
     {
       userId: "collaborator-123",
+      user: {
+        id: "collaborator-123",
+        email: "collaborator@cedarville.edu",
+        displayName: "Collaborator User",
+        notificationPreference: null,
+      },
     },
   ],
 };
@@ -119,7 +131,7 @@ describe("deleteAppAction", () => {
     vi.mocked(deleteManagedGitHubRepository).mockResolvedValue(undefined);
     vi.mocked(deleteAzureDeployment).mockResolvedValue(undefined);
     vi.mocked(deleteArtifact).mockResolvedValue(undefined);
-    vi.mocked(safeNotifyAppEvent).mockReset();
+    vi.mocked(safeNotifyDeletedAppEvent).mockReset();
     vi.mocked(recordAuditEvent).mockResolvedValue(undefined);
     vi.mocked(prisma.appRequest.update).mockResolvedValue(
       ownedRequest as Awaited<ReturnType<typeof prisma.appRequest.update>>,
@@ -160,15 +172,30 @@ describe("deleteAppAction", () => {
     expect(prisma.appRequest.delete).toHaveBeenCalledWith({
       where: { id: "request-123" },
     });
-    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+    expect(safeNotifyDeletedAppEvent).toHaveBeenCalledWith({
       appRequestId: "request-123",
-      eventKey: "APP_DELETED",
+      appName: "Campus Dashboard",
       actorUserId: "user-123",
-      directRecipientUserIds: ["user-123", "collaborator-123"],
+      recipients: [
+        {
+          id: "user-123",
+          email: "owner@cedarville.edu",
+          displayName: "Owner User",
+          notificationPreference: null,
+        },
+        {
+          id: "collaborator-123",
+          email: "collaborator@cedarville.edu",
+          displayName: "Collaborator User",
+          notificationPreference: null,
+        },
+      ],
     });
     expect(
-      vi.mocked(safeNotifyAppEvent).mock.invocationCallOrder[0],
-    ).toBeLessThan(vi.mocked(prisma.appRequest.delete).mock.invocationCallOrder[0]);
+      vi.mocked(prisma.appRequest.delete).mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(safeNotifyDeletedAppEvent).mock.invocationCallOrder[0],
+    );
     expect(recordAuditEvent).toHaveBeenCalledWith(
       "APP_DELETION_SUCCEEDED",
       expect.objectContaining({
@@ -201,6 +228,21 @@ describe("deleteAppAction", () => {
       }),
     });
     expect(redirect).not.toHaveBeenCalled();
+  });
+
+  it("does not send a deletion notification when the portal record delete fails", async () => {
+    vi.mocked(prisma.appRequest.delete).mockRejectedValueOnce(
+      new Error("delete failed"),
+    );
+
+    await expect(
+      deleteAppAction("request-123", deletionForm(["portal"])),
+    ).rejects.toThrow("delete failed");
+
+    expect(prisma.appRequest.delete).toHaveBeenCalledWith({
+      where: { id: "request-123" },
+    });
+    expect(safeNotifyDeletedAppEvent).not.toHaveBeenCalled();
   });
 
   it("requires confirmation and at least one deletion target", async () => {

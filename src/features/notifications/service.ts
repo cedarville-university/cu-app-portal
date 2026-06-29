@@ -14,6 +14,8 @@ type NotificationRecipient = {
   notificationPreference?: NotificationPreferenceSnapshot | null;
 };
 
+export type DeletedAppNotificationRecipientSnapshot = NotificationRecipient;
+
 const notificationPreferenceSelect = {
   emailNotificationsEnabled: true,
   collaborationEmailsEnabled: true,
@@ -217,6 +219,93 @@ export async function sendAppNotification({
 
     await recordDeliverySafely({
       appRequestId: appRequest.id,
+      recipientUserId: recipient.id,
+      recipientEmail: recipient.email,
+      eventKey,
+      category,
+      status: "SENT",
+      provider: result.provider,
+      providerMessageId: result.providerMessageId,
+      sentAt: new Date(),
+    });
+  }
+}
+
+export async function sendDeletedAppNotificationSnapshot({
+  appRequestId,
+  appName,
+  actorUserId,
+  recipients,
+  mailer,
+  appUrl,
+}: {
+  appRequestId: string;
+  appName: string;
+  actorUserId?: string;
+  recipients: DeletedAppNotificationRecipientSnapshot[];
+  mailer: Mailer;
+  appUrl: string;
+}) {
+  const eventKey = "APP_DELETED";
+  const category = NOTIFICATION_EVENT_CATEGORY[eventKey];
+  const directRecipientUserIds = recipients.map((recipient) => recipient.id);
+  const snapshotRecipients = uniqueRecipients(recipients).filter(
+    (recipient) =>
+      recipient.id !== actorUserId ||
+      directRecipientUserIds.includes(recipient.id),
+  );
+  const message = buildMessage({
+    appName,
+    appRequestId,
+    appUrl,
+    eventKey,
+  });
+
+  for (const recipient of snapshotRecipients) {
+    if (
+      shouldApplyPreferences(eventKey) &&
+      !canReceiveNotificationCategory(
+        recipient.notificationPreference,
+        category,
+      )
+    ) {
+      await recordDeliverySafely({
+        appRequestId: null,
+        recipientUserId: recipient.id,
+        recipientEmail: recipient.email,
+        eventKey,
+        category,
+        status: "SKIPPED",
+        provider: "smtp",
+      });
+      continue;
+    }
+
+    let result;
+
+    try {
+      result = await mailer.send({
+        to: recipient.email,
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
+      });
+    } catch (error) {
+      await recordDeliverySafely({
+        appRequestId: null,
+        recipientUserId: recipient.id,
+        recipientEmail: recipient.email,
+        eventKey,
+        category,
+        status: "FAILED",
+        provider: "smtp",
+        errorSummary: summarizeError(error),
+      });
+      continue;
+    }
+
+    await recordDeliverySafely({
+      appRequestId: null,
       recipientUserId: recipient.id,
       recipientEmail: recipient.email,
       eventKey,
