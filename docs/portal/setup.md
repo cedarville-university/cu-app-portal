@@ -100,6 +100,14 @@ Deletion behavior:
 - Collaborators can view app details, download artifacts, request GitHub repository access for themselves, repair publishing setup, and publish app changes.
 - Collaborators cannot delete app resources or reassign ownership.
 
+### Notifications And Collaboration Invites
+
+Set `PORTAL_APP_URL` to the public portal origin used in email links. Configure SMTP with `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS_MODE`, `SMTP_FROM`, and optional username, password, and reply-to values.
+
+Collaboration invites validate coworkers against Entra before sending. Configure `ENTRA_DIRECTORY_TENANT_ID`, `ENTRA_DIRECTORY_CLIENT_ID`, `ENTRA_DIRECTORY_CLIENT_SECRET`, and `ENTRA_ALLOWED_EMAIL_DOMAIN=cedarville.edu`. The directory app registration needs Microsoft Graph permission to read users and alias evidence; the expected app-only permission is `User.Read.All` unless Cedarville validates a narrower delegated or app-only permission path.
+
+Invite acceptance grants portal app access only. Users request GitHub repository access separately from the app details page.
+
 #### Publishing setup repair
 
 Repair Publishing Setup refreshes portal-managed GitHub Actions secrets and GitHub OIDC federated credentials for a target app when configured Azure, Entra, or GitHub values rotate. Repair removes or resets only the portal-managed publishing secrets and credentials for that app.

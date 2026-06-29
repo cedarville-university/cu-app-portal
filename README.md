@@ -29,6 +29,8 @@ The `My Apps` page also supports scoped deletion. A user can delete the portal r
 
 The portal supports an admin and collaboration model for managing shared app work. Admins can manage portal users, grant portal admin access, see all apps, reassign app owners, add collaborators, and delete scoped app resources. Each app keeps one primary owner, while collaborators can download app artifacts, request GitHub access, and publish app changes.
 
+The portal sends immediate SMTP email notifications for app lifecycle, collaboration, and publishing events. Users can manage notification preferences from Settings, while collaboration invite emails always send because they grant access. Owners and admins can invite Cedarville coworkers by email; invitees must accept through Entra before they become collaborators.
+
 ## Local Setup
 
 1. Copy `.env.example` to `.env`.
