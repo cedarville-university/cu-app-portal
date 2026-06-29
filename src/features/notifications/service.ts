@@ -17,6 +17,7 @@ export type SendAppNotificationInput = {
   appRequestId: string;
   eventKey: AppNotificationEventKey;
   actorUserId?: string;
+  directRecipientUserIds?: string[];
   mailer: Mailer;
   appUrl: string;
 };
@@ -70,6 +71,7 @@ export async function sendAppNotification({
   appRequestId,
   eventKey,
   actorUserId,
+  directRecipientUserIds = [],
   mailer,
   appUrl,
 }: SendAppNotificationInput) {
@@ -123,7 +125,11 @@ export async function sendAppNotification({
   const recipients = uniqueRecipients([
     appRequest.user,
     ...appRequest.collaborators.map((collaborator) => collaborator.user),
-  ]).filter((recipient) => recipient.id !== actorUserId);
+  ]).filter(
+    (recipient) =>
+      recipient.id !== actorUserId ||
+      directRecipientUserIds.includes(recipient.id),
+  );
 
   const message = buildMessage({
     appName: appRequest.appName,

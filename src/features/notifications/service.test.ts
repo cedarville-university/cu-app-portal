@@ -64,6 +64,49 @@ describe("sendAppNotification", () => {
     );
   });
 
+  it("sends to the actor when they are a direct recipient", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
+      id: "request-123",
+      appName: "Campus Forms",
+      supportReference: "CU-123",
+      userId: "owner-123",
+      user: {
+        id: "owner-123",
+        email: "owner@cedarville.edu",
+        displayName: "Owner User",
+        notificationPreference: null,
+      },
+      collaborators: [
+        {
+          user: {
+            id: "collab-123",
+            email: "collab@cedarville.edu",
+            displayName: "Collaborator User",
+            notificationPreference: null,
+          },
+        },
+      ],
+    } as never);
+    const mailer = { send: vi.fn().mockResolvedValue({ provider: "smtp" }) };
+
+    await sendAppNotification({
+      appRequestId: "request-123",
+      eventKey: "COLLABORATION_INVITE_SENT",
+      actorUserId: "owner-123",
+      directRecipientUserIds: ["owner-123"],
+      mailer,
+      appUrl: "https://portal.example.edu",
+    });
+
+    expect(mailer.send).toHaveBeenCalledTimes(2);
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "owner@cedarville.edu" }),
+    );
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "collab@cedarville.edu" }),
+    );
+  });
+
   it("records skipped delivery when preferences opt out", async () => {
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
       id: "request-123",
