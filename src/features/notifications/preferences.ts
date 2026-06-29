@@ -7,6 +7,20 @@ export type NotificationPreferenceSnapshot = {
   publishingEmailsEnabled: boolean;
 };
 
+type CategoryPreferenceKey = Exclude<
+  keyof NotificationPreferenceSnapshot,
+  "emailNotificationsEnabled"
+>;
+
+const CATEGORY_PREFERENCE_KEYS: Record<
+  NotificationCategory,
+  CategoryPreferenceKey
+> = {
+  COLLABORATION: "collaborationEmailsEnabled",
+  APP_LIFECYCLE: "appLifecycleEmailsEnabled",
+  PUBLISHING: "publishingEmailsEnabled",
+};
+
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferenceSnapshot =
   {
     emailNotificationsEnabled: true,
@@ -25,15 +39,7 @@ export function canReceiveNotificationCategory(
     return false;
   }
 
-  if (category === "COLLABORATION") {
-    return effective.collaborationEmailsEnabled;
-  }
-
-  if (category === "APP_LIFECYCLE") {
-    return effective.appLifecycleEmailsEnabled;
-  }
-
-  return effective.publishingEmailsEnabled;
+  return effective[CATEGORY_PREFERENCE_KEYS[category]];
 }
 
 export function parseNotificationPreferenceForm(
