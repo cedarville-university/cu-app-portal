@@ -31,6 +31,7 @@ export type AuditEvent =
   | "PUBLISH_REQUESTED"
   | "PUBLISH_SUCCEEDED"
   | "PUBLISH_FAILED"
+  | "NOTIFICATION_PREFERENCES_UPDATED"
   | "PUSH_TO_DEPLOY_ENABLED";
 
 export async function recordAuditEvent(

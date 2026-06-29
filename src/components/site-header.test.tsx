@@ -68,6 +68,10 @@ describe("SiteHeader", () => {
     expect(
       screen.queryByRole("link", { name: /admin/i }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /settings/i })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
     expect(userHasAdminRole).toHaveBeenCalledWith("user-123");
   });
 
@@ -106,6 +110,9 @@ describe("SiteHeader", () => {
       screen.queryByRole("button", { name: /log out/i }),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Portal Staff")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /settings/i }),
+    ).not.toBeInTheDocument();
     expect(userHasAdminRole).not.toHaveBeenCalled();
   });
 });
