@@ -18,6 +18,17 @@ describe("directory config", () => {
       allowedEmailDomain: "cedarville.edu",
     });
   });
+
+  it("normalizes the allowed email domain at config load", () => {
+    expect(
+      loadDirectoryConfig({
+        ENTRA_DIRECTORY_TENANT_ID: "tenant-123",
+        ENTRA_DIRECTORY_CLIENT_ID: "client-123",
+        ENTRA_DIRECTORY_CLIENT_SECRET: "secret-123",
+        ENTRA_ALLOWED_EMAIL_DOMAIN: " Cedarville.EDU ",
+      }).allowedEmailDomain,
+    ).toBe("cedarville.edu");
+  });
 });
 
 describe("isCedarvilleMemberUser", () => {
@@ -126,5 +137,31 @@ describe("createEntraDirectoryClient", () => {
       email: "staff@cedarville.edu",
       aliases: ["staff@cedarville.edu"],
     });
+  });
+
+  it("escapes apostrophes in OData filter string literals before URL encoding", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          value: [],
+        }),
+        { status: 200 },
+      ),
+    );
+    const client = createEntraDirectoryClient({
+      tokenProvider: async () => "token-123",
+      allowedEmailDomain: "cedarville.edu",
+      fetchImpl,
+    });
+
+    await client.findEligibleUserByEmail("O'Brien@Cedarville.edu");
+
+    const requestedUrl = new URL(fetchImpl.mock.calls[0][0]);
+    expect(requestedUrl.searchParams.get("$filter")).toContain(
+      "mail eq 'o''brien@cedarville.edu'",
+    );
+    expect(requestedUrl.searchParams.get("$filter")).toContain(
+      "proxyAddresses/any(p:p eq 'smtp:o''brien@cedarville.edu')",
+    );
   });
 });

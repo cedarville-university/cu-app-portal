@@ -25,6 +25,10 @@ function stripProxyPrefix(address: string) {
   return address.replace(/^smtp:/i, "");
 }
 
+function escapeODataStringLiteral(value: string) {
+  return value.replaceAll("'", "''");
+}
+
 function allEmails(user: EntraUserRecord) {
   return [
     user.mail,
@@ -88,8 +92,9 @@ export function createEntraDirectoryClient({
   return {
     async findEligibleUserByEmail(email: string): Promise<EligibleDirectoryUser | null> {
       const normalizedEmail = normalizeEmail(email);
+      const escapedEmail = escapeODataStringLiteral(normalizedEmail);
       const filter = encodeURIComponent(
-        `mail eq '${normalizedEmail}' or userPrincipalName eq '${normalizedEmail}' or proxyAddresses/any(p:p eq 'smtp:${normalizedEmail}') or proxyAddresses/any(p:p eq 'SMTP:${normalizedEmail}') or otherMails/any(m:m eq '${normalizedEmail}')`,
+        `mail eq '${escapedEmail}' or userPrincipalName eq '${escapedEmail}' or proxyAddresses/any(p:p eq 'smtp:${escapedEmail}') or proxyAddresses/any(p:p eq 'SMTP:${escapedEmail}') or otherMails/any(m:m eq '${escapedEmail}')`,
       );
       const select = [
         "id",
