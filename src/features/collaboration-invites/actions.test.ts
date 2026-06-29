@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getServerSession } from "@/auth/session";
 import { userHasAdminRole } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { loadDirectoryConfig } from "@/features/directory/config";
@@ -27,6 +28,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+}));
+
+vi.mock("@/auth/session", () => ({
+  getServerSession: vi.fn(),
 }));
 
 vi.mock("@/features/app-requests/current-user", () => ({
@@ -128,6 +133,15 @@ describe("collaboration invite actions", () => {
     vi.clearAllMocks();
     consoleErrorSpy.mockClear();
     vi.mocked(resolveCurrentUserId).mockResolvedValue("owner-123");
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: {
+        id: "invited-user-123",
+        name: "Invited User",
+        email: "invited@cedarville.edu",
+        entraOid: "entra-456",
+      },
+      expires: "2099-01-01T00:00:00.000Z",
+    });
     vi.mocked(userHasAdminRole).mockResolvedValue(false);
     vi.mocked(loadDirectoryConfig).mockReturnValue({
       tenantId: "tenant-123",
@@ -284,7 +298,11 @@ describe("collaboration invite actions", () => {
     );
 
     expect(prisma.collaborationInvite.updateMany).toHaveBeenCalledWith({
-      where: { id: "invite-123", status: "PENDING" },
+      where: {
+        id: "invite-123",
+        appRequestId: "request-123",
+        status: "PENDING",
+      },
       data: expect.objectContaining({
         tokenHash: expect.any(String),
         expiresAt: expect.any(Date),
@@ -318,7 +336,11 @@ describe("collaboration invite actions", () => {
     ).resolves.toEqual({ deliveryStatus: "SENT" });
 
     expect(prisma.collaborationInvite.updateMany).toHaveBeenCalledWith({
-      where: { id: "invite-123", status: "PENDING" },
+      where: {
+        id: "invite-123",
+        appRequestId: "request-123",
+        status: "PENDING",
+      },
       data: expect.objectContaining({
         tokenHash: expect.any(String),
         expiresAt: expect.any(Date),
@@ -455,7 +477,12 @@ describe("collaboration invite actions", () => {
       }),
     });
     expect(prisma.collaborationInvite.updateMany).toHaveBeenLastCalledWith({
-      where: { id: "invite-123", status: "PENDING" },
+      where: {
+        id: "invite-123",
+        appRequestId: "request-123",
+        status: "PENDING",
+        tokenHash: expect.any(String),
+      },
       data: {
         tokenHash: "old-token-hash",
         expiresAt: previousExpiresAt,
@@ -494,7 +521,12 @@ describe("collaboration invite actions", () => {
       }),
     });
     expect(prisma.collaborationInvite.updateMany).toHaveBeenLastCalledWith({
-      where: { id: "invite-123", status: "PENDING" },
+      where: {
+        id: "invite-123",
+        appRequestId: "request-123",
+        status: "PENDING",
+        tokenHash: expect.any(String),
+      },
       data: {
         tokenHash: "old-token-hash",
         expiresAt: previousExpiresAt,
@@ -504,7 +536,6 @@ describe("collaboration invite actions", () => {
   });
 
   it("accepts a pending invite for the matching signed-in user", async () => {
-    vi.mocked(resolveCurrentUserId).mockResolvedValue("invited-user-123");
     vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValue({
       id: "invite-123",
       appRequestId: "request-123",
@@ -515,11 +546,7 @@ describe("collaboration invite actions", () => {
     } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
 
     await expect(
-      acceptCollaborationInviteAction("token-123", {
-        entraOid: "entra-456",
-        email: "invited@cedarville.edu",
-        name: "Invited User",
-      }),
+      acceptCollaborationInviteAction("token-123"),
     ).resolves.toBe("request-123");
 
     expect(prisma.user.upsert).toHaveBeenCalledWith({
@@ -561,8 +588,61 @@ describe("collaboration invite actions", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/download/request-123");
   });
 
+  it("requires the actual session identity when accepting an invite", async () => {
+    vi.mocked(getServerSession).mockResolvedValue({
+      user: {
+        id: "other-user-123",
+        name: "Wrong User",
+        email: "wrong@cedarville.edu",
+        entraOid: "entra-999",
+      },
+      expires: "2099-01-01T00:00:00.000Z",
+    });
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValue({
+      id: "invite-123",
+      appRequestId: "request-123",
+      invitedEntraOid: "entra-456",
+      normalizedInvitedEmail: "invited@cedarville.edu",
+      status: "PENDING",
+      expiresAt: new Date(Date.now() + 1000 * 60),
+    } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+
+    await expect(acceptCollaborationInviteAction("token-123")).rejects.toThrow(
+      "Sign in with the invited Cedarville account to accept this invite.",
+    );
+
+    expect(prisma.user.upsert).not.toHaveBeenCalled();
+    expect(prisma.appAccess.upsert).not.toHaveBeenCalled();
+  });
+
+  it("guards expired invite marking by token hash, status, and expiry", async () => {
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValue({
+      id: "invite-123",
+      appRequestId: "request-123",
+      invitedEntraOid: "entra-456",
+      normalizedInvitedEmail: "invited@cedarville.edu",
+      status: "PENDING",
+      expiresAt: new Date(Date.now() - 1000 * 60),
+    } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+
+    await expect(acceptCollaborationInviteAction("token-123")).rejects.toThrow(
+      "This collaboration invite is no longer valid.",
+    );
+
+    expect(prisma.collaborationInvite.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "invite-123",
+        tokenHash: expect.any(String),
+        status: "PENDING",
+        expiresAt: { lte: expect.any(Date) },
+      },
+      data: {
+        status: "EXPIRED",
+      },
+    });
+  });
+
   it("does not grant access when the guarded accept transition affects no rows", async () => {
-    vi.mocked(resolveCurrentUserId).mockResolvedValue("invited-user-123");
     vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValue({
       id: "invite-123",
       appRequestId: "request-123",
@@ -576,11 +656,7 @@ describe("collaboration invite actions", () => {
     });
 
     await expect(
-      acceptCollaborationInviteAction("token-123", {
-        entraOid: "entra-456",
-        email: "invited@cedarville.edu",
-        name: "Invited User",
-      }),
+      acceptCollaborationInviteAction("token-123"),
     ).rejects.toThrow("This collaboration invite is no longer valid.");
 
     expect(prisma.appAccess.upsert).not.toHaveBeenCalled();

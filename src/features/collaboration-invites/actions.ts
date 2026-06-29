@@ -3,6 +3,7 @@
 import { ClientSecretCredential } from "@azure/identity";
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "@/auth/session";
 import { userHasAdminRole } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { loadDirectoryConfig } from "@/features/directory/config";
@@ -282,6 +283,7 @@ async function sendInviteEmail({
 
 async function refreshPendingInvite({
   inviteId,
+  appRequestId,
   tokenHash,
   expiresAt,
   lastSentAt,
@@ -291,6 +293,7 @@ async function refreshPendingInvite({
   inviterUserId,
 }: {
   inviteId: string;
+  appRequestId: string;
   tokenHash: string;
   expiresAt: Date;
   lastSentAt: Date;
@@ -300,7 +303,7 @@ async function refreshPendingInvite({
   inviterUserId: string;
 }): Promise<{ id: string }> {
   const result = await prisma.collaborationInvite.updateMany({
-    where: { id: inviteId, status: "PENDING" },
+    where: { id: inviteId, appRequestId, status: "PENDING" },
     data: {
       invitedEmail,
       invitedEntraOid,
@@ -323,18 +326,27 @@ async function refreshPendingInvite({
 
 async function restorePendingInviteTokenSafely({
   inviteId,
+  appRequestId,
+  failedAttemptTokenHash,
   tokenHash,
   expiresAt,
   lastSentAt,
 }: {
   inviteId: string;
+  appRequestId: string;
+  failedAttemptTokenHash: string;
   tokenHash: string;
   expiresAt: Date;
   lastSentAt: Date | null;
 }) {
   try {
     await prisma.collaborationInvite.updateMany({
-      where: { id: inviteId, status: "PENDING" },
+      where: {
+        id: inviteId,
+        appRequestId,
+        status: "PENDING",
+        tokenHash: failedAttemptTokenHash,
+      },
       data: {
         tokenHash,
         expiresAt,
@@ -397,6 +409,7 @@ export async function sendCollaborationInviteAction(
     };
     invite = await refreshPendingInvite({
       inviteId: existingPendingInvite.id,
+      appRequestId,
       tokenHash,
       expiresAt,
       lastSentAt,
@@ -445,6 +458,7 @@ export async function sendCollaborationInviteAction(
       };
       invite = await refreshPendingInvite({
         inviteId: pendingInvite.id,
+        appRequestId,
         tokenHash,
         expiresAt,
         lastSentAt,
@@ -468,6 +482,8 @@ export async function sendCollaborationInviteAction(
   if (delivery.status === "FAILED" && previousToken) {
     await restorePendingInviteTokenSafely({
       inviteId: invite.id,
+      appRequestId,
+      failedAttemptTokenHash: tokenHash,
       ...previousToken,
     });
   }
@@ -569,6 +585,8 @@ export async function resendCollaborationInviteAction(
   if (delivery.status === "FAILED") {
     await restorePendingInviteTokenSafely({
       inviteId: invite.id,
+      appRequestId,
+      failedAttemptTokenHash: tokenHash,
       tokenHash: invite.tokenHash,
       expiresAt: invite.expiresAt,
       lastSentAt: invite.lastSentAt,
@@ -595,15 +613,12 @@ export async function resendCollaborationInviteAction(
   return { deliveryStatus: delivery.status satisfies DeliveryStatus };
 }
 
-export async function acceptCollaborationInviteAction(
-  token: string,
-  signedInUser: {
-    entraOid?: string | null;
-    email?: string | null;
-    name?: string | null;
-  },
-) {
-  if (!signedInUser.entraOid || !signedInUser.email) {
+export async function acceptCollaborationInviteAction(token: string) {
+  const session = await getServerSession();
+  const sessionEntraOid = session?.user?.entraOid;
+  const sessionEmail = session?.user?.email;
+
+  if (!sessionEntraOid || !sessionEmail) {
     throw new Error(INVITED_ACCOUNT_ERROR);
   }
 
@@ -619,10 +634,17 @@ export async function acceptCollaborationInviteAction(
     throw new Error(INVALID_INVITE_ERROR);
   }
 
-  if (invite.expiresAt <= new Date()) {
+  const now = new Date();
+
+  if (invite.expiresAt <= now) {
     try {
-      await prisma.collaborationInvite.update({
-        where: { id: invite.id },
+      await prisma.collaborationInvite.updateMany({
+        where: {
+          id: invite.id,
+          tokenHash,
+          status: "PENDING",
+          expiresAt: { lte: now },
+        },
         data: {
           status: "EXPIRED",
         },
@@ -638,25 +660,25 @@ export async function acceptCollaborationInviteAction(
     throw new Error(INVALID_INVITE_ERROR);
   }
 
-  const normalizedEmail = normalizeEmail(signedInUser.email);
+  const normalizedEmail = normalizeEmail(sessionEmail);
 
   if (
-    invite.invitedEntraOid !== signedInUser.entraOid &&
+    invite.invitedEntraOid !== sessionEntraOid &&
     invite.normalizedInvitedEmail !== normalizedEmail
   ) {
     throw new Error(INVITED_ACCOUNT_ERROR);
   }
 
   const user = await prisma.user.upsert({
-    where: { entraOid: signedInUser.entraOid },
+    where: { entraOid: sessionEntraOid },
     update: {
       email: normalizedEmail,
-      displayName: signedInUser.name ?? normalizedEmail,
+      displayName: session.user.name ?? normalizedEmail,
     },
     create: {
-      entraOid: signedInUser.entraOid,
+      entraOid: sessionEntraOid,
       email: normalizedEmail,
-      displayName: signedInUser.name ?? normalizedEmail,
+      displayName: session.user.name ?? normalizedEmail,
     },
   });
 
