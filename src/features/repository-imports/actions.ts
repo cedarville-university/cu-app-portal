@@ -569,6 +569,7 @@ export async function addExistingAppAction(
         ? "REPOSITORY_FAILED"
         : "EXISTING_APP_IMPORTED",
     actorUserId: userId,
+    directRecipientUserIds: [userId],
   });
 
   revalidatePath("/apps");
@@ -673,11 +674,13 @@ export async function createManagedRepositoryForLocalAppAction(
     appRequestId: request.id,
     eventKey: "EXISTING_APP_IMPORTED",
     actorUserId: userId,
+    directRecipientUserIds: [userId],
   });
   await safeNotifyAppEvent({
     appRequestId: request.id,
     eventKey: "REPOSITORY_READY",
     actorUserId: userId,
+    directRecipientUserIds: [userId],
   });
 
   revalidatePath("/apps");
@@ -790,6 +793,7 @@ export async function prepareExistingAppAction(
         appRequestId: requestId,
         eventKey: "REPOSITORY_READY",
         actorUserId: userId,
+        directRecipientUserIds: [userId],
       });
     }
   } catch (error) {
@@ -823,6 +827,7 @@ export async function prepareExistingAppAction(
       appRequestId: requestId,
       eventKey: "REPOSITORY_FAILED",
       actorUserId: userId,
+      directRecipientUserIds: [userId],
     });
 
     if (isPublishingConflict || isGitHubAuthFailure || isGitHubPermissionFailure) {
@@ -938,6 +943,7 @@ export async function verifyExistingAppPreparationAction(
     appRequestId: requestId,
     eventKey: "REPOSITORY_READY",
     actorUserId: userId,
+    directRecipientUserIds: [userId],
   });
 
   revalidateImportedRepositoryViews(requestId);

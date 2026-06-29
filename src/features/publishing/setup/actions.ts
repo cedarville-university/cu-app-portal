@@ -41,6 +41,7 @@ async function notifyIfPublishingSetupBlocked({
         appRequestId: requestId,
         eventKey: "PUBLISHING_SETUP_BLOCKED",
         actorUserId,
+        directRecipientUserIds: [actorUserId],
       });
     }
   } catch (error) {

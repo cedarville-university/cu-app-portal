@@ -96,6 +96,7 @@ describe("publishing setup actions", () => {
       appRequestId: "request-123",
       eventKey: "PUBLISHING_SETUP_BLOCKED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
   });
 

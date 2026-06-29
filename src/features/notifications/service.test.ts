@@ -309,6 +309,49 @@ describe("sendAppNotification", () => {
     );
   });
 
+  it("treats owner reassignment as a collaboration preference event", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
+      id: "request-123",
+      appName: "Campus Forms",
+      supportReference: "CU-123",
+      userId: "owner-123",
+      user: {
+        id: "owner-123",
+        email: "owner@cedarville.edu",
+        displayName: "Owner User",
+        notificationPreference: {
+          emailNotificationsEnabled: true,
+          collaborationEmailsEnabled: false,
+          appLifecycleEmailsEnabled: true,
+          publishingEmailsEnabled: true,
+        },
+      },
+      collaborators: [],
+    } as never);
+    const mailer = { send: vi.fn().mockResolvedValue({ provider: "smtp" }) };
+
+    await sendAppNotification({
+      appRequestId: "request-123",
+      eventKey: "OWNER_REASSIGNED",
+      actorUserId: "admin-123",
+      directRecipientUserIds: ["owner-123"],
+      mailer,
+      appUrl: "https://portal.example.edu",
+    });
+
+    expect(mailer.send).not.toHaveBeenCalled();
+    expect(prisma.notificationDelivery.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          recipientEmail: "owner@cedarville.edu",
+          eventKey: "OWNER_REASSIGNED",
+          category: "COLLABORATION",
+          status: "SKIPPED",
+        }),
+      }),
+    );
+  });
+
   it("does not record failed delivery when the sent log fails", async () => {
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
       id: "request-123",
@@ -442,6 +485,13 @@ describe("sendDeletedAppNotificationSnapshot", () => {
     expect(mailer.send).toHaveBeenCalledWith(
       expect.objectContaining({
         to: "owner@cedarville.edu",
+        text: expect.stringContaining(
+          "The app details page is no longer available in the portal.",
+        ),
+      }),
+    );
+    expect(mailer.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({
         text: expect.stringContaining("/download/request-deleted"),
       }),
     );

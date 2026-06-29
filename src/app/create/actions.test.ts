@@ -325,11 +325,13 @@ describe("createAppAction", () => {
       appRequestId: "request-123",
       eventKey: "REPOSITORY_READY",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(safeNotifyAppEvent).toHaveBeenCalledWith({
       appRequestId: "request-123",
       eventKey: "APP_CREATED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(mockRedirect).toHaveBeenCalledWith("/download/request-123");
   });
@@ -436,6 +438,7 @@ describe("createAppAction", () => {
       appRequestId: "request-publish-failed",
       eventKey: "PUBLISH_FAILED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(mockRedirect).toHaveBeenCalledWith(
       "/download/request-publish-failed",
@@ -685,6 +688,7 @@ describe("createAppAction", () => {
       appRequestId: "request-789",
       eventKey: "REPOSITORY_FAILED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(mockRedirect).toHaveBeenCalledWith("/download/request-789");
   });

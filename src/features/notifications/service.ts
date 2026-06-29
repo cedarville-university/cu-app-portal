@@ -118,6 +118,18 @@ function buildMessage({
   return { subject, text, html };
 }
 
+function buildDeletedAppMessage({ appName }: { appName: string }) {
+  const escapedAppName = escapeHtml(appName);
+  const subject = `App Portal update: ${appName}`;
+  const text = [
+    `${appName} has been deleted from the Cedarville App Portal.`,
+    "The app details page is no longer available in the portal.",
+  ].join("\n\n");
+  const html = `<p>${escapedAppName} has been deleted from the Cedarville App Portal.</p><p>The app details page is no longer available in the portal.</p>`;
+
+  return { subject, text, html };
+}
+
 export async function sendAppNotification({
   appRequestId,
   eventKey,
@@ -254,12 +266,7 @@ export async function sendDeletedAppNotificationSnapshot({
       recipient.id !== actorUserId ||
       directRecipientUserIds.includes(recipient.id),
   );
-  const message = buildMessage({
-    appName,
-    appRequestId,
-    appUrl,
-    eventKey,
-  });
+  const message = buildDeletedAppMessage({ appName });
 
   for (const recipient of snapshotRecipients) {
     if (

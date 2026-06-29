@@ -166,6 +166,7 @@ export async function createAppAction(formData: FormData) {
         appRequestId: request.id,
         eventKey: "REPOSITORY_READY",
         actorUserId: userId,
+        directRecipientUserIds: [userId],
       });
 
       if (currentUser?.githubUsername) {
@@ -249,6 +250,7 @@ export async function createAppAction(formData: FormData) {
         appRequestId: request.id,
         eventKey: "REPOSITORY_FAILED",
         actorUserId: userId,
+        directRecipientUserIds: [userId],
       });
     }
 
@@ -265,6 +267,7 @@ export async function createAppAction(formData: FormData) {
       appRequestId: request.id,
       eventKey: "APP_CREATED",
       actorUserId: userId,
+      directRecipientUserIds: [userId],
     });
 
     if (createIntent === "createAndPublish" && repositoryReady) {
@@ -297,6 +300,7 @@ export async function createAppAction(formData: FormData) {
           appRequestId: request.id,
           eventKey: "PUBLISH_FAILED",
           actorUserId: userId,
+          directRecipientUserIds: [userId],
         });
       }
     }

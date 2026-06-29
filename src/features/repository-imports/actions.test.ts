@@ -265,6 +265,7 @@ describe("repository import actions", () => {
       appRequestId: "req_123",
       eventKey: "EXISTING_APP_IMPORTED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(importRepositoryWithHistory).not.toHaveBeenCalled();
   });
@@ -357,11 +358,13 @@ describe("repository import actions", () => {
       appRequestId: "req_local",
       eventKey: "EXISTING_APP_IMPORTED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(safeNotifyAppEvent).toHaveBeenCalledWith({
       appRequestId: "req_local",
       eventKey: "REPOSITORY_READY",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
   });
@@ -685,6 +688,7 @@ describe("repository import actions", () => {
       appRequestId: "req_collision_exhausted",
       eventKey: "REPOSITORY_FAILED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
   });
 
@@ -746,6 +750,7 @@ describe("repository import actions", () => {
       appRequestId: "req_failed_import",
       eventKey: "REPOSITORY_FAILED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
   });
 
@@ -971,6 +976,7 @@ describe("repository import actions", () => {
       appRequestId: "req_123",
       eventKey: "REPOSITORY_READY",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_123");
@@ -1344,6 +1350,7 @@ describe("repository import actions", () => {
       appRequestId: "req_456",
       eventKey: "REPOSITORY_FAILED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_456");
@@ -1727,6 +1734,7 @@ describe("repository import actions", () => {
       appRequestId: "req_verify",
       eventKey: "REPOSITORY_READY",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_verify");

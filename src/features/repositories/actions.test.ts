@@ -182,6 +182,7 @@ describe("retryRepositoryBootstrapAction", () => {
       appRequestId: "req_123",
       eventKey: "REPOSITORY_READY",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
   });
 
@@ -243,6 +244,7 @@ describe("retryRepositoryBootstrapAction", () => {
       appRequestId: "req_456",
       eventKey: "REPOSITORY_FAILED",
       actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
   });
 

@@ -131,6 +131,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
       appRequestId: requestId,
       eventKey: "REPOSITORY_READY",
       actorUserId,
+      directRecipientUserIds: [actorUserId],
     });
 
     if (user.githubUsername) {
@@ -218,6 +219,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
       appRequestId: requestId,
       eventKey: "REPOSITORY_FAILED",
       actorUserId,
+      directRecipientUserIds: [actorUserId],
     });
   }
 
