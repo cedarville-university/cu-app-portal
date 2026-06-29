@@ -19,9 +19,13 @@ export async function updateNotificationPreferencesAction(formData: FormData) {
     },
   });
 
-  await recordAuditEvent("NOTIFICATION_PREFERENCES_UPDATED", {
-    actorUserId: userId,
-  });
+  try {
+    await recordAuditEvent("NOTIFICATION_PREFERENCES_UPDATED", {
+      actorUserId: userId,
+    });
+  } catch {
+    // Preference updates should not fail if best-effort audit logging is unavailable.
+  }
 
   revalidatePath("/settings");
 }

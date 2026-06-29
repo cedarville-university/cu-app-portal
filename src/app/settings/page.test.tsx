@@ -35,5 +35,8 @@ describe("SettingsPage", () => {
     expect(screen.getByLabelText("Collaboration emails")).toBeChecked();
     expect(screen.getByLabelText("App lifecycle emails")).toBeChecked();
     expect(screen.getByLabelText("Publishing emails")).toBeChecked();
+    expect(
+      screen.getByRole("group", { name: "Notification preferences" }),
+    ).toBeInTheDocument();
   });
 });

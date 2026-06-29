@@ -17,6 +17,7 @@ const { resolveCurrentUserId } = await import(
 );
 const { recordAuditEvent } = await import("@/lib/audit");
 const { prisma } = await import("@/lib/db");
+const { revalidatePath } = await import("next/cache");
 
 describe("updateNotificationPreferencesAction", () => {
   beforeEach(() => {
@@ -52,5 +53,21 @@ describe("updateNotificationPreferencesAction", () => {
       "NOTIFICATION_PREFERENCES_UPDATED",
       { actorUserId: "user-123" },
     );
+  });
+
+  it("still revalidates settings when audit logging fails", async () => {
+    vi.mocked(recordAuditEvent).mockRejectedValueOnce(
+      new Error("audit unavailable"),
+    );
+
+    const formData = new FormData();
+    formData.set("emailNotificationsEnabled", "on");
+
+    await expect(
+      updateNotificationPreferencesAction(formData),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.notificationPreference.upsert).toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith("/settings");
   });
 });

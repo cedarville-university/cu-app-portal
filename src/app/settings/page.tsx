@@ -34,41 +34,45 @@ export default async function SettingsPage() {
         </p>
 
         <form action={updateNotificationPreferencesAction} className="form-stack">
-          <label>
-            <input
-              type="checkbox"
-              name="emailNotificationsEnabled"
-              defaultChecked={preferences.emailNotificationsEnabled}
-            />{" "}
-            Email notifications
-          </label>
+          <fieldset className="form-stack" style={{ border: 0, padding: 0 }}>
+            <legend>Notification preferences</legend>
 
-          <label>
-            <input
-              type="checkbox"
-              name="collaborationEmailsEnabled"
-              defaultChecked={preferences.collaborationEmailsEnabled}
-            />{" "}
-            Collaboration emails
-          </label>
+            <label>
+              <input
+                type="checkbox"
+                name="emailNotificationsEnabled"
+                defaultChecked={preferences.emailNotificationsEnabled}
+              />{" "}
+              Email notifications
+            </label>
 
-          <label>
-            <input
-              type="checkbox"
-              name="appLifecycleEmailsEnabled"
-              defaultChecked={preferences.appLifecycleEmailsEnabled}
-            />{" "}
-            App lifecycle emails
-          </label>
+            <label>
+              <input
+                type="checkbox"
+                name="collaborationEmailsEnabled"
+                defaultChecked={preferences.collaborationEmailsEnabled}
+              />{" "}
+              Collaboration emails
+            </label>
 
-          <label>
-            <input
-              type="checkbox"
-              name="publishingEmailsEnabled"
-              defaultChecked={preferences.publishingEmailsEnabled}
-            />{" "}
-            Publishing emails
-          </label>
+            <label>
+              <input
+                type="checkbox"
+                name="appLifecycleEmailsEnabled"
+                defaultChecked={preferences.appLifecycleEmailsEnabled}
+              />{" "}
+              App lifecycle emails
+            </label>
+
+            <label>
+              <input
+                type="checkbox"
+                name="publishingEmailsEnabled"
+                defaultChecked={preferences.publishingEmailsEnabled}
+              />{" "}
+              Publishing emails
+            </label>
+          </fieldset>
 
           <div>
             <PendingSubmitButton
