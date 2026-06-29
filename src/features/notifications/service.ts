@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   canReceiveNotificationCategory,
@@ -12,6 +13,29 @@ type NotificationRecipient = {
   displayName: string;
   notificationPreference?: NotificationPreferenceSnapshot | null;
 };
+
+const notificationPreferenceSelect = {
+  emailNotificationsEnabled: true,
+  collaborationEmailsEnabled: true,
+  appLifecycleEmailsEnabled: true,
+  publishingEmailsEnabled: true,
+} as const;
+
+const userRecipientSelect = {
+  id: true,
+  email: true,
+  displayName: true,
+  notificationPreference: {
+    select: notificationPreferenceSelect,
+  },
+} as const;
+
+const PREFERENCE_BYPASS_EVENTS = new Set<AppNotificationEventKey>([
+  "COLLABORATION_INVITE_SENT",
+  "COLLABORATION_INVITE_REVOKED",
+  "APP_SHARED",
+  "COLLABORATOR_REMOVED",
+]);
 
 export type SendAppNotificationInput = {
   appRequestId: string;
@@ -45,6 +69,29 @@ function summarizeError(error: unknown) {
   return "Notification delivery failed.";
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function shouldApplyPreferences(eventKey: AppNotificationEventKey) {
+  return !PREFERENCE_BYPASS_EVENTS.has(eventKey);
+}
+
+async function recordDeliverySafely(
+  data: Prisma.NotificationDeliveryUncheckedCreateInput,
+) {
+  try {
+    await prisma.notificationDelivery.create({ data });
+  } catch (error) {
+    console.error("Failed to record notification delivery.", error);
+  }
+}
+
 function buildMessage({
   appName,
   appRequestId,
@@ -56,13 +103,15 @@ function buildMessage({
   appUrl: string;
   eventKey: AppNotificationEventKey;
 }) {
-  const appHref = `${appUrl.replace(/\/$/, "")}/apps/${appRequestId}`;
+  const appHref = `${appUrl.replace(/\/$/, "")}/download/${appRequestId}`;
+  const escapedAppName = escapeHtml(appName);
+  const escapedAppHref = escapeHtml(appHref);
   const subject = `App Portal update: ${appName}`;
   const text = [
     `${appName} has a portal update: ${eventKey.replaceAll("_", " ").toLowerCase()}.`,
     `View the app request: ${appHref}`,
   ].join("\n\n");
-  const html = `<p>${appName} has a portal update.</p><p><a href="${appHref}">View the app request</a></p>`;
+  const html = `<p>${escapedAppName} has a portal update.</p><p><a href="${escapedAppHref}">View the app request</a></p>`;
 
   return { subject, text, html };
 }
@@ -82,36 +131,12 @@ export async function sendAppNotification({
       id: true,
       appName: true,
       user: {
-        select: {
-          id: true,
-          email: true,
-          displayName: true,
-          notificationPreference: {
-            select: {
-              emailNotificationsEnabled: true,
-              collaborationEmailsEnabled: true,
-              appLifecycleEmailsEnabled: true,
-              publishingEmailsEnabled: true,
-            },
-          },
-        },
+        select: userRecipientSelect,
       },
       collaborators: {
         select: {
           user: {
-            select: {
-              id: true,
-              email: true,
-              displayName: true,
-              notificationPreference: {
-                select: {
-                  emailNotificationsEnabled: true,
-                  collaborationEmailsEnabled: true,
-                  appLifecycleEmailsEnabled: true,
-                  publishingEmailsEnabled: true,
-                },
-              },
-            },
+            select: userRecipientSelect,
           },
         },
       },
@@ -122,9 +147,18 @@ export async function sendAppNotification({
     return;
   }
 
+  const directRecipients =
+    directRecipientUserIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: directRecipientUserIds } },
+          select: userRecipientSelect,
+        })
+      : [];
+
   const recipients = uniqueRecipients([
     appRequest.user,
     ...appRequest.collaborators.map((collaborator) => collaborator.user),
+    ...directRecipients,
   ]).filter(
     (recipient) =>
       recipient.id !== actorUserId ||
@@ -140,59 +174,57 @@ export async function sendAppNotification({
 
   for (const recipient of recipients) {
     if (
+      shouldApplyPreferences(eventKey) &&
       !canReceiveNotificationCategory(
         recipient.notificationPreference,
         category,
       )
     ) {
-      await prisma.notificationDelivery.create({
-        data: {
-          appRequestId: appRequest.id,
-          recipientUserId: recipient.id,
-          recipientEmail: recipient.email,
-          eventKey,
-          category,
-          status: "SKIPPED",
-          provider: "smtp",
-        },
+      await recordDeliverySafely({
+        appRequestId: appRequest.id,
+        recipientUserId: recipient.id,
+        recipientEmail: recipient.email,
+        eventKey,
+        category,
+        status: "SKIPPED",
+        provider: "smtp",
       });
       continue;
     }
 
+    let result;
+
     try {
-      const result = await mailer.send({
+      result = await mailer.send({
         to: recipient.email,
         subject: message.subject,
         text: message.text,
         html: message.html,
       });
-
-      await prisma.notificationDelivery.create({
-        data: {
-          appRequestId: appRequest.id,
-          recipientUserId: recipient.id,
-          recipientEmail: recipient.email,
-          eventKey,
-          category,
-          status: "SENT",
-          provider: result.provider,
-          providerMessageId: result.providerMessageId,
-          sentAt: new Date(),
-        },
-      });
     } catch (error) {
-      await prisma.notificationDelivery.create({
-        data: {
-          appRequestId: appRequest.id,
-          recipientUserId: recipient.id,
-          recipientEmail: recipient.email,
-          eventKey,
-          category,
-          status: "FAILED",
-          provider: "smtp",
-          errorSummary: summarizeError(error),
-        },
+      await recordDeliverySafely({
+        appRequestId: appRequest.id,
+        recipientUserId: recipient.id,
+        recipientEmail: recipient.email,
+        eventKey,
+        category,
+        status: "FAILED",
+        provider: "smtp",
+        errorSummary: summarizeError(error),
       });
+      continue;
     }
+
+    await recordDeliverySafely({
+      appRequestId: appRequest.id,
+      recipientUserId: recipient.id,
+      recipientEmail: recipient.email,
+      eventKey,
+      category,
+      status: "SENT",
+      provider: result.provider,
+      providerMessageId: result.providerMessageId,
+      sentAt: new Date(),
+    });
   }
 }

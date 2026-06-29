@@ -39,6 +39,28 @@ describe("SMTP notification mailer", () => {
     ).toThrow();
   });
 
+  it("rejects partial SMTP credentials", () => {
+    expect(() =>
+      loadSmtpConfig({
+        PORTAL_APP_URL: "https://portal.example.edu",
+        SMTP_HOST: "smtp.example.edu",
+        SMTP_PORT: "587",
+        SMTP_USERNAME: "portal",
+        SMTP_FROM: "portal@example.edu",
+      }),
+    ).toThrow();
+
+    expect(() =>
+      loadSmtpConfig({
+        PORTAL_APP_URL: "https://portal.example.edu",
+        SMTP_HOST: "smtp.example.edu",
+        SMTP_PORT: "587",
+        SMTP_PASSWORD: "secret",
+        SMTP_FROM: "portal@example.edu",
+      }),
+    ).toThrow();
+  });
+
   it("wraps a transport and returns provider message id", async () => {
     const messages: unknown[] = [];
     const mailer = createSmtpMailer({
