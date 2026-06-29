@@ -1,4 +1,5 @@
 import { DefaultAzureCredential } from "@azure/identity";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { prisma } from "@/lib/db";
@@ -271,6 +272,10 @@ export async function runPublishAttempt(
       publishAttemptId: attemptId,
       publishUrl: deployment.publishUrl,
     });
+    await safeNotifyAppEvent({
+      appRequestId: attempt.appRequestId,
+      eventKey: "PUBLISH_SUCCEEDED",
+    });
   } catch (error) {
     const errorSummary =
       error instanceof Error ? error.message : "Unknown publish error";
@@ -320,6 +325,24 @@ export async function runPublishAttempt(
       publishAttemptId: attemptId,
       error: errorSummary,
     });
+    await safeNotifyAppEvent({
+      appRequestId: attempt.appRequestId,
+      eventKey: "PUBLISH_FAILED",
+    });
+
+    if (setupFailure?.setupStatus === "NEEDS_REPAIR") {
+      await safeNotifyAppEvent({
+        appRequestId: attempt.appRequestId,
+        eventKey: "PUBLISHING_SETUP_NEEDS_REPAIR",
+      });
+    }
+
+    if (setupFailure?.setupStatus === "BLOCKED") {
+      await safeNotifyAppEvent({
+        appRequestId: attempt.appRequestId,
+        eventKey: "PUBLISHING_SETUP_BLOCKED",
+      });
+    }
 
     throw error;
   }

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { deleteArtifact } from "@/features/generation/storage";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
@@ -24,6 +25,10 @@ vi.mock("@/features/app-requests/current-user", () => ({
 
 vi.mock("@/features/generation/storage", () => ({
   deleteArtifact: vi.fn(),
+}));
+
+vi.mock("@/features/notifications/safe-notify", () => ({
+  safeNotifyAppEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/audit", () => ({
@@ -89,6 +94,11 @@ const ownedRequest = {
   artifact: {
     storagePath: "/workspace/.artifacts/campus-dashboard.zip",
   },
+  collaborators: [
+    {
+      userId: "collaborator-123",
+    },
+  ],
 };
 
 describe("deleteAppAction", () => {
@@ -109,6 +119,7 @@ describe("deleteAppAction", () => {
     vi.mocked(deleteManagedGitHubRepository).mockResolvedValue(undefined);
     vi.mocked(deleteAzureDeployment).mockResolvedValue(undefined);
     vi.mocked(deleteArtifact).mockResolvedValue(undefined);
+    vi.mocked(safeNotifyAppEvent).mockReset();
     vi.mocked(recordAuditEvent).mockResolvedValue(undefined);
     vi.mocked(prisma.appRequest.update).mockResolvedValue(
       ownedRequest as Awaited<ReturnType<typeof prisma.appRequest.update>>,
@@ -149,6 +160,15 @@ describe("deleteAppAction", () => {
     expect(prisma.appRequest.delete).toHaveBeenCalledWith({
       where: { id: "request-123" },
     });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-123",
+      eventKey: "APP_DELETED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123", "collaborator-123"],
+    });
+    expect(
+      vi.mocked(safeNotifyAppEvent).mock.invocationCallOrder[0],
+    ).toBeLessThan(vi.mocked(prisma.appRequest.delete).mock.invocationCallOrder[0]);
     expect(recordAuditEvent).toHaveBeenCalledWith(
       "APP_DELETION_SUCCEEDED",
       expect.objectContaining({

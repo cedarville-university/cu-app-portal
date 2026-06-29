@@ -6,6 +6,7 @@ import {
   userHasAdminRole,
 } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { prisma } from "@/lib/db";
 import { repairPublishingSetup } from "./service";
 
@@ -22,6 +23,34 @@ function revalidatePublishingSetupViews(requestId: string) {
   }
 }
 
+async function notifyIfPublishingSetupBlocked({
+  requestId,
+  actorUserId,
+}: {
+  requestId: string;
+  actorUserId: string;
+}) {
+  try {
+    const appRequest = await prisma.appRequest.findUnique({
+      where: { id: requestId },
+      select: { publishingSetupStatus: true },
+    });
+
+    if (appRequest?.publishingSetupStatus === "BLOCKED") {
+      await safeNotifyAppEvent({
+        appRequestId: requestId,
+        eventKey: "PUBLISHING_SETUP_BLOCKED",
+        actorUserId,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to inspect repaired publishing setup status.", {
+      requestId,
+      error,
+    });
+  }
+}
+
 export async function repairPublishingSetupAction(requestId: string) {
   const userId = await resolveCurrentUserId();
   const isAdmin = await userHasAdminRole(userId);
@@ -35,6 +64,16 @@ export async function repairPublishingSetupAction(requestId: string) {
 
   try {
     await repairPublishingSetup(requestId);
+    await notifyIfPublishingSetupBlocked({
+      requestId,
+      actorUserId: userId,
+    });
+  } catch (error) {
+    await notifyIfPublishingSetupBlocked({
+      requestId,
+      actorUserId: userId,
+    });
+    throw error;
   } finally {
     revalidatePublishingSetupViews(requestId);
   }

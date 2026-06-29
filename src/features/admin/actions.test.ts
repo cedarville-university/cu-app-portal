@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidatePath } from "next/cache";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
@@ -17,6 +18,10 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/lib/audit", () => ({
   recordAuditEvent: vi.fn(),
+}));
+
+vi.mock("@/features/notifications/safe-notify", () => ({
+  safeNotifyAppEvent: vi.fn(),
 }));
 
 vi.mock("./roles", () => ({
@@ -76,6 +81,7 @@ function mockApp(userId = ownerUserId) {
 describe("admin actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(safeNotifyAppEvent).mockReset();
     vi.mocked(requireAdminUserId).mockResolvedValue(adminUserId);
     vi.mocked(prisma.$transaction).mockImplementation(async (callback) => {
       if (typeof callback !== "function") {
@@ -254,6 +260,12 @@ describe("admin actions", () => {
       supportReference,
       targetUserId,
     });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId,
+      eventKey: "APP_SHARED",
+      actorUserId: adminUserId,
+      directRecipientUserIds: [targetUserId],
+    });
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith(`/download/${appRequestId}`);
@@ -333,6 +345,12 @@ describe("admin actions", () => {
       supportReference,
       targetUserId,
     });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId,
+      eventKey: "COLLABORATOR_REMOVED",
+      actorUserId: adminUserId,
+      directRecipientUserIds: [targetUserId],
+    });
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith(`/download/${appRequestId}`);
@@ -382,6 +400,12 @@ describe("admin actions", () => {
       supportReference,
       oldOwnerUserId: ownerUserId,
       newOwnerUserId,
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId,
+      eventKey: "OWNER_REASSIGNED",
+      actorUserId: adminUserId,
+      directRecipientUserIds: [ownerUserId, newOwnerUserId],
     });
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");

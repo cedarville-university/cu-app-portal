@@ -7,6 +7,7 @@ import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
 import { buildArchive } from "@/features/generation/build-archive";
 import { deleteArtifact, saveArtifact } from "@/features/generation/storage";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { publishToAzureAction } from "@/features/publishing/actions";
 import { supportsGeneratedTemplateOneStep } from "@/features/publishing/providers";
 import { grantManagedRepositoryAccess } from "@/features/repositories/access";
@@ -161,6 +162,11 @@ export async function createAppAction(formData: FormData) {
         supportReference,
         repositoryUrl: repository.url,
       });
+      await safeNotifyAppEvent({
+        appRequestId: request.id,
+        eventKey: "REPOSITORY_READY",
+        actorUserId: userId,
+      });
 
       if (currentUser?.githubUsername) {
         await recordAuditEvent("REPOSITORY_ACCESS_REQUESTED", {
@@ -239,6 +245,11 @@ export async function createAppAction(formData: FormData) {
         supportReference,
         error: error instanceof Error ? error.message : "unknown",
       });
+      await safeNotifyAppEvent({
+        appRequestId: request.id,
+        eventKey: "REPOSITORY_FAILED",
+        actorUserId: userId,
+      });
     }
 
     await prisma.appRequest.update({
@@ -249,6 +260,11 @@ export async function createAppAction(formData: FormData) {
     await recordAuditEvent("APP_REQUEST_SUCCEEDED", {
       requestId: request.id,
       supportReference,
+    });
+    await safeNotifyAppEvent({
+      appRequestId: request.id,
+      eventKey: "APP_CREATED",
+      actorUserId: userId,
     });
 
     if (createIntent === "createAndPublish" && repositoryReady) {
@@ -276,6 +292,11 @@ export async function createAppAction(formData: FormData) {
           requestId: request.id,
           error: errorSummary,
           initialPublish: true,
+        });
+        await safeNotifyAppEvent({
+          appRequestId: request.id,
+          eventKey: "PUBLISH_FAILED",
+          actorUserId: userId,
         });
       }
     }

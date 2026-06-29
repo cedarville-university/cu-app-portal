@@ -8,6 +8,7 @@ import {
 } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { deleteArtifact } from "@/features/generation/storage";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent, type AuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
@@ -68,6 +69,9 @@ async function loadDeletableAppRequest(requestId: string) {
       : { id: requestId, userId: actorUserId },
     include: {
       artifact: true,
+      collaborators: {
+        select: { userId: true },
+      },
     },
   });
 
@@ -165,13 +169,32 @@ async function markExternalDeletions(
   });
 }
 
-async function deletePortalRecord(appRequest: {
-  id: string;
-  artifact: { storagePath: string } | null;
+function appDeletionRecipientUserIds(appRequest: {
+  userId: string;
+  collaborators?: Array<{ userId: string }>;
 }) {
+  return Array.from(
+    new Set([
+      appRequest.userId,
+      ...(appRequest.collaborators ?? []).map(
+        (collaborator) => collaborator.userId,
+      ),
+    ]),
+  );
+}
+
+async function deletePortalRecord(
+  appRequest: {
+    id: string;
+    artifact: { storagePath: string } | null;
+  },
+  beforeDelete?: () => Promise<void>,
+) {
   if (appRequest.artifact?.storagePath) {
     await deleteArtifact(appRequest.artifact.storagePath);
   }
+
+  await beforeDelete?.();
 
   await prisma.$transaction(async (tx) => {
     await tx.publishAttempt.deleteMany({
@@ -244,7 +267,14 @@ async function deleteApp(requestId: string, formData: FormData) {
     }
 
     if (targets.portal) {
-      await deletePortalRecord(appRequest);
+      await deletePortalRecord(appRequest, async () => {
+        await safeNotifyAppEvent({
+          appRequestId: requestId,
+          eventKey: "APP_DELETED",
+          actorUserId,
+          directRecipientUserIds: appDeletionRecipientUserIds(appRequest),
+        });
+      });
       redirectToApps = true;
     } else {
       await markExternalDeletions(requestId, completed);
