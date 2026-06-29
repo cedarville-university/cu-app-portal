@@ -53,6 +53,7 @@ export function isCedarvilleMemberUser(
   const emails = allEmails(user);
 
   return (
+    hasAllowedDomain(normalizedSubmittedEmail, allowedEmailDomain) &&
     emails.includes(normalizedSubmittedEmail) &&
     emails.some((email) => hasAllowedDomain(email, allowedEmailDomain))
   );

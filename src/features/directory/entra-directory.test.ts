@@ -57,6 +57,24 @@ describe("isCedarvilleMemberUser", () => {
     ).toBe(true);
   });
 
+  it("rejects a non-Cedarville submitted email even when the member has Cedarville aliases", () => {
+    expect(
+      isCedarvilleMemberUser(
+        {
+          id: "entra-123",
+          displayName: "Portal Staff",
+          mail: "primary@cedarville.edu",
+          userPrincipalName: "primary@cedarville.edu",
+          userType: "Member",
+          proxyAddresses: ["SMTP:primary@cedarville.edu", "smtp:alias@cedarville.edu"],
+          otherMails: ["external@example.com"],
+        },
+        "external@example.com",
+        "cedarville.edu",
+      ),
+    ).toBe(false);
+  });
+
   it("rejects guest users and non-Cedarville addresses", () => {
     expect(
       isCedarvilleMemberUser(
