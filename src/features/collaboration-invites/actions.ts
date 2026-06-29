@@ -26,6 +26,10 @@ const INVITED_ACCOUNT_ERROR =
 
 type InviteManagerContext = {
   actorUserId: string;
+  actorUser: {
+    displayName: string;
+    email: string;
+  };
   appRequest: {
     id: string;
     userId: string;
@@ -178,7 +182,19 @@ async function requireInviteManager(
     throw new Error(MANAGE_INVITES_ERROR);
   }
 
-  return { actorUserId, appRequest };
+  const actorUser = await prisma.user.findUnique({
+    where: { id: actorUserId },
+    select: {
+      displayName: true,
+      email: true,
+    },
+  });
+
+  if (!actorUser) {
+    throw new Error("Authenticated user not found.");
+  }
+
+  return { actorUserId, actorUser, appRequest };
 }
 
 function createGraphTokenProvider(config: {
@@ -334,7 +350,8 @@ export async function sendCollaborationInviteAction(
   appRequestId: string,
   formData: FormData,
 ) {
-  const { actorUserId, appRequest } = await requireInviteManager(appRequestId);
+  const { actorUserId, actorUser, appRequest } =
+    await requireInviteManager(appRequestId);
   const submittedEmail = formData.get("email");
 
   if (typeof submittedEmail !== "string" || submittedEmail.trim().length === 0) {
@@ -443,7 +460,7 @@ export async function sendCollaborationInviteAction(
     mailer,
     smtpConfig,
     recipientEmail: eligibleUser.email,
-    inviterName: appRequest.user.displayName,
+    inviterName: actorUser.displayName,
     appName: appRequest.appName,
     token,
   });
@@ -466,6 +483,8 @@ export async function sendCollaborationInviteAction(
     supportReference: appRequest.supportReference,
     inviteId: invite.id,
     targetEmail: eligibleUser.email,
+    inviterEmail: actorUser.email,
+    inviterDisplayName: actorUser.displayName,
     deliveryStatus: delivery.status,
   });
 
@@ -505,7 +524,8 @@ export async function resendCollaborationInviteAction(
   appRequestId: string,
   inviteId: string,
 ) {
-  const { actorUserId, appRequest } = await requireInviteManager(appRequestId);
+  const { actorUserId, actorUser, appRequest } =
+    await requireInviteManager(appRequestId);
   const invite = await prisma.collaborationInvite.findFirst({
     where: {
       id: inviteId,
@@ -541,7 +561,7 @@ export async function resendCollaborationInviteAction(
     mailer,
     smtpConfig,
     recipientEmail: invite.invitedEmail,
-    inviterName: appRequest.user.displayName,
+    inviterName: actorUser.displayName,
     appName: appRequest.appName,
     token,
   });
@@ -566,6 +586,8 @@ export async function resendCollaborationInviteAction(
     supportReference: appRequest.supportReference,
     inviteId: invite.id,
     targetEmail: invite.invitedEmail,
+    inviterEmail: actorUser.email,
+    inviterDisplayName: actorUser.displayName,
     deliveryStatus: delivery.status,
   });
   revalidatePath(`/download/${appRequestId}`);

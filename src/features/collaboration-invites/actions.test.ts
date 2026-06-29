@@ -77,6 +77,7 @@ vi.mock("@/lib/db", () => ({
       upsert: vi.fn(),
     },
     user: {
+      findUnique: vi.fn(),
       upsert: vi.fn(),
     },
   },
@@ -91,6 +92,18 @@ const ownerAppRequest = {
     displayName: "Owner User",
     email: "owner@cedarville.edu",
   },
+};
+
+const ownerUser = {
+  id: "owner-123",
+  displayName: "Owner User",
+  email: "owner@cedarville.edu",
+};
+
+const adminUser = {
+  id: "admin-123",
+  displayName: "Admin Actor",
+  email: "admin@cedarville.edu",
 };
 
 const eligibleDirectoryUser = {
@@ -160,6 +173,9 @@ describe("collaboration invite actions", () => {
     vi.mocked(prisma.notificationDelivery.create).mockResolvedValue({
       id: "delivery-123",
     } as Awaited<ReturnType<typeof prisma.notificationDelivery.create>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      ownerUser as Awaited<ReturnType<typeof prisma.user.findUnique>>,
+    );
     vi.mocked(prisma.user.upsert).mockResolvedValue({
       id: "invited-user-123",
       entraOid: "entra-456",
@@ -206,6 +222,46 @@ describe("collaboration invite actions", () => {
         lastSentAt: expect.any(Date),
       }),
     });
+    expect(mocks.mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("Owner User"),
+        text: expect.stringContaining(
+          "Owner User invited you to collaborate on Campus Forms",
+        ),
+      }),
+    );
+  });
+
+  it("uses the admin actor as the inviter when an admin sends an invite", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("admin-123");
+    vi.mocked(userHasAdminRole).mockResolvedValue(true);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      adminUser as Awaited<ReturnType<typeof prisma.user.findUnique>>,
+    );
+
+    await sendCollaborationInviteAction("request-123", inviteForm());
+
+    expect(mocks.mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("Admin Actor"),
+        text: expect.stringContaining(
+          "Admin Actor invited you to collaborate on Campus Forms",
+        ),
+      }),
+    );
+    expect(mocks.mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.not.stringContaining("Owner User"),
+        text: expect.not.stringContaining("Owner User invited"),
+      }),
+    );
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      "COLLABORATION_INVITE_SENT",
+      expect.objectContaining({
+        actorUserId: "admin-123",
+        inviterEmail: "admin@cedarville.edu",
+      }),
+    );
   });
 
   it("refreshes the pending invite when concurrent send hits the pending unique index", async () => {
@@ -330,6 +386,43 @@ describe("collaboration invite actions", () => {
     expect(recordAuditEvent).toHaveBeenCalledWith(
       "COLLABORATION_INVITE_RESENT",
       expect.objectContaining({ deliveryStatus: "SENT" }),
+    );
+  });
+
+  it("uses the admin actor as the inviter when an admin resends an invite", async () => {
+    const previousExpiresAt = new Date("2026-07-01T12:00:00Z");
+    const previousLastSentAt = new Date("2026-06-20T12:00:00Z");
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("admin-123");
+    vi.mocked(userHasAdminRole).mockResolvedValue(true);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(
+      adminUser as Awaited<ReturnType<typeof prisma.user.findUnique>>,
+    );
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValueOnce({
+      id: "invite-123",
+      appRequestId: "request-123",
+      invitedEmail: "invited@cedarville.edu",
+      tokenHash: "old-token-hash",
+      expiresAt: previousExpiresAt,
+      lastSentAt: previousLastSentAt,
+      status: "PENDING",
+    } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+
+    await resendCollaborationInviteAction("request-123", "invite-123");
+
+    expect(mocks.mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.stringContaining("Admin Actor"),
+        text: expect.stringContaining(
+          "Admin Actor invited you to collaborate on Campus Forms",
+        ),
+      }),
+    );
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      "COLLABORATION_INVITE_RESENT",
+      expect.objectContaining({
+        actorUserId: "admin-123",
+        inviterEmail: "admin@cedarville.edu",
+      }),
     );
   });
 
