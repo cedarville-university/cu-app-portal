@@ -24,6 +24,7 @@ import {
   prepareExistingAppAction,
   verifyExistingAppPreparationAction,
 } from "@/features/repository-imports/actions";
+import { CollaborationInvitePanel } from "@/features/collaboration-invites/invite-panel";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import {
   buildCodexHandoffPrompt,
@@ -783,6 +784,13 @@ export default async function DownloadPage({
         },
         orderBy: { createdAt: "asc" },
       },
+      collaborationInvites: {
+        where: { status: "PENDING" },
+        orderBy: { createdAt: "desc" },
+        include: {
+          inviter: { select: { displayName: true, email: true } },
+        },
+      },
       publishAttempts: {
         orderBy: { createdAt: "desc" },
         take: 1,
@@ -895,6 +903,13 @@ export default async function DownloadPage({
           owner: appRequest.user,
           collaborators: appRequest.collaborators,
         })}
+
+        {appRequest.userId === userId || isAdmin ? (
+          <CollaborationInvitePanel
+            appRequestId={appRequest.id}
+            pendingInvites={appRequest.collaborationInvites}
+          />
+        ) : null}
 
         {/* Repository section */}
         <div className="card card--navy-border">
