@@ -46,13 +46,36 @@ describe("SettingsPage", () => {
     expect(
       screen.getByText("Choose which portal updates are sent to owner@cedarville.edu."),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Email notifications")).toBeChecked();
-    expect(screen.getByLabelText("Collaboration emails")).toBeChecked();
-    expect(screen.getByLabelText("App lifecycle emails")).toBeChecked();
-    expect(screen.getByLabelText("Publishing emails")).toBeChecked();
     expect(
-      screen.getByRole("group", { name: "Notification preferences" }),
+      screen.getByRole("group", { name: "Email notification master switch" }),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Email notifications")).toBeChecked();
+    expect(
+      screen.getByText(
+        "Turns all portal email notifications on or off. When this is off, the category choices below are ignored.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Email categories" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("These only apply when Email notifications is on."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(
+        "Collaboration emails (shared apps, collaborator changes, accepted invites)",
+      ),
+    ).toBeChecked();
+    expect(
+      screen.getByLabelText(
+        "App lifecycle emails (app created, repository ready, app deleted)",
+      ),
+    ).toBeChecked();
+    expect(
+      screen.getByLabelText(
+        "Publishing emails (publish succeeded or failed, setup needs repair)",
+      ),
+    ).toBeChecked();
     expect(
       screen.getByRole("button", { name: "Save Settings" }),
     ).toBeInTheDocument();

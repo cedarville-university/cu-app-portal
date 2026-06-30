@@ -85,43 +85,73 @@ export default async function SettingsPage() {
               Choose which portal updates are sent to {user.email}.
             </p>
 
-            <fieldset className="form-stack" style={{ border: 0, padding: 0 }}>
-              <legend>Notification preferences</legend>
+            <fieldset
+              className="form-stack"
+              style={{
+                background: "var(--bg-light)",
+                border: "1px solid var(--border)",
+                borderRadius: "var(--radius)",
+                padding: "1rem",
+              }}
+            >
+              <legend>Email notification master switch</legend>
 
-              <label>
+              <label style={{ fontWeight: 700 }}>
                 <input
+                  aria-describedby="email-notifications-help"
                   type="checkbox"
                   name="emailNotificationsEnabled"
                   defaultChecked={preferences.emailNotificationsEnabled}
                 />{" "}
                 Email notifications
               </label>
+              <p
+                id="email-notifications-help"
+                style={{ color: "var(--text-secondary)", margin: 0 }}
+              >
+                Turns all portal email notifications on or off. When this is off, the
+                category choices below are ignored.
+              </p>
+            </fieldset>
+
+            <fieldset className="form-stack" style={{ border: 0, padding: 0 }}>
+              <legend>Email categories</legend>
+              <p
+                id="email-categories-help"
+                style={{ color: "var(--text-secondary)", margin: 0 }}
+              >
+                These only apply when Email notifications is on.
+              </p>
 
               <label>
                 <input
+                  aria-describedby="email-categories-help"
                   type="checkbox"
                   name="collaborationEmailsEnabled"
                   defaultChecked={preferences.collaborationEmailsEnabled}
                 />{" "}
-                Collaboration emails
+                Collaboration emails (shared apps, collaborator changes, accepted
+                invites)
               </label>
 
               <label>
                 <input
+                  aria-describedby="email-categories-help"
                   type="checkbox"
                   name="appLifecycleEmailsEnabled"
                   defaultChecked={preferences.appLifecycleEmailsEnabled}
                 />{" "}
-                App lifecycle emails
+                App lifecycle emails (app created, repository ready, app deleted)
               </label>
 
               <label>
                 <input
+                  aria-describedby="email-categories-help"
                   type="checkbox"
                   name="publishingEmailsEnabled"
                   defaultChecked={preferences.publishingEmailsEnabled}
                 />{" "}
-                Publishing emails
+                Publishing emails (publish succeeded or failed, setup needs repair)
               </label>
             </fieldset>
           </section>
