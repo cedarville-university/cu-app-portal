@@ -8,6 +8,7 @@ vi.mock("@/lib/audit", () => ({ recordAuditEvent: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     notificationPreference: { upsert: vi.fn() },
+    user: { update: vi.fn() },
   },
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -30,9 +31,14 @@ describe("updateNotificationPreferencesAction", () => {
     formData.set("emailNotificationsEnabled", "on");
     formData.set("collaborationEmailsEnabled", "on");
     formData.set("appLifecycleEmailsEnabled", "on");
+    formData.set("githubUsername", "PortalStaff");
 
     await updateNotificationPreferencesAction(formData);
 
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-123" },
+      data: { githubUsername: "PortalStaff" },
+    });
     expect(prisma.notificationPreference.upsert).toHaveBeenCalledWith({
       where: { userId: "user-123" },
       update: {
@@ -69,5 +75,29 @@ describe("updateNotificationPreferencesAction", () => {
 
     expect(prisma.notificationPreference.upsert).toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/settings");
+  });
+
+  it("clears the GitHub username when the field is blank", async () => {
+    const formData = new FormData();
+    formData.set("githubUsername", "   ");
+
+    await updateNotificationPreferencesAction(formData);
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-123" },
+      data: { githubUsername: null },
+    });
+  });
+
+  it("rejects invalid GitHub usernames before saving settings", async () => {
+    const formData = new FormData();
+    formData.set("githubUsername", "-bad-name");
+
+    await expect(updateNotificationPreferencesAction(formData)).rejects.toThrow(
+      "Enter a valid GitHub username.",
+    );
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.notificationPreference.upsert).not.toHaveBeenCalled();
   });
 });
