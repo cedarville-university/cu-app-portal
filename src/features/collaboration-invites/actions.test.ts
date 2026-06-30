@@ -15,6 +15,7 @@ import {
   resendCollaborationInviteAction,
   revokeCollaborationInviteAction,
   sendCollaborationInviteAction,
+  sendCollaborationInviteFormAction,
 } from "./actions";
 
 const mocks = vi.hoisted(() => ({
@@ -377,6 +378,36 @@ describe("collaboration invite actions", () => {
     expect(createEntraDirectoryClient).not.toHaveBeenCalled();
     expect(prisma.collaborationInvite.create).not.toHaveBeenCalled();
     expect(mocks.mailer.send).not.toHaveBeenCalled();
+  });
+
+  it("returns lookup failures as invite form state instead of throwing", async () => {
+    vi.mocked(loadDirectoryConfig).mockImplementationOnce(() => {
+      throw new Error("Missing Entra directory configuration.");
+    });
+
+    await expect(
+      sendCollaborationInviteFormAction(
+        "request-123",
+        { error: null, deliveryStatus: null },
+        inviteForm(),
+      ),
+    ).resolves.toEqual({
+      error: "The portal is unable to look up that email address right now.",
+      deliveryStatus: null,
+    });
+
+    expect(prisma.collaborationInvite.create).not.toHaveBeenCalled();
+    expect(mocks.mailer.send).not.toHaveBeenCalled();
+  });
+
+  it("returns sent delivery status as invite form state", async () => {
+    await expect(
+      sendCollaborationInviteFormAction(
+        "request-123",
+        { error: "Previous error.", deliveryStatus: null },
+        inviteForm(),
+      ),
+    ).resolves.toEqual({ error: null, deliveryStatus: "SENT" });
   });
 
   it("revokes a pending invite", async () => {

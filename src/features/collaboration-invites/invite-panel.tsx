@@ -1,9 +1,9 @@
 import React from "react";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
+import { CollaborationInviteForm } from "./invite-form";
 import {
   resendCollaborationInviteAction,
   revokeCollaborationInviteAction,
-  sendCollaborationInviteAction,
 } from "./actions";
 
 export type PendingInvite = {
@@ -33,49 +33,10 @@ export function CollaborationInvitePanel({
   appRequestId: string;
   pendingInvites: PendingInvite[];
 }) {
-  const sendAction = sendCollaborationInviteAction.bind(
-    null,
-    appRequestId,
-  ) as unknown as FormAction;
-
   return (
     <section aria-label="Invite collaborators" className="card">
       <h2 className="section-title">Invite Collaborators</h2>
-      <form
-        action={sendAction}
-        style={{
-          display: "flex",
-          gap: "0.625rem",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-          marginBottom: "1rem",
-        }}
-      >
-        <label
-          style={{
-            display: "grid",
-            gap: "0.25rem",
-            flex: "1 1 260px",
-            maxWidth: "360px",
-          }}
-        >
-          <span>Coworker email</span>
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="name@cedarville.edu"
-            className="form-control"
-          />
-        </label>
-        <PendingSubmitButton
-          idleLabel="Send Invite"
-          pendingLabel="Sending Invite..."
-          statusText="Sending collaboration invite."
-          variant="primary-solid"
-          size="sm"
-        />
-      </form>
+      <CollaborationInviteForm appRequestId={appRequestId} />
 
       {pendingInvites.length ? (
         <ul

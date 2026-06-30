@@ -17,7 +17,7 @@ vi.mock("react-dom", async (importOriginal) => {
 vi.mock("./actions", () => ({
   resendCollaborationInviteAction: vi.fn(),
   revokeCollaborationInviteAction: vi.fn(),
-  sendCollaborationInviteAction: vi.fn(),
+  sendCollaborationInviteFormAction: vi.fn(),
 }));
 
 beforeEach(() => {

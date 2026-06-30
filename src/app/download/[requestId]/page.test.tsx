@@ -56,7 +56,7 @@ vi.mock("@/features/repository-imports/actions", () => ({
 vi.mock("@/features/collaboration-invites/actions", () => ({
   resendCollaborationInviteAction: vi.fn(),
   revokeCollaborationInviteAction: vi.fn(),
-  sendCollaborationInviteAction: vi.fn(),
+  sendCollaborationInviteFormAction: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({

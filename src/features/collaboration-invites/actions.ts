@@ -26,6 +26,9 @@ const INVITED_ACCOUNT_ERROR =
   "Sign in with the invited Cedarville account to accept this invite.";
 const DIRECTORY_LOOKUP_UNAVAILABLE_ERROR =
   "The portal is unable to look up that email address right now.";
+const EMAIL_REQUIRED_ERROR = "Email is required.";
+const INELIGIBLE_INVITEE_ERROR =
+  "Invitee must be an eligible Cedarville member.";
 
 type InviteManagerContext = {
   actorUserId: string;
@@ -50,6 +53,11 @@ type DeliveryResult =
   | { status: "FAILED"; errorSummary: string };
 
 type DeliveryStatus = DeliveryResult["status"];
+
+export type CollaborationInviteFormState = {
+  error: string | null;
+  deliveryStatus: DeliveryStatus | null;
+};
 
 type InviteEmailInput = {
   inviterName: string;
@@ -258,6 +266,24 @@ function buildInviteMessage({
   };
 }
 
+function inviteFormErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const expectedMessages = new Set([
+    MANAGE_INVITES_ERROR,
+    DIRECTORY_LOOKUP_UNAVAILABLE_ERROR,
+    EMAIL_REQUIRED_ERROR,
+    INELIGIBLE_INVITEE_ERROR,
+  ]);
+
+  if (expectedMessages.has(message)) {
+    return message;
+  }
+
+  console.error("Collaboration invite form submission failed.", error);
+
+  return "The portal could not send that invite right now. Try again or contact support.";
+}
+
 async function sendInviteEmail({
   mailer,
   smtpConfig,
@@ -384,14 +410,14 @@ export async function sendCollaborationInviteAction(
   const submittedEmail = formData.get("email");
 
   if (typeof submittedEmail !== "string" || submittedEmail.trim().length === 0) {
-    throw new Error("Email is required.");
+    throw new Error(EMAIL_REQUIRED_ERROR);
   }
 
   const normalizedEmail = normalizeEmail(submittedEmail);
   const eligibleUser = await findEligibleInviteeByEmail(normalizedEmail);
 
   if (!eligibleUser) {
-    throw new Error("Invitee must be an eligible Cedarville member.");
+    throw new Error(INELIGIBLE_INVITEE_ERROR);
   }
 
   const token = createInviteToken();
@@ -519,6 +545,23 @@ export async function sendCollaborationInviteAction(
   revalidatePath(`/download/${appRequestId}`);
 
   return { deliveryStatus: delivery.status satisfies DeliveryStatus };
+}
+
+export async function sendCollaborationInviteFormAction(
+  appRequestId: string,
+  _state: CollaborationInviteFormState,
+  formData: FormData,
+): Promise<CollaborationInviteFormState> {
+  try {
+    const result = await sendCollaborationInviteAction(appRequestId, formData);
+
+    return { error: null, deliveryStatus: result.deliveryStatus };
+  } catch (error) {
+    return {
+      error: inviteFormErrorMessage(error),
+      deliveryStatus: null,
+    };
+  }
 }
 
 export async function revokeCollaborationInviteAction(
