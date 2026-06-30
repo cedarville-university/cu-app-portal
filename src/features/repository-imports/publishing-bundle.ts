@@ -1,6 +1,7 @@
 import { buildDeploymentManifest } from "@/features/generation/deployment-manifest";
 import {
   HTTP_SERVER_START_PATH,
+  IMPORTED_EXPRESS_RUNTIME,
   IMPORTED_NEXT_RUNTIME,
   PUBLISHING_BUNDLE_PATHS,
   publishingBundlePathsForRuntime,
@@ -91,6 +92,54 @@ jobs:
           package: \${{ env.DEPLOY_PACKAGE_PATH }}
 `;
 
+const NODE_SERVER_DEPLOY_WORKFLOW = `name: Deploy to Azure App Service
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  AZURE_WEBAPP_NAME: \${{ secrets.AZURE_WEBAPP_NAME }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: \${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: \${{ env.AZURE_WEBAPP_NAME }}
+          package: .
+`;
+
 const HTTP_SERVER_START = `from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import os
@@ -109,7 +158,18 @@ function usesNextPublishingDefaults(runtime: ImportedAppRuntime) {
   return runtime.framework === IMPORTED_NEXT_RUNTIME.framework;
 }
 
+function usesNodePackageDefaults(runtime: ImportedAppRuntime) {
+  return (
+    runtime.framework === IMPORTED_NEXT_RUNTIME.framework ||
+    runtime.framework === IMPORTED_EXPRESS_RUNTIME.framework
+  );
+}
+
 function buildDeployWorkflow(runtime: ImportedAppRuntime) {
+  if (runtime.framework === "express") {
+    return NODE_SERVER_DEPLOY_WORKFLOW;
+  }
+
   if (runtime.framework === "http-server") {
     return `name: Deploy to Azure App Service
 
@@ -298,7 +358,10 @@ function buildImportedManifest(
   )}\n`;
 }
 
-function updatePackageJson(rawPackageJson: string) {
+function updatePackageJson(
+  rawPackageJson: string,
+  runtime: ImportedAppRuntime,
+) {
   const parsed = JSON.parse(rawPackageJson) as {
     scripts?: Record<string, string>;
     engines?: Record<string, string>;
@@ -306,7 +369,7 @@ function updatePackageJson(rawPackageJson: string) {
   };
   let changed = false;
 
-  if (!parsed.scripts?.start) {
+  if (runtime.framework === "nextjs" && !parsed.scripts?.start) {
     parsed.scripts = { ...parsed.scripts, start: "next start" };
     changed = true;
   }
@@ -343,8 +406,8 @@ export function planPublishingBundle({
 
   const filesToWrite: Record<string, string> = {};
   const updatedPackageJson =
-    usesNextPublishingDefaults(runtime)
-      ? updatePackageJson(files["package.json"])
+    usesNodePackageDefaults(runtime)
+      ? updatePackageJson(files["package.json"], runtime)
       : null;
 
   if (updatedPackageJson) {

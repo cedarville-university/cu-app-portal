@@ -17,6 +17,15 @@ const httpServerRuntime = {
   workflowFileName: "deploy-azure-app-service.yml",
 };
 
+const expressRuntime = {
+  family: "node",
+  framework: "express",
+  displayName: "Node.js 24 / Express",
+  azureRuntimeStack: "NODE|24-lts",
+  startupCommand: "npm start",
+  workflowFileName: "deploy-azure-app-service.yml",
+};
+
 const httpServerStartPath = "app-portal/http_server_start.py";
 
 function readRequestedFiles(repositoryFiles: Record<string, string>) {
@@ -163,6 +172,53 @@ describe("prepareImportedRepository", () => {
           [httpServerStartPath]: expect.stringContaining("http.server"),
           "app-portal/deployment-manifest.json": expect.stringContaining(
             '"framework": "http-server"',
+          ),
+        }),
+      }),
+    );
+  });
+
+  it("commits Express publishing additions directly", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
+      readRepositoryTextFiles: readRequestedFiles({
+        "package.json": JSON.stringify({
+          scripts: { start: "node server.js" },
+          dependencies: { express: "^5.2.1", mqtt: "^5.15.0", ws: "^8.19.0" },
+        }),
+        "package-lock.json": "{}",
+        "server.js": "const express = require('express');\n",
+        "web/index.html": "<h1>Dashboard</h1>",
+      }),
+      commitFiles: vi.fn().mockResolvedValue({ commitSha: "commit-sha" }),
+      createPullRequestWithFiles: vi.fn(),
+    };
+
+    await expect(
+      prepareImportedRepository({
+        appName: "H2D Dashboard",
+        owner: "cu-app-portal-repos",
+        name: "h2d-dashboard",
+        defaultBranch: "main",
+        mode: "DIRECT_COMMIT",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: expressRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+    expect(github.commitFiles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        files: expect.objectContaining({
+          "package.json": expect.stringContaining('"node": ">=24"'),
+          ".github/workflows/deploy-azure-app-service.yml":
+            expect.stringContaining("package: ."),
+          "app-portal/deployment-manifest.json": expect.stringContaining(
+            '"framework": "express"',
           ),
         }),
       }),
@@ -399,7 +455,7 @@ describe("prepareImportedRepository", () => {
         github,
       }),
     ).rejects.toThrow(
-      "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
+      "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
     );
   });
 });

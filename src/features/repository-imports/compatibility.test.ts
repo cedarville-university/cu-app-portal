@@ -1,19 +1,40 @@
 import { describe, expect, it } from "vitest";
 import {
+  IMPORTED_EXPRESS_RUNTIME,
   IMPORTED_NEXT_RUNTIME,
   scanRepositoryCompatibility,
 } from "./compatibility";
 
 const UNSUPPORTED_RUNTIME_MESSAGE =
-  "Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.";
+  "Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.";
 
 const AMBIGUOUS_RUNTIME_MESSAGE =
-  "Repository matches multiple supported runtimes. Keep one root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.";
+  "Repository matches multiple supported runtimes. Keep one root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.";
 
 const UNSUPPORTED_WORKSPACE_MESSAGE =
-  "V1 supports single root Next.js, FastAPI, or Python static apps, not workspace roots.";
+  "V1 supports single root Next.js, Express, FastAPI, or Python static apps, not workspace roots.";
 
 describe("scanRepositoryCompatibility", () => {
+  it("accepts a root Express npm app with a start script", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "package.json": JSON.stringify({
+          scripts: { start: "node server.js" },
+          dependencies: { express: "^5.2.1", mqtt: "^5.15.0", ws: "^8.19.0" },
+          engines: { node: ">=24" },
+        }),
+        "package-lock.json": "{}",
+        "server.js": "const express = require('express');\n",
+        "web/index.html": "<h1>Dashboard</h1>",
+      }),
+    ).toEqual({
+      status: "COMPATIBLE",
+      findings: [],
+      canDirectCommit: true,
+      runtime: IMPORTED_EXPRESS_RUNTIME,
+    });
+  });
+
   it("accepts a root Next-style npm app that already has build and start scripts", () => {
     expect(
       scanRepositoryCompatibility({
@@ -414,6 +435,29 @@ describe("scanRepositoryCompatibility", () => {
     });
   });
 
+  it("marks safe additions when an Express app is missing engines.node", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "package.json": JSON.stringify({
+          scripts: { start: "node server.js" },
+          dependencies: { express: "^5.2.1" },
+        }),
+      }),
+    ).toEqual({
+      status: "NEEDS_ADDITIONS",
+      findings: [
+        {
+          code: "MISSING_NODE_ENGINE",
+          severity: "warning",
+          message:
+            'package.json is missing engines.node; the portal can add ">=24".',
+        },
+      ],
+      canDirectCommit: true,
+      runtime: IMPORTED_EXPRESS_RUNTIME,
+    });
+  });
+
   it("rejects unsupported package manager lockfiles", () => {
     expect(
       scanRepositoryCompatibility({
@@ -525,6 +569,29 @@ describe("scanRepositoryCompatibility", () => {
       ],
       canDirectCommit: false,
       runtime: IMPORTED_NEXT_RUNTIME,
+    });
+  });
+
+  it("rejects Express apps without a start script", () => {
+    expect(
+      scanRepositoryCompatibility({
+        "package.json": JSON.stringify({
+          dependencies: { express: "^5.2.1" },
+          engines: { node: ">=24" },
+        }),
+      }),
+    ).toEqual({
+      status: "UNSUPPORTED",
+      findings: [
+        {
+          code: "MISSING_START_SCRIPT",
+          severity: "error",
+          message: "package.json must include a start script.",
+          path: "package.json",
+        },
+      ],
+      canDirectCommit: false,
+      runtime: IMPORTED_EXPRESS_RUNTIME,
     });
   });
 

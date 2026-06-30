@@ -10,6 +10,14 @@ export type ImportedAppRuntime =
       workflowFileName: "deploy-azure-app-service.yml";
     }
   | {
+      family: "node";
+      framework: "express";
+      displayName: "Node.js 24 / Express";
+      azureRuntimeStack: "NODE|24-lts";
+      startupCommand: "npm start";
+      workflowFileName: "deploy-azure-app-service.yml";
+    }
+  | {
       family: "python";
       framework: "fastapi";
       displayName: "Python 3.14 / FastAPI";
@@ -30,6 +38,15 @@ export const IMPORTED_NEXT_RUNTIME = {
   family: "node",
   framework: "nextjs",
   displayName: "Node.js 24 / Next.js",
+  azureRuntimeStack: "NODE|24-lts",
+  startupCommand: "npm start",
+  workflowFileName: "deploy-azure-app-service.yml",
+} as const satisfies ImportedAppRuntime;
+
+export const IMPORTED_EXPRESS_RUNTIME = {
+  family: "node",
+  framework: "express",
+  displayName: "Node.js 24 / Express",
   azureRuntimeStack: "NODE|24-lts",
   startupCommand: "npm start",
   workflowFileName: "deploy-azure-app-service.yml",
@@ -160,6 +177,12 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
 
 function hasNextDependency(packageJson: PackageJson) {
   return Boolean(packageJson.dependencies?.next ?? packageJson.devDependencies?.next);
+}
+
+function hasExpressDependency(packageJson: PackageJson) {
+  return Boolean(
+    packageJson.dependencies?.express ?? packageJson.devDependencies?.express,
+  );
 }
 
 function parsePythonDependencyName(rawDependency: string) {
@@ -313,11 +336,13 @@ export function scanRepositoryCompatibility(
   const findings: CompatibilityFinding[] = [];
   const { packageJson, finding } = parsePackageJson(files);
   const hasNextRuntime = packageJson ? hasNextDependency(packageJson) : false;
+  const hasExpressRuntime = packageJson ? hasExpressDependency(packageJson) : false;
   const hasFastApiRuntime = hasFastApiDependency(files);
   const hasHttpServerStaticRoot = hasHttpServerStaticRootSignal(files);
   const hasEligibleHttpServerRuntime = hasHttpServerRuntime(files);
   const isAmbiguousRuntime =
-    hasNextRuntime && (hasFastApiRuntime || hasHttpServerStaticRoot);
+    (hasNextRuntime && (hasExpressRuntime || hasFastApiRuntime || hasHttpServerStaticRoot)) ||
+    (hasExpressRuntime && hasFastApiRuntime);
   const fastApiEntrypoint = hasFastApiRuntime
     ? detectFastApiEntrypoint(files)
     : null;
@@ -327,6 +352,8 @@ export function scanRepositoryCompatibility(
   const runtime =
     hasNextRuntime && !isAmbiguousRuntime
       ? IMPORTED_NEXT_RUNTIME
+      : hasExpressRuntime && !isAmbiguousRuntime
+        ? IMPORTED_EXPRESS_RUNTIME
       : fastApiEntrypoint && hasSupportedFastApiServer && !isAmbiguousRuntime
         ? importedFastApiRuntime(fastApiEntrypoint)
         : hasEligibleHttpServerRuntime && !hasFastApiRuntime && !isAmbiguousRuntime
@@ -345,10 +372,11 @@ export function scanRepositoryCompatibility(
       code: "AMBIGUOUS_APP_RUNTIME",
       severity: "error",
       message:
-        "Repository matches multiple supported runtimes. Keep one root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
+        "Repository matches multiple supported runtimes. Keep one root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
     });
   } else if (
     !hasNextRuntime &&
+    !hasExpressRuntime &&
     !hasFastApiRuntime &&
     !hasEligibleHttpServerRuntime
   ) {
@@ -356,7 +384,7 @@ export function scanRepositoryCompatibility(
       code: "UNSUPPORTED_APP_RUNTIME",
       severity: "error",
       message:
-        "Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
+        "Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
     });
   }
 
@@ -387,13 +415,17 @@ export function scanRepositoryCompatibility(
         path: "package.json",
       });
     }
+  }
 
+  if (packageJson && (hasNextRuntime || hasExpressRuntime)) {
     if (!packageJson.scripts?.start) {
       findings.push({
         code: "MISSING_START_SCRIPT",
-        severity: "warning",
-        message:
-          "package.json is missing a start script; the portal can add \"next start\".",
+        severity: hasExpressRuntime ? "error" : "warning",
+        message: hasExpressRuntime
+          ? "package.json must include a start script."
+          : "package.json is missing a start script; the portal can add \"next start\".",
+        ...(hasExpressRuntime ? { path: "package.json" } : {}),
       });
     }
 
@@ -405,10 +437,12 @@ export function scanRepositoryCompatibility(
           "package.json is missing engines.node; the portal can add \">=24\".",
       });
     }
-
   }
 
-  if ((hasNextRuntime || isAmbiguousRuntime) && hasUnsupportedLockfile(files)) {
+  if (
+    (hasNextRuntime || hasExpressRuntime || isAmbiguousRuntime) &&
+    hasUnsupportedLockfile(files)
+  ) {
     findings.push({
       code: "UNSUPPORTED_LOCKFILE",
       severity: "error",
@@ -423,7 +457,7 @@ export function scanRepositoryCompatibility(
     findings.push({
       code: "UNSUPPORTED_WORKSPACE_ROOT",
       severity: "error",
-      message: "V1 supports single root Next.js, FastAPI, or Python static apps, not workspace roots.",
+      message: "V1 supports single root Next.js, Express, FastAPI, or Python static apps, not workspace roots.",
       path: workspaceRootPath,
     });
   }

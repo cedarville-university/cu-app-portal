@@ -82,6 +82,15 @@ function isManifestRuntime(value: unknown): value is ImportedAppRuntime {
     );
   }
 
+  if (value.family === "node" && value.framework === "express") {
+    return (
+      value.displayName === "Node.js 24 / Express" &&
+      value.azureRuntimeStack === "NODE|24-lts" &&
+      value.startupCommand === "npm start" &&
+      value.workflowFileName === "deploy-azure-app-service.yml"
+    );
+  }
+
   if (value.family === "python" && value.framework === "http-server") {
     return (
       value.displayName === IMPORTED_HTTP_SERVER_RUNTIME.displayName &&

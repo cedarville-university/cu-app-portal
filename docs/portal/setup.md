@@ -53,7 +53,7 @@ When a submitted repository is outside `GITHUB_DEFAULT_ORG`, the portal imports 
 
 If a user has built an app locally with Codex but has not created any GitHub repository yet, the portal can create the destination repository directly in `GITHUB_DEFAULT_ORG`. The resulting app details page gives Codex a handoff prompt and plain `git` commands to initialize the local folder if needed, add the managed repository as a `portal` remote, and push the current code. GitHub CLI (`gh`) is not required for this path.
 
-V1 supports root Next.js apps, Python FastAPI apps, and plain static Python `http.server` apps with a root `index.html` for Azure App Service publishing. After import or scan, the portal prepares the repository for the matching supported Azure App Service publishing path. Static `http.server` imports do not add PostgreSQL or Microsoft Entra login; use the generated FastAPI template when a Python app needs those options.
+V1 supports root Next.js apps, Express apps, Python FastAPI apps, and plain static Python `http.server` apps with a root `index.html` for Azure App Service publishing. After import or scan, the portal prepares the repository for the matching supported Azure App Service publishing path. Express and static `http.server` imports do not add PostgreSQL or Microsoft Entra login; use a generated template when an app needs those options.
 
 ### Portal-Managed Azure Publishing
 

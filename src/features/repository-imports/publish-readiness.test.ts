@@ -43,6 +43,20 @@ const httpServerManifest = JSON.stringify({
   runtime: httpServerRuntime,
 });
 
+const expressRuntime = {
+  family: "node",
+  framework: "express",
+  displayName: "Node.js 24 / Express",
+  azureRuntimeStack: "NODE|24-lts",
+  startupCommand: "npm start",
+  workflowFileName: "deploy-azure-app-service.yml",
+};
+
+const expressManifest = JSON.stringify({
+  templateSlug: "imported-web-app",
+  runtime: expressRuntime,
+});
+
 const httpServerStartPath = "app-portal/http_server_start.py";
 
 function readRequestedFiles(repositoryFiles: Record<string, string>) {
@@ -195,6 +209,43 @@ describe("verifyImportedPublishReadiness", () => {
     );
   });
 
+  it("verifies Express publishing readiness without database or auth defaults", async () => {
+    const github = {
+      readRepositoryTextFiles: readRequestedFiles({
+        "package.json": JSON.stringify({
+          scripts: { start: "node server.js" },
+          dependencies: { express: "^5.2.1", mqtt: "^5.15.0", ws: "^8.19.0" },
+          engines: { node: ">=24" },
+        }),
+        "package-lock.json": "{}",
+        ...Object.fromEntries(
+          PUBLISHING_BUNDLE_PATHS.map((path) => [
+            path,
+            path === "app-portal/deployment-manifest.json"
+              ? expressManifest
+              : "content",
+          ]),
+        ),
+      }),
+    };
+
+    await expect(
+      verifyImportedPublishReadiness({
+        owner: "cu-app-portal-repos",
+        name: "h2d-dashboard",
+        defaultBranch: "main",
+        github,
+      }),
+    ).resolves.toEqual({
+      ready: true,
+      missingPaths: [],
+      packageIssues: [],
+      runtime: expressRuntime,
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+  });
+
   it("requires the Python start wrapper for http.server readiness", async () => {
     const github = {
       readRepositoryTextFiles: readRequestedFiles({
@@ -253,7 +304,7 @@ describe("verifyImportedPublishReadiness", () => {
       ready: false,
       missingPaths: [],
       packageIssues: [
-        "Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
+        "Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
       ],
       runtime: httpServerRuntime,
       databaseProvider: "none",
@@ -324,7 +375,7 @@ describe("verifyImportedPublishReadiness", () => {
       ready: false,
       missingPaths: [],
       packageIssues: [
-        "Repository must be a root Next.js, FastAPI, or Python static app for portal-managed Azure publishing.",
+        "Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
       ],
       runtime: fastApiRuntime,
       databaseProvider: "none",

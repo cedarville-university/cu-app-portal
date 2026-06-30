@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { IMPORTED_NEXT_RUNTIME } from "./compatibility";
+import { IMPORTED_EXPRESS_RUNTIME, IMPORTED_NEXT_RUNTIME } from "./compatibility";
 import { planPublishingBundle } from "./publishing-bundle";
 
 const FASTAPI_RUNTIME = {
@@ -87,6 +87,65 @@ describe("planPublishingBundle", () => {
     });
 
     expect(plan.filesToWrite["package.json"]).toBeUndefined();
+  });
+
+  it("adds Express publishing files and only fills missing node engine defaults", () => {
+    const plan = planPublishingBundle({
+      appName: "H2D Dashboard",
+      repositoryOwner: "cu-app-portal-repos",
+      repositoryName: "h2d-dashboard",
+      runtime: IMPORTED_EXPRESS_RUNTIME,
+      files: {
+        "package.json": JSON.stringify(
+          {
+            name: "bambu-dashboard",
+            scripts: { start: "node server.js" },
+            dependencies: {
+              express: "^5.2.1",
+              mqtt: "^5.15.0",
+              ws: "^8.19.0",
+            },
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
+    expect(JSON.parse(plan.filesToWrite["package.json"])).toMatchObject({
+      scripts: { start: "node server.js" },
+      engines: { node: ">=24" },
+    });
+
+    const workflow =
+      plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"];
+    expect(workflow).toContain("Setup Node.js");
+    expect(workflow).toContain("npm ci");
+    expect(workflow).not.toContain("npm run build");
+    expect(workflow).toContain("package: .");
+
+    const manifest = JSON.parse(
+      plan.filesToWrite["app-portal/deployment-manifest.json"],
+    );
+    expect(manifest).toMatchObject({
+      templateSlug: "imported-web-app",
+      runtime: {
+        family: "node",
+        framework: "express",
+        azureRuntimeStack: "NODE|24-lts",
+        startupCommand: "npm start",
+      },
+      defaults: {
+        githubRepository: "h2d-dashboard",
+      },
+    });
+    expect(manifest.auth).toBeUndefined();
+    expect(manifest.defaults.azure.shared.postgresServer).toBeUndefined();
+    expect(manifest.applicationSettings).not.toContain("DATABASE_URL");
+    expect(manifest.applicationSettings).not.toContain("AUTH_SECRET");
+    expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
+      "Node.js 24 / Express",
+    );
   });
 
   it("rejects existing target publishing files", () => {

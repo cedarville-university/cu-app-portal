@@ -138,7 +138,7 @@ describe("AddExistingAppPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /currently detects root next.js apps, python fastapi apps, and plain static python apps/i,
+        /currently detects root next.js apps, express apps, python fastapi apps, and plain static python apps/i,
       ),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/github repository url/i)).toHaveAttribute(
