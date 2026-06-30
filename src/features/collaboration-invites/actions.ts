@@ -24,6 +24,8 @@ const MANAGE_INVITES_ERROR =
 const INVALID_INVITE_ERROR = "This collaboration invite is no longer valid.";
 const INVITED_ACCOUNT_ERROR =
   "Sign in with the invited Cedarville account to accept this invite.";
+const DIRECTORY_LOOKUP_UNAVAILABLE_ERROR =
+  "The portal is unable to look up that email address right now.";
 
 type InviteManagerContext = {
   actorUserId: string;
@@ -219,6 +221,21 @@ function createGraphTokenProvider(config: {
   };
 }
 
+async function findEligibleInviteeByEmail(email: string) {
+  try {
+    const directoryConfig = loadDirectoryConfig();
+    const directory = createEntraDirectoryClient({
+      tokenProvider: createGraphTokenProvider(directoryConfig),
+      allowedEmailDomain: directoryConfig.allowedEmailDomain,
+    });
+
+    return await directory.findEligibleUserByEmail(email);
+  } catch (error) {
+    console.error("Collaboration invite directory lookup failed.", error);
+    throw new Error(DIRECTORY_LOOKUP_UNAVAILABLE_ERROR);
+  }
+}
+
 function buildInviteMessage({
   inviterName,
   appName,
@@ -371,12 +388,7 @@ export async function sendCollaborationInviteAction(
   }
 
   const normalizedEmail = normalizeEmail(submittedEmail);
-  const directoryConfig = loadDirectoryConfig();
-  const directory = createEntraDirectoryClient({
-    tokenProvider: createGraphTokenProvider(directoryConfig),
-    allowedEmailDomain: directoryConfig.allowedEmailDomain,
-  });
-  const eligibleUser = await directory.findEligibleUserByEmail(normalizedEmail);
+  const eligibleUser = await findEligibleInviteeByEmail(normalizedEmail);
 
   if (!eligibleUser) {
     throw new Error("Invitee must be an eligible Cedarville member.");

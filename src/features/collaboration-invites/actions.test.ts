@@ -363,6 +363,22 @@ describe("collaboration invite actions", () => {
     expect(prisma.collaborationInvite.create).not.toHaveBeenCalled();
   });
 
+  it("shows a friendly lookup message when Entra directory settings are missing", async () => {
+    vi.mocked(loadDirectoryConfig).mockImplementationOnce(() => {
+      throw new Error("Missing Entra directory configuration.");
+    });
+
+    await expect(
+      sendCollaborationInviteAction("request-123", inviteForm()),
+    ).rejects.toThrow(
+      "The portal is unable to look up that email address right now.",
+    );
+
+    expect(createEntraDirectoryClient).not.toHaveBeenCalled();
+    expect(prisma.collaborationInvite.create).not.toHaveBeenCalled();
+    expect(mocks.mailer.send).not.toHaveBeenCalled();
+  });
+
   it("revokes a pending invite", async () => {
     await revokeCollaborationInviteAction("request-123", "invite-123");
 
