@@ -120,7 +120,7 @@ model CollaborationInvite {
   appRequestId           String
   invitedEmail           String
   normalizedInvitedEmail String
-  invitedEntraOid        String
+  invitedEntraOid        String?
   invitedDisplayName     String
   invitedUserId          String?
   inviterUserId          String

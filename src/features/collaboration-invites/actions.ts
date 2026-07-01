@@ -29,6 +29,8 @@ const DIRECTORY_LOOKUP_UNAVAILABLE_ERROR =
 const EMAIL_REQUIRED_ERROR = "Email is required.";
 const INELIGIBLE_INVITEE_ERROR =
   "Invitee must be an eligible Cedarville member.";
+const UNVERIFIED_INVITE_DOMAIN_ERROR =
+  "Invitee email must use the cedarville.edu domain.";
 
 type InviteManagerContext = {
   actorUserId: string;
@@ -57,6 +59,7 @@ type DeliveryStatus = DeliveryResult["status"];
 export type CollaborationInviteFormState = {
   error: string | null;
   deliveryStatus: DeliveryStatus | null;
+  unverifiedInviteEmail: string | null;
 };
 
 type InviteEmailInput = {
@@ -65,8 +68,23 @@ type InviteEmailInput = {
   acceptUrl: string;
 };
 
+type Invitee = {
+  email: string;
+  normalizedEmail: string;
+  entraOid: string | null;
+  displayName: string;
+};
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function allowedInviteEmailDomain() {
+  return normalizeEmail(process.env.ENTRA_ALLOWED_EMAIL_DOMAIN ?? "cedarville.edu");
+}
+
+function hasAllowedInviteEmailDomain(email: string) {
+  return normalizeEmail(email).endsWith(`@${allowedInviteEmailDomain()}`);
 }
 
 function addDaysFromNow() {
@@ -273,6 +291,7 @@ function inviteFormErrorMessage(error: unknown) {
     DIRECTORY_LOOKUP_UNAVAILABLE_ERROR,
     EMAIL_REQUIRED_ERROR,
     INELIGIBLE_INVITEE_ERROR,
+    UNVERIFIED_INVITE_DOMAIN_ERROR,
   ]);
 
   if (expectedMessages.has(message)) {
@@ -282,6 +301,31 @@ function inviteFormErrorMessage(error: unknown) {
   console.error("Collaboration invite form submission failed.", error);
 
   return "The portal could not send that invite right now. Try again or contact support.";
+}
+
+function parseSubmittedInviteEmail(formData: FormData) {
+  const submittedEmail = formData.get("email");
+
+  if (typeof submittedEmail !== "string" || submittedEmail.trim().length === 0) {
+    return null;
+  }
+
+  return normalizeEmail(submittedEmail);
+}
+
+function isDirectoryVerificationError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.message === DIRECTORY_LOOKUP_UNAVAILABLE_ERROR ||
+    error.message === INELIGIBLE_INVITEE_ERROR
+  );
+}
+
+function directoryVerificationPrompt(email: string) {
+  return `The portal could not verify ${email} in Entra. You can send the invite without verification if you are sure the address is correct.`;
 }
 
 async function sendInviteEmail({
@@ -341,7 +385,7 @@ async function refreshPendingInvite({
   expiresAt: Date;
   lastSentAt: Date;
   invitedEmail: string;
-  invitedEntraOid: string;
+  invitedEntraOid: string | null;
   invitedDisplayName: string;
   inviterUserId: string;
 }): Promise<{ id: string }> {
@@ -420,6 +464,61 @@ export async function sendCollaborationInviteAction(
     throw new Error(INELIGIBLE_INVITEE_ERROR);
   }
 
+  return sendInviteToInvitee({
+    actorUserId,
+    actorUser,
+    appRequest,
+    invitee: {
+      email: eligibleUser.email,
+      normalizedEmail,
+      entraOid: eligibleUser.entraOid,
+      displayName: eligibleUser.displayName,
+    },
+  });
+}
+
+async function sendUnverifiedCollaborationInviteAction(
+  appRequestId: string,
+  formData: FormData,
+) {
+  const { actorUserId, actorUser, appRequest } =
+    await requireInviteManager(appRequestId);
+  const submittedEmail = formData.get("unverifiedEmail") ?? formData.get("email");
+
+  if (typeof submittedEmail !== "string" || submittedEmail.trim().length === 0) {
+    throw new Error(EMAIL_REQUIRED_ERROR);
+  }
+
+  const normalizedEmail = normalizeEmail(submittedEmail);
+
+  if (!hasAllowedInviteEmailDomain(normalizedEmail)) {
+    throw new Error(UNVERIFIED_INVITE_DOMAIN_ERROR);
+  }
+
+  return sendInviteToInvitee({
+    actorUserId,
+    actorUser,
+    appRequest,
+    invitee: {
+      email: normalizedEmail,
+      normalizedEmail,
+      entraOid: null,
+      displayName: normalizedEmail,
+    },
+  });
+}
+
+async function sendInviteToInvitee({
+  actorUserId,
+  actorUser,
+  appRequest,
+  invitee,
+}: {
+  actorUserId: string;
+  actorUser: InviteManagerContext["actorUser"];
+  appRequest: InviteManagerContext["appRequest"];
+  invitee: Invitee;
+}) {
   const token = createInviteToken();
   const tokenHash = hashInviteToken(token);
   const expiresAt = addDaysFromNow();
@@ -428,8 +527,8 @@ export async function sendCollaborationInviteAction(
   const mailer = createSmtpMailer({ config: smtpConfig });
   const existingPendingInvite = await prisma.collaborationInvite.findFirst({
     where: {
-      appRequestId,
-      normalizedInvitedEmail: normalizedEmail,
+      appRequestId: appRequest.id,
+      normalizedInvitedEmail: invitee.normalizedEmail,
       status: "PENDING",
     },
   });
@@ -447,24 +546,24 @@ export async function sendCollaborationInviteAction(
     };
     invite = await refreshPendingInvite({
       inviteId: existingPendingInvite.id,
-      appRequestId,
+      appRequestId: appRequest.id,
       tokenHash,
       expiresAt,
       lastSentAt,
-      invitedEmail: eligibleUser.email,
-      invitedEntraOid: eligibleUser.entraOid,
-      invitedDisplayName: eligibleUser.displayName,
+      invitedEmail: invitee.email,
+      invitedEntraOid: invitee.entraOid,
+      invitedDisplayName: invitee.displayName,
       inviterUserId: actorUserId,
     });
   } else {
     try {
       invite = await prisma.collaborationInvite.create({
         data: {
-          appRequestId,
-          invitedEmail: eligibleUser.email,
-          normalizedInvitedEmail: normalizedEmail,
-          invitedEntraOid: eligibleUser.entraOid,
-          invitedDisplayName: eligibleUser.displayName,
+          appRequestId: appRequest.id,
+          invitedEmail: invitee.email,
+          normalizedInvitedEmail: invitee.normalizedEmail,
+          invitedEntraOid: invitee.entraOid,
+          invitedDisplayName: invitee.displayName,
           inviterUserId: actorUserId,
           status: "PENDING",
           tokenHash,
@@ -479,8 +578,8 @@ export async function sendCollaborationInviteAction(
 
       const pendingInvite = await prisma.collaborationInvite.findFirst({
         where: {
-          appRequestId,
-          normalizedInvitedEmail: normalizedEmail,
+          appRequestId: appRequest.id,
+          normalizedInvitedEmail: invitee.normalizedEmail,
           status: "PENDING",
         },
       });
@@ -496,13 +595,13 @@ export async function sendCollaborationInviteAction(
       };
       invite = await refreshPendingInvite({
         inviteId: pendingInvite.id,
-        appRequestId,
+        appRequestId: appRequest.id,
         tokenHash,
         expiresAt,
         lastSentAt,
-        invitedEmail: eligibleUser.email,
-        invitedEntraOid: eligibleUser.entraOid,
-        invitedDisplayName: eligibleUser.displayName,
+        invitedEmail: invitee.email,
+        invitedEntraOid: invitee.entraOid,
+        invitedDisplayName: invitee.displayName,
         inviterUserId: actorUserId,
       });
     }
@@ -511,7 +610,7 @@ export async function sendCollaborationInviteAction(
   const delivery = await sendInviteEmail({
     mailer,
     smtpConfig,
-    recipientEmail: eligibleUser.email,
+    recipientEmail: invitee.email,
     inviterName: actorUser.displayName,
     appName: appRequest.appName,
     token,
@@ -520,29 +619,29 @@ export async function sendCollaborationInviteAction(
   if (delivery.status === "FAILED" && previousToken) {
     await restorePendingInviteTokenSafely({
       inviteId: invite.id,
-      appRequestId,
+      appRequestId: appRequest.id,
       failedAttemptTokenHash: tokenHash,
       ...previousToken,
     });
   }
 
   await recordDeliverySafely({
-    appRequestId,
-    recipientEmail: eligibleUser.email,
+    appRequestId: appRequest.id,
+    recipientEmail: invitee.email,
     delivery,
   });
   await auditSafely("COLLABORATION_INVITE_SENT", {
     actorUserId,
-    appRequestId,
+    appRequestId: appRequest.id,
     supportReference: appRequest.supportReference,
     inviteId: invite.id,
-    targetEmail: eligibleUser.email,
+    targetEmail: invitee.email,
     inviterEmail: actorUser.email,
     inviterDisplayName: actorUser.displayName,
     deliveryStatus: delivery.status,
   });
 
-  revalidatePath(`/download/${appRequestId}`);
+  revalidatePath(`/download/${appRequest.id}`);
 
   return { deliveryStatus: delivery.status satisfies DeliveryStatus };
 }
@@ -553,13 +652,32 @@ export async function sendCollaborationInviteFormAction(
   formData: FormData,
 ): Promise<CollaborationInviteFormState> {
   try {
-    const result = await sendCollaborationInviteAction(appRequestId, formData);
+    const shouldSendUnverified = formData.get("sendUnverifiedInvite") === "true";
+    const result = shouldSendUnverified
+      ? await sendUnverifiedCollaborationInviteAction(appRequestId, formData)
+      : await sendCollaborationInviteAction(appRequestId, formData);
 
-    return { error: null, deliveryStatus: result.deliveryStatus };
+    return {
+      error: null,
+      deliveryStatus: result.deliveryStatus,
+      unverifiedInviteEmail: null,
+    };
   } catch (error) {
+    const submittedEmail = parseSubmittedInviteEmail(formData);
+
+    if (submittedEmail && isDirectoryVerificationError(error)) {
+      return {
+        error: directoryVerificationPrompt(submittedEmail),
+        deliveryStatus: null,
+        unverifiedInviteEmail: submittedEmail,
+      };
+    }
+
     return {
       error: inviteFormErrorMessage(error),
       deliveryStatus: null,
+      unverifiedInviteEmail:
+        formData.get("unverifiedEmail")?.toString() ?? submittedEmail,
     };
   }
 }

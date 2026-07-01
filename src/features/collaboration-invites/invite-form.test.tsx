@@ -34,6 +34,7 @@ describe("CollaborationInviteForm", () => {
         initialState={{
           error: "The portal is unable to look up that email address right now.",
           deliveryStatus: null,
+          unverifiedInviteEmail: null,
         }}
       />,
     );
@@ -54,12 +55,40 @@ describe("CollaborationInviteForm", () => {
     render(
       <CollaborationInviteForm
         appRequestId="request-123"
-        initialState={{ error: null, deliveryStatus: "FAILED" }}
+        initialState={{
+          error: null,
+          deliveryStatus: "FAILED",
+          unverifiedInviteEmail: null,
+        }}
       />,
     );
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The invite was saved, but the email could not be delivered. Try resending it.",
     );
+  });
+
+  it("prompts before sending an invite without directory verification", () => {
+    render(
+      <CollaborationInviteForm
+        appRequestId="request-123"
+        initialState={{
+          error:
+            "The portal could not verify unverified@cedarville.edu in Entra. You can send the invite without verification if you are sure the address is correct.",
+          deliveryStatus: null,
+          unverifiedInviteEmail: "unverified@cedarville.edu",
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "The portal could not verify unverified@cedarville.edu in Entra.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Send Without Verification" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("unverified@cedarville.edu"),
+    ).toHaveAttribute("name", "unverifiedEmail");
   });
 });

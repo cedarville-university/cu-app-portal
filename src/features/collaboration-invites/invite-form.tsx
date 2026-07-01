@@ -12,6 +12,7 @@ type FormAction = (formData: FormData) => void | Promise<void>;
 const initialCollaborationInviteFormState: CollaborationInviteFormState = {
   error: null,
   deliveryStatus: null,
+  unverifiedInviteEmail: null,
 };
 
 export function CollaborationInviteForm({
@@ -73,9 +74,32 @@ export function CollaborationInviteForm({
         <div
           className="error-box"
           role="alert"
-          style={{ flexBasis: "100%", margin: 0 }}
+          style={{
+            display: "grid",
+            gap: "0.75rem",
+            flexBasis: "100%",
+            margin: 0,
+          }}
         >
-          {state.error}
+          <span>{state.error}</span>
+          {state.unverifiedInviteEmail ? (
+            <span>
+              <input
+                name="unverifiedEmail"
+                type="hidden"
+                value={state.unverifiedInviteEmail}
+              />
+              <PendingSubmitButton
+                idleLabel="Send Without Verification"
+                pendingLabel="Sending Invite..."
+                statusText="Sending unverified collaboration invite."
+                variant="secondary-solid"
+                size="sm"
+                name="sendUnverifiedInvite"
+                value="true"
+              />
+            </span>
+          ) : null}
         </div>
       ) : null}
       {state.deliveryStatus === "FAILED" ? (

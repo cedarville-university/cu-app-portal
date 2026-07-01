@@ -388,12 +388,75 @@ describe("collaboration invite actions", () => {
     await expect(
       sendCollaborationInviteFormAction(
         "request-123",
-        { error: null, deliveryStatus: null },
+        { error: null, deliveryStatus: null, unverifiedInviteEmail: null },
         inviteForm(),
       ),
     ).resolves.toEqual({
-      error: "The portal is unable to look up that email address right now.",
+      error:
+        "The portal could not verify invited@cedarville.edu in Entra. You can send the invite without verification if you are sure the address is correct.",
       deliveryStatus: null,
+      unverifiedInviteEmail: "invited@cedarville.edu",
+    });
+
+    expect(prisma.collaborationInvite.create).not.toHaveBeenCalled();
+    expect(mocks.mailer.send).not.toHaveBeenCalled();
+  });
+
+  it("sends an unverified invite after the owner confirms the fallback", async () => {
+    const formData = inviteForm("unverified@cedarville.edu");
+    formData.set("sendUnverifiedInvite", "true");
+    formData.set("unverifiedEmail", "unverified@cedarville.edu");
+
+    await expect(
+      sendCollaborationInviteFormAction(
+        "request-123",
+        {
+          error: null,
+          deliveryStatus: null,
+          unverifiedInviteEmail: "unverified@cedarville.edu",
+        },
+        formData,
+      ),
+    ).resolves.toEqual({
+      error: null,
+      deliveryStatus: "SENT",
+      unverifiedInviteEmail: null,
+    });
+
+    expect(loadDirectoryConfig).not.toHaveBeenCalled();
+    expect(createEntraDirectoryClient).not.toHaveBeenCalled();
+    expect(prisma.collaborationInvite.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        invitedEmail: "unverified@cedarville.edu",
+        normalizedInvitedEmail: "unverified@cedarville.edu",
+        invitedEntraOid: null,
+        invitedDisplayName: "unverified@cedarville.edu",
+      }),
+    });
+    expect(mocks.mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "unverified@cedarville.edu" }),
+    );
+  });
+
+  it("rejects unverified fallback invites outside the allowed domain", async () => {
+    const formData = inviteForm("outside@example.com");
+    formData.set("sendUnverifiedInvite", "true");
+    formData.set("unverifiedEmail", "outside@example.com");
+
+    await expect(
+      sendCollaborationInviteFormAction(
+        "request-123",
+        {
+          error: null,
+          deliveryStatus: null,
+          unverifiedInviteEmail: "outside@example.com",
+        },
+        formData,
+      ),
+    ).resolves.toEqual({
+      error: "Invitee email must use the cedarville.edu domain.",
+      deliveryStatus: null,
+      unverifiedInviteEmail: "outside@example.com",
     });
 
     expect(prisma.collaborationInvite.create).not.toHaveBeenCalled();
@@ -404,10 +467,18 @@ describe("collaboration invite actions", () => {
     await expect(
       sendCollaborationInviteFormAction(
         "request-123",
-        { error: "Previous error.", deliveryStatus: null },
+        {
+          error: "Previous error.",
+          deliveryStatus: null,
+          unverifiedInviteEmail: null,
+        },
         inviteForm(),
       ),
-    ).resolves.toEqual({ error: null, deliveryStatus: "SENT" });
+    ).resolves.toEqual({
+      error: null,
+      deliveryStatus: "SENT",
+      unverifiedInviteEmail: null,
+    });
   });
 
   it("revokes a pending invite", async () => {
@@ -633,6 +704,32 @@ describe("collaboration invite actions", () => {
       }),
     });
     expect(revalidatePath).toHaveBeenCalledWith("/download/request-123");
+  });
+
+  it("accepts an unverified pending invite when the signed-in email matches", async () => {
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValue({
+      id: "invite-123",
+      appRequestId: "request-123",
+      invitedEntraOid: null,
+      normalizedInvitedEmail: "invited@cedarville.edu",
+      status: "PENDING",
+      expiresAt: new Date(Date.now() + 1000 * 60),
+    } as Awaited<ReturnType<typeof prisma.collaborationInvite.findFirst>>);
+
+    await expect(
+      acceptCollaborationInviteAction("token-123"),
+    ).resolves.toBe("request-123");
+
+    expect(prisma.appAccess.upsert).toHaveBeenCalledWith({
+      where: {
+        appRequestId_userId: {
+          appRequestId: "request-123",
+          userId: "invited-user-123",
+        },
+      },
+      update: {},
+      create: { appRequestId: "request-123", userId: "invited-user-123" },
+    });
   });
 
   it("requires the actual session identity when accepting an invite", async () => {
