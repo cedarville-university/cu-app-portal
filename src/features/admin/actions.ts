@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { requireAdminUserId } from "./roles";
@@ -160,6 +161,14 @@ export async function addAppCollaboratorAction(
     supportReference: appRequest.supportReference,
     targetUserId: userId,
   });
+  if (appRequest.userId !== userId) {
+    await safeNotifyAppEvent({
+      appRequestId,
+      eventKey: "APP_SHARED",
+      actorUserId,
+      directRecipientUserIds: [userId],
+    });
+  }
   revalidateAdminViews(appRequestId);
 }
 
@@ -181,6 +190,12 @@ export async function removeAppCollaboratorAction(
     appRequestId,
     supportReference: appRequest.supportReference,
     targetUserId: userId,
+  });
+  await safeNotifyAppEvent({
+    appRequestId,
+    eventKey: "COLLABORATOR_REMOVED",
+    actorUserId,
+    directRecipientUserIds: [userId],
   });
   revalidateAdminViews(appRequestId);
 }
@@ -232,6 +247,12 @@ export async function reassignAppOwnerAction(
     supportReference: appRequest.supportReference,
     oldOwnerUserId,
     newOwnerUserId,
+  });
+  await safeNotifyAppEvent({
+    appRequestId,
+    eventKey: "OWNER_REASSIGNED",
+    actorUserId,
+    directRecipientUserIds: [oldOwnerUserId, newOwnerUserId],
   });
   revalidateAdminViews(appRequestId);
 }

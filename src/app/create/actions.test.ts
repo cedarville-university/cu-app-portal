@@ -5,6 +5,7 @@ import { deleteArtifact, saveArtifact } from "@/features/generation/storage";
 import { grantManagedRepositoryAccess } from "@/features/repositories/access";
 import { bootstrapManagedRepository } from "@/features/repositories/bootstrap-managed-repository";
 import { publishToAzureAction } from "@/features/publishing/actions";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import type { PortalTemplate } from "@/features/templates/types";
 import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
@@ -46,6 +47,10 @@ vi.mock("@/features/repositories/access", () => ({
 
 vi.mock("@/features/publishing/actions", () => ({
   publishToAzureAction: vi.fn(),
+}));
+
+vi.mock("@/features/notifications/safe-notify", () => ({
+  safeNotifyAppEvent: vi.fn(),
 }));
 
 vi.mock("@/features/templates/catalog", async (importOriginal) => {
@@ -138,6 +143,7 @@ describe("extractCreateAppInput", () => {
     vi.mocked(grantManagedRepositoryAccess).mockReset();
     vi.mocked(bootstrapManagedRepository).mockReset();
     vi.mocked(publishToAzureAction).mockReset();
+    vi.mocked(safeNotifyAppEvent).mockReset();
     vi.mocked(recordAuditEvent).mockReset();
     vi.mocked(resolveCurrentUserId).mockReset();
     vi.mocked(prisma.template.upsert).mockReset();
@@ -315,6 +321,18 @@ describe("createAppAction", () => {
       "APP_REQUEST_SUCCEEDED",
       expect.objectContaining({ requestId: "request-123" }),
     );
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-123",
+      eventKey: "REPOSITORY_READY",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-123",
+      eventKey: "APP_CREATED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
     expect(mockRedirect).toHaveBeenCalledWith("/download/request-123");
   });
 
@@ -362,6 +380,69 @@ describe("createAppAction", () => {
 
     expect(publishToAzureAction).toHaveBeenCalledWith("request-123");
     expect(mockRedirect).toHaveBeenCalledWith("/download/request-123");
+  });
+
+  it("marks initial publish queueing failed and notifies without blocking create", async () => {
+    const formData = new FormData();
+    formData.set("templateSlug", "web-app");
+    formData.set("appName", "Campus Dashboard");
+    formData.set("description", "Shows campus metrics.");
+    formData.set("hostingTarget", "Azure App Service");
+    formData.set("createIntent", "createAndPublish");
+
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.template.upsert).mockResolvedValue({
+      id: "template-db-123",
+    } as Awaited<ReturnType<typeof prisma.template.upsert>>);
+    vi.mocked(prisma.appRequest.create).mockResolvedValue({
+      id: "request-publish-failed",
+    } as Awaited<ReturnType<typeof prisma.appRequest.create>>);
+    vi.mocked(buildArchive).mockResolvedValue({
+      buffer: Buffer.from("zip"),
+      files: {
+        "README.md": "# Campus Dashboard\n",
+      },
+      filename: "campus-dashboard.zip",
+    });
+    vi.mocked(saveArtifact).mockResolvedValue(
+      "/tmp/.artifacts/campus-dashboard.zip",
+    );
+    vi.mocked(prisma.generatedArtifact.create).mockResolvedValue({
+      id: "artifact-123",
+    } as Awaited<ReturnType<typeof prisma.generatedArtifact.create>>);
+    vi.mocked(bootstrapManagedRepository).mockResolvedValue({
+      provider: "GITHUB",
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      url: "https://github.com/cedarville-it/campus-dashboard",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+    vi.mocked(publishToAzureAction).mockRejectedValue(
+      new Error("queue unavailable"),
+    );
+
+    await createAppAction(formData);
+
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "request-publish-failed" },
+      data: {
+        publishStatus: "FAILED",
+        publishErrorSummary: "queue unavailable",
+      },
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-publish-failed",
+      eventKey: "PUBLISH_FAILED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
+    expect(mockRedirect).toHaveBeenCalledWith(
+      "/download/request-publish-failed",
+    );
   });
 
   it("skips one-step publishing when repository bootstrap fails", async () => {
@@ -603,6 +684,12 @@ describe("createAppAction", () => {
         error: "missing GitHub app config",
       }),
     );
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-789",
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
     expect(mockRedirect).toHaveBeenCalledWith("/download/request-789");
   });
 

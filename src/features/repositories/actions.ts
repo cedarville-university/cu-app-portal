@@ -9,6 +9,7 @@ import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
 import { buildArchive } from "@/features/generation/build-archive";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { grantManagedRepositoryAccess, parseGitHubUsername } from "./access";
@@ -126,6 +127,12 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
       repositoryUrl: repository.url,
       retried: true,
     });
+    await safeNotifyAppEvent({
+      appRequestId: requestId,
+      eventKey: "REPOSITORY_READY",
+      actorUserId,
+      directRecipientUserIds: [actorUserId],
+    });
 
     if (user.githubUsername) {
       await recordAuditEvent("REPOSITORY_ACCESS_REQUESTED", {
@@ -207,6 +214,12 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
       supportReference: appRequest.supportReference,
       error: error instanceof Error ? error.message : "unknown",
       retried: true,
+    });
+    await safeNotifyAppEvent({
+      appRequestId: requestId,
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId,
+      directRecipientUserIds: [actorUserId],
     });
   }
 

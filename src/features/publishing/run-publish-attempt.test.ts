@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { loadAzurePublishConfig } from "./azure/config";
@@ -6,6 +7,10 @@ import { runPublishAttempt } from "./run-publish-attempt";
 
 vi.mock("@/lib/audit", () => ({
   recordAuditEvent: vi.fn(),
+}));
+
+vi.mock("@/features/notifications/safe-notify", () => ({
+  safeNotifyAppEvent: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -39,6 +44,7 @@ describe("runPublishAttempt", () => {
     vi.mocked(prisma.publishAttempt.update).mockReset();
     vi.mocked(prisma.appRequest.update).mockReset();
     vi.mocked(recordAuditEvent).mockReset();
+    vi.mocked(safeNotifyAppEvent).mockReset();
     vi.mocked(loadAzurePublishConfig).mockReset();
   });
 
@@ -92,6 +98,10 @@ describe("runPublishAttempt", () => {
         publishingSetupStatus: "READY",
         publishingSetupErrorSummary: null,
       }),
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-123",
+      eventKey: "PUBLISH_SUCCEEDED",
     });
   });
 
@@ -292,11 +302,60 @@ describe("runPublishAttempt", () => {
         publishingSetupErrorSummary: "Publishing setup needs to be repaired.",
       },
     });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-456",
+      eventKey: "PUBLISH_FAILED",
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-456",
+      eventKey: "PUBLISHING_SETUP_NEEDS_REPAIR",
+    });
     expect(consoleError).toHaveBeenCalledWith("[publish-worker]", "failed", {
       publishAttemptId: "attempt-456",
       requestId: "request-456",
       errorSummary: "azure permission denied",
       error: expect.any(Error),
+    });
+  });
+
+  it("notifies when publishing setup becomes blocked", async () => {
+    const graph403 = new Error(
+      'Microsoft Graph request failed: 403 {"error":{"code":"Authorization_RequestDenied","message":"Insufficient privileges to complete the operation.","innerError":{"request-id":"graph-request-123"}}}',
+    );
+    vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({
+      id: "attempt-blocked",
+      appRequestId: "request-blocked",
+      appRequest: {
+        id: "request-blocked",
+      },
+    } as Awaited<ReturnType<typeof prisma.publishAttempt.findUnique>>);
+
+    await expect(
+      runPublishAttempt("attempt-blocked", {
+        provisionInfrastructure: vi.fn().mockRejectedValue(graph403),
+        deployRepository: vi.fn(),
+        verifyDeployment: vi.fn(),
+      }),
+    ).rejects.toThrow("Microsoft Graph request failed: 403");
+
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "request-blocked" },
+      data: {
+        publishStatus: "FAILED",
+        publishErrorSummary:
+          "Publishing setup failed: Microsoft Graph permission is missing for Entra publishing setup.",
+        publishingSetupStatus: "BLOCKED",
+        publishingSetupErrorSummary:
+          "Microsoft Graph permission is missing for Entra publishing setup.",
+      },
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-blocked",
+      eventKey: "PUBLISH_FAILED",
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-blocked",
+      eventKey: "PUBLISHING_SETUP_BLOCKED",
     });
   });
 

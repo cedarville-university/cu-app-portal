@@ -147,7 +147,6 @@ model CollaborationInvite {
   invitedUser            User?                     @relation("CollaborationInviteAcceptedUser", fields: [invitedUserId], references: [id], onDelete: SetNull)
   inviter                User                      @relation("CollaborationInviteInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
 
-  @@unique([appRequestId, normalizedInvitedEmail])
   @@index([appRequestId])
   @@index([normalizedInvitedEmail])
   @@index([inviterUserId])
@@ -309,7 +308,7 @@ CREATE TABLE "NotificationDelivery" (
 );
 
 CREATE UNIQUE INDEX "CollaborationInvite_tokenHash_key" ON "CollaborationInvite"("tokenHash");
-CREATE UNIQUE INDEX "CollaborationInvite_appRequestId_normalizedInvitedEmail_key" ON "CollaborationInvite"("appRequestId", "normalizedInvitedEmail");
+CREATE UNIQUE INDEX "CollaborationInvite_pending_app_email_key" ON "CollaborationInvite"("appRequestId", "normalizedInvitedEmail") WHERE "status" = 'PENDING';
 CREATE INDEX "CollaborationInvite_appRequestId_idx" ON "CollaborationInvite"("appRequestId");
 CREATE INDEX "CollaborationInvite_normalizedInvitedEmail_idx" ON "CollaborationInvite"("normalizedInvitedEmail");
 CREATE INDEX "CollaborationInvite_inviterUserId_idx" ON "CollaborationInvite"("inviterUserId");
@@ -1732,6 +1731,7 @@ Create `src/features/collaboration-invites/actions.test.ts` with tests for owner
 
 ```ts
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 import {
   acceptCollaborationInviteAction,
   revokeCollaborationInviteAction,
@@ -1761,7 +1761,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     appRequest: { findFirst: vi.fn(), findUnique: vi.fn() },
     collaborationInvite: {
-      upsert: vi.fn(),
+      create: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
     },
@@ -1800,7 +1800,8 @@ describe("collaboration invite actions", () => {
     vi.mocked(createSmtpMailer).mockReturnValue({
       send: vi.fn().mockResolvedValue({ provider: "smtp", providerMessageId: "mail-123" }),
     } as never);
-    vi.mocked(prisma.collaborationInvite.upsert).mockResolvedValue({
+    vi.mocked(prisma.collaborationInvite.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.collaborationInvite.create).mockResolvedValue({
       id: "invite-123",
       appRequestId: "request-123",
       normalizedInvitedEmail: "invited@cedarville.edu",
@@ -1813,14 +1814,48 @@ describe("collaboration invite actions", () => {
 
     await sendCollaborationInviteAction("request-123", formData);
 
-    expect(prisma.collaborationInvite.upsert).toHaveBeenCalledWith(
+    expect(prisma.collaborationInvite.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          appRequestId_normalizedInvitedEmail: {
-            appRequestId: "request-123",
-            normalizedInvitedEmail: "invited@cedarville.edu",
-          },
+          appRequestId: "request-123",
+          normalizedInvitedEmail: "invited@cedarville.edu",
+          status: "PENDING",
         },
+      }),
+    );
+    expect(prisma.collaborationInvite.create).toHaveBeenCalledWith(expect.any(Object));
+  });
+
+  it("refreshes the pending invite when concurrent send hits the pending unique index", async () => {
+    vi.mocked(prisma.collaborationInvite.findFirst)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "invite-123" } as never);
+    vi.mocked(prisma.collaborationInvite.create).mockRejectedValueOnce(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+        code: "P2002",
+        clientVersion: "test",
+        meta: { target: "CollaborationInvite_pending_app_email_key" },
+      }),
+    );
+    vi.mocked(prisma.collaborationInvite.update).mockResolvedValue({
+      id: "invite-123",
+      appRequestId: "request-123",
+      normalizedInvitedEmail: "invited@cedarville.edu",
+    } as never);
+
+    const formData = new FormData();
+    formData.set("email", "invited@cedarville.edu");
+
+    await sendCollaborationInviteAction("request-123", formData);
+
+    expect(prisma.collaborationInvite.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "invite-123" },
+        data: expect.objectContaining({
+          tokenHash: expect.any(String),
+          expiresAt: expect.any(Date),
+          lastSentAt: expect.any(Date),
+        }),
       }),
     );
   });
@@ -1899,6 +1934,7 @@ Create `src/features/collaboration-invites/actions.ts` with:
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { appAccessWhere, userHasAdminRole } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { loadDirectoryConfig } from "@/features/directory/config";
@@ -1988,38 +2024,68 @@ export async function sendCollaborationInviteAction(
   const acceptUrl = `${smtpConfig.appUrl}/invites/${token}`;
   const mailer = createSmtpMailer({ config: smtpConfig });
 
-  const invite = await prisma.collaborationInvite.upsert({
+  const existingPendingInvite = await prisma.collaborationInvite.findFirst({
     where: {
-      appRequestId_normalizedInvitedEmail: {
-        appRequestId,
-        normalizedInvitedEmail: normalizedEmail,
-      },
-    },
-    update: {
-      invitedEmail: eligibleUser.email,
-      invitedEntraOid: eligibleUser.entraOid,
-      invitedDisplayName: eligibleUser.displayName,
-      inviterUserId: actorUserId,
-      status: "PENDING",
-      tokenHash,
-      expiresAt,
-      acceptedAt: null,
-      revokedAt: null,
-      lastSentAt: new Date(),
-    },
-    create: {
       appRequestId,
-      invitedEmail: eligibleUser.email,
       normalizedInvitedEmail: normalizedEmail,
-      invitedEntraOid: eligibleUser.entraOid,
-      invitedDisplayName: eligibleUser.displayName,
-      inviterUserId: actorUserId,
       status: "PENDING",
-      tokenHash,
-      expiresAt,
-      lastSentAt: new Date(),
     },
   });
+
+  const inviteData = {
+    invitedEmail: eligibleUser.email,
+    invitedEntraOid: eligibleUser.entraOid,
+    invitedDisplayName: eligibleUser.displayName,
+    inviterUserId: actorUserId,
+    status: "PENDING",
+    tokenHash,
+    expiresAt,
+    acceptedAt: null,
+    revokedAt: null,
+    lastSentAt: new Date(),
+  } as const;
+
+  const refreshInvite = (inviteId: string) =>
+    prisma.collaborationInvite.update({
+      where: { id: inviteId },
+      data: inviteData,
+    });
+
+  let invite;
+  if (existingPendingInvite) {
+    invite = await refreshInvite(existingPendingInvite.id);
+  } else {
+    try {
+      invite = await prisma.collaborationInvite.create({
+        data: {
+          appRequestId,
+          normalizedInvitedEmail: normalizedEmail,
+          ...inviteData,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        const pendingInvite = await prisma.collaborationInvite.findFirst({
+          where: {
+            appRequestId,
+            normalizedInvitedEmail: normalizedEmail,
+            status: "PENDING",
+          },
+        });
+
+        if (!pendingInvite) {
+          throw error;
+        }
+
+        invite = await refreshInvite(pendingInvite.id);
+      } else {
+        throw error;
+      }
+    }
+  }
 
   try {
     const text = inviteText({

@@ -53,6 +53,12 @@ vi.mock("@/features/repository-imports/actions", () => ({
   verifyExistingAppPreparationAction: vi.fn(),
 }));
 
+vi.mock("@/features/collaboration-invites/actions", () => ({
+  resendCollaborationInviteAction: vi.fn(),
+  revokeCollaborationInviteAction: vi.fn(),
+  sendCollaborationInviteFormAction: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: {
@@ -191,6 +197,7 @@ describe("DownloadPage", () => {
       publishAttempts: [],
       publishSetupChecks: [],
       repositoryImport: null,
+      collaborationInvites: [],
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       githubUsername: "collabdev",
@@ -255,6 +262,7 @@ describe("DownloadPage", () => {
           },
         },
       ],
+      collaborationInvites: [],
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       githubUsername: "ownerhub",
@@ -288,6 +296,159 @@ describe("DownloadPage", () => {
     expect(
       within(accessRegion).getByText("jordan@cedarville.edu"),
     ).toBeInTheDocument();
+  });
+
+  it("shows invite controls to the app owner", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("owner-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_owner_invites",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "READY",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-owner-invites",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+      collaborationInvites: [],
+      user: {
+        displayName: "Olivia Owner",
+        email: "owner@cedarville.edu",
+      },
+      collaborators: [],
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "ownerhub",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_owner_invites" }),
+      }),
+    );
+
+    expect(screen.getByLabelText("Invite collaborators")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Send Invite" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows invite controls to admins who do not own the app", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("admin-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-123",
+      userId: "admin-123",
+      role: "ADMIN",
+      createdAt: new Date("2026-06-29T12:00:00.000Z"),
+    } as Awaited<ReturnType<typeof prisma.userRole.findFirst>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_admin_invites",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "READY",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-admin-invites",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+      collaborationInvites: [],
+      user: {
+        displayName: "Olivia Owner",
+        email: "owner@cedarville.edu",
+      },
+      collaborators: [],
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "adminhub",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_admin_invites" }),
+      }),
+    );
+
+    expect(screen.getByLabelText("Invite collaborators")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Send Invite" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides invite controls from collaborators", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_collaborator_invites",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "READY",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-collaborator-invites",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+      collaborationInvites: [],
+      user: {
+        displayName: "Olivia Owner",
+        email: "owner@cedarville.edu",
+      },
+      collaborators: [
+        {
+          user: {
+            displayName: "Casey Collaborator",
+            email: "casey@cedarville.edu",
+          },
+        },
+      ],
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collabdev",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_collaborator_invites" }),
+      }),
+    );
+
+    expect(
+      screen.queryByLabelText("Invite collaborators"),
+    ).not.toBeInTheDocument();
   });
 
   it("hides publish actions for unprepared imported apps", async () => {
@@ -1109,6 +1270,7 @@ describe("DownloadPage", () => {
       publishAttempts: [],
       publishSetupChecks: [],
       repositoryImport: null,
+      collaborationInvites: [],
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       githubUsername: "portalstaff",

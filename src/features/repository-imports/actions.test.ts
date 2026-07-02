@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidatePath } from "next/cache";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { preflightPublishingSetup } from "@/features/publishing/setup/service";
@@ -91,6 +92,10 @@ vi.mock("@/lib/audit", () => ({
   recordAuditEvent: vi.fn(),
 }));
 
+vi.mock("@/features/notifications/safe-notify", () => ({
+  safeNotifyAppEvent: vi.fn(),
+}));
+
 vi.mock("@/lib/support-reference", () => ({
   createSupportReference: vi.fn(() => "SUP-123"),
 }));
@@ -172,6 +177,7 @@ describe("repository import actions", () => {
       createPullRequestWithFiles: vi.fn(),
     });
     vi.mocked(recordAuditEvent).mockReset();
+    vi.mocked(safeNotifyAppEvent).mockReset();
     vi.mocked(prisma.template.upsert).mockReset();
     vi.mocked(prisma.appRequest.create).mockReset();
     vi.mocked(prisma.appRequest.findFirst).mockReset();
@@ -255,6 +261,12 @@ describe("repository import actions", () => {
         supportReference: "SUP-123",
       }),
     );
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_123",
+      eventKey: "EXISTING_APP_IMPORTED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
     expect(importRepositoryWithHistory).not.toHaveBeenCalled();
   });
 
@@ -342,6 +354,18 @@ describe("repository import actions", () => {
         source: "local-codex-app",
       }),
     );
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_local",
+      eventKey: "EXISTING_APP_IMPORTED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_local",
+      eventKey: "REPOSITORY_READY",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
   });
 
@@ -660,6 +684,12 @@ describe("repository import actions", () => {
         preparationStatus: "BLOCKED",
       }),
     });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_collision_exhausted",
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
   });
 
   it("keeps support history when external repository import fails", async () => {
@@ -715,6 +745,12 @@ describe("repository import actions", () => {
         importErrorSummary: "Repository import failed while mirroring git history.",
         preparationStatus: "BLOCKED",
       }),
+    });
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_failed_import",
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
     });
   });
 
@@ -936,6 +972,12 @@ describe("repository import actions", () => {
       }),
     });
     expect(preflightPublishingSetup).toHaveBeenCalledWith("req_123");
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_123",
+      eventKey: "REPOSITORY_READY",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_123");
   });
@@ -1304,6 +1346,12 @@ describe("repository import actions", () => {
           "Repository has publishing file conflicts. app-portal/deployment-manifest.json already exists. The portal will not overwrite existing publishing files directly. Open an Azure publishing PR to review the generated changes in Git, or resolve them manually and verify readiness here.",
       },
     );
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_456",
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_456");
   });
@@ -1682,6 +1730,12 @@ describe("repository import actions", () => {
       },
     );
     expect(preflightPublishingSetup).toHaveBeenCalledWith("req_verify");
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_verify",
+      eventKey: "REPOSITORY_READY",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_verify");
   });

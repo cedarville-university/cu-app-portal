@@ -8,6 +8,7 @@ import {
   userHasAdminRole,
 } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { preflightPublishingSetup } from "@/features/publishing/setup/service";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
@@ -561,6 +562,16 @@ export async function addExistingAppAction(
     );
   }
 
+  await safeNotifyAppEvent({
+    appRequestId: request.id,
+    eventKey:
+      repositoryStatus === "FAILED"
+        ? "REPOSITORY_FAILED"
+        : "EXISTING_APP_IMPORTED",
+    actorUserId: userId,
+    directRecipientUserIds: [userId],
+  });
+
   revalidatePath("/apps");
 
   return { requestId: request.id };
@@ -658,6 +669,18 @@ export async function createManagedRepositoryForLocalAppAction(
     requestId: request.id,
     source: "local-codex-app",
     targetRepository: `${repository.owner}/${repository.name}`,
+  });
+  await safeNotifyAppEvent({
+    appRequestId: request.id,
+    eventKey: "EXISTING_APP_IMPORTED",
+    actorUserId: userId,
+    directRecipientUserIds: [userId],
+  });
+  await safeNotifyAppEvent({
+    appRequestId: request.id,
+    eventKey: "REPOSITORY_READY",
+    actorUserId: userId,
+    directRecipientUserIds: [userId],
   });
 
   revalidatePath("/apps");
@@ -766,6 +789,12 @@ export async function prepareExistingAppAction(
 
     if (result.status === "COMMITTED") {
       await runPublishingSetupPreflightBestEffort(requestId);
+      await safeNotifyAppEvent({
+        appRequestId: requestId,
+        eventKey: "REPOSITORY_READY",
+        actorUserId: userId,
+        directRecipientUserIds: [userId],
+      });
     }
   } catch (error) {
     const isPublishingConflict = isPublishingFileConflictError(error);
@@ -793,6 +822,12 @@ export async function prepareExistingAppAction(
       mode,
       targetRepository: `${appRequest.repositoryOwner}/${appRequest.repositoryName}`,
       error: message,
+    });
+    await safeNotifyAppEvent({
+      appRequestId: requestId,
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: userId,
+      directRecipientUserIds: [userId],
     });
 
     if (isPublishingConflict || isGitHubAuthFailure || isGitHubPermissionFailure) {
@@ -904,6 +939,12 @@ export async function verifyExistingAppPreparationAction(
   });
 
   await runPublishingSetupPreflightBestEffort(requestId);
+  await safeNotifyAppEvent({
+    appRequestId: requestId,
+    eventKey: "REPOSITORY_READY",
+    actorUserId: userId,
+    directRecipientUserIds: [userId],
+  });
 
   revalidateImportedRepositoryViews(requestId);
 }

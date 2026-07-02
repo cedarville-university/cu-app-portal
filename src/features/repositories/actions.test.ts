@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { buildArchive } from "@/features/generation/build-archive";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { grantManagedRepositoryAccess } from "@/features/repositories/access";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
@@ -24,6 +25,10 @@ vi.mock("@/features/generation/build-archive", () => ({
 
 vi.mock("@/lib/audit", () => ({
   recordAuditEvent: vi.fn(),
+}));
+
+vi.mock("@/features/notifications/safe-notify", () => ({
+  safeNotifyAppEvent: vi.fn(),
 }));
 
 vi.mock("./bootstrap-managed-repository", () => ({
@@ -58,6 +63,7 @@ describe("retryRepositoryBootstrapAction", () => {
     vi.mocked(resolveCurrentUserId).mockReset();
     vi.mocked(buildArchive).mockReset();
     vi.mocked(grantManagedRepositoryAccess).mockReset();
+    vi.mocked(safeNotifyAppEvent).mockReset();
     vi.mocked(recordAuditEvent).mockReset();
     vi.mocked(bootstrapManagedRepository).mockReset();
     vi.mocked(prisma.user.findUnique).mockReset();
@@ -172,6 +178,12 @@ describe("retryRepositoryBootstrapAction", () => {
         retried: true,
       }),
     );
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_123",
+      eventKey: "REPOSITORY_READY",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
   });
 
   it("keeps the repo failed and stores the retry error when bootstrap still fails", async () => {
@@ -228,6 +240,12 @@ describe("retryRepositoryBootstrapAction", () => {
         retried: true,
       }),
     );
+    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "req_456",
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: "user-123",
+      directRecipientUserIds: ["user-123"],
+    });
   });
 
   it("saves a GitHub username and grants repo access for a ready managed repo", async () => {

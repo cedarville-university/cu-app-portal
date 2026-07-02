@@ -18,6 +18,10 @@ model User {
   appRequests AppRequest[]
   roles       UserRole[]
   appAccess   AppAccess[]
+  notificationPreference NotificationPreference?
+  collaborationInvitesSent CollaborationInvite[] @relation("CollaborationInviteInviter")
+  collaborationInvitesAccepted CollaborationInvite[] @relation("CollaborationInviteAcceptedUser")
+  notificationDeliveries NotificationDelivery[]
 }
 
 model Template {
@@ -82,6 +86,8 @@ model AppRequest {
   repositoryImport RepositoryImport?
   publishSetupChecks PublishSetupCheck[]
   collaborators   AppAccess[]
+  collaborationInvites CollaborationInvite[]
+  notificationDeliveries NotificationDelivery[]
 }
 
 model UserRole {
@@ -107,6 +113,69 @@ model AppAccess {
 
   @@unique([appRequestId, userId])
   @@index([userId])
+}
+
+model CollaborationInvite {
+  id                     String                    @id @default(cuid())
+  appRequestId           String
+  invitedEmail           String
+  normalizedInvitedEmail String
+  invitedEntraOid        String?
+  invitedDisplayName     String
+  invitedUserId          String?
+  inviterUserId          String
+  status                 CollaborationInviteStatus @default(PENDING)
+  tokenHash              String                    @unique
+  expiresAt              DateTime
+  acceptedAt             DateTime?
+  revokedAt              DateTime?
+  lastSentAt             DateTime?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  appRequest             AppRequest                @relation(fields: [appRequestId], references: [id], onDelete: Cascade)
+  invitedUser            User?                     @relation("CollaborationInviteAcceptedUser", fields: [invitedUserId], references: [id], onDelete: SetNull)
+  inviter                User                      @relation("CollaborationInviteInviter", fields: [inviterUserId], references: [id], onDelete: Cascade)
+
+  @@index([appRequestId])
+  @@index([normalizedInvitedEmail])
+  @@index([inviterUserId])
+  @@index([invitedUserId])
+}
+
+model NotificationPreference {
+  id                             String   @id @default(cuid())
+  userId                         String   @unique
+  emailNotificationsEnabled      Boolean  @default(true)
+  collaborationEmailsEnabled     Boolean  @default(true)
+  appLifecycleEmailsEnabled      Boolean  @default(true)
+  publishingEmailsEnabled        Boolean  @default(true)
+  createdAt                      DateTime @default(now())
+  updatedAt                      DateTime @updatedAt
+  user                           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationDelivery {
+  id                String                     @id @default(cuid())
+  appRequestId      String?
+  recipientUserId   String?
+  recipientEmail    String
+  eventKey          NotificationEventKey
+  category          NotificationCategory
+  status            NotificationDeliveryStatus
+  provider          String
+  providerMessageId String?
+  errorSummary      String?
+  sentAt            DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  appRequest        AppRequest?                @relation(fields: [appRequestId], references: [id], onDelete: SetNull)
+  recipientUser     User?                      @relation(fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  @@index([appRequestId])
+  @@index([recipientUserId])
+  @@index([recipientEmail])
+  @@index([eventKey])
+  @@index([status])
 }
 
 model GeneratedArtifact {
@@ -294,4 +363,42 @@ enum RepositoryPreparationStatus {
   PULL_REQUEST_OPENED
   FAILED
   BLOCKED
+}
+
+enum CollaborationInviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum NotificationCategory {
+  COLLABORATION
+  APP_LIFECYCLE
+  PUBLISHING
+}
+
+enum NotificationEventKey {
+  COLLABORATION_INVITE_SENT
+  COLLABORATION_INVITE_ACCEPTED
+  COLLABORATION_INVITE_REVOKED
+  APP_SHARED
+  COLLABORATOR_REMOVED
+  APP_CREATED
+  EXISTING_APP_IMPORTED
+  REPOSITORY_READY
+  REPOSITORY_FAILED
+  APP_DELETED
+  PUBLISHING_SETUP_NEEDS_REPAIR
+  PUBLISHING_SETUP_BLOCKED
+  PUBLISH_SUCCEEDED
+  PUBLISH_FAILED
+  OWNER_REASSIGNED
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
 }
