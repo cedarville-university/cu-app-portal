@@ -68,10 +68,14 @@ function parseDeleteTargets(formData: FormData): DeleteTargets {
   return targets;
 }
 
+const DELETION_RETURN_PATHS = new Set(["/admin", "/admin/apps"]);
+
 function parseDeletionReturnPath(formData: FormData) {
   const returnTo = formData.get("returnTo");
 
-  return returnTo === "/admin" ? "/admin" : "/apps";
+  return typeof returnTo === "string" && DELETION_RETURN_PATHS.has(returnTo)
+    ? returnTo
+    : "/apps";
 }
 
 async function loadDeletableAppRequest(requestId: string) {
