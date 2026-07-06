@@ -62,7 +62,7 @@ export async function searchAuditLog(
 
   return {
     entries,
-    totalCount: Number(countRows[0]?.count ?? 0n),
+    totalCount: Number(countRows[0]?.count ?? BigInt(0)),
   };
 }
 
