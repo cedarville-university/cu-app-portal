@@ -20,8 +20,9 @@ new `AuditLog` table (added 2026-07-06) has no UI at all.
 
 ## Non-Goals
 
-- No changes to server actions, role logic, access control, or audit
-  recording.
+- No changes to existing server actions, role logic, access control, or
+  audit recording (one new admin action and one new audit event type are
+  added; nothing existing changes).
 - No new CSS system; reuse existing classes (`card`, `badge`, `status-table`,
   `form-control`, `btn`, etc.).
 - No status-filter dropdown on the apps table (search only, for now).
@@ -38,8 +39,9 @@ see the existing "Not Authorized" empty state.
 | Route | Purpose |
 | --- | --- |
 | `/admin` | Slim hub: three cards with live counts (total users, total apps, events in the last 7 days) linking to the sub-pages. No management UI. |
-| `/admin/users` | Searchable, paginated user table. |
-| `/admin/apps` | Searchable, paginated app table; rows link to the detail page. |
+| `/admin/users` | Searchable, paginated user table; rows link to the user detail page. |
+| `/admin/users/[id]` | User detail: edit portal-local fields, toggle role, see the user's apps. |
+| `/admin/apps` | Searchable, paginated app table; rows link to the app detail page. |
 | `/admin/apps/[id]` | Full admin management for one app. |
 | `/admin/events` | Audit event log viewer. |
 
@@ -70,10 +72,31 @@ small helper module under `src/features/admin/` with unit tests.
 
 ### `/admin/users`
 
-Table columns: display name, email, GitHub username, owned app count,
-collaborating app count, role badge, and the existing Make/Remove Admin
-`PendingSubmitButton` form inline. Sorted by display name. Reuses
-`grantAdminRoleAction` / `removeAdminRoleAction` unchanged.
+Table columns: display name (links to `/admin/users/[id]`), email, GitHub
+username, owned app count, collaborating app count, role badge, and the
+existing Make/Remove Admin `PendingSubmitButton` form inline. Sorted by
+display name. Reuses `grantAdminRoleAction` / `removeAdminRoleAction`
+unchanged.
+
+### `/admin/users/[id]`
+
+- **Read-only identity:** display name, email, and created date, labeled as
+  synced from Entra at each sign-in (manual edits would be overwritten, so
+  they are not editable).
+- **Editable:** GitHub username, via a new admin server action
+  `updateUserGithubUsernameAction(userId, formData)` in
+  `src/features/admin/actions.ts`. It is guarded by `requireAdminUserId`,
+  reuses the existing `parseGitHubUsername` validation from
+  `@/features/repositories/access` (empty input clears the field), records a
+  new `USER_PROFILE_UPDATED` audit event with actor/target user ids, and
+  revalidates the admin user pages. The existing self-service settings action
+  is untouched.
+- **Role:** the Make/Remove Admin toggle (existing actions).
+- **Apps:** two lists — apps the user owns and apps they collaborate on.
+  Each entry shows the app name (linking to `/admin/apps/[id]`) and status
+  badges. Empty lists render a short empty-state message.
+- Unknown user id renders a not-found empty state linking back to
+  `/admin/users`.
 
 ### `/admin/apps`
 
@@ -127,7 +150,9 @@ results).
   ("No users match your search", "No events recorded yet", etc.).
 - Invalid `?page=` clamps; invalid `?event=` or unparseable dates are ignored
   (treated as unset).
-- Unknown app id on the detail page: not-found empty state.
+- Unknown app or user id on detail pages: not-found empty state.
+- Invalid GitHub username input on the user detail page surfaces the
+  validation error without saving.
 
 ## Testing
 
@@ -137,6 +162,8 @@ TDD throughout, matching existing patterns:
 - Page tests (`page.test.tsx` style with mocked `@/lib/db`) for each new
   page: guard behavior, rendering, search/filter/pagination wiring, empty
   states.
+- Action tests for `updateUserGithubUsernameAction` (admin guard,
+  validation, clearing, audit event).
 - Existing action and role tests continue to pass unchanged.
 - `AUDIT_EVENTS` refactor covered by existing `audit.test.ts` plus a check
   that the array and recorded events stay consistent.
