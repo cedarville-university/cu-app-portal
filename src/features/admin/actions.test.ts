@@ -9,6 +9,7 @@ import {
   reassignAppOwnerAction,
   removeAdminRoleAction,
   removeAppCollaboratorAction,
+  updateUserGithubUsernameAction,
 } from "./actions";
 import { requireAdminUserId } from "./roles";
 
@@ -33,6 +34,7 @@ vi.mock("@/lib/db", () => ({
     $transaction: vi.fn(),
     user: {
       findUnique: vi.fn(),
+      update: vi.fn(),
     },
     userRole: {
       count: vi.fn(),
@@ -427,6 +429,66 @@ describe("admin actions", () => {
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
       where: { id: appRequestId },
       data: { userId: newOwnerUserId },
+    });
+  });
+
+  describe("updateUserGithubUsernameAction", () => {
+    it("updates the github username and records an audit event", async () => {
+      vi.mocked(requireAdminUserId).mockResolvedValueOnce(adminUserId);
+      mockUser();
+      const formData = new FormData();
+      formData.set("githubUsername", "octocat");
+
+      await updateUserGithubUsernameAction(targetUserId, formData);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: targetUserId },
+        data: { githubUsername: "octocat" },
+      });
+      expect(recordAuditEvent).toHaveBeenCalledWith("USER_PROFILE_UPDATED", {
+        actorUserId: adminUserId,
+        targetUserId,
+        githubUsername: "octocat",
+      });
+      expect(revalidatePath).toHaveBeenCalledWith("/admin/users");
+      expect(revalidatePath).toHaveBeenCalledWith(`/admin/users/${targetUserId}`);
+    });
+
+    it("clears the github username when the input is empty", async () => {
+      vi.mocked(requireAdminUserId).mockResolvedValueOnce(adminUserId);
+      mockUser();
+      const formData = new FormData();
+      formData.set("githubUsername", "   ");
+
+      await updateUserGithubUsernameAction(targetUserId, formData);
+
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: targetUserId },
+        data: { githubUsername: null },
+      });
+    });
+
+    it("rejects an invalid github username without saving", async () => {
+      vi.mocked(requireAdminUserId).mockResolvedValueOnce(adminUserId);
+      mockUser();
+      const formData = new FormData();
+      formData.set("githubUsername", "not a valid username!");
+
+      await expect(
+        updateUserGithubUsernameAction(targetUserId, formData),
+      ).rejects.toThrow();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("requires the target user to exist", async () => {
+      vi.mocked(requireAdminUserId).mockResolvedValueOnce(adminUserId);
+      vi.mocked(prisma.user.findUnique).mockResolvedValueOnce(null);
+      const formData = new FormData();
+      formData.set("githubUsername", "octocat");
+
+      await expect(
+        updateUserGithubUsernameAction(targetUserId, formData),
+      ).rejects.toThrow("User not found.");
     });
   });
 });
