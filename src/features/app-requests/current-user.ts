@@ -1,3 +1,4 @@
+import { isE2EAuthBypassEnabled } from "@/auth/e2e-bypass";
 import { getServerSession } from "@/auth/session";
 import { prisma } from "@/lib/db";
 
@@ -8,7 +9,7 @@ export async function getCurrentUserIdOrNull() {
     return session.user.id;
   }
 
-  if (process.env.E2E_AUTH_BYPASS === "true") {
+  if (isE2EAuthBypassEnabled()) {
     const fallbackUser = await prisma.user.upsert({
       where: { entraOid: "e2e-bypass-user" },
       update: {

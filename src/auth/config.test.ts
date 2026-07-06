@@ -133,6 +133,63 @@ describe("authConfig", () => {
     ).resolves.toBe(true);
   });
 
+  it("ignores e2e bypass mode in production", async () => {
+    vi.stubEnv("E2E_AUTH_BYPASS", "true");
+    vi.stubEnv("NODE_ENV", "production");
+
+    const { authConfig } = await import("./config");
+    const config = await authConfig();
+
+    expect(config.providers).toHaveLength(1);
+    await expect(
+      config.callbacks?.authorized?.({
+        auth: null,
+      } as never),
+    ).resolves.toBe(false);
+  });
+
+  it("rejects sign-in for emails outside the cedarville.edu domain", async () => {
+    const { authConfig } = await import("./config");
+    const config = await authConfig();
+
+    await expect(
+      config.callbacks?.signIn?.({
+        user: { email: "outsider@gmail.com", name: "Outside User" },
+        account: { provider: "microsoft-entra-id" },
+        profile: { oid: "entra-oid" },
+      } as never),
+    ).resolves.toBe(false);
+
+    await expect(
+      config.callbacks?.signIn?.({
+        user: { email: "attacker@notcedarville.edu", name: "Lookalike User" },
+        account: { provider: "microsoft-entra-id" },
+        profile: { oid: "entra-oid" },
+      } as never),
+    ).resolves.toBe(false);
+
+    expect(prismaUserUpsertMock).not.toHaveBeenCalled();
+    expect(recordAuditEventMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts cedarville.edu emails regardless of case", async () => {
+    prismaUserUpsertMock.mockResolvedValueOnce({
+      id: "user-123",
+      email: "staff@cedarville.edu",
+    });
+
+    const { authConfig } = await import("./config");
+    const config = await authConfig();
+
+    await expect(
+      config.callbacks?.signIn?.({
+        user: { email: "Staff@CEDARVILLE.EDU", name: "Portal Staff" },
+        account: { provider: "microsoft-entra-id" },
+        profile: { oid: "entra-oid" },
+      } as never),
+    ).resolves.toBe(true);
+  });
+
   it("syncs authenticated users into the local database", async () => {
     prismaUserUpsertMock.mockResolvedValueOnce({
       id: "user-123",

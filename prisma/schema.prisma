@@ -402,3 +402,13 @@ enum NotificationDeliveryStatus {
   FAILED
   SKIPPED
 }
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  event     String
+  details   Json
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([event])
+}

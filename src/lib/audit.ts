@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 export type AuditEvent =
   | "SIGN_IN"
   | "APP_REQUEST_CREATED"
@@ -45,4 +47,18 @@ export async function recordAuditEvent(
   details: Record<string, unknown>,
 ) {
   console.info("[audit]", event, details);
+
+  try {
+    const { prisma } = await import("@/lib/db");
+
+    await prisma.auditLog.create({
+      data: {
+        event,
+        details: details as Prisma.InputJsonObject,
+      },
+    });
+  } catch (error) {
+    // Audit persistence is best-effort; never break the calling flow.
+    console.error("Failed to persist audit event.", error);
+  }
 }

@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import { isE2EAuthBypassEnabled } from "@/auth/e2e-bypass";
 import { recordAuditEvent } from "@/lib/audit";
 import { z } from "zod";
 
@@ -10,9 +11,13 @@ const authEnvSchema = z.object({
 });
 
 const SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;
+const ALLOWED_SIGN_IN_EMAIL_DOMAIN = "cedarville.edu";
 
-function isE2EAuthBypassEnabled() {
-  return process.env.E2E_AUTH_BYPASS === "true";
+function hasAllowedSignInEmailDomain(email: string) {
+  return email
+    .trim()
+    .toLowerCase()
+    .endsWith(`@${ALLOWED_SIGN_IN_EMAIL_DOMAIN}`);
 }
 
 export async function authConfig() {
@@ -57,6 +62,10 @@ export async function authConfig() {
           typeof user.email !== "string" ||
           typeof user.name !== "string"
         ) {
+          return false;
+        }
+
+        if (!hasAllowedSignInEmailDomain(user.email)) {
           return false;
         }
 

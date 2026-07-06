@@ -225,6 +225,24 @@ describe("createDownloadHeaders", () => {
     );
   });
 
+  it("returns 401 in production even when bypass mode is enabled", async () => {
+    vi.stubEnv("E2E_AUTH_BYPASS", "true");
+    vi.stubEnv("NODE_ENV", "production");
+    getServerSessionMock.mockResolvedValue(null);
+
+    try {
+      const response = await GET(
+        new Request("http://localhost/api/download/req_123"),
+        { params: Promise.resolve({ requestId: "req_123" }) },
+      );
+
+      expect(response.status).toBe(401);
+      expect(prisma.user.upsert).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("regenerates the archive when the artifact file is missing on disk", async () => {
     getServerSessionMock.mockResolvedValue({ user: { id: "user-123" } });
     isMissingFileErrorMock.mockReturnValue(true);
