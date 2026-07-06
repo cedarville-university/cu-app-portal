@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
-import { parseGitHubUsername } from "@/features/repositories/access";
+import { parseOptionalGitHubUsername } from "@/features/repositories/access";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { requireAdminUserId } from "./roles";
@@ -32,7 +32,10 @@ async function ensureAppExists(appRequestId: string) {
   return appRequest;
 }
 
-function revalidateAdminViews(appRequestId?: string) {
+function revalidateAdminViews(
+  appRequestId?: string,
+  options?: { userId?: string },
+) {
   revalidatePath("/admin");
   revalidatePath("/admin/users");
   revalidatePath("/admin/apps");
@@ -41,6 +44,10 @@ function revalidateAdminViews(appRequestId?: string) {
   if (appRequestId) {
     revalidatePath(`/admin/apps/${appRequestId}`);
     revalidatePath(`/download/${appRequestId}`);
+  }
+
+  if (options?.userId) {
+    revalidatePath(`/admin/users/${options.userId}`);
   }
 }
 
@@ -261,16 +268,6 @@ export async function reassignAppOwnerAction(
   revalidateAdminViews(appRequestId);
 }
 
-function parseOptionalGitHubUsername(formData: FormData) {
-  const rawValue = formData.get("githubUsername");
-
-  if (rawValue == null || String(rawValue).trim().length === 0) {
-    return null;
-  }
-
-  return parseGitHubUsername(rawValue);
-}
-
 export async function updateUserGithubUsernameAction(
   userId: string,
   formData: FormData,
@@ -289,6 +286,5 @@ export async function updateUserGithubUsernameAction(
     targetUserId: userId,
     githubUsername,
   });
-  revalidatePath("/admin/users");
-  revalidatePath(`/admin/users/${userId}`);
+  revalidateAdminViews(undefined, { userId });
 }

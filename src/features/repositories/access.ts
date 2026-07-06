@@ -26,6 +26,16 @@ export function parseGitHubUsername(value: unknown) {
   return githubUsernameSchema.parse(value);
 }
 
+export function parseOptionalGitHubUsername(formData: FormData) {
+  const rawValue = formData.get("githubUsername");
+
+  if (rawValue == null || String(rawValue).trim().length === 0) {
+    return null;
+  }
+
+  return parseGitHubUsername(rawValue);
+}
+
 export async function grantManagedRepositoryAccess(
   {
     owner,

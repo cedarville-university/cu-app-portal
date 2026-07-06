@@ -53,12 +53,14 @@ export async function searchAuditLog(
   const where = whereClause(filters);
   const offset = (page - 1) * pageSize;
 
-  const entries = await prisma.$queryRaw<AuditLogEntry[]>(
-    Prisma.sql`SELECT "id", "event", "details", "createdAt" FROM "AuditLog" ${where} ORDER BY "createdAt" DESC LIMIT ${pageSize} OFFSET ${offset}`,
-  );
-  const countRows = await prisma.$queryRaw<{ count: bigint }[]>(
-    Prisma.sql`SELECT COUNT(*)::bigint AS count FROM "AuditLog" ${where}`,
-  );
+  const [entries, countRows] = await Promise.all([
+    prisma.$queryRaw<AuditLogEntry[]>(
+      Prisma.sql`SELECT "id", "event", "details", "createdAt" FROM "AuditLog" ${where} ORDER BY "createdAt" DESC LIMIT ${pageSize} OFFSET ${offset}`,
+    ),
+    prisma.$queryRaw<{ count: bigint }[]>(
+      Prisma.sql`SELECT COUNT(*)::bigint AS count FROM "AuditLog" ${where}`,
+    ),
+  ]);
 
   return {
     entries,

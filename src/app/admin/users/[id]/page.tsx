@@ -172,6 +172,9 @@ export default async function AdminUserDetailPage({
                 className="form-control"
                 defaultValue={user.githubUsername ?? ""}
                 placeholder="octocat"
+                pattern="[a-zA-Z\d](?:[a-zA-Z\d-]{0,37}[a-zA-Z\d])?"
+                maxLength={39}
+                title="Enter a valid GitHub username: letters, digits, and single hyphens, up to 39 characters. Leave blank to clear it."
               />
             </label>
             <div>

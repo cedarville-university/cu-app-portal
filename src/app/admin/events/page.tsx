@@ -143,33 +143,38 @@ export default async function AdminEventsPage({
             >
               <summary
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  flexWrap: "wrap",
                   padding: "0.625rem 0",
                   cursor: "pointer",
                 }}
               >
                 <span
                   style={{
-                    fontSize: "0.875rem",
-                    color: "var(--text-secondary)",
-                    whiteSpace: "nowrap",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    flexWrap: "wrap",
                   }}
                 >
-                  {formatDateTime(entry.createdAt)}
-                </span>
-                <span className="badge badge--info">{entry.event}</span>
-                <span
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "var(--text-muted)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {summarizeDetails(entry.details)}
+                  <span
+                    style={{
+                      fontSize: "0.875rem",
+                      color: "var(--text-secondary)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatDateTime(entry.createdAt)}
+                  </span>
+                  <span className="badge badge--info">{entry.event}</span>
+                  <span
+                    style={{
+                      fontSize: "0.875rem",
+                      color: "var(--text-muted)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {summarizeDetails(entry.details)}
+                  </span>
                 </span>
               </summary>
               <pre

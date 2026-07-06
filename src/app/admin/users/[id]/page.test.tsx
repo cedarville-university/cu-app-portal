@@ -126,6 +126,13 @@ describe("AdminUserDetailPage", () => {
 
     expect(githubInput).toHaveAttribute("name", "githubUsername");
     expect(githubInput).toHaveValue("ada");
+    expect(githubInput).toHaveAttribute(
+      "pattern",
+      "[a-zA-Z\\d](?:[a-zA-Z\\d-]{0,37}[a-zA-Z\\d])?",
+    );
+    expect(githubInput).toHaveAttribute("maxLength", "39");
+    expect(githubInput).toHaveAttribute("title");
+    expect(githubInput.getAttribute("title")).toMatch(/github username/i);
     expect(
       screen.getByRole("button", { name: "Save GitHub Username" }),
     ).toBeInTheDocument();
