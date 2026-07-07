@@ -3,6 +3,7 @@ import React from "react";
 import { searchAuditLog, summarizeDetails } from "@/features/admin/audit-log";
 import {
   AUDIT_APP_ID_KEYS,
+  AUDIT_ENTRA_OID_KEYS,
   AUDIT_USER_ID_KEYS,
   resolveAuditReferences,
   type AuditReferenceLabels,
@@ -44,6 +45,23 @@ function collectEntryReferences(
     if (user) {
       seen.add(`user-${value}`);
       result.push({ type: "user", id: value, ...user });
+    }
+  }
+
+  for (const key of AUDIT_ENTRA_OID_KEYS) {
+    const value = record[key];
+    if (typeof value !== "string") {
+      continue;
+    }
+    const user = references.usersByEntraOid.get(value);
+    if (user && !seen.has(`user-${user.id}`)) {
+      seen.add(`user-${user.id}`);
+      result.push({
+        type: "user",
+        id: user.id,
+        displayName: user.displayName,
+        email: user.email,
+      });
     }
   }
 
@@ -105,6 +123,10 @@ export default async function AdminEventsPage({
 
     if ((AUDIT_APP_ID_KEYS as readonly string[]).includes(key)) {
       return references.apps.get(value)?.appName ?? null;
+    }
+
+    if ((AUDIT_ENTRA_OID_KEYS as readonly string[]).includes(key)) {
+      return references.usersByEntraOid.get(value)?.displayName ?? null;
     }
 
     return null;

@@ -72,6 +72,17 @@ describe("collectAuditReferenceIds", () => {
     expect(result.appRequestIds).toEqual([]);
   });
 
+  it("collects entra oids from sign-in payloads", () => {
+    const result = collectAuditReferenceIds([
+      { provider: "microsoft-entra-id", entraOid: "oid-1" },
+      { entraOid: "oid-1" },
+      { entraOid: 42 },
+    ]);
+
+    expect(result.entraOids).toEqual(["oid-1"]);
+    expect(result.userIds).toEqual([]);
+  });
+
   it("collects all recognized user id keys", () => {
     const result = collectAuditReferenceIds([
       {
@@ -92,6 +103,32 @@ describe("resolveAuditReferences", () => {
   beforeEach(() => {
     vi.mocked(prisma.user.findMany).mockReset();
     vi.mocked(prisma.appRequest.findMany).mockReset();
+  });
+
+  it("resolves entra oids to users keyed by oid", async () => {
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      {
+        id: "user-1",
+        entraOid: "oid-1",
+        displayName: "Ada Admin",
+        email: "ada@cedarville.edu",
+      },
+    ] as never);
+
+    const result = await resolveAuditReferences([
+      { provider: "microsoft-entra-id", entraOid: "oid-1" },
+    ]);
+
+    expect(prisma.user.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: { entraOid: { in: ["oid-1"] } },
+      select: { id: true, entraOid: true, displayName: true, email: true },
+    });
+    expect(result.usersByEntraOid.get("oid-1")).toEqual({
+      id: "user-1",
+      displayName: "Ada Admin",
+      email: "ada@cedarville.edu",
+    });
   });
 
   it("builds maps from resolved users and apps", async () => {

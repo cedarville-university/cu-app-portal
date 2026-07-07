@@ -41,6 +41,7 @@ describe("AdminEventsPage", () => {
     vi.mocked(resolveAuditReferences).mockResolvedValue({
       users: new Map(),
       apps: new Map(),
+      usersByEntraOid: new Map(),
     });
   });
 
@@ -96,6 +97,7 @@ describe("AdminEventsPage", () => {
         ["user-1", { displayName: "Ada Admin", email: "ada@cedarville.edu" }],
       ]),
       apps: new Map([["app-1", { appName: "Campus Dashboard" }]]),
+      usersByEntraOid: new Map(),
     });
 
     render(await AdminEventsPage({ searchParams: Promise.resolve({}) }));
@@ -112,6 +114,43 @@ describe("AdminEventsPage", () => {
     expect(appLink).toHaveAttribute("href", "/admin/apps/app-1");
 
     expect(screen.getByText(/"actorUserId": "user-1"/)).toBeInTheDocument();
+  });
+
+  it("resolves sign-in entra oids to user names and links", async () => {
+    vi.mocked(searchAuditLog).mockResolvedValue({
+      entries: [
+        {
+          id: "evt-2",
+          event: "SIGN_IN",
+          details: { provider: "microsoft-entra-id", entraOid: "oid-1" },
+          createdAt: new Date("2026-07-07T09:00:00"),
+        },
+      ],
+      totalCount: 1,
+    });
+    vi.mocked(resolveAuditReferences).mockResolvedValue({
+      users: new Map(),
+      apps: new Map(),
+      usersByEntraOid: new Map([
+        [
+          "oid-1",
+          {
+            id: "user-1",
+            displayName: "Ada Admin",
+            email: "ada@cedarville.edu",
+          },
+        ],
+      ]),
+    });
+
+    render(await AdminEventsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByText(/entraOid: Ada Admin/)).toBeInTheDocument();
+
+    const userLink = screen.getByRole("link", { name: /Ada Admin/ });
+    expect(userLink).toHaveAttribute("href", "/admin/users/user-1");
+
+    expect(screen.getByText(/"entraOid": "oid-1"/)).toBeInTheDocument();
   });
 
   it("passes parsed filters to searchAuditLog", async () => {
