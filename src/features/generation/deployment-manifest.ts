@@ -1,6 +1,7 @@
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import { getTemplateBySlug } from "@/features/templates/catalog";
 import type { AppServiceRuntime } from "@/features/templates/types";
+import { PORTAL_SKILL_PATH } from "./portal-skill";
 
 export type DeploymentManifestInput = Omit<
   CreateAppRequestInput,
@@ -65,7 +66,7 @@ export type DeploymentManifest = {
   };
   applicationSettings: string[];
   automation: {
-    skillPath: ".codex/skills/publish-to-azure/SKILL.md";
+    skillPath: typeof PORTAL_SKILL_PATH;
   };
 };
 
@@ -217,7 +218,7 @@ export function buildDeploymentManifest(
     },
     applicationSettings,
     automation: {
-      skillPath: ".codex/skills/publish-to-azure/SKILL.md",
+      skillPath: PORTAL_SKILL_PATH,
     },
   };
 }

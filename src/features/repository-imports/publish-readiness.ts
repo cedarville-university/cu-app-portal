@@ -1,4 +1,8 @@
 import {
+  LEGACY_PUBLISH_SKILL_PATH,
+  PORTAL_SKILL_PATH,
+} from "@/features/generation/portal-skill";
+import {
   HTTP_SERVER_START_PATH,
   IMPORTED_HTTP_SERVER_RUNTIME,
   PUBLISHING_BUNDLE_PATHS,
@@ -43,6 +47,11 @@ const READINESS_PATHS = [
   HTTP_SERVER_START_PATH,
   ...PUBLISHING_BUNDLE_PATHS,
 ];
+
+const PUBLISHING_SKILL_PATHS = new Set([
+  PORTAL_SKILL_PATH,
+  LEGACY_PUBLISH_SKILL_PATH,
+]);
 
 function removePublishingBundlePaths(files: RepositoryFileMap) {
   const compatibilityFiles = { ...files };
@@ -135,6 +144,28 @@ function getFeatureDefaults(runtime: ImportedAppRuntime | null) {
   };
 }
 
+function hasRepositoryFile(files: RepositoryFileMap, path: string) {
+  return Object.prototype.hasOwnProperty.call(files, path);
+}
+
+function missingReadinessPaths(
+  files: RepositoryFileMap,
+  runtime: ImportedAppRuntime | null,
+) {
+  const missingPaths = publishingBundlePathsForRuntime(runtime).filter(
+    (path) => !PUBLISHING_SKILL_PATHS.has(path) && !hasRepositoryFile(files, path),
+  );
+  const hasPublishingSkill =
+    hasRepositoryFile(files, PORTAL_SKILL_PATH) ||
+    hasRepositoryFile(files, LEGACY_PUBLISH_SKILL_PATH);
+
+  if (!hasPublishingSkill) {
+    missingPaths.push(PORTAL_SKILL_PATH);
+  }
+
+  return missingPaths;
+}
+
 export async function verifyImportedPublishReadiness({
   owner,
   name,
@@ -154,9 +185,7 @@ export async function verifyImportedPublishReadiness({
     .filter((finding) => finding.code !== "FILE_CONFLICT")
     .map(formatFinding);
   const runtime = compatibility.runtime ?? parseManifestRuntime(files);
-  const missingPaths = publishingBundlePathsForRuntime(runtime).filter(
-    (path) => !Object.prototype.hasOwnProperty.call(files, path),
-  );
+  const missingPaths = missingReadinessPaths(files, runtime);
 
   return {
     ready: missingPaths.length === 0 && packageIssues.length === 0,

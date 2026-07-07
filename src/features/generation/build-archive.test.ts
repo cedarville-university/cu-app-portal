@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { buildArchive } from "./build-archive";
 import { buildDeploymentManifest } from "./deployment-manifest";
+import { buildPythonFastApiGeneratedFiles } from "./python-fastapi-source";
 
 describe("buildArchive", () => {
   it("builds the FastAPI Azure App Service starter archive", async () => {
@@ -83,8 +84,8 @@ describe("buildArchive", () => {
     );
     expect(archive.files["README.md"]).toContain("/auth/callback");
     expect(
-      archive.files[".codex/skills/publish-to-azure/SKILL.md"],
-    ).toContain("/auth/callback");
+      archive.files[".codex/skills/cu-app-portal/SKILL.md"],
+    ).toContain("CU App Portal");
     expect(
       archive.files["docs/publishing/azure-app-service.md"],
     ).toContain("/login");
@@ -99,6 +100,30 @@ describe("buildArchive", () => {
     );
     expect(manifest.auth?.callbackPath).toBe("/auth/callback");
     expect(zip.file("package.json")).toBeNull();
+  });
+
+  it("uses the shared portal skill files for FastAPI generated source", () => {
+    const files = buildPythonFastApiGeneratedFiles({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    expect(files[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "CU App Portal",
+    );
+    expect(files[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "Repair Publishing Setup",
+    );
+    expect(files[".codex/skills/publish-to-azure/SKILL.md"]).toContain(
+      "Use the `cu-app-portal` skill",
+    );
+    expect(files[".codex/skills/publish-to-azure/SKILL.md"]).not.toContain(
+      "Publish Reports API To Azure App Service",
+    );
   });
 
   it("escapes FastAPI Python string literals from app metadata", async () => {
@@ -279,31 +304,20 @@ describe("buildArchive", () => {
     expect(
       zip.file(".github/workflows/deploy-azure-app-service.yml"),
     ).toBeTruthy();
+    expect(zip.file(".codex/skills/cu-app-portal/SKILL.md")).toBeTruthy();
     expect(zip.file(".codex/skills/publish-to-azure/SKILL.md")).toBeTruthy();
     await expect(
       zip.file("app-portal/deployment-manifest.json")?.async("string"),
     ).resolves.toBe(expectedDeploymentManifest);
     await expect(
-      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
-    ).resolves.toContain("Publish to Azure");
+      zip.file(".codex/skills/cu-app-portal/SKILL.md")?.async("string"),
+    ).resolves.toContain("CU App Portal");
+    await expect(
+      zip.file(".codex/skills/cu-app-portal/SKILL.md")?.async("string"),
+    ).resolves.toContain("Repair Publishing Setup");
     await expect(
       zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
-    ).resolves.toContain("DATABASE_URL");
-    await expect(
-      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
-    ).resolves.toContain("Azure Database for PostgreSQL flexible server");
-    await expect(
-      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
-    ).resolves.toContain("Set the App Service `DATABASE_URL` app setting");
-    await expect(
-      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
-    ).resolves.toContain("Microsoft Entra login is configured");
-    await expect(
-      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
-    ).resolves.toContain("AUTH_MICROSOFT_ENTRA_ID_ID");
-    await expect(
-      zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async("string"),
-    ).resolves.toContain("redirect URI");
+    ).resolves.toContain("Use the `cu-app-portal` skill");
     await expect(
       zip.file(".github/workflows/deploy-azure-app-service.yml")?.async(
         "string",
@@ -393,12 +407,13 @@ describe("buildArchive", () => {
     ) as { generatedFiles: string[]; generatedOverrides?: string[] };
 
     expect(templateManifest.generatedFiles.sort()).toEqual([
+      ".codex/skills/publish-to-azure/SKILL.md",
       "app-portal/deployment-manifest.json",
       "docs/deployment-guide.md",
       "docs/github-setup.md",
     ]);
     expect(templateManifest.generatedOverrides?.sort()).toEqual([
-      ".codex/skills/publish-to-azure/SKILL.md",
+      ".codex/skills/cu-app-portal/SKILL.md",
       ".env.example",
       "README.md",
       "docs/publishing/azure-app-service.md",
@@ -423,7 +438,7 @@ describe("buildArchive", () => {
         "tsconfig.json.template",
         "next-env.d.ts",
         ".github/workflows/deploy-azure-app-service.yml.template",
-        ".codex/skills/publish-to-azure/SKILL.md.template",
+        ".codex/skills/cu-app-portal/SKILL.md.template",
         "docs/publishing/azure-app-service.md.template",
         "docs/publishing/lessons-learned.md.template",
         "src/app/layout.tsx.template",
@@ -486,8 +501,8 @@ describe("buildArchive", () => {
         "string",
       )) ?? "";
     const readme = (await zip.file("README.md")?.async("string")) ?? "";
-    const publishSkill =
-      (await zip.file(".codex/skills/publish-to-azure/SKILL.md")?.async(
+    const portalSkill =
+      (await zip.file(".codex/skills/cu-app-portal/SKILL.md")?.async(
         "string",
       )) ?? "";
     const packageJson = JSON.parse(
@@ -540,20 +555,9 @@ describe("buildArchive", () => {
     expect(readme).not.toContain("DATABASE_URL");
     expect(readme).not.toContain("Azure PostgreSQL");
     expect(readme).not.toContain("Persistent app data is already wired in");
-    expect(publishSkill).toContain(
-      "This app was generated without a database.",
-    );
-    expect(publishSkill).toContain(
-      "This app was generated without built-in login.",
-    );
-    expect(publishSkill).toContain(
-      "Create or verify the Azure App Service app described by the manifest.",
-    );
-    expect(publishSkill).not.toContain("PostgreSQL");
-    expect(publishSkill).not.toContain("DATABASE_URL");
-    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_ID");
-    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_SECRET");
-    expect(publishSkill).not.toContain("AUTH_MICROSOFT_ENTRA_ID_ISSUER");
+    expect(portalSkill).toContain("CU App Portal");
+    expect(portalSkill).toContain("portal-managed GitHub repository");
+    expect(portalSkill).toContain("Repair Publishing Setup");
   });
 
   it("keeps README database and login guidance independent for mixed feature selections", async () => {

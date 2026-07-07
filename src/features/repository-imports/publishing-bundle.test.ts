@@ -44,6 +44,7 @@ describe("planPublishingBundle", () => {
     expect(Object.keys(plan.filesToWrite)).toEqual([
       "package.json",
       ".github/workflows/deploy-azure-app-service.yml",
+      ".codex/skills/cu-app-portal/SKILL.md",
       ".codex/skills/publish-to-azure/SKILL.md",
       "docs/publishing/azure-app-service.md",
       "docs/publishing/lessons-learned.md",
@@ -146,6 +147,15 @@ describe("planPublishingBundle", () => {
     expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
       "Node.js 24 / Express",
     );
+    expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "CU App Portal",
+    );
+    expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "Add Existing App",
+    );
+    expect(
+      plan.filesToWrite[".codex/skills/publish-to-azure/SKILL.md"],
+    ).toContain("Use the `cu-app-portal` skill");
   });
 
   it("rejects existing target publishing files", () => {
@@ -210,6 +220,15 @@ describe("planPublishingBundle", () => {
     expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
       "Python 3.14 / FastAPI",
     );
+    expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "CU App Portal",
+    );
+    expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "Add Existing App",
+    );
+    expect(
+      plan.filesToWrite[".codex/skills/publish-to-azure/SKILL.md"],
+    ).toContain("Use the `cu-app-portal` skill");
   });
 
   it("adds http.server publishing files without package.json rewrites or Python dependency installs", () => {
@@ -266,9 +285,15 @@ describe("planPublishingBundle", () => {
     expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
       "Python 3.14 / http.server",
     );
-    expect(plan.filesToWrite[".codex/skills/publish-to-azure/SKILL.md"]).toContain(
-      "Python 3.14 / http.server",
+    expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "CU App Portal",
     );
+    expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "Add Existing App",
+    );
+    expect(
+      plan.filesToWrite[".codex/skills/publish-to-azure/SKILL.md"],
+    ).toContain("Use the `cu-app-portal` skill");
   });
 
   it("extracts FastAPI dependencies from project pyproject dependencies", () => {
