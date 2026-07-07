@@ -1,5 +1,11 @@
 import { buildDeploymentManifest } from "@/features/generation/deployment-manifest";
 import {
+  LEGACY_PUBLISH_SKILL_PATH,
+  PORTAL_SKILL_PATH,
+  buildLegacyPublishToAzureStub,
+  buildManagedAppPortalSkill,
+} from "@/features/generation/portal-skill";
+import {
   HTTP_SERVER_START_PATH,
   IMPORTED_EXPRESS_RUNTIME,
   IMPORTED_NEXT_RUNTIME,
@@ -419,8 +425,8 @@ export function planPublishingBundle({
   if (runtime.framework === "http-server") {
     filesToWrite[HTTP_SERVER_START_PATH] = HTTP_SERVER_START;
   }
-  filesToWrite[".codex/skills/publish-to-azure/SKILL.md"] =
-    `# Publish to Azure\n\nUse the Cedarville App Portal as the supported Azure publishing path for this imported ${runtime.displayName} app.\n`;
+  filesToWrite[PORTAL_SKILL_PATH] = buildManagedAppPortalSkill();
+  filesToWrite[LEGACY_PUBLISH_SKILL_PATH] = buildLegacyPublishToAzureStub();
   filesToWrite["docs/publishing/azure-app-service.md"] =
     `# Publish to Azure App Service\n\nThis imported ${runtime.displayName} app is prepared for Cedarville App Portal-managed Azure publishing.\n`;
   filesToWrite["docs/publishing/lessons-learned.md"] =

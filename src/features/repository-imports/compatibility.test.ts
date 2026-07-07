@@ -470,6 +470,34 @@ describe("scanRepositoryCompatibility", () => {
     ).toBe("UNSUPPORTED");
   });
 
+  it("records conflicts for the new and legacy portal skill paths", () => {
+    const result = scanRepositoryCompatibility({
+      "package.json": JSON.stringify({
+        scripts: { build: "next build", start: "next start" },
+        dependencies: { next: "15.5.15" },
+        engines: { node: ">=24" },
+      }),
+      ".codex/skills/cu-app-portal/SKILL.md": "# Existing",
+      ".codex/skills/publish-to-azure/SKILL.md": "# Existing legacy",
+    });
+
+    expect(result.status).toBe("CONFLICTED");
+    expect(result.findings).toContainEqual({
+      code: "FILE_CONFLICT",
+      severity: "error",
+      message:
+        ".codex/skills/cu-app-portal/SKILL.md already exists and will not be overwritten.",
+      path: ".codex/skills/cu-app-portal/SKILL.md",
+    });
+    expect(result.findings).toContainEqual({
+      code: "FILE_CONFLICT",
+      severity: "error",
+      message:
+        ".codex/skills/publish-to-azure/SKILL.md already exists and will not be overwritten.",
+      path: ".codex/skills/publish-to-azure/SKILL.md",
+    });
+  });
+
   it("rejects repositories without a supported runtime", () => {
     expect(scanRepositoryCompatibility({})).toEqual({
       status: "UNSUPPORTED",

@@ -1,3 +1,8 @@
+import {
+  LEGACY_PUBLISH_SKILL_PATH,
+  PORTAL_SKILL_PATH,
+} from "@/features/generation/portal-skill";
+
 export type RepositoryFileMap = Record<string, string>;
 
 export type ImportedAppRuntime =
@@ -104,7 +109,8 @@ type PackageJson = {
 
 export const PUBLISHING_BUNDLE_PATHS = [
   ".github/workflows/deploy-azure-app-service.yml",
-  ".codex/skills/publish-to-azure/SKILL.md",
+  PORTAL_SKILL_PATH,
+  LEGACY_PUBLISH_SKILL_PATH,
   "docs/publishing/azure-app-service.md",
   "docs/publishing/lessons-learned.md",
   "app-portal/deployment-manifest.json",
