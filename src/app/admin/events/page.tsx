@@ -1,6 +1,12 @@
 import Link from "next/link";
 import React from "react";
 import { searchAuditLog, summarizeDetails } from "@/features/admin/audit-log";
+import {
+  AUDIT_APP_ID_KEYS,
+  AUDIT_USER_ID_KEYS,
+  resolveAuditReferences,
+  type AuditReferenceLabels,
+} from "@/features/admin/audit-log-references";
 import { AdminNotAuthorized, getAdminUserIdOrNull } from "@/features/admin/guard";
 import { Pagination } from "@/features/admin/pagination";
 import {
@@ -12,6 +18,49 @@ import {
 } from "@/features/admin/query-params";
 import { formatDateTime } from "@/features/admin/status";
 import { AUDIT_EVENTS } from "@/lib/audit";
+
+type EntryReference =
+  | { type: "user"; id: string; displayName: string; email: string }
+  | { type: "app"; id: string; appName: string };
+
+function collectEntryReferences(
+  details: unknown,
+  references: AuditReferenceLabels,
+): EntryReference[] {
+  if (!details || typeof details !== "object" || Array.isArray(details)) {
+    return [];
+  }
+
+  const record = details as Record<string, unknown>;
+  const result: EntryReference[] = [];
+  const seen = new Set<string>();
+
+  for (const key of AUDIT_USER_ID_KEYS) {
+    const value = record[key];
+    if (typeof value !== "string" || seen.has(`user-${value}`)) {
+      continue;
+    }
+    const user = references.users.get(value);
+    if (user) {
+      seen.add(`user-${value}`);
+      result.push({ type: "user", id: value, ...user });
+    }
+  }
+
+  for (const key of AUDIT_APP_ID_KEYS) {
+    const value = record[key];
+    if (typeof value !== "string" || seen.has(`app-${value}`)) {
+      continue;
+    }
+    const app = references.apps.get(value);
+    if (app) {
+      seen.add(`app-${value}`);
+      result.push({ type: "app", id: value, ...app });
+    }
+  }
+
+  return result;
+}
 
 export default async function AdminEventsPage({
   searchParams,
@@ -41,6 +90,26 @@ export default async function AdminEventsPage({
   }
 
   const { entries, totalCount } = result;
+  const references = await resolveAuditReferences(
+    entries.map((entry) => entry.details),
+  );
+
+  function labelFor(key: string, value: unknown): string | null {
+    if (typeof value !== "string") {
+      return null;
+    }
+
+    if ((AUDIT_USER_ID_KEYS as readonly string[]).includes(key)) {
+      return references.users.get(value)?.displayName ?? null;
+    }
+
+    if ((AUDIT_APP_ID_KEYS as readonly string[]).includes(key)) {
+      return references.apps.get(value)?.appName ?? null;
+    }
+
+    return null;
+  }
+
   const hasFilters = Boolean(event || from || to || search);
   const preservedParams: Record<string, string> = {};
 
@@ -173,10 +242,64 @@ export default async function AdminEventsPage({
                       textOverflow: "ellipsis",
                     }}
                   >
-                    {summarizeDetails(entry.details)}
+                    {summarizeDetails(entry.details, labelFor)}
                   </span>
                 </span>
               </summary>
+              {(() => {
+                const entryReferences = collectEntryReferences(
+                  entry.details,
+                  references,
+                );
+
+                if (entryReferences.length === 0) {
+                  return null;
+                }
+
+                return (
+                  <div style={{ margin: "0 0 0.75rem" }}>
+                    <p
+                      style={{
+                        fontSize: "0.8125rem",
+                        color: "var(--text-secondary)",
+                        margin: "0 0 0.375rem",
+                      }}
+                    >
+                      References
+                    </p>
+                    <ul
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "0.5rem 1rem",
+                        margin: 0,
+                        padding: 0,
+                        listStyle: "none",
+                      }}
+                    >
+                      {entryReferences.map((reference) => (
+                        <li key={`${reference.type}-${reference.id}`}>
+                          {reference.type === "user" ? (
+                            <Link
+                              href={`/admin/users/${reference.id}`}
+                              className="meta-link"
+                            >
+                              {reference.displayName} ({reference.email})
+                            </Link>
+                          ) : (
+                            <Link
+                              href={`/admin/apps/${reference.id}`}
+                              className="meta-link"
+                            >
+                              {reference.appName}
+                            </Link>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
               <pre
                 style={{
                   background: "var(--surface-subtle, #f6f6f6)",

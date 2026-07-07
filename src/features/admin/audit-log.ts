@@ -70,17 +70,22 @@ export async function searchAuditLog(
 
 const SUMMARY_MAX_LENGTH = 120;
 
-export function summarizeDetails(details: unknown): string {
+export function summarizeDetails(
+  details: unknown,
+  labelFor?: (key: string, value: unknown) => string | null,
+): string {
   if (!details || typeof details !== "object" || Array.isArray(details)) {
     return "";
   }
 
   const summary = Object.entries(details)
     .slice(0, 3)
-    .map(
-      ([key, value]) =>
-        `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`,
-    )
+    .map(([key, value]) => {
+      const label = labelFor?.(key, value) ?? null;
+      const text =
+        label ?? (typeof value === "string" ? value : JSON.stringify(value));
+      return `${key}: ${text}`;
+    })
     .join(", ");
 
   if (summary.length <= SUMMARY_MAX_LENGTH) {

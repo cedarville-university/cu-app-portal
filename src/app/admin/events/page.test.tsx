@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { searchAuditLog } from "@/features/admin/audit-log";
+import { resolveAuditReferences } from "@/features/admin/audit-log-references";
 import { getAdminUserIdOrNull } from "@/features/admin/guard";
 import AdminEventsPage from "./page";
 
@@ -20,10 +21,27 @@ vi.mock("@/features/admin/audit-log", async (importOriginal) => {
   };
 });
 
+vi.mock("@/features/admin/audit-log-references", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/features/admin/audit-log-references")
+    >();
+
+  return {
+    ...actual,
+    resolveAuditReferences: vi.fn(),
+  };
+});
+
 describe("AdminEventsPage", () => {
   beforeEach(() => {
     vi.mocked(getAdminUserIdOrNull).mockResolvedValue("admin-1");
     vi.mocked(searchAuditLog).mockReset();
+    vi.mocked(resolveAuditReferences).mockReset();
+    vi.mocked(resolveAuditReferences).mockResolvedValue({
+      users: new Map(),
+      apps: new Map(),
+    });
   });
 
   afterEach(() => {
@@ -59,6 +77,41 @@ describe("AdminEventsPage", () => {
       screen.getByText(/provider: microsoft-entra-id/),
     ).toBeInTheDocument();
     expect(screen.getByText(/"entraOid": "oid-1"/)).toBeInTheDocument();
+  });
+
+  it("resolves and links user and app references in the event details", async () => {
+    vi.mocked(searchAuditLog).mockResolvedValue({
+      entries: [
+        {
+          id: "evt-1",
+          event: "SIGN_IN",
+          details: { actorUserId: "user-1", appRequestId: "app-1" },
+          createdAt: new Date("2026-07-06T13:05:00"),
+        },
+      ],
+      totalCount: 1,
+    });
+    vi.mocked(resolveAuditReferences).mockResolvedValue({
+      users: new Map([
+        ["user-1", { displayName: "Ada Admin", email: "ada@cedarville.edu" }],
+      ]),
+      apps: new Map([["app-1", { appName: "Campus Dashboard" }]]),
+    });
+
+    render(await AdminEventsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(
+      screen.getByText(/actorUserId: Ada Admin/),
+    ).toBeInTheDocument();
+
+    const userLink = screen.getByRole("link", { name: /Ada Admin/ });
+    expect(userLink).toHaveAttribute("href", "/admin/users/user-1");
+    expect(userLink.textContent).toContain("ada@cedarville.edu");
+
+    const appLink = screen.getByRole("link", { name: "Campus Dashboard" });
+    expect(appLink).toHaveAttribute("href", "/admin/apps/app-1");
+
+    expect(screen.getByText(/"actorUserId": "user-1"/)).toBeInTheDocument();
   });
 
   it("passes parsed filters to searchAuditLog", async () => {

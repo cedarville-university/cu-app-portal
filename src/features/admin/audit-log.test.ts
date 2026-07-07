@@ -112,4 +112,35 @@ describe("summarizeDetails", () => {
       expect(summarizeDetails(details)).toBe("");
     },
   );
+
+  it("substitutes a resolved label for a key when labelFor returns a string", () => {
+    const labelFor = (key: string) =>
+      key === "actorUserId" ? "Ada Admin" : null;
+
+    expect(
+      summarizeDetails({ actorUserId: "user-1", other: "value" }, labelFor),
+    ).toBe("actorUserId: Ada Admin, other: value");
+  });
+
+  it("keeps the raw value when labelFor returns null", () => {
+    const labelFor = () => null;
+
+    expect(summarizeDetails({ a: "1", b: 2 }, labelFor)).toBe("a: 1, b: 2");
+  });
+
+  it("behaves exactly as before when labelFor is omitted", () => {
+    expect(summarizeDetails({ a: "1", b: 2, c: "3", d: "4" })).toBe(
+      "a: 1, b: 2, c: 3",
+    );
+  });
+
+  it("applies the 120-char truncation rule to substituted text", () => {
+    const labelFor = (key: string) =>
+      key === "key" ? "y".repeat(200) : null;
+
+    const summary = summarizeDetails({ key: "x" }, labelFor);
+
+    expect(summary.length).toBe(120);
+    expect(summary.endsWith("...")).toBe(true);
+  });
 });
