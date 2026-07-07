@@ -78,7 +78,7 @@ Use `generatedOverrides` when generation code intentionally owns a path that cou
 ```json
 "generatedOverrides": [
   "README.md",
-  ".codex/skills/publish-to-azure/SKILL.md"
+  ".codex/skills/cu-app-portal/SKILL.md"
 ]
 ```
 
@@ -90,6 +90,8 @@ Publishing-capable templates can include assets such as:
 
 - `.github/workflows/`
 - `.codex/skills/`
+- `.codex/skills/cu-app-portal/`
+- `.codex/skills/publish-to-azure/` as a compatibility redirect
 - `docs/publishing/`
 
 Current publishing-capable templates emit a generated deployment manifest at `app-portal/deployment-manifest.json` so generated-app fallback skills and portal-managed publishing flows can share the same deployment contract.
