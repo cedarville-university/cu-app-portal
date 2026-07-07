@@ -3,6 +3,7 @@ import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { buildArchive } from "./build-archive";
 import { buildDeploymentManifest } from "./deployment-manifest";
+import { buildPythonFastApiGeneratedFiles } from "./python-fastapi-source";
 
 describe("buildArchive", () => {
   it("builds the FastAPI Azure App Service starter archive", async () => {
@@ -99,6 +100,30 @@ describe("buildArchive", () => {
     );
     expect(manifest.auth?.callbackPath).toBe("/auth/callback");
     expect(zip.file("package.json")).toBeNull();
+  });
+
+  it("uses the shared portal skill files for FastAPI generated source", () => {
+    const files = buildPythonFastApiGeneratedFiles({
+      templateSlug: "python-fastapi",
+      appName: "Reports API",
+      description: "Reports endpoint",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    expect(files[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "CU App Portal",
+    );
+    expect(files[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
+      "Repair Publishing Setup",
+    );
+    expect(files[".codex/skills/publish-to-azure/SKILL.md"]).toContain(
+      "Use the `cu-app-portal` skill",
+    );
+    expect(files[".codex/skills/publish-to-azure/SKILL.md"]).not.toContain(
+      "Publish Reports API To Azure App Service",
+    );
   });
 
   it("escapes FastAPI Python string literals from app metadata", async () => {

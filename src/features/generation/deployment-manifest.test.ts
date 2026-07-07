@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { buildDeploymentManifest } from "./deployment-manifest";
 import type { DeploymentManifestInput } from "./deployment-manifest";
@@ -237,6 +238,16 @@ describe("buildDeploymentManifest", () => {
       provider: "microsoft-entra-id",
       callbackPath: "/auth/callback",
     });
+  });
+
+  it("keeps the checked-in portal deployment manifest pointed at the portal skill", async () => {
+    const manifest = JSON.parse(
+      await readFile("app-portal/deployment-manifest.json", "utf8"),
+    ) as { automation?: { skillPath?: string } };
+
+    expect(manifest.automation?.skillPath).toBe(
+      ".codex/skills/cu-app-portal/SKILL.md",
+    );
   });
 
   it("builds FastAPI PostgreSQL and Entra settings for Azure publishing", () => {

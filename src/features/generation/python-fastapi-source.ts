@@ -1,4 +1,10 @@
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
+import {
+  LEGACY_PUBLISH_SKILL_PATH,
+  PORTAL_SKILL_PATH,
+  buildLegacyPublishToAzureStub,
+  buildManagedAppPortalSkill,
+} from "./portal-skill";
 
 type FastApiFeatureOptions = {
   hasDatabase: boolean;
@@ -28,10 +34,8 @@ export function buildPythonFastApiGeneratedFiles(
     ".env.example": buildEnvExample(input, options),
     "main.py": buildMainPy(input, options),
     "README.md": buildReadme(input, options),
-    ".codex/skills/publish-to-azure/SKILL.md": buildPublishSkill(
-      input,
-      options,
-    ),
+    [PORTAL_SKILL_PATH]: buildManagedAppPortalSkill(),
+    [LEGACY_PUBLISH_SKILL_PATH]: buildLegacyPublishToAzureStub(),
     "docs/publishing/azure-app-service.md": buildAzureDocs(input, options),
     "docs/publishing/lessons-learned.md": buildLessonsLearned(input, options),
   };
@@ -235,50 +239,7 @@ ${
 
 ## Publishing
 
-Use \`docs/publishing/azure-app-service.md\` and the generated \`publish-to-azure\` Codex skill for the supported Azure App Service path.
-`;
-}
-
-function buildPublishSkill(
-  input: CreateAppRequestInput,
-  { hasDatabase, hasEntraLogin }: FastApiFeatureOptions,
-) {
-  return `---
-name: publish-to-azure
-description: Publish this FastAPI app to Azure App Service using the generated manifest, GitHub Actions workflow, and fallback docs.
----
-
-# Publish ${input.appName} To Azure App Service
-
-Use this skill to publish this FastAPI app through the Cedarville App Portal supported path.
-
-## Required Behavior
-
-1. Read \`app-portal/deployment-manifest.json\` before choosing names, commands, Azure resources, or app settings.
-2. Confirm \`git\`, \`gh\`, and \`az\` are installed and authenticated where required.
-3. Prefer the portal-managed GitHub repository as the source of truth.
-4. Create or verify the Azure resource group and App Service plan described by the manifest.
-5. Create or verify the Azure App Service app with the Python runtime stack from the manifest.
-6. Set the App Service startup command to the manifest startup command.
-${
-  hasDatabase
-    ? "7. Create or verify Azure Database for PostgreSQL and set the production `DATABASE_URL` app setting with `sslmode=require`."
-    : "7. This app was generated without a database. Do not provision PostgreSQL or add `DATABASE_URL` unless the app is intentionally changed later."
-}
-${
-  hasEntraLogin
-    ? "8. Configure Microsoft Entra app settings with the public App Service URL and `/auth/callback` redirect path."
-    : "8. This app was generated without login. Do not add Microsoft Entra app settings unless the app is intentionally changed later."
-}
-9. Prefer the generated GitHub Actions workflow for deployment and verification.
-10. Record blocked steps and manual fixes in \`docs/publishing/lessons-learned.md\`.
-
-## Notes
-
-- Runtime: Python 3.14 / FastAPI.
-- Database: ${hasDatabase ? "PostgreSQL enabled." : "not enabled."}
-- Login: ${hasEntraLogin ? "Microsoft Entra browser login enabled." : "not enabled."}
-- Keep local settings in \`.env.example\`; put production secrets only in Azure App Service settings.
+Use \`docs/publishing/azure-app-service.md\` and the generated \`cu-app-portal\` Codex skill for the supported portal-managed Azure App Service path.
 `;
 }
 
