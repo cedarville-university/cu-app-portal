@@ -8,10 +8,11 @@
     ".env.example.template",
     ".gitignore.template",
     ".github/workflows/deploy-azure-app-service.yml.template",
-    ".codex/skills/publish-to-azure/SKILL.md.template"
+    ".codex/skills/cu-app-portal/SKILL.md.template"
   ],
   "conditionalEntryFiles": {},
   "generatedFiles": [
+    ".codex/skills/publish-to-azure/SKILL.md",
     "docs/github-setup.md",
     "docs/deployment-guide.md",
     "docs/publishing/azure-app-service.md",
@@ -23,7 +24,7 @@
     "requirements.txt",
     "main.py",
     ".env.example",
-    ".codex/skills/publish-to-azure/SKILL.md",
+    ".codex/skills/cu-app-portal/SKILL.md",
     "docs/publishing/azure-app-service.md",
     "docs/publishing/lessons-learned.md"
   ]

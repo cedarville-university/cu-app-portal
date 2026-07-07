@@ -82,7 +82,7 @@ describe("buildDeploymentManifest", () => {
         "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
       ],
       automation: {
-        skillPath: ".codex/skills/publish-to-azure/SKILL.md",
+        skillPath: ".codex/skills/cu-app-portal/SKILL.md",
       },
     });
   });
@@ -166,7 +166,7 @@ describe("buildDeploymentManifest", () => {
         "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
       ],
       automation: {
-        skillPath: ".codex/skills/publish-to-azure/SKILL.md",
+        skillPath: ".codex/skills/cu-app-portal/SKILL.md",
       },
     });
   });

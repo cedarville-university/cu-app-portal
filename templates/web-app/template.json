@@ -14,7 +14,7 @@
     "src/app/globals.css.template",
     ".env.example.template",
     ".github/workflows/deploy-azure-app-service.yml.template",
-    ".codex/skills/publish-to-azure/SKILL.md.template",
+    ".codex/skills/cu-app-portal/SKILL.md.template",
     "docs/publishing/azure-app-service.md.template",
     "docs/publishing/lessons-learned.md.template"
   ],
@@ -29,6 +29,7 @@
     ]
   },
   "generatedFiles": [
+    ".codex/skills/publish-to-azure/SKILL.md",
     "docs/github-setup.md",
     "docs/deployment-guide.md",
     "app-portal/deployment-manifest.json"
@@ -41,6 +42,6 @@
     "README.md",
     "docs/publishing/azure-app-service.md",
     "docs/publishing/lessons-learned.md",
-    ".codex/skills/publish-to-azure/SKILL.md"
+    ".codex/skills/cu-app-portal/SKILL.md"
   ]
 }

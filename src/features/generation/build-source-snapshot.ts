@@ -6,6 +6,12 @@ import {
   type DeploymentManifestInput,
 } from "./deployment-manifest";
 import { buildInstructionFiles } from "./instruction-files";
+import {
+  LEGACY_PUBLISH_SKILL_PATH,
+  PORTAL_SKILL_PATH,
+  buildLegacyPublishToAzureStub,
+  buildManagedAppPortalSkill,
+} from "./portal-skill";
 import { buildPythonFastApiGeneratedFiles } from "./python-fastapi-source";
 import { renderTemplateString } from "./render-template";
 import { buildTokenMap } from "./token-replacements";
@@ -93,9 +99,10 @@ function buildGeneratedTemplateFiles(
     "src/app/page.tsx": buildPageFile(input),
     "src/lib/app-data.ts": buildAppDataFile(input),
     "README.md": buildReadmeFile(input),
-    ".codex/skills/publish-to-azure/SKILL.md": buildPublishSkillFile(input),
     "app-portal/deployment-manifest.json": deploymentManifest,
     ...pythonFastApiFiles,
+    [PORTAL_SKILL_PATH]: buildManagedAppPortalSkill(),
+    [LEGACY_PUBLISH_SKILL_PATH]: buildLegacyPublishToAzureStub(),
   };
 }
 
@@ -383,67 +390,6 @@ ${authText}
 ## App Data
 
 ${databaseText}
-`;
-}
-
-function buildPublishSkillFile(input: CreateAppRequestInput) {
-  const hasDatabase = input.databaseProvider === "postgresql";
-  const hasEntraLogin = input.entraLogin;
-  const databaseBehavior = hasDatabase
-    ? `5. Create or verify the Azure resource group, Azure Database for PostgreSQL flexible server, and Azure database described by the manifest.
-6. Build the production \`DATABASE_URL\` from the Azure PostgreSQL server, database, admin user, and password, using \`sslmode=require\`.
-7. Set the App Service \`DATABASE_URL\` app setting to the Azure database connection string while leaving the local \`.env.example\` value on localhost for development.
-8. Create or verify the Azure App Service app described by the manifest.`
-    : `5. Create or verify the Azure resource group described by the manifest.
-6. This app was generated without a database. Do not provision a managed database or add database connection settings unless the app is intentionally changed later.
-7. Create or verify the Azure App Service app described by the manifest.`;
-  const workflowStepNumber = hasDatabase ? 9 : 8;
-  const packageStepNumber = hasDatabase ? 10 : 9;
-  const verifyStepNumber = hasDatabase ? 11 : 10;
-  const fallbackStepNumber = hasDatabase ? 12 : 11;
-  const databaseNotes = hasDatabase
-    ? `- Keep development \`DATABASE_URL\` on localhost and put the production \`DATABASE_URL\` only in Azure App Service settings.`
-    : `- This app was generated without a database. Keep publish work focused on the Web App, identity, workflow, and non-database app settings.`;
-  const authBehavior = hasEntraLogin
-    ? `- Microsoft Entra login is configured. Set \`AUTH_URL\`, \`NEXTAUTH_URL\`, \`AUTH_SECRET\`, \`AUTH_MICROSOFT_ENTRA_ID_ID\`, \`AUTH_MICROSOFT_ENTRA_ID_SECRET\`, and \`AUTH_MICROSOFT_ENTRA_ID_ISSUER\` in Azure App Service settings using the public Azure hostname.
-- Confirm the Microsoft Entra app registration includes the production redirect URI before sign-in verification.`
-    : `- This app was generated without built-in login. Do not add Microsoft Entra app settings or redirect URI work unless the app is intentionally changed later.`;
-  const authNotes = hasEntraLogin
-    ? `- Keep Microsoft Entra app settings aligned with the generated manifest and the public App Service URL.`
-    : `- This app was generated without built-in login. Keep publish work free of Entra auth app-setting guidance.`;
-
-  return `---
-name: publish-to-azure
-description: Publish this app to Azure App Service using the generated manifest, GitHub Actions workflow, and fallback docs.
----
-
-# Publish to Azure
-
-Use this skill to publish this app to Azure App Service through the supported GitHub Actions path.
-
-## Required Behavior
-
-1. Read \`app-portal/deployment-manifest.json\` before choosing names, commands, or Azure resources.
-2. Check that \`git\`, \`gh\`, and \`az\` are installed and that the current user is authenticated where required.
-3. Prefer the managed GitHub repository the portal created for this app, and explain the local git state before creating or updating anything else.
-4. Create or connect the GitHub repository only when the portal-managed repo is unavailable or an operator explicitly asks for a manual recovery path.
-${databaseBehavior}
-${workflowStepNumber}. Wire the deployment workflow in \`.github/workflows/deploy-azure-app-service.yml\`, preferring OpenID Connect with \`AZURE_CLIENT_ID\`, \`AZURE_TENANT_ID\`, and \`AZURE_SUBSCRIPTION_ID\`.
-${packageStepNumber}. Prefer the GitHub Actions workflow to build the deployable package and send the built artifact to Azure App Service instead of relying on App Service to Oryx-build the raw repository.
-${verifyStepNumber}. Run the safest available verification after wiring deployment and report what succeeded, what still needs manual work, and where the release is now blocked.
-${fallbackStepNumber}. If \`gh\` or \`az\` cannot complete the flow, fall back to \`docs/publishing/azure-app-service.md\` and capture the blocked step in \`docs/publishing/lessons-learned.md\`.
-
-## Login Posture
-
-${authBehavior}
-
-## Notes
-
-- Prefer the generated manifest over guessed names.
-${databaseNotes}
-${authNotes}
-- Prefer the existing GitHub Actions workflow over inventing a second deployment path.
-- Keep operator-facing updates concise and actionable.
 `;
 }
 
