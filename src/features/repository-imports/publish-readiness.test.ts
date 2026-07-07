@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import {
+  LEGACY_PUBLISH_SKILL_PATH,
+  PORTAL_SKILL_PATH,
+} from "@/features/generation/portal-skill";
 import { PUBLISHING_BUNDLE_PATHS } from "./compatibility";
 import { verifyImportedPublishReadiness } from "./publish-readiness";
 
@@ -314,7 +318,10 @@ describe("verifyImportedPublishReadiness", () => {
 
   it("reports missing publishing bundle paths", async () => {
     const [firstBundlePath, secondBundlePath, ...presentBundlePaths] =
-      PUBLISHING_BUNDLE_PATHS;
+      PUBLISHING_BUNDLE_PATHS.filter(
+        (path) =>
+          path !== PORTAL_SKILL_PATH && path !== LEGACY_PUBLISH_SKILL_PATH,
+      );
     const github = {
       readRepositoryTextFiles: vi.fn().mockResolvedValue(
         {
@@ -322,6 +329,7 @@ describe("verifyImportedPublishReadiness", () => {
           ...Object.fromEntries(
             presentBundlePaths.map((path) => [path, "content"]),
           ),
+          [PORTAL_SKILL_PATH]: "content",
         },
       ),
     };
@@ -347,6 +355,69 @@ describe("verifyImportedPublishReadiness", () => {
       },
       databaseProvider: "postgresql",
       entraLogin: true,
+    });
+  });
+
+  it("accepts a legacy-only portal publishing skill during transition", async () => {
+    const github = {
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({
+        "package.json": readyPackageJson,
+        ...Object.fromEntries(
+          PUBLISHING_BUNDLE_PATHS.filter(
+            (path) => path !== PORTAL_SKILL_PATH,
+          ).map((path) => [path, "content"]),
+        ),
+      }),
+    };
+
+    await expect(
+      verifyImportedPublishReadiness({
+        owner: "cedarville-it",
+        name: "campus-dashboard",
+        defaultBranch: "main",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      ready: true,
+      missingPaths: [],
+      packageIssues: [],
+      runtime: {
+        family: "node",
+        framework: "nextjs",
+        azureRuntimeStack: "NODE|24-lts",
+      },
+    });
+  });
+
+  it("reports the portal publishing skill path when both skill paths are missing", async () => {
+    const github = {
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({
+        "package.json": readyPackageJson,
+        ...Object.fromEntries(
+          PUBLISHING_BUNDLE_PATHS.filter(
+            (path) =>
+              path !== PORTAL_SKILL_PATH && path !== LEGACY_PUBLISH_SKILL_PATH,
+          ).map((path) => [path, "content"]),
+        ),
+      }),
+    };
+
+    await expect(
+      verifyImportedPublishReadiness({
+        owner: "cedarville-it",
+        name: "campus-dashboard",
+        defaultBranch: "main",
+        github,
+      }),
+    ).resolves.toMatchObject({
+      ready: false,
+      missingPaths: [PORTAL_SKILL_PATH],
+      packageIssues: [],
+      runtime: {
+        family: "node",
+        framework: "nextjs",
+        azureRuntimeStack: "NODE|24-lts",
+      },
     });
   });
 

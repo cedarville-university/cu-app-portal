@@ -12,39 +12,39 @@
 
 ## Proposed File Structure
 
-- Create: `src/features/generation/portal-skill.ts`  
+- Create: `src/features/generation/portal-skill.ts`
   Own generated managed-app skill constants and content builders.
-- Create: `src/features/generation/portal-skill.test.ts`  
+- Create: `src/features/generation/portal-skill.test.ts`
   Unit-test skill paths, frontmatter, portal-first guidance, migration guidance, and legacy stub behavior.
-- Modify: `src/features/generation/deployment-manifest.ts`  
+- Modify: `src/features/generation/deployment-manifest.ts`
   Point `automation.skillPath` at `PORTAL_SKILL_PATH`.
-- Modify: `src/features/generation/deployment-manifest.test.ts`  
+- Modify: `src/features/generation/deployment-manifest.test.ts`
   Expect `.codex/skills/cu-app-portal/SKILL.md`.
-- Modify: `src/features/generation/build-source-snapshot.ts`  
+- Modify: `src/features/generation/build-source-snapshot.ts`
   Emit managed-app `cu-app-portal` skill and legacy `publish-to-azure` stub from the shared helper.
-- Modify: `src/features/generation/build-archive.test.ts`  
+- Modify: `src/features/generation/build-archive.test.ts`
   Update generated archive expectations for the new skill path and retained stub.
-- Modify: `templates/web-app/template.json`  
+- Modify: `templates/web-app/template.json`
   Replace generated skill path entries with the new path and include the retained stub as a generated file.
-- Modify: `templates/python-fastapi/template.json`  
+- Modify: `templates/python-fastapi/template.json`
   Replace generated skill path entries with the new path and include the retained stub as a generated file.
-- Keep: `templates/*/files/.codex/skills/publish-to-azure/SKILL.md.template`  
+- Keep: `templates/*/files/.codex/skills/publish-to-azure/SKILL.md.template`
   Leave these harmless because generated overrides skip them during archive output after template manifests change. Remove them only in a later cleanup.
-- Modify: `src/features/repository-imports/compatibility.ts`  
+- Modify: `src/features/repository-imports/compatibility.ts`
   Use exported portal skill path constants for publishing conflict detection.
-- Modify: `src/features/repository-imports/compatibility.test.ts`  
+- Modify: `src/features/repository-imports/compatibility.test.ts`
   Cover both new and legacy skill path conflicts.
-- Modify: `src/features/repository-imports/publishing-bundle.ts`  
+- Modify: `src/features/repository-imports/publishing-bundle.ts`
   Emit the managed-app skill and legacy stub through the shared helper.
-- Modify: `src/features/repository-imports/publishing-bundle.test.ts`  
+- Modify: `src/features/repository-imports/publishing-bundle.test.ts`
   Expect both emitted skill files and portal-first content for all supported import runtimes.
-- Modify if needed: `src/features/repository-imports/prepare-repository.test.ts`  
+- Modify if needed: `src/features/repository-imports/prepare-repository.test.ts`
   Update object expectations only if exact file path sets fail after bundle tests pass.
-- Create: `.codex/skills/cu-app-portal/SKILL.md`  
+- Create: `.codex/skills/cu-app-portal/SKILL.md`
   Repo-local portal-maintainer skill.
-- Modify: `.codex/skills/publish-to-azure/SKILL.md`  
+- Modify: `.codex/skills/publish-to-azure/SKILL.md`
   Replace old Azure-first instructions with a short redirect stub.
-- Modify: `docs/portal/template-authoring.md`  
+- Modify: `docs/portal/template-authoring.md`
   Update publishing bundle path references from the legacy skill path to the new skill path plus compatibility stub.
 
 ## Task 1: Add Shared Portal Skill Generator
