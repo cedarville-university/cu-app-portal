@@ -3,6 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
+import { parseOptionalGitHubUsername } from "@/features/repositories/access";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { requireAdminUserId } from "./roles";
@@ -31,12 +32,22 @@ async function ensureAppExists(appRequestId: string) {
   return appRequest;
 }
 
-function revalidateAdminViews(appRequestId?: string) {
+function revalidateAdminViews(
+  appRequestId?: string,
+  options?: { userId?: string },
+) {
   revalidatePath("/admin");
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/apps");
   revalidatePath("/apps");
 
   if (appRequestId) {
+    revalidatePath(`/admin/apps/${appRequestId}`);
     revalidatePath(`/download/${appRequestId}`);
+  }
+
+  if (options?.userId) {
+    revalidatePath(`/admin/users/${options.userId}`);
   }
 }
 
@@ -255,4 +266,25 @@ export async function reassignAppOwnerAction(
     directRecipientUserIds: [oldOwnerUserId, newOwnerUserId],
   });
   revalidateAdminViews(appRequestId);
+}
+
+export async function updateUserGithubUsernameAction(
+  userId: string,
+  formData: FormData,
+) {
+  const actorUserId = await requireAdminUserId();
+
+  await ensureUserExists(userId);
+  const githubUsername = parseOptionalGitHubUsername(formData);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { githubUsername },
+  });
+  await recordAuditEvent("USER_PROFILE_UPDATED", {
+    actorUserId,
+    targetUserId: userId,
+    githubUsername,
+  });
+  revalidateAdminViews(undefined, { userId });
 }

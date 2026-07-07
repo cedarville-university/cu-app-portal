@@ -3,19 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { parseNotificationPreferenceForm } from "@/features/notifications/preferences";
-import { parseGitHubUsername } from "@/features/repositories/access";
+import { parseOptionalGitHubUsername } from "@/features/repositories/access";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-
-function parseOptionalGitHubUsername(formData: FormData) {
-  const rawValue = formData.get("githubUsername");
-
-  if (rawValue == null || String(rawValue).trim().length === 0) {
-    return null;
-  }
-
-  return parseGitHubUsername(rawValue);
-}
 
 export async function updateNotificationPreferencesAction(formData: FormData) {
   const userId = await resolveCurrentUserId();

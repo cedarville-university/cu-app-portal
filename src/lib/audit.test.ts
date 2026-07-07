@@ -52,4 +52,13 @@ describe("recordAuditEvent", () => {
     ).resolves.toBeUndefined();
     expect(console.error).toHaveBeenCalled();
   });
+
+  it("exports the audit event list including USER_PROFILE_UPDATED", async () => {
+    const { AUDIT_EVENTS } = await import("./audit");
+
+    expect(AUDIT_EVENTS).toContain("SIGN_IN");
+    expect(AUDIT_EVENTS).toContain("ARTIFACT_DOWNLOADED");
+    expect(AUDIT_EVENTS).toContain("USER_PROFILE_UPDATED");
+    expect(new Set(AUDIT_EVENTS).size).toBe(AUDIT_EVENTS.length);
+  });
 });

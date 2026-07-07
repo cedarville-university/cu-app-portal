@@ -313,6 +313,26 @@ describe("deleteAppAction", () => {
     expect(redirect).toHaveBeenCalledWith("/admin");
   });
 
+  it("redirects portal deletions back to the admin apps list when requested from admin apps", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("admin-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-123",
+      userId: "admin-123",
+      role: "ADMIN",
+      createdAt: new Date("2026-06-12T12:00:00Z"),
+      updatedAt: new Date("2026-06-12T12:00:00Z"),
+    } as Awaited<ReturnType<typeof prisma.userRole.findFirst>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      ownedRequest as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>,
+    );
+    const formData = deletionForm(["portal"]);
+    formData.set("returnTo", "/admin/apps");
+
+    await deleteAppAction("request-123", formData);
+
+    expect(redirect).toHaveBeenCalledWith("/admin/apps");
+  });
+
   it("returns a friendly form error instead of throwing from UI submissions", async () => {
     const formData = deletionForm(["github"]);
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({

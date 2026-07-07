@@ -1,185 +1,75 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
+import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import AdminPage from "./page";
+import { getAdminUserIdOrNull } from "@/features/admin/guard";
 import { prisma } from "@/lib/db";
-import { isAdminUser } from "@/features/admin/roles";
-import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
+import AdminPage from "./page";
 
-const mockUseFormStatus = vi.hoisted(() => vi.fn());
-
-vi.mock("react-dom", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-dom")>();
-
-  return {
-    ...actual,
-    useFormStatus: mockUseFormStatus,
-  };
-});
-
-vi.mock("@/features/admin/roles", () => ({
-  isAdminUser: vi.fn(),
-}));
-
-vi.mock("@/features/app-requests/current-user", () => ({
-  getCurrentUserIdOrNull: vi.fn(),
-}));
-
-vi.mock("@/features/admin/actions", () => ({
-  addAppCollaboratorAction: vi.fn(),
-  grantAdminRoleAction: vi.fn(),
-  reassignAppOwnerAction: vi.fn(),
-  removeAdminRoleAction: vi.fn(),
-  removeAppCollaboratorAction: vi.fn(),
-}));
-
-vi.mock("@/features/app-deletion/actions", () => ({
-  deleteAppAction: vi.fn(),
-  deleteAppFormAction: vi.fn(),
+vi.mock("@/features/admin/guard", () => ({
+  getAdminUserIdOrNull: vi.fn(),
+  AdminNotAuthorized: () => <div>Not Authorized</div>,
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    user: {
-      findMany: vi.fn(),
-    },
-    appRequest: {
-      findMany: vi.fn(),
-    },
+    user: { count: vi.fn() },
+    appRequest: { count: vi.fn() },
+    auditLog: { count: vi.fn() },
   },
 }));
 
-beforeEach(() => {
-  mockUseFormStatus.mockReturnValue({ pending: false });
-  vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("admin-user");
-  vi.mocked(isAdminUser).mockResolvedValue(true);
-});
+describe("AdminPage (overview hub)", () => {
+  beforeEach(() => {
+    vi.mocked(getAdminUserIdOrNull).mockResolvedValue("admin-1");
+    vi.mocked(prisma.user.count).mockResolvedValue(12);
+    vi.mocked(prisma.appRequest.count).mockResolvedValue(34);
+    vi.mocked(prisma.auditLog.count).mockResolvedValue(56);
+  });
 
-afterEach(() => {
-  cleanup();
-  vi.clearAllMocks();
-});
+  afterEach(() => {
+    cleanup();
+  });
 
-describe("AdminPage", () => {
-  it("shows a helpful not-authorized view for signed-in non-admin users", async () => {
-    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("staff-user");
-    vi.mocked(isAdminUser).mockResolvedValue(false);
+  it("renders the not authorized state for non-admins", async () => {
+    vi.mocked(getAdminUserIdOrNull).mockResolvedValue(null);
 
     render(await AdminPage());
 
-    expect(
-      screen.getByRole("heading", { name: /not authorized/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/you do not have permission to use the admin tools/i),
-    ).toBeInTheDocument();
-    expect(prisma.user.findMany).not.toHaveBeenCalled();
-    expect(prisma.appRequest.findMany).not.toHaveBeenCalled();
+    expect(screen.getByText("Not Authorized")).toBeInTheDocument();
   });
 
-  it("renders users and apps for admins", async () => {
-    vi.mocked(prisma.user.findMany).mockResolvedValue([
-      {
-        id: "owner-user",
-        email: "owner@cedarville.edu",
-        displayName: "Olivia Owner",
-        githubUsername: "oliviaowner",
-        roles: [],
-        _count: {
-          appRequests: 1,
-          appAccess: 0,
-        },
-      },
-      {
-        id: "collaborator-user",
-        email: "collab@cedarville.edu",
-        displayName: "Cam Collaborator",
-        githubUsername: null,
-        roles: [{ role: "ADMIN" }],
-        _count: {
-          appRequests: 0,
-          appAccess: 1,
-        },
-      },
-    ] as Awaited<ReturnType<typeof prisma.user.findMany>>);
-    vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
-      {
-        id: "request-123",
-        appName: "Student Success Hub",
-        userId: "owner-user",
-        generationStatus: "SUCCEEDED",
-        repositoryStatus: "READY",
-        publishStatus: "SUCCEEDED",
-        repositoryUrl: "https://github.com/cedarville/student-success-hub",
-        publishUrl: "https://student-success.example.edu",
-        primaryPublishUrl: null,
-        createdAt: new Date("2026-04-23T12:30:00.000Z"),
-        user: {
-          id: "owner-user",
-          displayName: "Olivia Owner",
-          email: "owner@cedarville.edu",
-        },
-        collaborators: [
-          {
-            id: "access-123",
-            userId: "collaborator-user",
-            user: {
-              id: "collaborator-user",
-              displayName: "Cam Collaborator",
-              email: "collab@cedarville.edu",
-            },
-          },
-        ],
-      },
-    ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
+  it("renders counts linking to each admin section", async () => {
+    render(await AdminPage());
 
-    const { container } = render(await AdminPage());
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.getByText("34")).toBeInTheDocument();
+    expect(screen.getByText("56")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Manage Users/ })).toHaveAttribute(
+      "href",
+      "/admin/users",
+    );
+    expect(screen.getByRole("link", { name: /Manage Apps/ })).toHaveAttribute(
+      "href",
+      "/admin/apps",
+    );
+    expect(screen.getByRole("link", { name: /View Events/ })).toHaveAttribute(
+      "href",
+      "/admin/events",
+    );
+  });
 
-    expect(isAdminUser).toHaveBeenCalledWith("admin-user");
-    expect(
-      screen.getByRole("heading", { level: 1, name: "Admin" }),
-    ).toBeInTheDocument();
+  it("counts events from the last seven days", async () => {
+    render(await AdminPage());
 
-    const usersPanel = screen
-      .getByRole("heading", { name: /users \(2\)/i })
-      .closest("details");
-    const appsPanel = screen
-      .getByRole("heading", { name: /apps \(1\)/i })
-      .closest("details");
-    expect(usersPanel).toHaveAttribute("open");
-    expect(appsPanel).toHaveAttribute("open");
+    const countArgs = vi.mocked(prisma.auditLog.count).mock.calls[0][0];
+    const gte = (countArgs?.where?.createdAt as { gte: Date }).gte;
 
-    expect(screen.getByText("Olivia Owner")).toBeInTheDocument();
-    expect(screen.getByText("owner@cedarville.edu")).toBeInTheDocument();
-    expect(screen.getByText("@oliviaowner")).toBeInTheDocument();
-    expect(screen.getAllByText("Cam Collaborator").length).toBeGreaterThan(0);
-    expect(screen.getByText("collab@cedarville.edu")).toBeInTheDocument();
-
-    const appSection = screen.getByRole("region", { name: /apps/i });
-    expect(within(appSection).getByText("Student Success Hub")).toBeInTheDocument();
-    expect(within(appSection).getByText(/owner:\s*Olivia Owner/i)).toBeInTheDocument();
-    expect(within(appSection).getByText("Collaborators")).toBeInTheDocument();
-    expect(within(appSection).getByText("Cam Collaborator")).toBeInTheDocument();
-    expect(
-      within(appSection).getByRole("link", { name: /app details/i }),
-    ).toHaveAttribute("href", "/download/request-123");
-    expect(
-      container.querySelector('input[name="returnTo"][value="/admin"]'),
-    ).toBeInTheDocument();
-    expect(
-      within(appSection).queryByLabelText(/delete github repository/i),
-    ).not.toBeInTheDocument();
-    expect(
-      within(appSection).queryByLabelText(/delete azure deployment/i),
-    ).not.toBeInTheDocument();
-    expect(
-      within(appSection).getByText(
-        /github repository already deleted or not tracked/i,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(appSection).getByText(
-        /azure deployment already deleted or not tracked/i,
-      ),
-    ).toBeInTheDocument();
+    expect(gte).toBeInstanceOf(Date);
+    expect(Date.now() - gte.getTime()).toBeGreaterThanOrEqual(
+      7 * 24 * 60 * 60 * 1000 - 60_000,
+    );
+    expect(Date.now() - gte.getTime()).toBeLessThanOrEqual(
+      7 * 24 * 60 * 60 * 1000 + 60_000,
+    );
   });
 });
