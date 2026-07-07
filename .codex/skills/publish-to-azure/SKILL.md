@@ -5,6 +5,7 @@ description: Use when older Cedarville App Portal prompts or generated app repos
 
 # Publish to Azure
 
-Use the `cu-app-portal` skill first.
+Use this as a legacy compatibility redirect.
 
-The Cedarville App Portal now treats portal-managed GitHub repositories and portal-managed Azure publishing as the supported path. Direct Azure-first publishing is a recovery path, not the default path. Read `app-portal/deployment-manifest.json` when working inside a managed app, and use portal publish or Repair Publishing Setup before falling back to manual `gh` or `az` operations.
+- In a portal-managed generated or imported app, use the `cu-app-portal` skill and prefer portal-managed publishing or Repair Publishing Setup before manual `gh` or `az` recovery.
+- In the Cedarville App Portal repository itself, read `app-portal/deployment-manifest.json` and `docs/publishing/azure-app-service.md`; follow the portal self-deployment path instead of the generated-app publish or repair UX.
