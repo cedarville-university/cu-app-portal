@@ -240,6 +240,21 @@ describe("saveEnvironmentVariable", () => {
     ).rejects.toThrow("403");
     expect(prisma.appEnvironmentVariable.upsert).not.toHaveBeenCalled();
   });
+
+  it("does not persist the row when app does not exist", async () => {
+    const { deps, prisma, arm } = createDeps();
+    arm.getAppSettings.mockResolvedValue({ exists: false, settings: {} });
+
+    await expect(
+      saveEnvironmentVariable(deps, {
+        appRequest: publishedAppRequest,
+        key: "FEATURE_FLAG",
+        value: "on",
+        isSecret: false,
+      }),
+    ).rejects.toThrow(/could not be found/);
+    expect(prisma.appEnvironmentVariable.upsert).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteEnvironmentVariable", () => {
@@ -278,5 +293,21 @@ describe("deleteEnvironmentVariable", () => {
         key: "MISSING",
       }),
     ).rejects.toThrow("was not found");
+  });
+
+  it("does not persist deletion when azure fails (azure-first ordering)", async () => {
+    const { deps, prisma, arm, keyVault } = createDeps({
+      existingVariables: [{ key: "API_KEY", isSecret: true, value: null }],
+    });
+    arm.putAppSettings.mockRejectedValue(new Error("Azure ARM request failed: 503"));
+
+    await expect(
+      deleteEnvironmentVariable(deps, {
+        appRequest: publishedWithVault,
+        key: "API_KEY",
+      }),
+    ).rejects.toThrow(/503/);
+    expect(prisma.appEnvironmentVariable.delete).not.toHaveBeenCalled();
+    expect(keyVault.deleteSecret).not.toHaveBeenCalled();
   });
 });
