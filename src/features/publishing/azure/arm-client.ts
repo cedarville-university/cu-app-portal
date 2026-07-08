@@ -246,26 +246,44 @@ export function createAzureArmClient({
       tenantId: string;
       tags: Record<string, string>;
     }) {
+      const vaultUrl = resourceUrl(
+        `/resourceGroups/${input.resourceGroup}/providers/Microsoft.KeyVault/vaults/${input.name}`,
+        "2023-07-01",
+      );
+      const basePutProperties = {
+        tenantId: input.tenantId,
+        sku: { family: "A", name: "standard" },
+        enableRbacAuthorization: true,
+      };
+
+      let response = await fetchImpl(vaultUrl, {
+        method: "PUT",
+        headers: await headers(),
+        body: JSON.stringify({
+          location: input.location,
+          tags: input.tags,
+          properties: basePutProperties,
+        }),
+      });
+
+      if (response.status === 409) {
+        await response.text();
+
+        // The deterministic vault name guarantees a soft-deleted vault with
+        // this name belonged to this same app, so recovering it is safe.
+        response = await fetchImpl(vaultUrl, {
+          method: "PUT",
+          headers: await headers(),
+          body: JSON.stringify({
+            location: input.location,
+            tags: input.tags,
+            properties: { ...basePutProperties, createMode: "recover" },
+          }),
+        });
+      }
+
       const data = await readJson<{ properties?: { vaultUri?: string } }>(
-        await fetchImpl(
-          resourceUrl(
-            `/resourceGroups/${input.resourceGroup}/providers/Microsoft.KeyVault/vaults/${input.name}`,
-            "2023-07-01",
-          ),
-          {
-            method: "PUT",
-            headers: await headers(),
-            body: JSON.stringify({
-              location: input.location,
-              tags: input.tags,
-              properties: {
-                tenantId: input.tenantId,
-                sku: { family: "A", name: "standard" },
-                enableRbacAuthorization: true,
-              },
-            }),
-          },
-        ),
+        response,
       );
       const vaultUri =
         data.properties?.vaultUri ?? `https://${input.name}.vault.azure.net`;

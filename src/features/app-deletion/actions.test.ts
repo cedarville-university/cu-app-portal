@@ -226,6 +226,8 @@ describe("deleteAppAction", () => {
         primaryPublishUrl: null,
         azureWebAppName: null,
         azureDatabaseName: null,
+        azureKeyVaultName: null,
+        azureKeyVaultUri: null,
       }),
     });
     expect(redirect).not.toHaveBeenCalled();

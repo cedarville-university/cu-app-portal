@@ -187,6 +187,8 @@ async function markExternalDeletions(
       azureDefaultHostName: null,
       customDomain: null,
       primaryPublishUrl: null,
+      azureKeyVaultName: null,
+      azureKeyVaultUri: null,
     });
   }
 
