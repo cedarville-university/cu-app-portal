@@ -3,6 +3,7 @@ import {
   assertPortalOwnership,
   buildPublishResourceTags,
   buildPublishTargetNames,
+  toKeyVaultSecretName,
 } from "./naming";
 
 describe("buildPublishTargetNames", () => {
@@ -18,6 +19,7 @@ describe("buildPublishTargetNames", () => {
       webAppName: "app-campus-dashboard-clx9abc1",
       databaseName: "db_campus_dashboard_clx9abc1",
       federatedCredentialName: "github-campus-dashboard-clx9abc1",
+      keyVaultName: "kv-campus-dashb-clx9abc1",
       azureDefaultHostName:
         "app-campus-dashboard-clx9abc1.azurewebsites.net",
       primaryPublishUrl:
@@ -46,6 +48,22 @@ describe("buildPublishTargetNames", () => {
 
     expect(names.databaseName.length).toBeLessThanOrEqual(63);
     expect(names.databaseName).toMatch(/^[a-z_][a-z0-9_-]{0,62}$/);
+  });
+
+  it("builds a key vault name within the azure 24-character limit", () => {
+    const names = buildPublishTargetNames({
+      requestId: "clx9abc123zzzzzzzzzz",
+      appName: "Campus Dashboard",
+    });
+
+    expect(names.keyVaultName).toBe("kv-campus-dashb-clx9abc1");
+    expect(names.keyVaultName.length).toBeLessThanOrEqual(24);
+    expect(names.keyVaultName).toMatch(/^kv-[a-z0-9][a-z0-9-]*[a-z0-9]$/);
+  });
+
+  it("maps env var keys to key vault secret names", () => {
+    expect(toKeyVaultSecretName("API_KEY")).toBe("API-KEY");
+    expect(toKeyVaultSecretName("SIMPLE")).toBe("SIMPLE");
   });
 });
 

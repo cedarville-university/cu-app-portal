@@ -9,6 +9,7 @@ type PublishTargetNames = {
   webAppName: string;
   databaseName: string;
   federatedCredentialName: string;
+  keyVaultName: string;
   azureDefaultHostName: string;
   primaryPublishUrl: string;
 };
@@ -102,6 +103,12 @@ export function buildPublishTargetNames({
     suffix: shortRequestId,
     maxLength: 120,
   });
+  const keyVaultName = buildNameWithSuffix({
+    prefix: "kv-",
+    slug,
+    suffix: shortRequestId,
+    maxLength: 24,
+  });
   const azureDefaultHostName = `${webAppName}.azurewebsites.net`;
 
   return {
@@ -110,6 +117,7 @@ export function buildPublishTargetNames({
     webAppName,
     databaseName,
     federatedCredentialName,
+    keyVaultName,
     azureDefaultHostName,
     primaryPublishUrl: `https://${azureDefaultHostName}`,
   };
@@ -151,4 +159,8 @@ export function assertPortalOwnership(
   throw new Error(
     `Azure resource ${resourceName} exists but is not tagged for this app request.`,
   );
+}
+
+export function toKeyVaultSecretName(key: string) {
+  return key.replaceAll("_", "-");
 }
