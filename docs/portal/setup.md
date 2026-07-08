@@ -93,6 +93,40 @@ Deletion behavior:
 - Azure deletion never deletes the shared PostgreSQL flexible server.
 - If a user leaves GitHub or Azure unchecked while deleting the portal record, those resources must be deleted manually later because the portal record will no longer appear in `My Apps`.
 
+### Azure Permissions for App Env Vars and Secrets
+
+User-managed environment variables store secret values in one Key Vault per
+published app (`kv-{slug}-{shortRequestId}` in the publish resource group).
+Secrets reach the running app through Key Vault references resolved by the
+web app's system-assigned managed identity.
+
+The portal's publishing service principal (`AZURE_PUBLISH_CLIENT_ID`) needs,
+scoped to the publish resource group:
+
+1. **Contributor** (already required for publishing) — creates/deletes
+   vaults and enables web app managed identities.
+2. **Key Vault Secrets Officer** — sets and deletes secret values in the
+   RBAC-mode vaults.
+3. **Role Based Access Control Administrator** — grants each web app's
+   managed identity `Key Vault Secrets User` on its own vault. Constrain it
+   with an ABAC condition so it can only assign that one role.
+
+```bash
+az role assignment create \
+  --assignee "$AZURE_PUBLISH_CLIENT_ID" \
+  --role "Key Vault Secrets Officer" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-cu-apps-published"
+
+az role assignment create \
+  --assignee "$AZURE_PUBLISH_CLIENT_ID" \
+  --role "Role Based Access Control Administrator" \
+  --scope "/subscriptions/$SUB_ID/resourceGroups/rg-cu-apps-published" \
+  --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {4633458b-17de-408a-b874-0445c86b69e6})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {4633458b-17de-408a-b874-0445c86b69e6}))" \
+  --condition-version "2.0"
+```
+
+Deleted vaults soft-delete for 90 days; the portal never purges them.
+
 ### Admin And Collaboration Permissions
 
 - Each app has one primary owner.
