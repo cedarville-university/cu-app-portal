@@ -122,6 +122,11 @@ function emptyWorkflowRunsError() {
 
 function createDeps({
   appRequest = readyAppRequest,
+  environmentVariables = [] as {
+    key: string;
+    isSecret: boolean;
+    value: string | null;
+  }[],
   getLatestWorkflowRun = vi.fn().mockRejectedValueOnce(
     emptyWorkflowRunsError(),
   ).mockResolvedValueOnce({
@@ -139,13 +144,25 @@ function createDeps({
 } = {}) {
   const arm = {
     appServicePlanId: vi.fn().mockReturnValue("/plans/asp-cu-apps-published"),
+    keyVaultId: vi.fn(
+      (resourceGroup: string, name: string) =>
+        `/subscriptions/sub-id/resourceGroups/${resourceGroup}/providers/Microsoft.KeyVault/vaults/${name}`,
+    ),
     putWebApp: vi.fn().mockResolvedValue({
       properties: {
         defaultHostName: "app-campus-dashboard-clx9abc1.azurewebsites.net",
       },
+      identity: { principalId: "webapp-principal" },
     }),
     putAppSettings: vi.fn().mockResolvedValue(undefined),
     putPostgresDatabase: vi.fn().mockResolvedValue(undefined),
+    putKeyVault: vi.fn().mockResolvedValue({
+      vaultUri: "https://kv-campus-dashb-clx9abc1.vault.azure.net",
+    }),
+    putRoleAssignment: vi.fn().mockResolvedValue(undefined),
+    ensureSystemAssignedIdentity: vi
+      .fn()
+      .mockResolvedValue({ principalId: "webapp-principal" }),
   };
   const graph = {
     ensureRedirectUri: vi.fn().mockResolvedValue(undefined),
@@ -160,6 +177,10 @@ function createDeps({
   const prisma = {
     appRequest: {
       findUnique: vi.fn().mockResolvedValue(appRequest),
+      update: vi.fn().mockResolvedValue(appRequest),
+    },
+    appEnvironmentVariable: {
+      findMany: vi.fn().mockResolvedValue(environmentVariables),
     },
   };
 
@@ -798,5 +819,92 @@ describe("createAzurePublishRuntime", () => {
 
     expect(getWorkflowRun).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(10_000);
+  });
+
+  it("merges user environment variables into app settings at publish", async () => {
+    const { deps, arm } = createDeps({
+      environmentVariables: [
+        { key: "FEATURE_FLAG", isSecret: false, value: "on" },
+      ],
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    const target = await runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz");
+
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          FEATURE_FLAG: "on",
+          NODE_ENV: "production",
+        }),
+      }),
+    );
+    expect(arm.putKeyVault).not.toHaveBeenCalled();
+    expect(arm.putRoleAssignment).not.toHaveBeenCalled();
+    expect(target).toEqual(
+      expect.objectContaining({
+        azureKeyVaultName: null,
+        azureKeyVaultUri: null,
+      }),
+    );
+  });
+
+  it("provisions a key vault, identity access, and reference settings for secrets", async () => {
+    const { deps, arm } = createDeps({
+      environmentVariables: [{ key: "API_KEY", isSecret: true, value: null }],
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    const target = await runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz");
+
+    expect(arm.putKeyVault).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      name: "kv-campus-dashb-clx9abc1",
+      location: "eastus2",
+      tenantId: "tenant-id",
+      tags: expect.objectContaining({
+        managedBy: "cu-app-portal",
+        appRequestId: "clx9abc123zzzzzzzzzz",
+      }),
+    });
+    expect(arm.putRoleAssignment).toHaveBeenCalledWith({
+      scope:
+        "/subscriptions/sub-id/resourceGroups/rg-cu-apps-published/providers/Microsoft.KeyVault/vaults/kv-campus-dashb-clx9abc1",
+      roleDefinitionId: "4633458b-17de-408a-b874-0445c86b69e6",
+      principalId: "webapp-principal",
+    });
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          API_KEY:
+            "@Microsoft.KeyVault(SecretUri=https://kv-campus-dashb-clx9abc1.vault.azure.net/secrets/API-KEY)",
+        }),
+      }),
+    );
+    expect(target).toEqual(
+      expect.objectContaining({
+        azureKeyVaultName: "kv-campus-dashb-clx9abc1",
+        azureKeyVaultUri: "https://kv-campus-dashb-clx9abc1.vault.azure.net",
+      }),
+    );
+  });
+
+  it("never lets user variables shadow portal-reserved settings", async () => {
+    const { deps, arm } = createDeps({
+      environmentVariables: [
+        // Defense in depth: reserved keys are rejected at save time, but if a
+        // row slips in the reserved value must still win.
+        { key: "NODE_ENV", isSecret: false, value: "development" },
+      ],
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz");
+
+    expect(arm.putAppSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({ NODE_ENV: "production" }),
+      }),
+    );
   });
 });
