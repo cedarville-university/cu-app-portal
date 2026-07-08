@@ -59,6 +59,11 @@ vi.mock("@/features/collaboration-invites/actions", () => ({
   sendCollaborationInviteFormAction: vi.fn(),
 }));
 
+vi.mock("@/features/env-vars/actions", () => ({
+  saveEnvVarFormAction: vi.fn(),
+  deleteEnvVarAction: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: {
@@ -172,6 +177,46 @@ describe("DownloadPage", () => {
         }),
       }),
     );
+  });
+
+  it("shows the environment variables section with masked secrets", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_123",
+      appName: "Campus Dashboard",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: "GitHub access is ready for @portalstaff.",
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      artifact: {
+        id: "artifact-123",
+      },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      environmentVariables: [
+        { key: "API_KEY", isSecret: true, value: null, updatedAt: new Date() },
+      ],
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "portalstaff",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_123" }),
+      }),
+    );
+
+    expect(screen.getByText("Environment Variables")).toBeInTheDocument();
+    expect(screen.getByText("API_KEY")).toBeInTheDocument();
+    expect(screen.getByText("••••••••")).toBeInTheDocument();
   });
 
   it("lets collaborators request their own repository access after app access was already granted", async () => {
