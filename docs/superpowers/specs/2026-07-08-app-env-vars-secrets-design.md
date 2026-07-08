@@ -132,7 +132,7 @@ New "Environment Variables" card on `/download/[requestId]`, after the Azure Pub
 
 - Table of variables: key, value (secrets render as `••••••••` with a "secret" badge), last-updated timestamp.
 - Add form: key input, value input, "store as a secret" checkbox, save button.
-- Per-row overwrite (value only) and delete controls with the same inline form/error patterns used elsewhere on the page.
+- Per-row delete control with an inline, section-scoped error on failure (same form/error patterns used elsewhere on the page). Overwriting a variable's value is done by saving an existing name in the add form.
 - Copy explaining: saves apply to the live app within seconds and briefly restart it; secret values cannot be viewed again after saving; variables added before first publish are applied when the app is published.
 - Section renders for apps with an Azure deployment target; hidden otherwise.
 
