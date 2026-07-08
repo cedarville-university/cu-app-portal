@@ -15,7 +15,7 @@ vi.mock("react-dom", async (importOriginal) => {
 
 vi.mock("./actions", () => ({
   saveEnvVarFormAction: vi.fn(),
-  deleteEnvVarAction: vi.fn(),
+  deleteEnvVarFormAction: vi.fn(),
 }));
 
 import { EnvVarsPanel } from "./env-vars-panel";

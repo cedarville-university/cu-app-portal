@@ -80,16 +80,37 @@ export async function saveEnvVarFormAction(
   }
 }
 
-export async function deleteEnvVarAction(appRequestId: string, key: string) {
-  const appRequest = await loadAccessibleEnvVarAppRequest(appRequestId);
+export type EnvVarDeleteState = { error: string | null };
 
-  await deleteEnvironmentVariable(createDefaultEnvVarServiceDeps(), {
-    appRequest,
-    key,
-  });
-  await recordAuditEvent("ENV_VAR_DELETED", {
-    requestId: appRequestId,
-    key,
-  });
-  revalidatePath(`/download/${appRequestId}`);
+export async function deleteEnvVarFormAction(
+  appRequestId: string,
+  key: string,
+  _prevState: EnvVarDeleteState,
+  formData: FormData,
+): Promise<EnvVarDeleteState> {
+  void formData;
+
+  try {
+    const appRequest = await loadAccessibleEnvVarAppRequest(appRequestId);
+    const { isSecret } = await deleteEnvironmentVariable(
+      createDefaultEnvVarServiceDeps(),
+      { appRequest, key },
+    );
+
+    await recordAuditEvent("ENV_VAR_DELETED", {
+      requestId: appRequestId,
+      key,
+      isSecret,
+    });
+    revalidatePath(`/download/${appRequestId}`);
+
+    return { error: null };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not delete the environment variable.",
+    };
+  }
 }

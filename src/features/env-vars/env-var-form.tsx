@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useActionState, useEffect, useRef } from "react";
+import React, { useActionState, useEffect, useRef, useState } from "react";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { saveEnvVarFormAction, type EnvVarFormState } from "./actions";
 
@@ -13,6 +13,7 @@ const initialEnvVarFormState: EnvVarFormState = {
 
 export function EnvVarForm({ appRequestId }: { appRequestId: string }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const [isSecret, setIsSecret] = useState(false);
   const [state, formAction] = useActionState(
     saveEnvVarFormAction.bind(null, appRequestId),
     initialEnvVarFormState,
@@ -21,6 +22,7 @@ export function EnvVarForm({ appRequestId }: { appRequestId: string }) {
   useEffect(() => {
     if (state.savedKey) {
       formRef.current?.reset();
+      setIsSecret(false);
     }
   }, [state.savedKey]);
 
@@ -52,7 +54,7 @@ export function EnvVarForm({ appRequestId }: { appRequestId: string }) {
         <span>Value</span>
         <input
           name="value"
-          type="text"
+          type={isSecret ? "password" : "text"}
           placeholder="value"
           className="form-control"
           autoComplete="off"
@@ -67,7 +69,13 @@ export function EnvVarForm({ appRequestId }: { appRequestId: string }) {
           paddingBottom: "0.5rem",
         }}
       >
-        <input name="isSecret" type="checkbox" value="true" />
+        <input
+          name="isSecret"
+          type="checkbox"
+          value="true"
+          checked={isSecret}
+          onChange={(event) => setIsSecret(event.target.checked)}
+        />
         <span>Store as a secret</span>
       </label>
       <PendingSubmitButton

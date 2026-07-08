@@ -27,7 +27,7 @@ import { userHasAdminRole } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-import { deleteEnvVarAction, saveEnvVarFormAction } from "./actions";
+import { deleteEnvVarFormAction, saveEnvVarFormAction } from "./actions";
 import {
   deleteEnvironmentVariable,
   saveEnvironmentVariable,
@@ -128,9 +128,18 @@ describe("saveEnvVarFormAction", () => {
   });
 });
 
-describe("deleteEnvVarAction", () => {
+describe("deleteEnvVarFormAction", () => {
   it("deletes, audits, and revalidates", async () => {
-    await deleteEnvVarAction("req-1", "API_KEY");
+    vi.mocked(deleteEnvironmentVariable).mockResolvedValue({
+      isSecret: true,
+    } as never);
+
+    const state = await deleteEnvVarFormAction(
+      "req-1",
+      "API_KEY",
+      { error: null },
+      new FormData(),
+    );
 
     expect(deleteEnvironmentVariable).toHaveBeenCalledWith(
       { deps: true },
@@ -139,16 +148,41 @@ describe("deleteEnvVarAction", () => {
     expect(recordAuditEvent).toHaveBeenCalledWith("ENV_VAR_DELETED", {
       requestId: "req-1",
       key: "API_KEY",
+      isSecret: true,
     });
     expect(revalidatePath).toHaveBeenCalledWith("/download/req-1");
+    expect(state).toEqual({ error: null });
   });
 
-  it("throws when the app is not accessible", async () => {
+  it("returns an inaccessible-app error without calling the service", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(null);
 
-    await expect(deleteEnvVarAction("req-1", "API_KEY")).rejects.toThrow(
-      "App request not found.",
+    const state = await deleteEnvVarFormAction(
+      "req-1",
+      "API_KEY",
+      { error: null },
+      new FormData(),
     );
+
+    expect(state.error).toBe("App request not found.");
     expect(deleteEnvironmentVariable).not.toHaveBeenCalled();
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it("surfaces service errors as form state and skips the audit", async () => {
+    vi.mocked(deleteEnvironmentVariable).mockRejectedValue(
+      new Error("Azure ARM request failed: 503"),
+    );
+
+    const state = await deleteEnvVarFormAction(
+      "req-1",
+      "API_KEY",
+      { error: null },
+      new FormData(),
+    );
+
+    expect(state.error).toContain("503");
+    expect(recordAuditEvent).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

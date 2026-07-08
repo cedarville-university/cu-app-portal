@@ -274,7 +274,7 @@ export async function saveEnvironmentVariable(
 export async function deleteEnvironmentVariable(
   deps: EnvVarServiceDeps,
   input: { appRequest: EnvVarAppRequest; key: string },
-) {
+): Promise<{ isSecret: boolean }> {
   const existing = await deps.prisma.appEnvironmentVariable.findMany({
     where: { appRequestId: input.appRequest.id },
   });
@@ -308,4 +308,6 @@ export async function deleteEnvironmentVariable(
       },
     },
   });
+
+  return { isSecret: row.isSecret };
 }

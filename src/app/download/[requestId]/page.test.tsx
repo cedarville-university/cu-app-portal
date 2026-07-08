@@ -61,7 +61,7 @@ vi.mock("@/features/collaboration-invites/actions", () => ({
 
 vi.mock("@/features/env-vars/actions", () => ({
   saveEnvVarFormAction: vi.fn(),
-  deleteEnvVarAction: vi.fn(),
+  deleteEnvVarFormAction: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({

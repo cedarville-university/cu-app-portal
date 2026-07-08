@@ -1,9 +1,6 @@
 import React from "react";
-import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
-import { deleteEnvVarAction } from "./actions";
+import { EnvVarDeleteForm } from "./env-var-delete-form";
 import { EnvVarForm } from "./env-var-form";
-
-type FormAction = (formData: FormData) => void | Promise<void>;
 
 export type EnvVarListItem = {
   key: string;
@@ -38,12 +35,6 @@ export function EnvVarsPanel({
           style={{ listStyle: "none", margin: 0, padding: 0 }}
         >
           {envVars.map((envVar) => {
-            const deleteAction = deleteEnvVarAction.bind(
-              null,
-              appRequestId,
-              envVar.key,
-            ) as unknown as FormAction;
-
             return (
               <li
                 key={envVar.key}
@@ -76,16 +67,10 @@ export function EnvVarsPanel({
                   {envVar.isSecret ? (
                     <span className="badge badge--info">secret</span>
                   ) : null}
-                  <form action={deleteAction}>
-                    <PendingSubmitButton
-                      idleLabel="Delete"
-                      pendingLabel="Deleting..."
-                      statusText={`Deleting ${envVar.key}.`}
-                      variant="danger"
-                      size="sm"
-                      ariaLabel={`Delete ${envVar.key}`}
-                    />
-                  </form>
+                  <EnvVarDeleteForm
+                    appRequestId={appRequestId}
+                    envKey={envVar.key}
+                  />
                 </span>
               </li>
             );
