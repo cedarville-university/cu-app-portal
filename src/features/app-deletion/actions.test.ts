@@ -159,6 +159,7 @@ describe("deleteAppAction", () => {
       repositoryOwner: "cedarville-it",
       repositoryName: "campus-dashboard",
       repositoryDefaultBranch: null,
+      keyVaultName: null,
     });
     expect(deleteArtifact).toHaveBeenCalledWith(
       "/workspace/.artifacts/campus-dashboard.zip",

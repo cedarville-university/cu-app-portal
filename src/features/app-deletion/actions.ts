@@ -268,6 +268,7 @@ async function deleteApp(requestId: string, formData: FormData) {
       repositoryOwner: appRequest.repositoryOwner,
       repositoryName: appRequest.repositoryName,
       repositoryDefaultBranch: appRequest.repositoryDefaultBranch ?? null,
+      keyVaultName: appRequest.azureKeyVaultName ?? null,
     };
   }
 
