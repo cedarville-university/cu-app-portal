@@ -1,30 +1,10 @@
 ---
 name: publish-to-azure
-description: Publish this app to Azure App Service using the generated manifest, GitHub Actions workflow, and fallback docs.
+description: Use when older Cedarville App Portal prompts or generated app repositories ask Codex to publish to Azure.
 ---
 
 # Publish to Azure
 
-Use this skill to publish this app to Azure App Service through the supported GitHub Actions path.
+Use the `cu-app-portal` skill for this portal-managed app.
 
-## Required Behavior
-
-1. Read `app-portal/deployment-manifest.json` before choosing names, commands, or Azure resources.
-2. Check that `git`, `gh`, and `az` are installed and that the current user is authenticated where required.
-3. Prefer the managed GitHub repository the portal created for this app, and explain the local git state before creating or updating anything else.
-4. Create or connect the GitHub repository only when the portal-managed repo is unavailable or an operator explicitly asks for a manual recovery path.
-5. Create or verify the Azure resource group, Azure Database for PostgreSQL flexible server, and Azure database described by the manifest.
-6. Build the production `DATABASE_URL` from the Azure PostgreSQL server, database, admin user, and password, using `sslmode=require`.
-7. Set the App Service `DATABASE_URL` app setting to the Azure database connection string while leaving the local `.env.example` value on localhost for development.
-8. Create or verify the Azure App Service app described by the manifest.
-9. Wire the deployment workflow in `.github/workflows/deploy-azure-app-service.yml`, preferring OpenID Connect with `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`.
-10. Prefer the GitHub Actions workflow to build the deployable package and send the built artifact to Azure App Service instead of relying on App Service to Oryx-build the raw repository.
-11. Run the safest available verification after wiring deployment and report what succeeded, what still needs manual work, and where the release is now blocked.
-12. If `gh` or `az` cannot complete the flow, fall back to `docs/publishing/azure-app-service.md` and capture the blocked step in `docs/publishing/lessons-learned.md`.
-
-## Notes
-
-- Prefer the generated manifest over guessed names.
-- Keep development `DATABASE_URL` on localhost and put the production `DATABASE_URL` only in Azure App Service settings.
-- Prefer the existing GitHub Actions workflow over inventing a second deployment path.
-- Keep operator-facing updates concise and actionable.
+Direct Azure-first publishing is now a recovery path, not the default path for Cedarville App Portal-managed apps. Read `app-portal/deployment-manifest.json`, then prefer the Cedarville App Portal for publishing setup, Repair Publishing Setup, first publish, push-to-deploy enablement, GitHub access, collaborator workflows, and scoped deletion.

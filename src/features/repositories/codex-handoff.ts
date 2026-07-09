@@ -11,6 +11,7 @@ export function buildCodexHandoffPrompt(
     `Open the managed GitHub repository ${repositoryUrl}.`,
     `This repo was created by the Cedarville App Portal for "${appName}" (request ${requestId}).`,
     "Use the managed repository as the source of truth, review the existing files, and help me customize the app.",
+    "Use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
     "If GitHub access is required, use my connected GitHub account in Codex rather than asking for portal credentials.",
   ];
 
@@ -64,6 +65,7 @@ export function buildLocalCodexGitSetupPrompt({
     "Push the current local code to the portal-managed repository:",
     `git push -u portal HEAD:${defaultBranch ?? "main"}`,
     "",
+    "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
     "After the push succeeds, tell me to return to the Cedarville App Portal and apply or review the Azure publishing setup.",
   ].join("\n");
 }

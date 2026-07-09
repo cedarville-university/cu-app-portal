@@ -11,7 +11,8 @@ This bundle supports one first-class publishing path for `{{APP_NAME}}`: a porta
 5. Let the portal create the Azure Database for PostgreSQL database, App Service configuration, OpenID Connect credential, and GitHub Actions secrets.
 6. Let the portal dispatch the first workflow run and verify the deployment in Azure App Service.
 7. After the first successful portal publish, enable push-to-deploy in the portal if future pushes to the default branch should deploy automatically.
-8. Use `.codex/skills/publish-to-azure/SKILL.md` to drive the publish flow when portal automation is unavailable and you need a local recovery path.
+8. Use `.codex/skills/cu-app-portal/SKILL.md` for Codex's portal-managed app workflow guidance.
+9. Treat `.codex/skills/publish-to-azure/SKILL.md` as a compatibility redirect when portal automation is unavailable and you need a local recovery path.
 
 ## Resource Model
 

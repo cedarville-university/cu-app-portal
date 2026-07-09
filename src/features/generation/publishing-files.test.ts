@@ -56,6 +56,12 @@ describe("buildPublishingFiles", () => {
     expect(files["docs/publishing/azure-app-service.md"]).toContain(
       "enable push-to-deploy",
     );
+    expect(files["docs/publishing/azure-app-service.md"]).toContain(
+      "Use `.codex/skills/cu-app-portal/SKILL.md`",
+    );
+    expect(files["docs/publishing/azure-app-service.md"]).toContain(
+      "legacy `.codex/skills/publish-to-azure/SKILL.md` skill is only a compatibility redirect",
+    );
     expect(files["docs/publishing/lessons-learned.md"]).toContain(
       "# Publishing Lessons Learned",
     );

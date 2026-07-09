@@ -48,7 +48,8 @@ The usual flow is:
 5. Let the portal dispatch the first GitHub Actions workflow run after Azure resources, OIDC, and repository secrets are ready.
 6. After a successful portal publish, enable push-to-deploy in the portal if default-branch pushes should deploy automatically.
 7. ${localEnvironmentText}
-8. Treat manual GitHub or Azure CLI work as a recovery path, not the primary workflow.
+8. Use \`.codex/skills/cu-app-portal/SKILL.md\` for Codex's portal-managed app workflow guidance.
+9. Treat manual GitHub or Azure CLI work as a recovery path, not the primary workflow. The legacy \`.codex/skills/publish-to-azure/SKILL.md\` skill is only a compatibility redirect.
 
 ${sharedTargetText}
 

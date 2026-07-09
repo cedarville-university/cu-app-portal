@@ -31,6 +31,9 @@ describe("buildCodexHandoffPrompt", () => {
     expect(prompt).toContain(
       "Use the portal remote when preparing work for Cedarville App Portal publishing.",
     );
+    expect(prompt).toContain(
+      "Use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
+    );
   });
 });
 
@@ -51,5 +54,8 @@ describe("buildLocalCodexGitSetupPrompt", () => {
       "git remote add portal https://github.com/cedarville-it/campus-dashboard",
     );
     expect(prompt).toContain("git push -u portal HEAD:main");
+    expect(prompt).toContain(
+      "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
+    );
   });
 });
