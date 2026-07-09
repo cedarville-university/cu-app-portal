@@ -1,3 +1,5 @@
+import { repositoryImportInputError } from "./errors";
+
 export type ParsedGitHubRepositoryUrl = {
   owner: string;
   name: string;
@@ -13,7 +15,7 @@ function stripGitSuffix(value: string) {
 
 function assertOwnerAndName(owner: string | undefined, name: string | undefined) {
   if (!owner || !name) {
-    throw new Error(
+    throw repositoryImportInputError(
       "Enter a GitHub repository URL in the form https://github.com/owner/repo.",
     );
   }
@@ -43,15 +45,15 @@ export function parseGitHubRepositoryUrl(
   try {
     url = new URL(trimmed);
   } catch {
-    throw new Error("Enter a GitHub repository URL.");
+    throw repositoryImportInputError("Enter a GitHub repository URL.");
   }
 
   if (url.hostname.toLowerCase() !== "github.com") {
-    throw new Error("Enter a GitHub repository URL.");
+    throw repositoryImportInputError("Enter a GitHub repository URL.");
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("Enter a GitHub repository URL.");
+    throw repositoryImportInputError("Enter a GitHub repository URL.");
   }
 
   const pathSegments = url.pathname
@@ -60,7 +62,7 @@ export function parseGitHubRepositoryUrl(
     .filter(Boolean);
 
   if (pathSegments.length !== 2) {
-    throw new Error(
+    throw repositoryImportInputError(
       "Enter a GitHub repository URL in the form https://github.com/owner/repo.",
     );
   }

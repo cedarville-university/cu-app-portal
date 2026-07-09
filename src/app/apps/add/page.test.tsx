@@ -34,42 +34,12 @@ vi.mock("@/features/app-requests/current-user", () => ({
 }));
 
 vi.mock("@/features/repository-imports/actions", () => ({
-  addExistingAppAction: vi.fn(),
+  addExistingAppFormAction: vi.fn(),
   createManagedRepositoryForLocalAppAction: vi.fn(),
 }));
 
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
-import {
-  addExistingAppAction,
-  createManagedRepositoryForLocalAppAction,
-} from "@/features/repository-imports/actions";
-
-function findElementByType(
-  element: React.ReactNode,
-  type: string,
-): React.ReactElement | null {
-  if (!React.isValidElement(element)) {
-    return null;
-  }
-
-  if (element.type === type) {
-    return element;
-  }
-
-  const children = React.Children.toArray(
-    (element.props as { children?: React.ReactNode }).children,
-  );
-
-  for (const child of children) {
-    const found = findElementByType(child, type);
-
-    if (found) {
-      return found;
-    }
-  }
-
-  return null;
-}
+import { createManagedRepositoryForLocalAppAction } from "@/features/repository-imports/actions";
 
 function findElementsByType(
   element: React.ReactNode,
@@ -109,9 +79,6 @@ describe("AddExistingAppPage", () => {
 
   it("renders breadcrumb navigation and the repository analysis form", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
-    vi.mocked(addExistingAppAction).mockResolvedValue({
-      requestId: "req_imported_app",
-    });
     vi.mocked(createManagedRepositoryForLocalAppAction).mockResolvedValue({
       requestId: "req_local_app",
     });
@@ -158,20 +125,6 @@ describe("AddExistingAppPage", () => {
     expect(
       screen.getByRole("button", { name: /check repository/i }),
     ).toHaveAttribute("type", "submit");
-
-    const formAction = findElementByType(page, "form")?.props.action as (
-      formData: FormData,
-    ) => Promise<void>;
-    const formData = new FormData();
-    formData.set("repositoryUrl", "https://github.com/owner/repo");
-    formData.set("appName", "Campus Dashboard");
-    formData.set("description", "Tracks campus metrics.");
-
-    await expect(formAction(formData)).rejects.toThrow(
-      "redirect:/download/req_imported_app",
-    );
-    expect(addExistingAppAction).toHaveBeenCalledWith(formData);
-    expect(mockRedirect).toHaveBeenCalledWith("/download/req_imported_app");
   });
 
   it("shows an expandable GitHub explanation help box", async () => {
@@ -216,7 +169,7 @@ describe("AddExistingAppPage", () => {
     ).toHaveAttribute("type", "submit");
 
     const forms = findElementsByType(page, "form");
-    const localFormAction = forms[1]?.props.action as (
+    const localFormAction = forms[0]?.props.action as (
       formData: FormData,
     ) => Promise<void>;
     const formData = new FormData();

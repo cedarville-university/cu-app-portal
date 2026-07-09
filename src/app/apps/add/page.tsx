@@ -3,17 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
-import {
-  addExistingAppAction,
-  createManagedRepositoryForLocalAppAction,
-} from "@/features/repository-imports/actions";
-
-async function submitExistingAppAction(formData: FormData) {
-  "use server";
-
-  const result = await addExistingAppAction(formData);
-  redirect(`/download/${result.requestId}`);
-}
+import { createManagedRepositoryForLocalAppAction } from "@/features/repository-imports/actions";
+import { AddExistingAppForm } from "@/features/repository-imports/add-existing-app-form";
 
 async function submitLocalCodexAppAction(formData: FormData) {
   "use server";
@@ -93,59 +84,7 @@ export default async function AddExistingAppPage() {
             apps, Express apps, Python FastAPI apps, and plain static Python
             apps with a root index.html for Azure App Service publishing.
           </p>
-          <form action={submitExistingAppAction} className="form-stack">
-            <div className="form-group">
-              <label htmlFor="repositoryUrl" className="form-label">
-                GitHub Repository URL
-              </label>
-              <input
-                id="repositoryUrl"
-                name="repositoryUrl"
-                type="url"
-                required
-                placeholder="https://github.com/owner/repo"
-                className="form-control"
-              />
-              <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", marginTop: "0.375rem" }}>
-                The web address of the repository — looks like <code>https://github.com/your-org/your-repo</code>
-              </p>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="appName" className="form-label">
-                App Name
-              </label>
-              <input
-                id="appName"
-                name="appName"
-                type="text"
-                required
-                className="form-control"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="description" className="form-label">
-                Description
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                rows={4}
-                className="form-control"
-              />
-            </div>
-
-            <div>
-              <PendingSubmitButton
-                idleLabel="Check Repository"
-                pendingLabel="Checking Repository..."
-                statusText="Checking your repository for compatibility and preparing to import. This can take a moment."
-                variant="primary-solid"
-                title="Checks whether the repository is compatible with Azure publishing and begins setting it up in the portal"
-              />
-            </div>
-          </form>
+          <AddExistingAppForm />
         </div>
 
         <div className="card card--gold-border">

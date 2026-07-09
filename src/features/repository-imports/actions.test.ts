@@ -9,6 +9,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
   addExistingAppAction,
+  addExistingAppFormAction,
   createManagedRepositoryForLocalAppAction,
   prepareExistingAppAction,
   verifyExistingAppPreparationAction,
@@ -82,6 +83,16 @@ const httpServerReadyFiles = {
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+}));
+
+const mockRedirect = vi.hoisted(() =>
+  vi.fn((path: string) => {
+    throw new Error(`redirect:${path}`);
+  }),
+);
+
+vi.mock("next/navigation", () => ({
+  redirect: mockRedirect,
 }));
 
 vi.mock("@/features/app-requests/current-user", () => ({
@@ -906,6 +917,123 @@ describe("repository import actions", () => {
 
     expect(github.getRepository).not.toHaveBeenCalled();
     expect(prisma.appRequest.create).not.toHaveBeenCalled();
+  });
+
+  describe("addExistingAppFormAction", () => {
+    beforeEach(() => {
+      mockRedirect.mockClear();
+      vi.mocked(loadGitHubAppConfig).mockReturnValue({
+        appId: "123",
+        privateKey: "key",
+        allowedOrgs: ["cedarville-it"],
+        defaultOrg: "cedarville-it",
+        defaultRepoVisibility: "private",
+        installationIdsByOrg: { "cedarville-it": "111" },
+      });
+    });
+
+    it("returns a helpful inline error when the repository is missing or not public", async () => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+      const publicRepositoryFetch = vi
+        .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+        .mockResolvedValue(
+          createJsonResponse(
+            { message: "Not Found" },
+            { status: 404, statusText: "Not Found" },
+          ),
+        );
+
+      const formData = new FormData();
+      formData.set(
+        "repositoryUrl",
+        "https://github.com/external-org/missing-repo",
+      );
+      formData.set("appName", "Campus Dashboard");
+
+      await expect(
+        addExistingAppFormAction({ error: null }, formData, {
+          publicRepositoryFetch,
+        }),
+      ).resolves.toEqual({
+        error:
+          "The portal could not find that repository on GitHub. Double-check the repository URL and make sure the repository is public so the portal can read it.",
+      });
+      expect(prisma.appRequest.create).not.toHaveBeenCalled();
+      expect(mockRedirect).not.toHaveBeenCalled();
+    });
+
+    it("returns URL guidance when the value is not a GitHub repository URL", async () => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+
+      const formData = new FormData();
+      formData.set("repositoryUrl", "https://example.com/owner/repo");
+      formData.set("appName", "Campus Dashboard");
+
+      await expect(
+        addExistingAppFormAction({ error: null }, formData),
+      ).resolves.toEqual({
+        error: "Enter a GitHub repository URL.",
+      });
+      expect(prisma.appRequest.create).not.toHaveBeenCalled();
+      expect(mockRedirect).not.toHaveBeenCalled();
+    });
+
+    it("redirects to the download page when the submission succeeds", async () => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+      vi.mocked(prisma.template.upsert).mockResolvedValue({
+        id: "template-imported",
+      } as Awaited<ReturnType<typeof prisma.template.upsert>>);
+      vi.mocked(prisma.appRequest.create).mockResolvedValue({
+        id: "req_form_success",
+        supportReference: "SUP-123",
+      } as Awaited<ReturnType<typeof prisma.appRequest.create>>);
+
+      const formData = new FormData();
+      formData.set(
+        "repositoryUrl",
+        "https://github.com/cedarville-it/campus-dashboard",
+      );
+      formData.set("appName", "Campus Dashboard");
+
+      await expect(
+        addExistingAppFormAction({ error: null }, formData, {
+          repository: {
+            owner: "cedarville-it",
+            name: "campus-dashboard",
+            url: "https://github.com/cedarville-it/campus-dashboard",
+            defaultBranch: "main",
+          },
+        }),
+      ).rejects.toThrow("redirect:/download/req_form_success");
+      expect(mockRedirect).toHaveBeenCalledWith("/download/req_form_success");
+    });
+
+    it("returns a generic inline error when the submission fails unexpectedly", async () => {
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+      vi.mocked(resolveCurrentUserId).mockRejectedValue(
+        new Error("unauthorized"),
+      );
+
+      const formData = new FormData();
+      formData.set(
+        "repositoryUrl",
+        "https://github.com/cedarville-it/campus-dashboard",
+      );
+      formData.set("appName", "Campus Dashboard");
+
+      await expect(
+        addExistingAppFormAction({ error: null }, formData),
+      ).resolves.toEqual({
+        error:
+          "The portal could not check that repository right now. Try again or contact support.",
+      });
+      expect(consoleError).toHaveBeenCalled();
+      expect(mockRedirect).not.toHaveBeenCalled();
+
+      consoleError.mockRestore();
+    });
   });
 
   it("prepares an imported app by direct commit", async () => {

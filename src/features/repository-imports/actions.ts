@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
@@ -16,6 +17,10 @@ import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { createSupportReference } from "@/lib/support-reference";
 import { IMPORTED_NEXT_RUNTIME, type ImportedAppRuntime } from "./compatibility";
+import {
+  isRepositoryImportInputError,
+  repositoryImportInputError,
+} from "./errors";
 import { importRepositoryWithHistory } from "./import-repository";
 import { prepareImportedRepository } from "./prepare-repository";
 import { verifyImportedPublishReadiness } from "./publish-readiness";
@@ -173,6 +178,12 @@ async function fetchPublicRepositoryMetadata(
   const data = responseText
     ? (JSON.parse(responseText) as GitHubPublicRepositoryResponse)
     : null;
+
+  if (response.status === 404) {
+    throw repositoryImportInputError(
+      "The portal could not find that repository on GitHub. Double-check the repository URL and make sure the repository is public so the portal can read it.",
+    );
+  }
 
   if (!response.ok || !data) {
     throw new Error(
@@ -575,6 +586,35 @@ export async function addExistingAppAction(
   revalidatePath("/apps");
 
   return { requestId: request.id };
+}
+
+export type AddExistingAppFormState = {
+  error: string | null;
+};
+
+export async function addExistingAppFormAction(
+  _state: AddExistingAppFormState,
+  formData: FormData,
+  deps: AddExistingAppDeps = {},
+): Promise<AddExistingAppFormState> {
+  let result: Awaited<ReturnType<typeof addExistingAppAction>>;
+
+  try {
+    result = await addExistingAppAction(formData, deps);
+  } catch (error) {
+    if (isRepositoryImportInputError(error)) {
+      return { error: error.message };
+    }
+
+    console.error("Add existing app form submission failed.", error);
+
+    return {
+      error:
+        "The portal could not check that repository right now. Try again or contact support.",
+    };
+  }
+
+  redirect(`/download/${result.requestId}`);
 }
 
 export async function createManagedRepositoryForLocalAppAction(
