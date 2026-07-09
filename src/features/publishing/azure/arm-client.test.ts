@@ -51,6 +51,7 @@ describe("createAzureArmClient", () => {
         body: JSON.stringify({
           location: "eastus2",
           kind: "app,linux",
+          identity: { type: "SystemAssigned" },
           tags: { managedBy: "cu-app-portal", appRequestId: "request-123" },
           properties: {
             serverFarmId:
@@ -256,5 +257,200 @@ describe("createAzureArmClient", () => {
         tags: { managedBy: "cu-app-portal", appRequestId: "request-123" },
       }),
     ).rejects.toThrow("Azure ARM request failed: 400 plain ARM failure");
+  });
+
+  it("creates an rbac key vault and returns its uri", async () => {
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValue(
+        json({
+          properties: { vaultUri: "https://kv-campus-dashb-clx9abc1.vault.azure.net/" },
+        }),
+      );
+    const client = createAzureArmClient({
+      subscriptionId: "sub",
+      tokenProvider: async () => "token",
+      fetchImpl,
+    });
+
+    const result = await client.putKeyVault({
+      resourceGroup: "rg-cu-apps-published",
+      name: "kv-campus-dashb-clx9abc1",
+      location: "eastus2",
+      tenantId: "tenant-id",
+      tags: { managedBy: "cu-app-portal", appRequestId: "request-123" },
+    });
+
+    expect(result).toEqual({
+      vaultUri: "https://kv-campus-dashb-clx9abc1.vault.azure.net",
+    });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://management.azure.com/subscriptions/sub/resourceGroups/rg-cu-apps-published/providers/Microsoft.KeyVault/vaults/kv-campus-dashb-clx9abc1?api-version=2023-07-01",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          location: "eastus2",
+          tags: { managedBy: "cu-app-portal", appRequestId: "request-123" },
+          properties: {
+            tenantId: "tenant-id",
+            sku: { family: "A", name: "standard" },
+            enableRbacAuthorization: true,
+          },
+        }),
+      }),
+    );
+  });
+
+  it("retries with createMode recover when the vault name is soft-deleted", async () => {
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(text("VaultAlreadyExists", { status: 409 }))
+      .mockResolvedValueOnce(
+        json({
+          properties: { vaultUri: "https://kv-campus-dashb-clx9abc1.vault.azure.net/" },
+        }),
+      );
+    const client = createAzureArmClient({
+      subscriptionId: "sub",
+      tokenProvider: async () => "token",
+      fetchImpl,
+    });
+
+    const result = await client.putKeyVault({
+      resourceGroup: "rg-cu-apps-published",
+      name: "kv-campus-dashb-clx9abc1",
+      location: "eastus2",
+      tenantId: "tenant-id",
+      tags: { managedBy: "cu-app-portal", appRequestId: "request-123" },
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      vaultUri: "https://kv-campus-dashb-clx9abc1.vault.azure.net",
+    });
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "https://management.azure.com/subscriptions/sub/resourceGroups/rg-cu-apps-published/providers/Microsoft.KeyVault/vaults/kv-campus-dashb-clx9abc1?api-version=2023-07-01",
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          location: "eastus2",
+          tags: { managedBy: "cu-app-portal", appRequestId: "request-123" },
+          properties: {
+            tenantId: "tenant-id",
+            sku: { family: "A", name: "standard" },
+            enableRbacAuthorization: true,
+            createMode: "recover",
+          },
+        }),
+      }),
+    );
+  });
+
+  it("deletes a key vault and tolerates a missing vault", async () => {
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(text("not found", { status: 404 }));
+    const client = createAzureArmClient({
+      subscriptionId: "sub",
+      tokenProvider: async () => "token",
+      fetchImpl,
+    });
+
+    await client.deleteKeyVault({
+      resourceGroup: "rg-cu-apps-published",
+      name: "kv-campus-dashb-clx9abc1",
+    });
+    await client.deleteKeyVault({
+      resourceGroup: "rg-cu-apps-published",
+      name: "kv-missing",
+    });
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      "https://management.azure.com/subscriptions/sub/resourceGroups/rg-cu-apps-published/providers/Microsoft.KeyVault/vaults/kv-campus-dashb-clx9abc1?api-version=2023-07-01",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("creates a role assignment with a deterministic name and treats conflicts as success", async () => {
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(json({ id: "assignment-id" }))
+      .mockResolvedValueOnce(text("RoleAssignmentExists", { status: 409 }));
+    const client = createAzureArmClient({
+      subscriptionId: "sub",
+      tokenProvider: async () => "token",
+      fetchImpl,
+    });
+    const scope = client.keyVaultId(
+      "rg-cu-apps-published",
+      "kv-campus-dashb-clx9abc1",
+    );
+
+    await client.putRoleAssignment({
+      scope,
+      roleDefinitionId: "4633458b-17de-408a-b874-0445c86b69e6",
+      principalId: "principal-guid",
+    });
+    await client.putRoleAssignment({
+      scope,
+      roleDefinitionId: "4633458b-17de-408a-b874-0445c86b69e6",
+      principalId: "principal-guid",
+    });
+
+    const firstUrl = fetchImpl.mock.calls[0][0] as string;
+    const secondUrl = fetchImpl.mock.calls[1][0] as string;
+
+    expect(firstUrl).toBe(secondUrl);
+    expect(firstUrl).toContain(
+      `https://management.azure.com${scope}/providers/Microsoft.Authorization/roleAssignments/`,
+    );
+    expect(firstUrl).toContain("api-version=2022-04-01");
+    expect(firstUrl).toMatch(
+      /roleAssignments\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\?/,
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      1,
+      firstUrl,
+      expect.objectContaining({
+        method: "PUT",
+        body: JSON.stringify({
+          properties: {
+            roleDefinitionId:
+              "/subscriptions/sub/providers/Microsoft.Authorization/roleDefinitions/4633458b-17de-408a-b874-0445c86b69e6",
+            principalId: "principal-guid",
+            principalType: "ServicePrincipal",
+          },
+        }),
+      }),
+    );
+  });
+
+  it("ensures a system-assigned identity and returns the principal id", async () => {
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValue(json({ identity: { principalId: "principal-guid" } }));
+    const client = createAzureArmClient({
+      subscriptionId: "sub",
+      tokenProvider: async () => "token",
+      fetchImpl,
+    });
+
+    await expect(
+      client.ensureSystemAssignedIdentity({
+        resourceGroup: "rg-cu-apps-published",
+        name: "app-campus-dashboard-clx9abc1",
+      }),
+    ).resolves.toEqual({ principalId: "principal-guid" });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://management.azure.com/subscriptions/sub/resourceGroups/rg-cu-apps-published/providers/Microsoft.Web/sites/app-campus-dashboard-clx9abc1?api-version=2023-12-01",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ identity: { type: "SystemAssigned" } }),
+      }),
+    );
   });
 });

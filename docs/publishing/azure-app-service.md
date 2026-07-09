@@ -15,6 +15,7 @@ For generated user apps, the portal-managed Azure runtime uses a shared-resource
 - one shared PostgreSQL flexible server: `psql-cu-apps-published`
 - one Azure Web App per published generated app
 - one PostgreSQL database per published generated app
+- one Azure Key Vault per published app that uses secret environment variables
 
 Those settings are documented in [Portal setup](../portal/setup.md). The approved runtime design is in [Portal Azure publish runtime design](../superpowers/specs/2026-04-29-portal-azure-publish-runtime-design.md).
 

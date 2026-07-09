@@ -74,6 +74,8 @@ model AppRequest {
   azurePostgresServer   String?
   azureDatabaseName     String?
   azureDefaultHostName  String?
+  azureKeyVaultName     String?
+  azureKeyVaultUri      String?
   customDomain          String?
   primaryPublishUrl     String?
   publishedAt      DateTime?
@@ -88,6 +90,7 @@ model AppRequest {
   collaborators   AppAccess[]
   collaborationInvites CollaborationInvite[]
   notificationDeliveries NotificationDelivery[]
+  environmentVariables AppEnvironmentVariable[]
 }
 
 model UserRole {
@@ -113,6 +116,19 @@ model AppAccess {
 
   @@unique([appRequestId, userId])
   @@index([userId])
+}
+
+model AppEnvironmentVariable {
+  id           String     @id @default(cuid())
+  appRequestId String
+  key          String
+  isSecret     Boolean
+  value        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  appRequest   AppRequest @relation(fields: [appRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([appRequestId, key])
 }
 
 model CollaborationInvite {

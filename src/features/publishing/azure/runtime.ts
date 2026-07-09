@@ -15,10 +15,12 @@ import type {
 import type { AzurePublishConfig } from "./config";
 import { buildPublishResourceTags, buildPublishTargetNames } from "./naming";
 import { verifyPublishedUrl as defaultVerifyPublishedUrl } from "./verify-deployment";
+import { buildUserAppSettings } from "@/features/env-vars/settings";
+import { KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID } from "./arm-client";
 
 type RuntimeDeps = {
   config: AzurePublishConfig;
-  prisma: Pick<PrismaClient, "appRequest">;
+  prisma: Pick<PrismaClient, "appRequest" | "appEnvironmentVariable">;
   workflowRunPollAttempts?: number;
   workflowRunPollIntervalMs?: number;
   workflowCompletionPollAttempts?: number;
@@ -27,6 +29,7 @@ type RuntimeDeps = {
   verifyPublishedUrl?: typeof defaultVerifyPublishedUrl;
   arm: {
     appServicePlanId(resourceGroup: string, name: string): string;
+    keyVaultId(resourceGroup: string, name: string): string;
     putWebApp(input: {
       resourceGroup: string;
       name: string;
@@ -35,7 +38,10 @@ type RuntimeDeps = {
       runtimeStack: string;
       startupCommand: string;
       tags: Record<string, string>;
-    }): Promise<{ properties?: { defaultHostName?: string } }>;
+    }): Promise<{
+      properties?: { defaultHostName?: string };
+      identity?: { principalId?: string };
+    }>;
     putAppSettings(input: {
       resourceGroup: string;
       name: string;
@@ -47,6 +53,22 @@ type RuntimeDeps = {
       databaseName: string;
       tags: Record<string, string>;
     }): Promise<void>;
+    putKeyVault(input: {
+      resourceGroup: string;
+      name: string;
+      location: string;
+      tenantId: string;
+      tags: Record<string, string>;
+    }): Promise<{ vaultUri: string }>;
+    putRoleAssignment(input: {
+      scope: string;
+      roleDefinitionId: string;
+      principalId: string;
+    }): Promise<void>;
+    ensureSystemAssignedIdentity(input: {
+      resourceGroup: string;
+      name: string;
+    }): Promise<{ principalId: string }>;
   };
   graph: {
     ensureRedirectUri(input: {
@@ -101,6 +123,8 @@ type PublishableAppRequest = {
   repositoryDefaultBranch: string;
   repositoryStatus: "READY";
   primaryPublishUrl: string | null;
+  azureKeyVaultName: string | null;
+  azureKeyVaultUri: string | null;
   user: {
     githubUsername: string | null;
     displayName: string;
@@ -154,6 +178,8 @@ async function loadPublishableRequest(
     repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
     repositoryStatus: appRequest.repositoryStatus,
     primaryPublishUrl: appRequest.primaryPublishUrl,
+    azureKeyVaultName: appRequest.azureKeyVaultName ?? null,
+    azureKeyVaultUri: appRequest.azureKeyVaultUri ?? null,
     user: {
       githubUsername: appRequest.user.githubUsername,
       displayName: appRequest.user.displayName,
@@ -473,6 +499,28 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         });
       }
 
+      const environmentVariables =
+        await deps.prisma.appEnvironmentVariable.findMany({
+          where: { appRequestId: appRequest.id },
+        });
+      const hasSecretVariables = environmentVariables.some(
+        (variable) => variable.isSecret,
+      );
+      let keyVaultName = appRequest.azureKeyVaultName;
+      let keyVaultUri = appRequest.azureKeyVaultUri;
+
+      if (hasSecretVariables) {
+        keyVaultName = keyVaultName ?? names.keyVaultName;
+        const vault = await deps.arm.putKeyVault({
+          resourceGroup: deps.config.resourceGroup,
+          name: keyVaultName,
+          location: deps.config.location,
+          tenantId: deps.config.azureTenantId,
+          tags,
+        });
+        keyVaultUri = vault.vaultUri;
+      }
+
       const webApp = await deps.arm.putWebApp({
         resourceGroup: deps.config.resourceGroup,
         name: names.webAppName,
@@ -488,7 +536,26 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const azureDefaultHostName =
         webApp.properties?.defaultHostName ?? names.azureDefaultHostName;
       const primaryPublishUrl = `https://${azureDefaultHostName}`;
+
+      if (keyVaultName && keyVaultUri) {
+        const principalId =
+          webApp.identity?.principalId ??
+          (
+            await deps.arm.ensureSystemAssignedIdentity({
+              resourceGroup: deps.config.resourceGroup,
+              name: names.webAppName,
+            })
+          ).principalId;
+
+        await deps.arm.putRoleAssignment({
+          scope: deps.arm.keyVaultId(deps.config.resourceGroup, keyVaultName),
+          roleDefinitionId: KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID,
+          principalId,
+        });
+      }
+
       const settings: Record<string, string> = {
+        ...buildUserAppSettings(environmentVariables, keyVaultUri),
         NODE_ENV: "production",
         SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
         ENABLE_ORYX_BUILD: "false",
@@ -531,6 +598,8 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         azurePostgresServer: deps.config.postgresServer,
         azureDatabaseName:
           databaseProvider === "postgresql" ? names.databaseName : null,
+        azureKeyVaultName: keyVaultName ?? null,
+        azureKeyVaultUri: keyVaultUri ?? null,
         azureDefaultHostName,
         primaryPublishUrl,
       };

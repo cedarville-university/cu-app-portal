@@ -25,6 +25,7 @@ export type DeleteAzureDeploymentInput = {
   repositoryOwner?: string | null;
   repositoryName?: string | null;
   repositoryDefaultBranch?: string | null;
+  keyVaultName?: string | null;
 };
 
 type AzureDeletionDeps = {
@@ -38,6 +39,10 @@ type AzureDeletionDeps = {
       resourceGroup: string;
       serverName: string;
       databaseName: string;
+    }): Promise<void>;
+    deleteKeyVault(input: {
+      resourceGroup: string;
+      name: string;
     }): Promise<void>;
   };
 };
@@ -117,6 +122,13 @@ export async function deleteAzureDeployment(
       resourceGroup,
       serverName: postgresServer,
       databaseName: input.databaseName,
+    });
+  }
+
+  if (input.keyVaultName) {
+    await deps.arm.deleteKeyVault({
+      resourceGroup,
+      name: input.keyVaultName,
     });
   }
 }

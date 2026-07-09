@@ -25,6 +25,7 @@ import {
   verifyExistingAppPreparationAction,
 } from "@/features/repository-imports/actions";
 import { CollaborationInvitePanel } from "@/features/collaboration-invites/invite-panel";
+import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import {
   buildCodexHandoffPrompt,
@@ -800,6 +801,9 @@ export default async function DownloadPage({
         orderBy: { checkedAt: "desc" },
         take: 7,
       },
+      environmentVariables: {
+        orderBy: { key: "asc" },
+      },
     },
   });
 
@@ -1185,6 +1189,12 @@ export default async function DownloadPage({
             deploymentTriggerMode: appRequest.deploymentTriggerMode,
           })}
         </div>
+
+        <EnvVarsPanel
+          appRequestId={appRequest.id}
+          envVars={appRequest.environmentVariables ?? []}
+          isPublished={Boolean(appRequest.azureWebAppName)}
+        />
 
         {canDeleteAppRequest
           ? renderDeletePanel({

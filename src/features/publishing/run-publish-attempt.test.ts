@@ -64,6 +64,8 @@ describe("runPublishAttempt", () => {
         azureWebAppName: "app-campus-dashboard",
         azurePostgresServer: "psql-cu-apps-published",
         azureDatabaseName: "db_campus_dashboard",
+        azureKeyVaultName: null,
+        azureKeyVaultUri: null,
         azureDefaultHostName: "campus-dashboard.azurewebsites.net",
         primaryPublishUrl: "https://campus-dashboard.azurewebsites.net",
       }),
@@ -122,6 +124,8 @@ describe("runPublishAttempt", () => {
         azureWebAppName: "app-campus-dashboard-clx9abc1",
         azurePostgresServer: "psql-cu-apps-published",
         azureDatabaseName: "db_campus_dashboard_clx9abc1",
+        azureKeyVaultName: null,
+        azureKeyVaultUri: null,
         azureDefaultHostName: "app-campus-dashboard-clx9abc1.azurewebsites.net",
         primaryPublishUrl:
           "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
@@ -145,6 +149,8 @@ describe("runPublishAttempt", () => {
         azureWebAppName: "app-campus-dashboard-clx9abc1",
         azurePostgresServer: "psql-cu-apps-published",
         azureDatabaseName: "db_campus_dashboard_clx9abc1",
+        azureKeyVaultName: null,
+        azureKeyVaultUri: null,
         azureDefaultHostName: "app-campus-dashboard-clx9abc1.azurewebsites.net",
         primaryPublishUrl:
           "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
@@ -185,6 +191,8 @@ describe("runPublishAttempt", () => {
         azureWebAppName: "app-campus-dashboard-clx9abc1",
         azurePostgresServer: "psql-cu-apps-published",
         azureDatabaseName: "db_campus_dashboard_clx9abc1",
+        azureKeyVaultName: null,
+        azureKeyVaultUri: null,
         azureDefaultHostName: "app-campus-dashboard-clx9abc1.azurewebsites.net",
         primaryPublishUrl:
           "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
@@ -376,6 +384,8 @@ describe("runPublishAttempt", () => {
           azureWebAppName: "app-campus-dashboard-clx9abc1",
           azurePostgresServer: "psql-cu-apps-published",
           azureDatabaseName: "db_campus_dashboard_clx9abc1",
+          azureKeyVaultName: null,
+          azureKeyVaultUri: null,
           azureDefaultHostName:
             "app-campus-dashboard-clx9abc1.azurewebsites.net",
           primaryPublishUrl:
@@ -420,6 +430,8 @@ describe("runPublishAttempt", () => {
           azureWebAppName: "app-campus-dashboard-clx9abc1",
           azurePostgresServer: "psql-cu-apps-published",
           azureDatabaseName: "db_campus_dashboard_clx9abc1",
+          azureKeyVaultName: null,
+          azureKeyVaultUri: null,
           azureDefaultHostName:
             "app-campus-dashboard-clx9abc1.azurewebsites.net",
           primaryPublishUrl:
@@ -465,6 +477,8 @@ describe("runPublishAttempt", () => {
           azureWebAppName: "app-campus-dashboard-clx9abc1",
           azurePostgresServer: "psql-cu-apps-published",
           azureDatabaseName: "db_campus_dashboard_clx9abc1",
+          azureKeyVaultName: null,
+          azureKeyVaultUri: null,
           azureDefaultHostName:
             "app-campus-dashboard-clx9abc1.azurewebsites.net",
           primaryPublishUrl:
@@ -515,6 +529,8 @@ describe("runPublishAttempt", () => {
           azureWebAppName: "app-campus-dashboard-clx9abc1",
           azurePostgresServer: "psql-cu-apps-published",
           azureDatabaseName: "db_campus_dashboard_clx9abc1",
+          azureKeyVaultName: null,
+          azureKeyVaultUri: null,
           azureDefaultHostName:
             "app-campus-dashboard-clx9abc1.azurewebsites.net",
           primaryPublishUrl:
