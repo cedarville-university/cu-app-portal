@@ -175,7 +175,15 @@ describe("repository import actions", () => {
   beforeEach(() => {
     vi.mocked(revalidatePath).mockReset();
     vi.mocked(resolveCurrentUserId).mockReset();
-    vi.mocked(loadGitHubAppConfig).mockClear();
+    vi.mocked(loadGitHubAppConfig).mockReset();
+    vi.mocked(loadGitHubAppConfig).mockReturnValue({
+      appId: "123",
+      privateKey: "key",
+      allowedOrgs: ["cedarville-it"],
+      defaultOrg: "cedarville-it",
+      defaultRepoVisibility: "private",
+      installationIdsByOrg: { "cedarville-it": "111" },
+    });
     vi.mocked(createGitHubAppClient).mockReset();
     vi.mocked(createGitHubAppClient).mockReturnValue({
       createInstallationTokenForGit: vi.fn(),
@@ -922,14 +930,6 @@ describe("repository import actions", () => {
   describe("addExistingAppFormAction", () => {
     beforeEach(() => {
       mockRedirect.mockClear();
-      vi.mocked(loadGitHubAppConfig).mockReturnValue({
-        appId: "123",
-        privateKey: "key",
-        allowedOrgs: ["cedarville-it"],
-        defaultOrg: "cedarville-it",
-        defaultRepoVisibility: "private",
-        installationIdsByOrg: { "cedarville-it": "111" },
-      });
     });
 
     it("returns a helpful inline error when the repository is missing or not public", async () => {
