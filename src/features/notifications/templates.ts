@@ -67,14 +67,188 @@ function truncate(value: string, maxLength: number) {
 }
 
 function buildEventContent(context: AppEventEmailContext): EventContent {
-  return {
-    subject: `App Portal update: ${context.appName}`,
-    headline: `${context.appName} has a portal update.`,
-    rows: [],
-    cta: context.appHref
-      ? { label: "View app in portal", href: context.appHref }
-      : null,
-  };
+  const { appName, appHref, actorDisplayName } = context;
+  const byActor = actorDisplayName ? ` by ${actorDisplayName}` : "";
+  const viewApp: Cta | null = appHref
+    ? { label: "View app in portal", href: appHref }
+    : null;
+  const supportRows: DetailRow[] = context.supportReference
+    ? [{ label: "Support reference", value: context.supportReference }]
+    : [];
+  const repositoryRows: DetailRow[] = context.repositoryName
+    ? [
+        {
+          label: "Repository",
+          value: context.repositoryName,
+          href: context.repositoryUrl ?? undefined,
+        },
+      ]
+    : [];
+
+  function errorRows(summary: string | null | undefined): DetailRow[] {
+    return summary
+      ? [
+          {
+            label: "Error",
+            value: truncate(summary, ERROR_SUMMARY_MAX_LENGTH),
+          },
+        ]
+      : [];
+  }
+
+  switch (context.eventKey) {
+    case "APP_CREATED":
+      return {
+        subject: `New app created: ${appName}`,
+        headline: `${actorDisplayName ?? "A portal user"} created ${appName} in the Cedarville App Portal.`,
+        detail:
+          "The portal is setting up the app now. You can follow its progress on the app page.",
+        rows: supportRows,
+        cta: viewApp,
+      };
+    case "EXISTING_APP_IMPORTED":
+      return {
+        subject: `App imported: ${appName}`,
+        headline: `${appName} was imported into the Cedarville App Portal${byActor}.`,
+        detail:
+          "Its repository and publishing are now managed through the portal.",
+        rows: [...repositoryRows, ...supportRows],
+        cta: viewApp,
+      };
+    case "REPOSITORY_READY":
+      return {
+        subject: `Repository ready: ${appName}`,
+        headline: `The source code repository for ${appName} is ready.`,
+        detail: "You can open the repository and start working on your app.",
+        rows: repositoryRows,
+        cta: viewApp,
+      };
+    case "REPOSITORY_FAILED":
+      return {
+        subject: `Repository setup failed: ${appName}`,
+        headline: `The portal could not finish setting up the repository for ${appName}.`,
+        detail:
+          "You can retry from the app page. If the problem continues, contact Information Technology and mention the support reference below.",
+        rows: supportRows,
+        cta: viewApp,
+      };
+    case "APP_DELETED":
+      return {
+        subject: `App deleted: ${appName}`,
+        headline: `${appName} has been deleted from the Cedarville App Portal${byActor}.`,
+        detail: "The app details page is no longer available in the portal.",
+        rows: [],
+        cta: null,
+      };
+    case "APP_SHARED":
+      return {
+        subject: `You've been added to ${appName}`,
+        headline: `${actorDisplayName ?? "A portal administrator"} gave you access to ${appName}.`,
+        detail: "You can now view and collaborate on this app in the portal.",
+        rows: [],
+        cta: viewApp,
+      };
+    case "COLLABORATION_INVITE_SENT":
+      return {
+        subject: `Collaboration invite for ${appName}`,
+        headline: actorDisplayName
+          ? `${actorDisplayName} sent a collaboration invite for ${appName}.`
+          : `A collaboration invite was sent for ${appName}.`,
+        detail: "Invited users get access to the app once they accept.",
+        rows: [],
+        cta: viewApp,
+      };
+    case "COLLABORATION_INVITE_ACCEPTED":
+      return {
+        subject: `Invite accepted: ${appName}`,
+        headline: `${actorDisplayName ?? "An invited user"} accepted a collaboration invite for ${appName} and now has access.`,
+        rows: [],
+        cta: viewApp,
+      };
+    case "COLLABORATION_INVITE_REVOKED":
+      return {
+        subject: `Invite revoked: ${appName}`,
+        headline: `A collaboration invitation for ${appName} was withdrawn${byActor}.`,
+        detail:
+          "The invited user can no longer use that invitation to join the app.",
+        rows: [],
+        cta: viewApp,
+      };
+    case "COLLABORATOR_REMOVED":
+      return {
+        subject: `Collaborator access removed: ${appName}`,
+        headline: `Collaborator access to ${appName} was removed${byActor}.`,
+        detail:
+          "If this change affects your account, you no longer have access to this app in the portal.",
+        rows: [],
+        cta: viewApp,
+      };
+    case "OWNER_REASSIGNED":
+      return {
+        subject: `Ownership changed: ${appName}`,
+        headline: `${appName} has a new owner${actorDisplayName ? `, reassigned by ${actorDisplayName}` : ""}.`,
+        detail: "The owner manages collaborators and app settings in the portal.",
+        rows: [],
+        cta: viewApp,
+      };
+    case "PUBLISH_SUCCEEDED":
+      return {
+        subject: `${appName} is now live`,
+        headline: `Good news — the latest publish of ${appName} finished successfully.`,
+        detail: context.publishUrl
+          ? "Your app is live at the address below."
+          : undefined,
+        rows: context.publishUrl
+          ? [
+              {
+                label: "Published address",
+                value: context.publishUrl,
+                href: context.publishUrl,
+              },
+            ]
+          : [],
+        cta: context.publishUrl
+          ? { label: "Visit your site", href: context.publishUrl }
+          : viewApp,
+        secondaryCta:
+          context.publishUrl && appHref
+            ? { label: "View app in portal", href: appHref }
+            : undefined,
+      };
+    case "PUBLISH_FAILED":
+      return {
+        subject: `Publish failed: ${appName}`,
+        headline: `The latest attempt to publish ${appName} did not complete.`,
+        detail:
+          "Review the error below and try publishing again from the portal. If the problem continues, contact Information Technology and mention the support reference.",
+        rows: [...errorRows(context.publishErrorSummary), ...supportRows],
+        cta: viewApp,
+      };
+    case "PUBLISHING_SETUP_NEEDS_REPAIR":
+      return {
+        subject: `Publishing needs attention: ${appName}`,
+        headline: `The portal found a problem with the publishing setup for ${appName}.`,
+        detail:
+          "Open the app in the portal to repair the publishing setup, then try publishing again.",
+        rows: [
+          ...errorRows(context.publishingSetupErrorSummary),
+          ...supportRows,
+        ],
+        cta: viewApp,
+      };
+    case "PUBLISHING_SETUP_BLOCKED":
+      return {
+        subject: `Publishing blocked: ${appName}`,
+        headline: `Publishing for ${appName} is blocked until its publishing setup is fixed.`,
+        detail:
+          "Contact Information Technology and mention the support reference below to get publishing working again.",
+        rows: [
+          ...errorRows(context.publishingSetupErrorSummary),
+          ...supportRows,
+        ],
+        cta: viewApp,
+      };
+  }
 }
 
 function renderDetailRowsHtml(rows: DetailRow[]) {
