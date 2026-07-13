@@ -953,49 +953,24 @@ export default async function DownloadPage({
           />
         ) : null}
 
-        {/* Repository section */}
-        <div className="card card--navy-border">
-          <p className="section-title">Your Code Repository</p>
-          {appRequest.repositoryStatus === "READY" && appRequest.repositoryUrl ? (
-            <>
-              <div className="status-table" style={{ marginBottom: "1rem" }}>
-                <div className="status-row">
-                  <span>
-                    Repository ready:{" "}
-                    <a
-                      href={appRequest.repositoryUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="meta-link"
-                    >
-                      {appRequest.repositoryUrl}
-                    </a>
-                  </span>
-                </div>
-              </div>
-              {codexHandoffPrompt ? (
-                <CopyCodexHandoffButton prompt={codexHandoffPrompt} />
-              ) : null}
-            </>
-          ) : appRequest.repositoryStatus === "FAILED" ? (
-            <div className="error-box">
-              Repository setup failed.
-              {appRequest.artifact ? " Your ZIP download is still available." : ""}{" "}
-              A portal administrator may need to fix the configuration before publishing can continue.
-            </div>
-          ) : (
-            <div className="info-box">
-              Setting up your code repository — check back shortly.
-            </div>
-          )}
-
-          {appRequest.publishErrorSummary &&
-          appRequest.repositoryStatus === "FAILED" ? (
-            <div className="warning-box" style={{ marginTop: "0.75rem" }}>
-              Repo setup note: {appRequest.publishErrorSummary}
-            </div>
-          ) : null}
-        </div>
+        {/* Codex workflow steps */}
+        {!isImportedApp ? (
+          <div className="card">
+            <p className="section-title">Codex Workflow</p>
+            <ol className="step-list">
+              <li>Open your code repository in Codex on your computer.</li>
+              <li>
+                Let Codex download the code, make your customizations, and save the changes.
+              </li>
+              <li>
+                Return here when you&rsquo;re ready to publish your app to Azure.
+              </li>
+              <li>
+                Use the Publish button on this page — no extra software needed on your computer.
+              </li>
+            </ol>
+          </div>
+        ) : null}
 
         {/* GitHub access section */}
         {appRequest.repositoryStatus === "READY" ? (
@@ -1121,24 +1096,49 @@ export default async function DownloadPage({
           </div>
         ) : null}
 
-        {/* Codex workflow steps */}
-        {!isImportedApp ? (
-          <div className="card">
-            <p className="section-title">Codex Workflow</p>
-            <ol className="step-list">
-              <li>Open your code repository in Codex on your computer.</li>
-              <li>
-                Let Codex download the code, make your customizations, and save the changes.
-              </li>
-              <li>
-                Return here when you&rsquo;re ready to publish your app to Azure.
-              </li>
-              <li>
-                Use the Publish button on this page — no extra software needed on your computer.
-              </li>
-            </ol>
-          </div>
-        ) : null}
+        {/* Repository section */}
+        <div className="card card--navy-border">
+          <p className="section-title">Your Code Repository</p>
+          {appRequest.repositoryStatus === "READY" && appRequest.repositoryUrl ? (
+            <>
+              <div className="status-table" style={{ marginBottom: "1rem" }}>
+                <div className="status-row">
+                  <span>
+                    Repository ready:{" "}
+                    <a
+                      href={appRequest.repositoryUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="meta-link"
+                    >
+                      {appRequest.repositoryUrl}
+                    </a>
+                  </span>
+                </div>
+              </div>
+              {codexHandoffPrompt ? (
+                <CopyCodexHandoffButton prompt={codexHandoffPrompt} />
+              ) : null}
+            </>
+          ) : appRequest.repositoryStatus === "FAILED" ? (
+            <div className="error-box">
+              Repository setup failed.
+              {appRequest.artifact ? " Your ZIP download is still available." : ""}{" "}
+              A portal administrator may need to fix the configuration before publishing can continue.
+            </div>
+          ) : (
+            <div className="info-box">
+              Setting up your code repository — check back shortly.
+            </div>
+          )}
+
+          {appRequest.publishErrorSummary &&
+          appRequest.repositoryStatus === "FAILED" ? (
+            <div className="warning-box" style={{ marginTop: "0.75rem" }}>
+              Repo setup note: {appRequest.publishErrorSummary}
+            </div>
+          ) : null}
+        </div>
 
         {/* Publish section */}
         <div className="card card--navy-border">
