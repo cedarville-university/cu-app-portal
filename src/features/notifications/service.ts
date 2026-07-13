@@ -4,6 +4,7 @@ import {
   canReceiveNotificationCategory,
   type NotificationPreferenceSnapshot,
 } from "./preferences";
+import { renderAppEventEmail } from "./templates";
 import { NOTIFICATION_EVENT_CATEGORY, type AppNotificationEventKey } from "./types";
 import type { Mailer } from "./mailer";
 
@@ -94,30 +95,6 @@ async function recordDeliverySafely(
   }
 }
 
-function buildMessage({
-  appName,
-  appRequestId,
-  appUrl,
-  eventKey,
-}: {
-  appName: string;
-  appRequestId: string;
-  appUrl: string;
-  eventKey: AppNotificationEventKey;
-}) {
-  const appHref = `${appUrl.replace(/\/$/, "")}/download/${appRequestId}`;
-  const escapedAppName = escapeHtml(appName);
-  const escapedAppHref = escapeHtml(appHref);
-  const subject = `App Portal update: ${appName}`;
-  const text = [
-    `${appName} has a portal update: ${eventKey.replaceAll("_", " ").toLowerCase()}.`,
-    `View the app request: ${appHref}`,
-  ].join("\n\n");
-  const html = `<p>${escapedAppName} has a portal update.</p><p><a href="${escapedAppHref}">View the app request</a></p>`;
-
-  return { subject, text, html };
-}
-
 function buildDeletedAppMessage({ appName }: { appName: string }) {
   const escapedAppName = escapeHtml(appName);
   const subject = `App Portal update: ${appName}`;
@@ -144,6 +121,12 @@ export async function sendAppNotification({
     select: {
       id: true,
       appName: true,
+      supportReference: true,
+      repositoryName: true,
+      repositoryUrl: true,
+      publishUrl: true,
+      publishErrorSummary: true,
+      publishingSetupErrorSummary: true,
       user: {
         select: userRecipientSelect,
       },
@@ -179,12 +162,26 @@ export async function sendAppNotification({
       directRecipientUserIds.includes(recipient.id),
   );
 
-  const message = buildMessage({
-    appName: appRequest.appName,
-    appRequestId: appRequest.id,
-    appUrl,
+  const actor = actorUserId
+    ? await prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { displayName: true },
+      })
+    : null;
+  const portalUrl = appUrl.replace(/\/$/, "");
+  const baseContext = {
     eventKey,
-  });
+    appName: appRequest.appName,
+    portalUrl,
+    appHref: `${portalUrl}/download/${appRequest.id}`,
+    actorDisplayName: actor?.displayName ?? null,
+    publishUrl: appRequest.publishUrl,
+    publishErrorSummary: appRequest.publishErrorSummary,
+    publishingSetupErrorSummary: appRequest.publishingSetupErrorSummary,
+    repositoryName: appRequest.repositoryName,
+    repositoryUrl: appRequest.repositoryUrl,
+    supportReference: appRequest.supportReference,
+  };
 
   for (const recipient of recipients) {
     if (
@@ -205,6 +202,11 @@ export async function sendAppNotification({
       });
       continue;
     }
+
+    const message = renderAppEventEmail({
+      ...baseContext,
+      recipientDisplayName: recipient.displayName,
+    });
 
     let result;
 

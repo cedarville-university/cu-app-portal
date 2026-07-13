@@ -7,7 +7,7 @@ import {
 vi.mock("@/lib/db", () => ({
   prisma: {
     appRequest: { findUnique: vi.fn() },
-    user: { findMany: vi.fn() },
+    user: { findMany: vi.fn(), findUnique: vi.fn() },
     notificationDelivery: { create: vi.fn() },
   },
 }));
@@ -18,6 +18,7 @@ describe("sendAppNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null as never);
   });
 
   afterEach(() => {
@@ -442,6 +443,129 @@ describe("sendAppNotification", () => {
     expect(consoleError).toHaveBeenCalledWith(
       "Failed to record notification delivery.",
       expect.any(Error),
+    );
+  });
+
+  it("renders event-specific subjects and personalized greetings", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
+      id: "request-123",
+      appName: "Campus Forms",
+      supportReference: "CU-123",
+      userId: "owner-123",
+      user: {
+        id: "owner-123",
+        email: "owner@cedarville.edu",
+        displayName: "Owner User",
+        notificationPreference: null,
+      },
+      collaborators: [
+        {
+          user: {
+            id: "collab-123",
+            email: "collab@cedarville.edu",
+            displayName: "Collaborator User",
+            notificationPreference: null,
+          },
+        },
+      ],
+    } as never);
+    const mailer = { send: vi.fn().mockResolvedValue({ provider: "smtp" }) };
+
+    await sendAppNotification({
+      appRequestId: "request-123",
+      eventKey: "REPOSITORY_READY",
+      mailer,
+      appUrl: "https://portal.example.edu",
+    });
+
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "owner@cedarville.edu",
+        subject: "Repository ready: Campus Forms",
+        html: expect.stringContaining("Hi Owner User,"),
+      }),
+    );
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "collab@cedarville.edu",
+        html: expect.stringContaining("Hi Collaborator User,"),
+      }),
+    );
+  });
+
+  it("looks up the actor and names them in the message", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
+      id: "request-123",
+      appName: "Campus Forms",
+      supportReference: "CU-123",
+      userId: "owner-123",
+      user: {
+        id: "owner-123",
+        email: "owner@cedarville.edu",
+        displayName: "Owner User",
+        notificationPreference: null,
+      },
+      collaborators: [],
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      displayName: "Admin User",
+    } as never);
+    const mailer = { send: vi.fn().mockResolvedValue({ provider: "smtp" }) };
+
+    await sendAppNotification({
+      appRequestId: "request-123",
+      eventKey: "APP_SHARED",
+      actorUserId: "admin-123",
+      directRecipientUserIds: [],
+      mailer,
+      appUrl: "https://portal.example.edu",
+    });
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: "admin-123" },
+      select: { displayName: true },
+    });
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: "You've been added to Campus Forms",
+        text: expect.stringContaining(
+          "Admin User gave you access to Campus Forms.",
+        ),
+      }),
+    );
+  });
+
+  it("includes the published URL for publish success", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
+      id: "request-123",
+      appName: "Campus Forms",
+      supportReference: "CU-123",
+      publishUrl: "https://campus-forms.azurewebsites.net",
+      userId: "owner-123",
+      user: {
+        id: "owner-123",
+        email: "owner@cedarville.edu",
+        displayName: "Owner User",
+        notificationPreference: null,
+      },
+      collaborators: [],
+    } as never);
+    const mailer = { send: vi.fn().mockResolvedValue({ provider: "smtp" }) };
+
+    await sendAppNotification({
+      appRequestId: "request-123",
+      eventKey: "PUBLISH_SUCCEEDED",
+      mailer,
+      appUrl: "https://portal.example.edu",
+    });
+
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: "Campus Forms is now live",
+        html: expect.stringContaining(
+          'href="https://campus-forms.azurewebsites.net"',
+        ),
+      }),
     );
   });
 });
