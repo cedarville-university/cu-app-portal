@@ -72,15 +72,6 @@ function summarizeError(error: unknown) {
   return "Notification delivery failed.";
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
 function shouldApplyPreferences(eventKey: AppNotificationEventKey) {
   return !PREFERENCE_BYPASS_EVENTS.has(eventKey);
 }
@@ -93,18 +84,6 @@ async function recordDeliverySafely(
   } catch (error) {
     console.error("Failed to record notification delivery.", error);
   }
-}
-
-function buildDeletedAppMessage({ appName }: { appName: string }) {
-  const escapedAppName = escapeHtml(appName);
-  const subject = `App Portal update: ${appName}`;
-  const text = [
-    `${appName} has been deleted from the Cedarville App Portal.`,
-    "The app details page is no longer available in the portal.",
-  ].join("\n\n");
-  const html = `<p>${escapedAppName} has been deleted from the Cedarville App Portal.</p><p>The app details page is no longer available in the portal.</p>`;
-
-  return { subject, text, html };
 }
 
 export async function sendAppNotification({
@@ -260,7 +239,7 @@ export async function sendDeletedAppNotificationSnapshot({
   mailer: Mailer;
   appUrl: string;
 }) {
-  const eventKey = "APP_DELETED";
+  const eventKey: AppNotificationEventKey = "APP_DELETED";
   const category = NOTIFICATION_EVENT_CATEGORY[eventKey];
   const directRecipientUserIds = recipients.map((recipient) => recipient.id);
   const snapshotRecipients = uniqueRecipients(recipients).filter(
@@ -268,7 +247,19 @@ export async function sendDeletedAppNotificationSnapshot({
       recipient.id !== actorUserId ||
       directRecipientUserIds.includes(recipient.id),
   );
-  const message = buildDeletedAppMessage({ appName });
+  const actor = actorUserId
+    ? await prisma.user.findUnique({
+        where: { id: actorUserId },
+        select: { displayName: true },
+      })
+    : null;
+  const baseContext = {
+    eventKey,
+    appName,
+    portalUrl: appUrl,
+    appHref: null,
+    actorDisplayName: actor?.displayName ?? null,
+  };
 
   for (const recipient of snapshotRecipients) {
     if (
@@ -289,6 +280,11 @@ export async function sendDeletedAppNotificationSnapshot({
       });
       continue;
     }
+
+    const message = renderAppEventEmail({
+      ...baseContext,
+      recipientDisplayName: recipient.displayName,
+    });
 
     let result;
 

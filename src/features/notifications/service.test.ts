@@ -573,6 +573,7 @@ describe("sendAppNotification", () => {
 describe("sendDeletedAppNotificationSnapshot", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(null as never);
   });
 
   afterEach(() => {
@@ -666,5 +667,43 @@ describe("sendDeletedAppNotificationSnapshot", () => {
         status: "SKIPPED",
       }),
     });
+  });
+
+  it("sends the branded deletion email naming the actor", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      displayName: "Owner User",
+    } as never);
+    const mailer = { send: vi.fn().mockResolvedValue({ provider: "smtp" }) };
+
+    await sendDeletedAppNotificationSnapshot({
+      appRequestId: "request-deleted",
+      appName: "Campus Forms",
+      actorUserId: "owner-123",
+      recipients: [
+        {
+          id: "collab-123",
+          email: "collab@cedarville.edu",
+          displayName: "Collaborator User",
+          notificationPreference: null,
+        },
+      ],
+      mailer,
+      appUrl: "https://portal.example.edu",
+    });
+
+    expect(mailer.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: "App deleted: Campus Forms",
+        html: expect.stringContaining("Hi Collaborator User,"),
+        text: expect.stringContaining(
+          "Campus Forms has been deleted from the Cedarville App Portal by Owner User.",
+        ),
+      }),
+    );
+    expect(mailer.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        html: expect.stringContaining("View app in portal"),
+      }),
+    );
   });
 });
