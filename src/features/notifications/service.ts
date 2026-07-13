@@ -4,7 +4,7 @@ import {
   canReceiveNotificationCategory,
   type NotificationPreferenceSnapshot,
 } from "./preferences";
-import { renderAppEventEmail } from "./templates";
+import { renderAppEventEmail, type AppEventEmailContext } from "./templates";
 import { NOTIFICATION_EVENT_CATEGORY, type AppNotificationEventKey } from "./types";
 import type { Mailer } from "./mailer";
 
@@ -148,7 +148,7 @@ export async function sendAppNotification({
       })
     : null;
   const portalUrl = appUrl.replace(/\/$/, "");
-  const baseContext = {
+  const baseContext: Omit<AppEventEmailContext, "recipientDisplayName"> = {
     eventKey,
     appName: appRequest.appName,
     portalUrl,
@@ -253,7 +253,7 @@ export async function sendDeletedAppNotificationSnapshot({
         select: { displayName: true },
       })
     : null;
-  const baseContext = {
+  const baseContext: Omit<AppEventEmailContext, "recipientDisplayName"> = {
     eventKey,
     appName,
     portalUrl: appUrl,
