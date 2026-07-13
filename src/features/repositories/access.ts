@@ -61,3 +61,28 @@ export async function grantManagedRepositoryAccess(
     permission: "push",
   });
 }
+
+export async function revokeManagedRepositoryAccess(
+  {
+    owner,
+    repositoryName,
+    githubUsername,
+  }: {
+    owner: string;
+    repositoryName: string;
+    githubUsername: string;
+  },
+  config: GitHubAppConfig = loadGitHubAppConfig(),
+) {
+  const client = createGitHubAppClient({
+    appId: config.appId,
+    privateKey: config.privateKey,
+    installationId: resolveInstallationId(config, owner),
+  });
+
+  await client.removeRepositoryCollaborator({
+    owner,
+    name: repositoryName,
+    username: parseGitHubUsername(githubUsername),
+  });
+}

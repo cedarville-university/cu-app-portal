@@ -12,11 +12,13 @@ import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
   acceptCollaborationInviteAction,
+  removeAppCollaboratorAction,
   resendCollaborationInviteAction,
   revokeCollaborationInviteAction,
   sendCollaborationInviteAction,
   sendCollaborationInviteFormAction,
 } from "./actions";
+import { removeAppCollaborator } from "./remove-collaborator";
 
 const mocks = vi.hoisted(() => ({
   directoryClient: {
@@ -61,6 +63,10 @@ vi.mock("@/features/notifications/mailer", () => ({
 
 vi.mock("@/lib/audit", () => ({
   recordAuditEvent: vi.fn(),
+}));
+
+vi.mock("./remove-collaborator", () => ({
+  removeAppCollaborator: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -362,6 +368,59 @@ describe("collaboration invite actions", () => {
     );
 
     expect(prisma.collaborationInvite.create).not.toHaveBeenCalled();
+  });
+
+  describe("removeAppCollaboratorAction", () => {
+    it("allows the app owner and revalidates", async () => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("owner-1");
+      vi.mocked(userHasAdminRole).mockResolvedValue(false);
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({ id: "app-1" });
+      vi.mocked(removeAppCollaborator).mockResolvedValue({
+        removed: true,
+        github: "skipped",
+      });
+
+      await removeAppCollaboratorAction("app-1", "collab-1");
+
+      expect(removeAppCollaborator).toHaveBeenCalledWith({
+        appRequestId: "app-1",
+        targetUserId: "collab-1",
+        actorUserId: "owner-1",
+      });
+      expect(revalidatePath).toHaveBeenCalledWith("/download/app-1");
+      expect(revalidatePath).toHaveBeenCalledWith("/apps");
+    });
+
+    it("allows portal admins", async () => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("admin-1");
+      vi.mocked(userHasAdminRole).mockResolvedValue(true);
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({ id: "app-1" });
+      vi.mocked(removeAppCollaborator).mockResolvedValue({
+        removed: true,
+        github: "revoked",
+      });
+
+      await removeAppCollaboratorAction("app-1", "collab-1");
+
+      expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
+        where: { id: "app-1" },
+        select: { id: true },
+      });
+      expect(removeAppCollaborator).toHaveBeenCalled();
+    });
+
+    it("rejects collaborators who are not owners or admins", async () => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("collab-2");
+      vi.mocked(userHasAdminRole).mockResolvedValue(false);
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(null);
+
+      await expect(
+        removeAppCollaboratorAction("app-1", "collab-1"),
+      ).rejects.toThrow(
+        "Only owners and admins can remove app collaborators.",
+      );
+      expect(removeAppCollaborator).not.toHaveBeenCalled();
+    });
   });
 
   it("shows a friendly lookup message when Entra directory settings are missing", async () => {

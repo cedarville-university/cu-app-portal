@@ -16,6 +16,7 @@ import {
 } from "@/features/notifications/mailer";
 import { recordAuditEvent, type AuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
+import { removeAppCollaborator } from "./remove-collaborator";
 import { createInviteToken, hashInviteToken } from "./tokens";
 
 const INVITE_TTL_MS = 14 * 24 * 60 * 60 * 1000;
@@ -680,6 +681,37 @@ export async function sendCollaborationInviteFormAction(
         formData.get("unverifiedEmail")?.toString() ?? submittedEmail,
     };
   }
+}
+
+export async function removeAppCollaboratorAction(
+  appRequestId: string,
+  targetUserId: string,
+) {
+  const actorUserId = await resolveCurrentUserId();
+  const isAdmin = await userHasAdminRole(actorUserId);
+  const appRequest = await prisma.appRequest.findFirst({
+    where: isAdmin
+      ? { id: appRequestId }
+      : { id: appRequestId, userId: actorUserId },
+    select: { id: true },
+  });
+
+  if (!appRequest) {
+    throw new Error(
+      "Only owners and admins can remove app collaborators.",
+    );
+  }
+
+  await removeAppCollaborator({
+    appRequestId,
+    targetUserId,
+    actorUserId,
+  });
+
+  revalidatePath(`/download/${appRequestId}`);
+  revalidatePath("/apps");
+  revalidatePath(`/admin/apps/${appRequestId}`);
+  revalidatePath("/admin/apps");
 }
 
 export async function revokeCollaborationInviteAction(

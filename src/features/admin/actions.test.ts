@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidatePath } from "next/cache";
+import { removeAppCollaborator } from "@/features/collaboration-invites/remove-collaborator";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
@@ -23,6 +24,10 @@ vi.mock("@/lib/audit", () => ({
 
 vi.mock("@/features/notifications/safe-notify", () => ({
   safeNotifyAppEvent: vi.fn(),
+}));
+
+vi.mock("@/features/collaboration-invites/remove-collaborator", () => ({
+  removeAppCollaborator: vi.fn(),
 }));
 
 vi.mock("./roles", () => ({
@@ -326,32 +331,19 @@ describe("admin actions", () => {
     expect(recordAuditEvent).not.toHaveBeenCalled();
   });
 
-  it("removeAppCollaboratorAction requires an admin, deletes AppAccess if present, records audit, and revalidates app views", async () => {
-    mockApp();
+  it("removeAppCollaboratorAction requires an admin, delegates to shared remove service, and revalidates app views", async () => {
+    vi.mocked(removeAppCollaborator).mockResolvedValue({
+      removed: true,
+      github: "skipped",
+    });
 
     await removeAppCollaboratorAction(appRequestId, targetUserId);
 
     expect(requireAdminUserId).toHaveBeenCalled();
-    expect(prisma.appRequest.findUnique).toHaveBeenCalledWith({
-      where: { id: appRequestId },
-    });
-    expect(prisma.appAccess.deleteMany).toHaveBeenCalledWith({
-      where: {
-        appRequestId,
-        userId: targetUserId,
-      },
-    });
-    expect(recordAuditEvent).toHaveBeenCalledWith("APP_COLLABORATOR_REMOVED", {
-      actorUserId: adminUserId,
+    expect(removeAppCollaborator).toHaveBeenCalledWith({
       appRequestId,
-      supportReference,
       targetUserId,
-    });
-    expect(safeNotifyAppEvent).toHaveBeenCalledWith({
-      appRequestId,
-      eventKey: "COLLABORATOR_REMOVED",
       actorUserId: adminUserId,
-      directRecipientUserIds: [targetUserId],
     });
     expect(revalidatePath).toHaveBeenCalledWith("/admin");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");

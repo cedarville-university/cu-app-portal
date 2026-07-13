@@ -131,6 +131,7 @@ Deleted vaults soft-delete for 90 days; the portal never purges them.
 
 - Each app has one primary owner.
 - Admins can see all users and apps, manage admin roles, reassign owners, manage collaborators, and delete scoped app resources.
+- App owners and admins can remove accepted collaborators from the app details screen.
 - Collaborators can view app details, download artifacts, request GitHub repository access for themselves, repair publishing setup, and publish app changes.
 - Collaborators cannot delete app resources or reassign ownership.
 

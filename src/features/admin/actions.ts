@@ -2,6 +2,7 @@
 
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { removeAppCollaborator } from "@/features/collaboration-invites/remove-collaborator";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { parseOptionalGitHubUsername } from "@/features/repositories/access";
 import { recordAuditEvent } from "@/lib/audit";
@@ -188,26 +189,13 @@ export async function removeAppCollaboratorAction(
   userId: string,
 ) {
   const actorUserId = await requireAdminUserId();
-  const appRequest = await ensureAppExists(appRequestId);
 
-  await prisma.appAccess.deleteMany({
-    where: {
-      appRequestId,
-      userId,
-    },
-  });
-  await recordAuditEvent("APP_COLLABORATOR_REMOVED", {
-    actorUserId,
+  await removeAppCollaborator({
     appRequestId,
-    supportReference: appRequest.supportReference,
     targetUserId: userId,
-  });
-  await safeNotifyAppEvent({
-    appRequestId,
-    eventKey: "COLLABORATOR_REMOVED",
     actorUserId,
-    directRecipientUserIds: [userId],
   });
+
   revalidateAdminViews(appRequestId);
 }
 

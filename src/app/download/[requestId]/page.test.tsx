@@ -54,6 +54,7 @@ vi.mock("@/features/repository-imports/actions", () => ({
 }));
 
 vi.mock("@/features/collaboration-invites/actions", () => ({
+  removeAppCollaboratorAction: vi.fn(),
   resendCollaborationInviteAction: vi.fn(),
   revokeCollaborationInviteAction: vi.fn(),
   sendCollaborationInviteFormAction: vi.fn(),
@@ -296,12 +297,14 @@ describe("DownloadPage", () => {
       collaborators: [
         {
           user: {
+            id: "casey-1",
             displayName: "Casey Collaborator",
             email: "casey@cedarville.edu",
           },
         },
         {
           user: {
+            id: "jordan-1",
             displayName: "Jordan Builder",
             email: "jordan@cedarville.edu",
           },
@@ -341,6 +344,120 @@ describe("DownloadPage", () => {
     expect(
       within(accessRegion).getByText("jordan@cedarville.edu"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /remove collaborator casey collaborator/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows remove collaborator controls to portal admins", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("admin-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-1",
+      userId: "admin-123",
+      role: "ADMIN",
+    } as Awaited<ReturnType<typeof prisma.userRole.findFirst>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_admin_remove",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "NOT_REQUESTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      artifact: { id: "artifact-admin-remove" },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+      user: {
+        displayName: "Olivia Owner",
+        email: "owner@cedarville.edu",
+      },
+      collaborators: [
+        {
+          user: {
+            id: "casey-1",
+            displayName: "Casey Collaborator",
+            email: "casey@cedarville.edu",
+          },
+        },
+      ],
+      collaborationInvites: [],
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_admin_remove" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: /remove collaborator casey collaborator/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides remove collaborator controls from collaborators", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_collab_no_remove",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "NOT_REQUESTED",
+      repositoryAccessNote: null,
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      publishingSetupErrorSummary: null,
+      publishUrl: null,
+      primaryPublishUrl: null,
+      azureWebAppName: null,
+      publishErrorSummary: null,
+      artifact: { id: "artifact-collab-no-remove" },
+      publishAttempts: [],
+      publishSetupChecks: [],
+      repositoryImport: null,
+      user: {
+        displayName: "Olivia Owner",
+        email: "owner@cedarville.edu",
+      },
+      collaborators: [
+        {
+          user: {
+            id: "collaborator-123",
+            displayName: "Casey Collaborator",
+            email: "casey@cedarville.edu",
+          },
+        },
+      ],
+      collaborationInvites: [],
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "casey-dev",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+
+    render(
+      await DownloadPage({
+        params: Promise.resolve({ requestId: "req_collab_no_remove" }),
+      }),
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /remove collaborator/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows invite controls to the app owner", async () => {
@@ -475,6 +592,7 @@ describe("DownloadPage", () => {
       collaborators: [
         {
           user: {
+            id: "collaborator-123",
             displayName: "Casey Collaborator",
             email: "casey@cedarville.edu",
           },

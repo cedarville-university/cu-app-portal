@@ -24,6 +24,7 @@ import {
   prepareExistingAppAction,
   verifyExistingAppPreparationAction,
 } from "@/features/repository-imports/actions";
+import { removeAppCollaboratorAction } from "@/features/collaboration-invites/actions";
 import { CollaborationInvitePanel } from "@/features/collaboration-invites/invite-panel";
 import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
@@ -143,6 +144,8 @@ function renderUserIdentity(user: {
 function renderAppAccessSummary({
   owner,
   collaborators,
+  canManageCollaborators,
+  appRequestId,
 }: {
   owner?: {
     displayName: string;
@@ -150,10 +153,13 @@ function renderAppAccessSummary({
   } | null;
   collaborators?: Array<{
     user: {
+      id: string;
       displayName: string;
       email: string;
     };
   }>;
+  canManageCollaborators?: boolean;
+  appRequestId?: string;
 }) {
   if (!owner) {
     return null;
@@ -189,14 +195,43 @@ function renderAppAccessSummary({
             >
               {collaborators.map((collaborator) => (
                 <li
-                  key={collaborator.user.email}
+                  key={collaborator.user.id}
                   style={{
                     display: "flex",
-                    flexDirection: "column",
-                    gap: "0.125rem",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "0.75rem",
+                    flexWrap: "wrap",
                   }}
                 >
-                  {renderUserIdentity(collaborator.user)}
+                  <span
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.125rem",
+                      minWidth: 0,
+                    }}
+                  >
+                    {renderUserIdentity(collaborator.user)}
+                  </span>
+                  {canManageCollaborators && appRequestId ? (
+                    <form
+                      action={removeAppCollaboratorAction.bind(
+                        null,
+                        appRequestId,
+                        collaborator.user.id,
+                      )}
+                    >
+                      <PendingSubmitButton
+                        idleLabel="Remove"
+                        pendingLabel="Removing..."
+                        statusText="Removing collaborator."
+                        variant="danger"
+                        size="sm"
+                        ariaLabel={`Remove collaborator ${collaborator.user.displayName}`}
+                      />
+                    </form>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -778,6 +813,7 @@ export default async function DownloadPage({
         include: {
           user: {
             select: {
+              id: true,
               displayName: true,
               email: true,
             },
@@ -906,6 +942,8 @@ export default async function DownloadPage({
         {renderAppAccessSummary({
           owner: appRequest.user,
           collaborators: appRequest.collaborators,
+          canManageCollaborators: appRequest.userId === userId || isAdmin,
+          appRequestId: appRequest.id,
         })}
 
         {appRequest.userId === userId || isAdmin ? (
