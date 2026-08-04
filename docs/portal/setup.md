@@ -169,6 +169,8 @@ If Microsoft Graph returns `Authorization_RequestDenied`, first check whether th
 
 The Markdown files in `docs/user/` are the source of truth for the portal Help pages and downloadable PDFs. After changing them, install `scripts/docs/requirements.txt`, run `npm run docs:pdf`, and commit the regenerated files in both `output/pdf/` and `public/docs/`. The PDF build fails if the Quick Start no longer fits on one US Letter page.
 
+The Azure deployment package must include `docs/user/` because Help pages read those Markdown files at runtime. The deployment workflow copies that directory to `release/docs/user/` and verifies that `quick-start.md` exists before publishing the release.
+
 For managed repo bootstrap verification, confirm the GitHub App is installed on the target org and then create an app through the portal. A successful request should end on the download page with a managed repo URL instead of a repository failure state.
 
 ## Notes

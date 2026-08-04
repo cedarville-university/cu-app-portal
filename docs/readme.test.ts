@@ -18,6 +18,20 @@ describe("README", () => {
 });
 
 describe("portal setup docs", () => {
+  it("packages runtime user documentation for Azure", () => {
+    const workflow = readFileSync(
+      ".github/workflows/deploy-azure-app-service.yml",
+      "utf8",
+    );
+
+    expect(workflow).toContain(
+      'cp -R docs/user "${{ env.DEPLOY_PACKAGE_PATH }}/docs/user"',
+    );
+    expect(workflow).toContain(
+      'test -f "${{ env.DEPLOY_PACKAGE_PATH }}/docs/user/quick-start.md"',
+    );
+  });
+
   it("documents portal-managed azure publish runtime settings", () => {
     const setup = readFileSync("docs/portal/setup.md", "utf8");
 

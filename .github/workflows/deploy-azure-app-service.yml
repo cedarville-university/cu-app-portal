@@ -41,6 +41,9 @@ jobs:
           cp package.json package-lock.json next.config.ts next-env.d.ts prisma.config.ts "${{ env.DEPLOY_PACKAGE_PATH }}/"
           cp -R prisma "${{ env.DEPLOY_PACKAGE_PATH }}/prisma"
           cp -R templates "${{ env.DEPLOY_PACKAGE_PATH }}/templates"
+          mkdir -p "${{ env.DEPLOY_PACKAGE_PATH }}/docs"
+          cp -R docs/user "${{ env.DEPLOY_PACKAGE_PATH }}/docs/user"
+          test -f "${{ env.DEPLOY_PACKAGE_PATH }}/docs/user/quick-start.md"
           if [ -d public ]; then
             cp -R public "${{ env.DEPLOY_PACKAGE_PATH }}/public"
           fi
