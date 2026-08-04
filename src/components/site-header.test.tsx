@@ -98,6 +98,16 @@ describe("SiteHeader", () => {
     );
   });
 
+  it("links to the public apps page", async () => {
+    mockGetServerSession.mockResolvedValue(null);
+
+    render(await SiteHeader());
+
+    expect(
+      screen.getByRole("link", { name: /public apps/i }),
+    ).toHaveAttribute("href", "/apps/public");
+  });
+
   it("shows a log in button when no user is signed in", async () => {
     mockGetServerSession.mockResolvedValue(null);
 
