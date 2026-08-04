@@ -27,6 +27,7 @@ import {
 import { removeAppCollaboratorAction } from "@/features/collaboration-invites/actions";
 import { CollaborationInvitePanel } from "@/features/collaboration-invites/invite-panel";
 import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
+import { PublicListingPanel } from "@/features/public-apps/public-listing-panel";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import {
   buildCodexHandoffPrompt,
@@ -1232,6 +1233,11 @@ export default async function DownloadPage({
           appRequestId={appRequest.id}
           envVars={appRequest.environmentVariables ?? []}
           isPublished={Boolean(appRequest.azureWebAppName)}
+        />
+
+        <PublicListingPanel
+          appRequestId={appRequest.id}
+          isPubliclyListed={appRequest.isPubliclyListed}
         />
 
         {canDeleteAppRequest
