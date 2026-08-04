@@ -10,6 +10,7 @@
     "test:watch": "vitest",
     "test:setup": "vitest run src/test/setup.test.ts",
     "test:e2e": "playwright test",
+    "docs:pdf": "python3 scripts/docs/build_pdfs.py",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "node --env-file=.env --env-file-if-exists=.env.local --import tsx prisma/seed.ts",
@@ -28,6 +29,9 @@
     "nodemailer": "^7.0.13",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "^4.0.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {

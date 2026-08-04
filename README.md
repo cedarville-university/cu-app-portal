@@ -49,11 +49,13 @@ The portal sends immediate SMTP email notifications for app lifecycle, collabora
 - `npm test` runs the Vitest suite.
 - `npm run test:e2e -- e2e/create-and-download.spec.ts` runs the Playwright create-and-download flow.
 - `npm run prisma:seed` syncs the in-code template catalog into the database.
+- `npm run docs:pdf` regenerates the downloadable user documentation from `docs/user/` after the Python requirements in `scripts/docs/requirements.txt` are installed.
 
 ## Docs
 
 - [Portal setup](docs/portal/setup.md)
 - [Template authoring](docs/portal/template-authoring.md)
+- [User documentation maintenance](docs/user/README.md)
 - [Azure publishing](docs/publishing/azure-app-service.md)
 - [Portal-managed publishing design](docs/superpowers/specs/2026-04-28-portal-managed-publishing-design.md)
 - [Portal Azure publish runtime design](docs/superpowers/specs/2026-04-29-portal-azure-publish-runtime-design.md)

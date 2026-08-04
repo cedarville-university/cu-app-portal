@@ -106,6 +106,10 @@ describe("SiteHeader", () => {
     expect(
       screen.getByRole("button", { name: /log in/i }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^help$/i })).toHaveAttribute(
+      "href",
+      "/help",
+    );
     expect(
       screen.queryByRole("button", { name: /log out/i }),
     ).not.toBeInTheDocument();

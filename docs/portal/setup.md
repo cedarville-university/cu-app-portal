@@ -165,6 +165,10 @@ If Microsoft Graph returns `Authorization_RequestDenied`, first check whether th
 - `npm run build`
 - `npm run test:e2e -- e2e/create-and-download.spec.ts`
 
+### User documentation
+
+The Markdown files in `docs/user/` are the source of truth for the portal Help pages and downloadable PDFs. After changing them, install `scripts/docs/requirements.txt`, run `npm run docs:pdf`, and commit the regenerated files in both `output/pdf/` and `public/docs/`. The PDF build fails if the Quick Start no longer fits on one US Letter page.
+
 For managed repo bootstrap verification, confirm the GitHub App is installed on the target org and then create an app through the portal. A successful request should end on the download page with a managed repo URL instead of a repository failure state.
 
 ## Notes

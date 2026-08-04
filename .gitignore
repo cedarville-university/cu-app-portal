@@ -18,3 +18,4 @@ test-results
 .claude/worktrees
 dontpublish
 .idea
+tmp/pdfs

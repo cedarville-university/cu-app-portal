@@ -27,6 +27,7 @@ export async function SiteHeader() {
           <Link href="/">Home</Link>
           <Link href="/create">Create App</Link>
           <Link href="/apps">My Apps</Link>
+          <Link href="/help">Help</Link>
           {isAdmin ? <Link href="/admin">Admin</Link> : null}
           {session?.user ? <Link href="/settings">Settings</Link> : null}
           {userDisplayName ? (
