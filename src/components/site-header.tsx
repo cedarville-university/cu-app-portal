@@ -30,11 +30,18 @@ export async function SiteHeader() {
           <Link href="/apps/public">Public Apps</Link>
           <Link href="/help">Help</Link>
           {isAdmin ? <Link href="/admin">Admin</Link> : null}
-          {session?.user ? <Link href="/settings">Settings</Link> : null}
-          {userDisplayName ? (
-            <span className="site-header__user-name">{userDisplayName}</span>
+          {session?.user ? (
+            <details className="site-header__account-menu">
+              <summary className="site-header__user-name">
+                {userDisplayName ?? "Account"}
+              </summary>
+              <div className="site-header__account-menu-content">
+                <Link href="/settings">Settings</Link>
+                <LogoutButton />
+              </div>
+            </details>
           ) : null}
-          {session?.user ? <LogoutButton /> : <LoginButton />}
+          {session?.user ? null : <LoginButton />}
         </nav>
       </div>
     </header>

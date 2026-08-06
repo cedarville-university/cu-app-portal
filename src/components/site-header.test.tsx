@@ -75,7 +75,7 @@ describe("SiteHeader", () => {
     expect(userHasAdminRole).toHaveBeenCalledWith("user-123");
   });
 
-  it("shows the signed-in user's name next to the log out button", async () => {
+  it("places settings and log out in a closed account menu opened by the user's name", async () => {
     mockGetServerSession.mockResolvedValue({
       user: {
         id: "user-123",
@@ -89,13 +89,14 @@ describe("SiteHeader", () => {
 
     render(await SiteHeader());
 
+    const accountMenu = screen.getByText("Portal Staff").closest("details");
     const logoutButton = screen.getByRole("button", { name: /log out/i });
-    const userName = screen.getByText("Portal Staff");
 
-    expect(userName).toBeInTheDocument();
-    expect(userName.compareDocumentPosition(logoutButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
+    expect(accountMenu).not.toHaveAttribute("open");
+    expect(accountMenu).toContainElement(
+      screen.getByRole("link", { name: /settings/i }),
     );
+    expect(accountMenu).toContainElement(logoutButton);
   });
 
   it("links to the public apps page", async () => {

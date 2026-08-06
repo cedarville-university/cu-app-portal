@@ -207,12 +207,90 @@ li { margin-bottom: 0.25rem; }
   white-space: nowrap;
 }
 
-.site-header__nav form {
+.site-header__account-menu {
+  position: relative;
+}
+
+.site-header__user-name {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+.site-header__user-name::-webkit-details-marker {
+  display: none;
+}
+
+.site-header__user-name::after {
+  content: "▾";
+  margin-left: 0.35rem;
+  font-size: 0.7rem;
+}
+
+.site-header__user-name:hover,
+.site-header__account-menu[open] .site-header__user-name {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+}
+
+.site-header__account-menu-content {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 1;
+  min-width: 9rem;
+  padding: 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.2);
+}
+
+.site-header__account-menu-content a {
+  display: block;
+  color: var(--text-dark);
+  padding: 0.5rem 0.65rem;
+}
+
+.site-header__account-menu-content a:hover {
+  background: var(--bg-light);
+  color: var(--cu-navy);
+}
+
+.site-header__account-menu-content form {
   display: flex;
   margin: 0;
 }
 
-.site-header__nav form button {
+.site-header__account-menu-content form button {
+  width: 100%;
+  color: var(--text-dark);
+  background: transparent;
+  border: 0;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+
+.site-header__account-menu-content form button:hover {
+  background: var(--bg-light);
+  color: var(--cu-navy);
+}
+
+.site-header__nav > form {
+  display: flex;
+  margin: 0;
+}
+
+.site-header__nav > form button {
   color: rgba(255,255,255,0.7);
   background: transparent;
   border: 1px solid rgba(255,255,255,0.2);
@@ -227,7 +305,7 @@ li { margin-bottom: 0.25rem; }
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.site-header__nav form button:hover {
+.site-header__nav > form button:hover {
   background: rgba(255,255,255,0.1);
   color: #fff;
   border-color: rgba(255,255,255,0.4);
