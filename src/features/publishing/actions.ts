@@ -18,7 +18,11 @@ import {
 } from "./workflow-triggers";
 
 type QueueablePublishStatus = "NOT_STARTED" | "SUCCEEDED" | "FAILED";
-type QueueablePublishingSetupStatus = "NOT_CHECKED" | "READY";
+type QueueablePublishingSetupStatus =
+  | "NOT_CHECKED"
+  | "READY"
+  | "NEEDS_REPAIR"
+  | "BLOCKED";
 
 const BLOCKING_SETUP_STATUSES = new Set([
   "NEEDS_REPAIR",
@@ -28,6 +32,11 @@ const BLOCKING_SETUP_STATUSES = new Set([
 const GENERATED_APP_QUEUEABLE_SETUP_STATUSES: QueueablePublishingSetupStatus[] = [
   "NOT_CHECKED",
   "READY",
+];
+const FAILED_RETRY_QUEUEABLE_SETUP_STATUSES: QueueablePublishingSetupStatus[] = [
+  ...GENERATED_APP_QUEUEABLE_SETUP_STATUSES,
+  "NEEDS_REPAIR",
+  "BLOCKED",
 ];
 
 async function loadAccessibleAppRequest(requestId: string) {
@@ -109,7 +118,11 @@ function createGitHubClientForOwner(owner: string) {
 
 function publishingSetupStatusPredicate(appRequest: {
   sourceOfTruth?: string | null;
-}) {
+}, allowFailedSetupRetry = false) {
+  if (allowFailedSetupRetry) {
+    return { in: FAILED_RETRY_QUEUEABLE_SETUP_STATUSES };
+  }
+
   if (appRequest.sourceOfTruth === "IMPORTED_REPOSITORY") {
     return "READY";
   }
@@ -120,14 +133,23 @@ function publishingSetupStatusPredicate(appRequest: {
 async function queuePublishAttempt(
   requestId: string,
   allowedStatuses: QueueablePublishStatus[],
+  options: { allowFailedSetupRetry?: boolean } = {},
 ) {
   const appRequest = await loadAccessibleAppRequest(requestId);
+  const canRetryFailedSetup =
+    options.allowFailedSetupRetry &&
+    FAILED_RETRY_QUEUEABLE_SETUP_STATUSES.includes(
+      appRequest.publishingSetupStatus as QueueablePublishingSetupStatus,
+    );
 
   if (appRequest.repositoryStatus !== "READY") {
     throw new Error("Managed repository is not ready for publishing.");
   }
 
-  if (BLOCKING_SETUP_STATUSES.has(appRequest.publishingSetupStatus)) {
+  if (
+    BLOCKING_SETUP_STATUSES.has(appRequest.publishingSetupStatus) &&
+    !canRetryFailedSetup
+  ) {
     throw new Error("Publishing setup must be repaired before publishing.");
   }
 
@@ -142,7 +164,8 @@ async function queuePublishAttempt(
 
   if (
     appRequest.sourceOfTruth === "IMPORTED_REPOSITORY" &&
-    appRequest.publishingSetupStatus !== "READY"
+    appRequest.publishingSetupStatus !== "READY" &&
+    !canRetryFailedSetup
   ) {
     throw new Error(
       "Imported app publishing setup must be ready before publishing.",
@@ -154,7 +177,10 @@ async function queuePublishAttempt(
       where: {
         id: requestId,
         repositoryStatus: "READY",
-        publishingSetupStatus: publishingSetupStatusPredicate(appRequest),
+        publishingSetupStatus: publishingSetupStatusPredicate(
+          appRequest,
+          options.allowFailedSetupRetry,
+        ),
         publishStatus: { in: allowedStatuses },
       },
       data: {
@@ -209,7 +235,9 @@ export async function retryPublishAction(requestId: string) {
     throw new Error("Only failed publish attempts can be retried.");
   }
 
-  const attemptId = await queuePublishAttempt(requestId, ["FAILED"]);
+  const attemptId = await queuePublishAttempt(requestId, ["FAILED"], {
+    allowFailedSetupRetry: true,
+  });
 
   startPublishWorker(attemptId);
 }

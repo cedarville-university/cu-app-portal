@@ -147,7 +147,11 @@ Invite acceptance grants portal app access only. Users request GitHub repository
 
 Repair Publishing Setup refreshes portal-managed GitHub Actions secrets and GitHub OIDC federated credentials for a target app when configured Azure, Entra, or GitHub values rotate. Repair removes or resets only the portal-managed publishing secrets and credentials for that app.
 
+GitHub repositories can use either the legacy name-based OIDC subject or the immutable subject introduced for repositories created after July 15, 2026. The portal reads the repository's OIDC configuration and GitHub owner/repository IDs before preflight, publish, and repair. Repair deletes the portal-managed federated credential with the stale subject before creating the credential with the repository's current subject format; older repositories that still use legacy subjects remain supported.
+
 Repair does not delete repositories, dispatch deployment workflows, or delete Azure resources.
+
+After a failed deployment, the app details page offers both Retry Publish and Repair Publishing Setup. Retry starts a new deployment attempt and reconciles the portal-managed federated credential before dispatch. Repair refreshes setup without dispatching a workflow; publish or retry separately afterward.
 
 If Microsoft Graph returns `Authorization_RequestDenied`, first check whether the configured Azure or Entra credential values expired or rotated. Update those values, then run repair for the affected app. If the current values are valid and Graph still denies writes, grant the portal runtime identity permission to update shared app registration redirect URIs and publisher app federated credentials.
 

@@ -697,6 +697,93 @@ describe("createGitHubAppClient", () => {
     });
   });
 
+  it("reads an immutable OIDC repository identity", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          id: 1330196457,
+          html_url:
+            "https://github.com/cu-app-portal-repos/slide-show-inator",
+          default_branch: "main",
+          name: "slide-show-inator",
+          created_at: "2026-08-11T12:00:00Z",
+          owner: { login: "cu-app-portal-repos", id: 280105215 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          use_default: true,
+        }),
+      );
+    const client = createGitHubAppClient({
+      appId: "12345",
+      privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      installationId: "111",
+      fetchImpl,
+    });
+
+    await expect(
+      client.getRepositoryOidcIdentity({
+        owner: "cu-app-portal-repos",
+        name: "slide-show-inator",
+      }),
+    ).resolves.toEqual({
+      owner: "cu-app-portal-repos",
+      ownerId: "280105215",
+      repository: "slide-show-inator",
+      repositoryId: "1330196457",
+      useImmutableSubject: true,
+    });
+    expect(fetchImpl).toHaveBeenLastCalledWith(
+      "https://api.github.com/repos/cu-app-portal-repos/slide-show-inator/actions/oidc/customization/sub",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({
+          "X-GitHub-Api-Version": "2026-03-10",
+        }),
+      }),
+    );
+  });
+
+  it("keeps an older repository on its explicit legacy OIDC subject", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          id: 123456,
+          html_url: "https://github.com/cedarville-it/campus-dashboard",
+          default_branch: "main",
+          name: "campus-dashboard",
+          created_at: "2026-06-01T12:00:00Z",
+          owner: { login: "cedarville-it", id: 654321 },
+        }),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          use_default: true,
+          use_immutable_subject: false,
+        }),
+      );
+    const client = createGitHubAppClient({
+      appId: "12345",
+      privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      installationId: "111",
+      fetchImpl,
+    });
+
+    await expect(
+      client.getRepositoryOidcIdentity({
+        owner: "cedarville-it",
+        name: "campus-dashboard",
+      }),
+    ).resolves.toMatchObject({ useImmutableSubject: false });
+  });
+
   it("reads the current branch head sha", async () => {
     const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
     const fetchImpl = vi

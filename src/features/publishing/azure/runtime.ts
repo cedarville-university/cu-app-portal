@@ -17,6 +17,10 @@ import { buildPublishResourceTags, buildPublishTargetNames } from "./naming";
 import { verifyPublishedUrl as defaultVerifyPublishedUrl } from "./verify-deployment";
 import { buildUserAppSettings } from "@/features/env-vars/settings";
 import { KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID } from "./arm-client";
+import {
+  buildGitHubFederatedCredentialSubject,
+  type GitHubOidcRepositoryIdentity,
+} from "../github-oidc";
 
 type RuntimeDeps = {
   config: AzurePublishConfig;
@@ -78,11 +82,14 @@ type RuntimeDeps = {
     ensureFederatedCredential(input: {
       applicationAppId: string;
       name: string;
-      repository: string;
-      branch: string;
+      subject: string;
     }): Promise<void>;
   };
   github: {
+    getRepositoryOidcIdentity(input: {
+      owner: string;
+      name: string;
+    }): Promise<GitHubOidcRepositoryIdentity>;
     setActionsSecret(input: {
       owner: string;
       name: string;
@@ -616,14 +623,19 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const owner = appRequest.repositoryOwner;
       const name = appRequest.repositoryName;
       const branch = appRequest.repositoryDefaultBranch;
-      const repository = `${owner}/${name}`;
 
       options?.onSetupStep?.("github_federated_credential");
+      const oidcIdentity = await deps.github.getRepositoryOidcIdentity({
+        owner,
+        name,
+      });
       await deps.graph.ensureFederatedCredential({
         applicationAppId: deps.config.azureClientId,
         name: names.federatedCredentialName,
-        repository,
-        branch,
+        subject: buildGitHubFederatedCredentialSubject({
+          identity: oidcIdentity,
+          branch,
+        }),
       });
 
       options?.onSetupStep?.("github_actions_secrets");

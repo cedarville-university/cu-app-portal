@@ -41,17 +41,15 @@ export function createMicrosoftGraphClient({
 
   function federatedCredentialPayload({
     name,
-    repository,
-    branch,
+    subject,
   }: {
     name: string;
-    repository: string;
-    branch: string;
+    subject: string;
   }) {
     return {
       name,
       issuer: "https://token.actions.githubusercontent.com",
-      subject: `repo:${repository}:ref:refs/heads/${branch}`,
+      subject,
       audiences: ["api://AzureADTokenExchange"],
     };
   }
@@ -97,13 +95,11 @@ export function createMicrosoftGraphClient({
   async function replaceFederatedCredential({
     applicationAppId,
     name,
-    repository,
-    branch,
+    subject,
   }: {
     applicationAppId: string;
     name: string;
-    repository: string;
-    branch: string;
+    subject: string;
   }) {
     const credentials = await listFederatedCredentials({ applicationAppId });
     const existing = credentials.find((credential) => credential.name === name);
@@ -119,9 +115,7 @@ export function createMicrosoftGraphClient({
       await fetchImpl(federatedCredentialsUrl(applicationAppId), {
         method: "POST",
         headers: await headers(),
-        body: JSON.stringify(
-          federatedCredentialPayload({ name, repository, branch }),
-        ),
+        body: JSON.stringify(federatedCredentialPayload({ name, subject })),
       }),
     );
   }
@@ -188,30 +182,33 @@ export function createMicrosoftGraphClient({
     async ensureFederatedCredential({
       applicationAppId,
       name,
-      repository,
-      branch,
+      subject,
     }: {
       applicationAppId: string;
       name: string;
-      repository: string;
-      branch: string;
+      subject: string;
     }) {
-      const response = await fetchImpl(
-        federatedCredentialsUrl(applicationAppId),
-        {
-          method: "POST",
-          headers: await headers(),
-          body: JSON.stringify(
-            federatedCredentialPayload({ name, repository, branch }),
-          ),
-        },
-      );
+      const credentials = await listFederatedCredentials({ applicationAppId });
+      const existing = credentials.find((credential) => credential.name === name);
 
-      if (response.status === 409) {
+      if (existing?.subject === subject) {
         return;
       }
 
-      await readJson<unknown>(response);
+      if (existing) {
+        await deleteFederatedCredential({
+          applicationAppId,
+          credentialId: existing.id,
+        });
+      }
+
+      await readJson<unknown>(
+        await fetchImpl(federatedCredentialsUrl(applicationAppId), {
+          method: "POST",
+          headers: await headers(),
+          body: JSON.stringify(federatedCredentialPayload({ name, subject })),
+        }),
+      );
     },
   };
 }

@@ -3,6 +3,10 @@ import type { PrismaClient } from "@prisma/client";
 
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
+import {
+  buildGitHubFederatedCredentialSubject,
+  type GitHubOidcRepositoryIdentity,
+} from "@/features/publishing/github-oidc";
 import { getTemplateBySlug } from "@/features/templates/catalog";
 import type { DatabaseProvider, PortalTemplate } from "@/features/templates/types";
 import { createAzureArmClient } from "@/features/publishing/azure/arm-client";
@@ -129,11 +133,14 @@ export type PublishingSetupServiceDeps = {
     replaceFederatedCredential(input: {
       applicationAppId: string;
       name: string;
-      repository: string;
-      branch: string;
+      subject: string;
     }): Promise<void>;
   };
   github: {
+    getRepositoryOidcIdentity(input: {
+      owner: string;
+      name: string;
+    }): Promise<GitHubOidcRepositoryIdentity>;
     readRepositoryTextFiles(input: {
       owner: string;
       name: string;
@@ -410,16 +417,6 @@ function publishUrlFor(appRequest: SetupAppRequest) {
 
 function federatedCredentialName(appRequest: SetupAppRequest) {
   return targetNames(appRequest).federatedCredentialName;
-}
-
-function federatedCredentialSubject({
-  repositoryFullName,
-  branch,
-}: {
-  repositoryFullName: string;
-  branch: string;
-}) {
-  return `repo:${repositoryFullName}:ref:refs/heads/${branch}`;
 }
 
 function buildDatabaseUrl(config: AzurePublishConfig, databaseName: string) {
@@ -935,8 +932,12 @@ async function runPreflightChecks(
     appRequest,
     deps.config,
   )}`;
-  const expectedSubject = federatedCredentialSubject({
-    repositoryFullName: repo.fullName,
+  const oidcIdentity = await deps.github.getRepositoryOidcIdentity({
+    owner: repo.owner,
+    name: repo.name,
+  });
+  const expectedSubject = buildGitHubFederatedCredentialSubject({
+    identity: oidcIdentity,
     branch: repo.branch,
   });
   const checks: PublishingSetupCheckResult[] = [];
@@ -1124,11 +1125,17 @@ export async function repairPublishingSetup(
       });
     }
     repairStep = "github_federated_credential";
+    const oidcIdentity = await deps.github.getRepositoryOidcIdentity({
+      owner: repo.owner,
+      name: repo.name,
+    });
     await deps.graph.replaceFederatedCredential({
       applicationAppId: deps.config.azureClientId,
       name: federatedCredentialName(appRequest),
-      repository: repo.fullName,
-      branch: repo.branch,
+      subject: buildGitHubFederatedCredentialSubject({
+        identity: oidcIdentity,
+        branch: repo.branch,
+      }),
     });
 
     const secretValues = buildSecretValues(deps.config, names.webAppName);

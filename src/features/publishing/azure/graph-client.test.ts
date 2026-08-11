@@ -83,6 +83,7 @@ describe("createMicrosoftGraphClient", () => {
   it("creates a federated credential for a repository branch", async () => {
     const fetchImpl = vi
       .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(json({ value: [] }))
       .mockResolvedValueOnce(json({ id: "credential-id" }, { status: 201 }));
     const client = createMicrosoftGraphClient({
       tokenProvider: async () => "token",
@@ -92,11 +93,10 @@ describe("createMicrosoftGraphClient", () => {
     await client.ensureFederatedCredential({
       applicationAppId: "client-id",
       name: "github-campus-dashboard-clx9abc1",
-      repository: "cedarville-it/campus-dashboard",
-      branch: "main",
+      subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
     });
 
-    expect(fetchImpl).toHaveBeenCalledWith(
+    expect(fetchImpl).toHaveBeenLastCalledWith(
       "https://graph.microsoft.com/v1.0/applications(appId='client-id')/federatedIdentityCredentials",
       expect.objectContaining({
         method: "POST",
@@ -128,8 +128,8 @@ describe("createMicrosoftGraphClient", () => {
     await client.replaceFederatedCredential({
       applicationAppId: "client-id",
       name: "github-campus-dashboard",
-      repository: "cedarville-it/campus-dashboard",
-      branch: "main",
+      subject:
+        "repo:cedarville-it@654321/campus-dashboard@123456:ref:refs/heads/main",
     });
 
     expect(fetchImpl).toHaveBeenNthCalledWith(
@@ -170,10 +170,21 @@ describe("createMicrosoftGraphClient", () => {
     ).resolves.toEqual({ exists: true });
   });
 
-  it("treats an existing federated credential as already configured", async () => {
+  it("does not replace an existing credential with the expected subject", async () => {
     const fetchImpl = vi
       .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-      .mockResolvedValueOnce(text("already exists", { status: 409 }));
+      .mockResolvedValueOnce(
+        json({
+          value: [
+            {
+              id: "credential-id",
+              name: "github-campus-dashboard-clx9abc1",
+              subject:
+                "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+            },
+          ],
+        }),
+      );
     const client = createMicrosoftGraphClient({
       tokenProvider: async () => "token",
       fetchImpl,
@@ -183,10 +194,60 @@ describe("createMicrosoftGraphClient", () => {
       client.ensureFederatedCredential({
         applicationAppId: "client-id",
         name: "github-campus-dashboard-clx9abc1",
-        repository: "cedarville-it/campus-dashboard",
-        branch: "main",
+        subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
       }),
     ).resolves.toBeUndefined();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes a stale legacy credential before adding the immutable subject", async () => {
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(
+        json({
+          value: [
+            {
+              id: "credential-id",
+              name: "github-slide-show-inator",
+              subject:
+                "repo:cu-app-portal-repos/slide-show-inator:ref:refs/heads/main",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(json({ id: "new-credential-id" }, { status: 201 }));
+    const client = createMicrosoftGraphClient({
+      tokenProvider: async () => "token",
+      fetchImpl,
+    });
+    const subject =
+      "repo:cu-app-portal-repos@280105215/slide-show-inator@1330196457:ref:refs/heads/main";
+
+    await client.ensureFederatedCredential({
+      applicationAppId: "client-id",
+      name: "github-slide-show-inator",
+      subject,
+    });
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "https://graph.microsoft.com/v1.0/applications(appId='client-id')/federatedIdentityCredentials/credential-id",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      3,
+      "https://graph.microsoft.com/v1.0/applications(appId='client-id')/federatedIdentityCredentials",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          name: "github-slide-show-inator",
+          issuer: "https://token.actions.githubusercontent.com",
+          subject,
+          audiences: ["api://AzureADTokenExchange"],
+        }),
+      }),
+    );
   });
 
   it("throws the Graph response status and text for non-JSON error bodies", async () => {

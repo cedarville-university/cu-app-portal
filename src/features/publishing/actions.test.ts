@@ -333,7 +333,7 @@ describe("publishing actions", () => {
     expect(runPublishAttempt).not.toHaveBeenCalled();
   });
 
-  it("rejects retry requests when publishing setup needs repair", async () => {
+  it("allows a failed publish to retry while repair remains available", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "request-123",
@@ -344,13 +344,27 @@ describe("publishing actions", () => {
       publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
 
-    await expect(retryPublishAction("request-123")).rejects.toThrow(
-      "Publishing setup must be repaired before publishing.",
-    );
+    vi.mocked(prisma.publishAttempt.create).mockResolvedValue({
+      id: "attempt-456",
+    } as Awaited<ReturnType<typeof prisma.publishAttempt.create>>);
 
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-    expect(prisma.publishAttempt.create).not.toHaveBeenCalled();
-    expect(runPublishAttempt).not.toHaveBeenCalled();
+    await retryPublishAction("request-123");
+
+    expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "request-123",
+        repositoryStatus: "READY",
+        publishingSetupStatus: {
+          in: ["NOT_CHECKED", "READY", "NEEDS_REPAIR", "BLOCKED"],
+        },
+        publishStatus: { in: ["FAILED"] },
+      },
+      data: {
+        publishStatus: "QUEUED",
+        publishErrorSummary: null,
+      },
+    });
+    expect(prisma.publishAttempt.create).toHaveBeenCalled();
   });
 
   it("rejects imported app publish requests before repository preparation is committed", async () => {
@@ -541,7 +555,9 @@ describe("publishing actions", () => {
       where: {
         id: "request-123",
         repositoryStatus: "READY",
-        publishingSetupStatus: { in: ["NOT_CHECKED", "READY"] },
+        publishingSetupStatus: {
+          in: ["NOT_CHECKED", "READY", "NEEDS_REPAIR", "BLOCKED"],
+        },
         publishStatus: { in: ["FAILED"] },
       },
       data: {

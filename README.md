@@ -23,7 +23,7 @@ The current generated templates reuse shared Next.js and Python FastAPI engines.
 
 Portal-managed Azure publishing for generated apps uses one shared resource group, one shared App Service Plan, and one shared PostgreSQL flexible server. Each published app gets its own Azure Web App. When PostgreSQL is selected, it also gets its own database on the shared server.
 
-For generated and imported apps, the portal tracks whether publishing setup is ready. If Azure, Entra, or GitHub credentials drift or rotate, the app can offer Repair Publishing Setup to refresh portal-managed setup instead of blindly retrying with stale configuration.
+For generated and imported apps, the portal tracks whether publishing setup is ready. If Azure, Entra, or GitHub credentials drift or rotate, the app offers Repair Publishing Setup to refresh portal-managed setup. Failed deployments present both Retry Publish and Repair Publishing Setup so the user can choose whether to rerun deployment or repair prerequisites first.
 
 The `My Apps` page also supports scoped deletion. A user can delete the portal record and ZIP artifact, the managed GitHub repository, and the app-specific Azure deployment independently. Azure deletion removes the app Web App and, when PostgreSQL was selected for that app, that app's PostgreSQL database only; it does not delete the shared PostgreSQL flexible server.
 

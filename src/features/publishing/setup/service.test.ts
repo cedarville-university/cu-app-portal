@@ -180,6 +180,13 @@ function createDeps(
       replaceFederatedCredential: vi.fn(),
     },
     github: {
+      getRepositoryOidcIdentity: vi.fn().mockResolvedValue({
+        owner: "cedarville-it",
+        ownerId: "654321",
+        repository: "campus-dashboard",
+        repositoryId: "123456",
+        useImmutableSubject: false,
+      }),
       readRepositoryTextFiles: vi.fn().mockResolvedValue({
         ".github/workflows/deploy-azure-app-service.yml":
           "name: Deploy\non:\n  workflow_dispatch:\n",
@@ -762,8 +769,8 @@ describe("publishing setup service", () => {
     expect(deps.graph.replaceFederatedCredential).toHaveBeenCalledWith(
       expect.objectContaining({
         applicationAppId: "azure-client-id",
-        repository: "cedarville-it/campus-dashboard",
-        branch: "main",
+        subject:
+          "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
       }),
     );
     expect(deps.arm.putWebApp).toHaveBeenCalledWith(
@@ -779,6 +786,38 @@ describe("publishing setup service", () => {
         publishingSetupStatus: "READY",
         publishingSetupErrorSummary: null,
       }),
+    });
+  });
+
+  it("replaces a legacy credential with the immutable repository subject", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      github: {
+        ...baseDeps.github,
+        getRepositoryOidcIdentity: vi.fn().mockResolvedValue({
+          owner: "cu-app-portal-repos",
+          ownerId: "280105215",
+          repository: "slide-show-inator",
+          repositoryId: "1330196457",
+          useImmutableSubject: true,
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      {
+        ...appRequest,
+        repositoryOwner: "cu-app-portal-repos",
+        repositoryName: "slide-show-inator",
+      } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
+    );
+
+    await repairPublishingSetup("req_123", deps);
+
+    expect(deps.graph.replaceFederatedCredential).toHaveBeenCalledWith({
+      applicationAppId: "azure-client-id",
+      name: "github-campus-dashboard-req123",
+      subject:
+        "repo:cu-app-portal-repos@280105215/slide-show-inator@1330196457:ref:refs/heads/main",
     });
   });
 

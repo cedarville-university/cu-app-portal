@@ -732,7 +732,7 @@ describe("DownloadPage", () => {
     );
   });
 
-  it("shows repair instead of publish actions when publishing setup needs repair", async () => {
+  it("shows retry and repair actions together after a failed deployment", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_setup_repair",
@@ -796,19 +796,18 @@ describe("DownloadPage", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(setupStatus).getByRole("button", {
-        name: /repair publishing setup/i,
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/publishing setup needs to be repaired before you can publish/i),
-    ).toBeInTheDocument();
-    expect(
       screen.queryByRole("button", { name: /publish to azure/i }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry publish/i })).toHaveAttribute(
+      "title",
+      "Starts a new Azure deployment now and refreshes portal-managed publishing credentials if needed",
+    );
     expect(
-      screen.queryByRole("button", { name: /retry publish/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: /repair publishing setup/i }),
+    ).toHaveAttribute(
+      "title",
+      "Refreshes publishing credentials and settings without starting an Azure deployment",
+    );
   });
 
   it("shows imported app details even when no generated artifact exists", async () => {

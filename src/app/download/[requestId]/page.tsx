@@ -297,7 +297,7 @@ function renderPublishingSetupStatus(request: {
           ))}
         </ul>
       ) : null}
-      {needsPublishingSetupRepair(status) ? (
+      {needsPublishingSetupRepair(status) && request.publishStatus !== "FAILED" ? (
         <form action={repairAction}>
           <PendingSubmitButton
             idleLabel="Repair Publishing Setup"
@@ -607,6 +607,34 @@ function renderPublishAction({
     return <p>{PREPARATION_REQUIRED_MESSAGE}</p>;
   }
 
+  if (publishStatus === "FAILED") {
+    const retryAction = retryPublishAction.bind(null, requestId);
+    const repairAction = repairPublishingSetupAction.bind(null, requestId);
+
+    return (
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        <form action={retryAction}>
+          <PendingSubmitButton
+            idleLabel="Retry Publish"
+            pendingLabel="Retrying Publish…"
+            statusText="Retrying publish to Azure…"
+            variant="primary"
+            title="Starts a new Azure deployment now and refreshes portal-managed publishing credentials if needed"
+          />
+        </form>
+        <form action={repairAction}>
+          <PendingSubmitButton
+            idleLabel="Repair Publishing Setup"
+            pendingLabel="Repairing Publishing Setup..."
+            statusText="Refreshing your Azure hosting, Microsoft login, and GitHub publishing settings."
+            variant="ghost"
+            title="Refreshes publishing credentials and settings without starting an Azure deployment"
+          />
+        </form>
+      </div>
+    );
+  }
+
   const setupBlockMessage = getPublishingSetupBlockMessage(
     sourceOfTruth,
     publishingSetupStatus,
@@ -617,20 +645,6 @@ function renderPublishAction({
       <p style={{ color: "var(--text-secondary)", fontSize: "0.9375rem" }}>
         {setupBlockMessage}
       </p>
-    );
-  }
-
-  if (publishStatus === "FAILED") {
-    const retryAction = retryPublishAction.bind(null, requestId);
-    return (
-      <form action={retryAction}>
-        <PendingSubmitButton
-          idleLabel="Retry Publish"
-          pendingLabel="Retrying Publish…"
-          statusText="Retrying publish to Azure…"
-          variant="primary"
-        />
-      </form>
     );
   }
 

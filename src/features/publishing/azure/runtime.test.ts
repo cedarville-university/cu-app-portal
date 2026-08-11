@@ -169,6 +169,13 @@ function createDeps({
     ensureFederatedCredential: vi.fn().mockResolvedValue(undefined),
   };
   const github = {
+    getRepositoryOidcIdentity: vi.fn().mockResolvedValue({
+      owner: "cedarville-it",
+      ownerId: "654321",
+      repository: "campus-dashboard",
+      repositoryId: "123456",
+      useImmutableSubject: false,
+    }),
     setActionsSecret: vi.fn().mockResolvedValue(undefined),
     dispatchWorkflow: vi.fn().mockResolvedValue(undefined),
     getLatestWorkflowRun,
@@ -258,8 +265,7 @@ describe("createAzurePublishRuntime", () => {
     expect(graph.ensureFederatedCredential).toHaveBeenCalledWith({
       applicationAppId: "client-id",
       name: "github-campus-dashboard-clx9abc1",
-      repository: "cedarville-it/campus-dashboard",
-      branch: "main",
+      subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
     });
     expect(github.setActionsSecret).toHaveBeenCalledTimes(4);
     expect(github.setActionsSecret).toHaveBeenCalledWith(

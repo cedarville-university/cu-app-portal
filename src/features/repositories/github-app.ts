@@ -90,6 +90,8 @@ type GetRepositoryInput = {
   name: string;
 };
 
+type GetRepositoryOidcIdentityInput = GetRepositoryInput;
+
 type ReadRepositoryTextFilesInput = {
   owner: string;
   name: string;
@@ -140,12 +142,20 @@ type GitHubTreeResponse = {
 };
 
 type GitHubRepositoryResponse = {
+  id?: number;
   html_url: string;
   default_branch: string;
   name: string;
+  created_at?: string;
   owner: {
+    id?: number;
     login: string;
   };
+};
+
+type GitHubOidcSubjectConfigurationResponse = {
+  use_default?: boolean;
+  use_immutable_subject?: boolean;
 };
 
 type GitHubContentResponse = {
@@ -196,6 +206,7 @@ type GitHubApiError = Error & {
 const GIT_REPO_INIT_RETRY_DELAYS_MS = [250, 500, 1000];
 const STALE_REPOSITORY_HEAD_ERROR =
   "Repository changed while preparing Azure publishing additions. Please retry.";
+const IMMUTABLE_OIDC_DEFAULT_STARTED_AT = Date.parse("2026-07-15T00:00:00Z");
 
 function base64UrlJson(value: unknown) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -479,6 +490,54 @@ export function createGitHubAppClient({
         url: repository.html_url,
         defaultBranch: repository.default_branch,
         private: Boolean(repository.private),
+      };
+    },
+    async getRepositoryOidcIdentity({
+      owner,
+      name,
+    }: GetRepositoryOidcIdentityInput) {
+      const headers = await withInstallationHeaders();
+      const encodedOwner = githubPathSegment(owner);
+      const encodedName = githubPathSegment(name);
+      const repository = await readJson<GitHubRepositoryResponse>(
+        await fetchImpl(
+          `https://api.github.com/repos/${encodedOwner}/${encodedName}`,
+          { method: "GET", headers },
+        ),
+      );
+      const oidcConfiguration =
+        await readJson<GitHubOidcSubjectConfigurationResponse>(
+          await fetchImpl(
+            `https://api.github.com/repos/${encodedOwner}/${encodedName}/actions/oidc/customization/sub`,
+            {
+              method: "GET",
+              headers: {
+                ...headers,
+                "X-GitHub-Api-Version": "2026-03-10",
+              },
+            },
+          ),
+        );
+      const createdAt = repository.created_at
+        ? Date.parse(repository.created_at)
+        : Number.NaN;
+      const useImmutableSubject =
+        oidcConfiguration.use_immutable_subject === true ||
+        (Number.isFinite(createdAt) &&
+          createdAt >= IMMUTABLE_OIDC_DEFAULT_STARTED_AT);
+
+      if (repository.id === undefined || repository.owner.id === undefined) {
+        throw new Error(
+          "GitHub repository metadata did not include immutable owner and repository IDs.",
+        );
+      }
+
+      return {
+        owner: repository.owner.login,
+        ownerId: String(repository.owner.id),
+        repository: repository.name,
+        repositoryId: String(repository.id),
+        useImmutableSubject,
       };
     },
     async readRepositoryTextFiles({
