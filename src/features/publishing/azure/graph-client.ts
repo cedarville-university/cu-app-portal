@@ -3,7 +3,14 @@ type FetchLike = typeof fetch;
 type MicrosoftGraphClientOptions = {
   tokenProvider: () => Promise<string>;
   fetchImpl?: FetchLike;
+  sleepImpl?: (ms: number) => Promise<void>;
 };
+
+const FEDERATED_CREDENTIAL_RETRY_DELAYS_MS = [250, 500, 1000];
+
+function defaultSleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
 
 async function readJson<T>(response: Response): Promise<T> {
   const text = await response.text();
@@ -20,6 +27,7 @@ async function readJson<T>(response: Response): Promise<T> {
 export function createMicrosoftGraphClient({
   tokenProvider,
   fetchImpl = fetch,
+  sleepImpl = defaultSleep,
 }: MicrosoftGraphClientOptions) {
   async function headers() {
     return {
@@ -92,6 +100,48 @@ export function createMicrosoftGraphClient({
     }
   }
 
+  async function createFederatedCredential({
+    applicationAppId,
+    name,
+    subject,
+  }: {
+    applicationAppId: string;
+    name: string;
+    subject: string;
+  }) {
+    for (
+      let attempt = 0;
+      attempt <= FEDERATED_CREDENTIAL_RETRY_DELAYS_MS.length;
+      attempt += 1
+    ) {
+      const response = await fetchImpl(
+        federatedCredentialsUrl(applicationAppId),
+        {
+          method: "POST",
+          headers: await headers(),
+          body: JSON.stringify(federatedCredentialPayload({ name, subject })),
+        },
+      );
+
+      if (response.status !== 409) {
+        await readJson<unknown>(response);
+        return;
+      }
+
+      const credentials = await listFederatedCredentials({ applicationAppId });
+
+      if (credentials.some((credential) => credential.subject === subject)) {
+        return;
+      }
+
+      if (attempt === FEDERATED_CREDENTIAL_RETRY_DELAYS_MS.length) {
+        await readJson<unknown>(response);
+      }
+
+      await sleepImpl(FEDERATED_CREDENTIAL_RETRY_DELAYS_MS[attempt]);
+    }
+  }
+
   async function replaceFederatedCredential({
     applicationAppId,
     name,
@@ -102,22 +152,25 @@ export function createMicrosoftGraphClient({
     subject: string;
   }) {
     const credentials = await listFederatedCredentials({ applicationAppId });
-    const existing = credentials.find((credential) => credential.name === name);
+    const matchingSubject = credentials.find(
+      (credential) => credential.subject === subject,
+    );
+    const stalePortalCredential = credentials.find(
+      (credential) => credential.name === name && credential.subject !== subject,
+    );
 
-    if (existing) {
+    if (stalePortalCredential) {
       await deleteFederatedCredential({
         applicationAppId,
-        credentialId: existing.id,
+        credentialId: stalePortalCredential.id,
       });
     }
 
-    await readJson<unknown>(
-      await fetchImpl(federatedCredentialsUrl(applicationAppId), {
-        method: "POST",
-        headers: await headers(),
-        body: JSON.stringify(federatedCredentialPayload({ name, subject })),
-      }),
-    );
+    if (matchingSubject) {
+      return;
+    }
+
+    await createFederatedCredential({ applicationAppId, name, subject });
   }
 
   async function hasRedirectUri({
@@ -189,26 +242,26 @@ export function createMicrosoftGraphClient({
       subject: string;
     }) {
       const credentials = await listFederatedCredentials({ applicationAppId });
-      const existing = credentials.find((credential) => credential.name === name);
+      const matchingSubject = credentials.find(
+        (credential) => credential.subject === subject,
+      );
+      const stalePortalCredential = credentials.find(
+        (credential) =>
+          credential.name === name && credential.subject !== subject,
+      );
 
-      if (existing?.subject === subject) {
-        return;
-      }
-
-      if (existing) {
+      if (stalePortalCredential) {
         await deleteFederatedCredential({
           applicationAppId,
-          credentialId: existing.id,
+          credentialId: stalePortalCredential.id,
         });
       }
 
-      await readJson<unknown>(
-        await fetchImpl(federatedCredentialsUrl(applicationAppId), {
-          method: "POST",
-          headers: await headers(),
-          body: JSON.stringify(federatedCredentialPayload({ name, subject })),
-        }),
-      );
+      if (matchingSubject) {
+        return;
+      }
+
+      await createFederatedCredential({ applicationAppId, name, subject });
     },
   };
 }

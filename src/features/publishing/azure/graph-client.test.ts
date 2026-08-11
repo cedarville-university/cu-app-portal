@@ -144,6 +144,91 @@ describe("createMicrosoftGraphClient", () => {
     );
   });
 
+  it("removes a stale portal credential and reuses an existing matching subject", async () => {
+    const subject =
+      "repo:cu-app-portal-repos@280105215/slide-show-inator@1330196457:ref:refs/heads/main";
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(
+        json({
+          value: [
+            {
+              id: "stale-credential-id",
+              name: "github-slide-show-inator",
+              subject:
+                "repo:cu-app-portal-repos/slide-show-inator:ref:refs/heads/main",
+            },
+            {
+              id: "matching-credential-id",
+              name: "manually-repaired-slide-show-inator",
+              subject,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const client = createMicrosoftGraphClient({
+      tokenProvider: async () => "token",
+      fetchImpl,
+    });
+
+    await client.replaceFederatedCredential({
+      applicationAppId: "client-id",
+      name: "github-slide-show-inator",
+      subject,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl).toHaveBeenLastCalledWith(
+      "https://graph.microsoft.com/v1.0/applications(appId='client-id')/federatedIdentityCredentials/stale-credential-id",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("retries creation when Graph still sees a recently deleted credential", async () => {
+    const subject =
+      "repo:cu-app-portal-repos@280105215/slide-show-inator@1330196457:ref:refs/heads/main";
+    const sleepImpl = vi.fn().mockResolvedValue(undefined);
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(
+        json({
+          value: [
+            {
+              id: "stale-credential-id",
+              name: "github-slide-show-inator",
+              subject:
+                "repo:cu-app-portal-repos/slide-show-inator:ref:refs/heads/main",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(
+        text("FederatedIdentityCredential already exists", { status: 409 }),
+      )
+      .mockResolvedValueOnce(json({ value: [] }))
+      .mockResolvedValueOnce(json({ id: "new-credential-id" }, { status: 201 }));
+    const client = createMicrosoftGraphClient({
+      tokenProvider: async () => "token",
+      fetchImpl,
+      sleepImpl,
+    });
+
+    await client.replaceFederatedCredential({
+      applicationAppId: "client-id",
+      name: "github-slide-show-inator",
+      subject,
+    });
+
+    expect(sleepImpl).toHaveBeenCalledWith(250);
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    expect(fetchImpl).toHaveBeenLastCalledWith(
+      "https://graph.microsoft.com/v1.0/applications(appId='client-id')/federatedIdentityCredentials",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("checks whether a redirect uri exists", async () => {
     const fetchImpl = vi
       .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()

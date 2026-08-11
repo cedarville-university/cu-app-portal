@@ -980,14 +980,14 @@ async function runPreflightChecks(
   });
   const credentialName = federatedCredentialName(appRequest);
   const credential = credentials.find(
-    (item) => item.name === credentialName && item.subject === expectedSubject,
+    (item) => item.subject === expectedSubject,
   );
   checks.push(
     credential
       ? pass(
           "github_federated_credential",
           "GitHub OIDC federated credential is present.",
-          { credentialName, subject: expectedSubject },
+          { credentialName: credential.name, subject: expectedSubject },
         )
       : fail(
           "github_federated_credential",

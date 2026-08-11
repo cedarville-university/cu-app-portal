@@ -152,8 +152,9 @@ describe("publishing setup actions", () => {
     expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
   });
 
-  it("revalidates app views when repair fails for an owned app request", async () => {
+  it("catches repair failures and revalidates the app views", async () => {
     const repairError = new Error("repair failed");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "request-123",
@@ -161,12 +162,17 @@ describe("publishing setup actions", () => {
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(repairPublishingSetup).mockRejectedValue(repairError);
 
-    await expect(repairPublishingSetupAction("request-123")).rejects.toThrow(
-      repairError,
-    );
+    await expect(
+      repairPublishingSetupAction("request-123"),
+    ).resolves.toBeUndefined();
 
     expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
+    expect(consoleError).toHaveBeenCalledWith(
+      "Publishing setup repair failed.",
+      { requestId: "request-123", error: repairError },
+    );
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/request-123");
+    consoleError.mockRestore();
   });
 });

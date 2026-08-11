@@ -149,6 +149,8 @@ Repair Publishing Setup refreshes portal-managed GitHub Actions secrets and GitH
 
 GitHub repositories can use either the legacy name-based OIDC subject or the immutable subject introduced for repositories created after July 15, 2026. The portal reads the repository's OIDC configuration and GitHub owner/repository IDs before preflight, publish, and repair. Repair deletes the portal-managed federated credential with the stale subject before creating the credential with the repository's current subject format; older repositories that still use legacy subjects remain supported.
 
+If the correct subject already exists under another federated credential name, repair reuses it and removes the stale portal-named credential instead of attempting a duplicate create. Provider failures are recorded in publishing setup status and returned to the app details page rather than surfacing as an unhandled server action error.
+
 Repair does not delete repositories, dispatch deployment workflows, or delete Azure resources.
 
 After a failed deployment, the app details page offers both Retry Publish and Repair Publishing Setup. Retry starts a new deployment attempt and reconciles the portal-managed federated credential before dispatch. Repair refreshes setup without dispatching a workflow; publish or retry separately afterward.

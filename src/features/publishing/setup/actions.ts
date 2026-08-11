@@ -74,7 +74,10 @@ export async function repairPublishingSetupAction(requestId: string) {
       requestId,
       actorUserId: userId,
     });
-    throw error;
+    console.error("Publishing setup repair failed.", {
+      requestId,
+      error,
+    });
   } finally {
     revalidatePublishingSetupViews(requestId);
   }

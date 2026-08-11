@@ -243,6 +243,41 @@ describe("publishing setup service", () => {
     expect(deps.github.setActionsSecret).not.toHaveBeenCalled();
   });
 
+  it("accepts the expected subject when the credential has a different name", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      graph: {
+        ...baseDeps.graph,
+        listFederatedCredentials: vi.fn().mockResolvedValue([
+          {
+            id: "matching-credential-id",
+            name: "manually-repaired-campus-dashboard",
+            subject:
+              "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+          },
+        ]),
+      },
+    });
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({ publishingSetupStatus: "READY" }),
+    });
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "github_federated_credential",
+          status: "PASS",
+          metadata: expect.objectContaining({
+            credentialName: "manually-repaired-campus-dashboard",
+          }),
+        }),
+      }),
+    );
+  });
+
   it("marks setup needs repair when a required secret is missing", async () => {
     const baseDeps = createDeps();
     const deps = createDeps({
