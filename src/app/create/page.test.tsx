@@ -1,6 +1,5 @@
 import {
   cleanup,
-  fireEvent,
   render,
   screen,
   within,
@@ -103,23 +102,9 @@ describe("CreatePage", () => {
     expect(fastApi.getByText(/login: entra available/i)).toBeInTheDocument();
   });
 
-  it("shows an expandable GitHub explanation help box", async () => {
+  it("keeps introductory Codex and GitHub guidance in Help", async () => {
     render(await CreatePage());
 
-    const helpToggle = screen.getByText("What is GitHub?");
-    const helpBox = helpToggle.closest("details");
-
-    expect(helpBox).not.toBeNull();
-    expect(helpBox).not.toHaveAttribute("open");
-
-    fireEvent.click(helpToggle);
-
-    expect(helpBox).toHaveAttribute("open");
-    expect(
-      screen.getByText(/github is a secure place to store app code/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/the portal uses github so codex/i),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("What is GitHub?")).not.toBeInTheDocument();
   });
 });

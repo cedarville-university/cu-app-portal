@@ -1,0 +1,211 @@
+{"kind":"deck","id":"pr/el8b42","name":"Deck"}
+{"kind":"layout","layoutId":"e8227d08-0e9a-403f-a37f-b5331e89bb1b","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"c4839aa3-b4f1-4783-b085-60ac47cf5256","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/9si5su","slide":1,"title":"CEDARVILLE UNIVERSITY","textShapes":5}
+{"kind":"shape","id":"sh/k3i5c7at","slide":1,"bbox":[0,0,1280,16]}
+{"kind":"textbox","id":"sh/z29oj2t8","slide":1,"text":"CEDARVILLE UNIVERSITY","textPreview":"CEDARVILLE UNIVERSITY","textChars":21,"textLines":1,"bbox":[74,94,430,28]}
+{"kind":"textbox","id":"sh/y10naxsn","slide":1,"text":"Welcome to the\nApp Portal","textPreview":"Welcome to the | App Portal","textChars":25,"textLines":2,"bbox":[72,160,780,180]}
+{"kind":"textbox","id":"sh/x0r6hcb2","slide":1,"text":"A practical orientation for creating, customizing, and publishing your first app","textPreview":"A practical orientation for creating, customizing, and publishing your first app","textChars":80,"textLines":1,"bbox":[78,382,650,70]}
+{"kind":"shape","id":"sh/czi587ax","slide":1,"bbox":[920,150,220,220]}
+{"kind":"textbox","id":"sh/by9of2tc","slide":1,"text":"CU","textPreview":"CU","textChars":2,"textLines":1,"bbox":[920,215,220,70]}
+{"kind":"textbox","id":"sh/axgn6xsr","slide":1,"text":"New-user orientation","textPreview":"New-user orientation","textChars":20,"textLines":1,"bbox":[78,602,350,30]}
+{"kind":"notes","id":"nt/9si5su","slide":1,"text":"Welcome participants. This session is designed for people new to the portal. By the end, they should be able to select a starting point, understand what happens after creation, and know where Codex fits.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/03ntx8","slide":2,"title":"CEDARVILLE APP PORTAL","textShapes":10}
+{"kind":"textbox","id":"sh/vu5szu9w","slide":2,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/gve98zqh","slide":2,"text":"The portal turns an app idea into a managed starting point","textPreview":"The portal turns an app idea into a managed starting point","textChars":58,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/hwna1kr2","slide":2,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/6pcr25sf","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"textbox","id":"sh/7qlsva9k","slide":2,"text":"You bring the need. The portal brings Cedarville-approved defaults, a shared code home, and a path to a live app.","textPreview":"You bring the need. The portal brings Cedarville-approved defaults, a shared code home, and a path to a live app.","textChars":113,"textLines":1,"bbox":[72,180,1020,65]}
+{"kind":"shape","id":"sh/8ru94fq5","slide":2,"bbox":[72,320,330,190]}
+{"kind":"textbox","id":"sh/tsnaxkrq","slide":2,"text":"Your idea","textPreview":"Your idea","textChars":9,"textLines":1,"bbox":[97,350,280,42]}
+{"kind":"textbox","id":"sh/qlgbe98j","slide":2,"text":"A clear problem, audience, and outcome","textPreview":"A clear problem, audience, and outcome","textChars":38,"textLines":1,"bbox":[97,410,270,65]}
+{"kind":"shape","id":"sh/rmps7e94","slide":2,"bbox":[450,320,330,190]}
+{"kind":"textbox","id":"sh/b25cfehc","slide":2,"text":"A starter app","textPreview":"A starter app","textChars":13,"textLines":1,"bbox":[475,350,280,42]}
+{"kind":"textbox","id":"sh/a1cb6tgr","slide":2,"text":"A template with the right foundations","textPreview":"A template with the right foundations","textChars":37,"textLines":1,"bbox":[475,410,270,65]}
+{"kind":"shape","id":"sh/x4nuhozi","slide":2,"bbox":[828,320,330,190]}
+{"kind":"textbox","id":"sh/w3et8jyx","slide":2,"text":"A managed path","textPreview":"A managed path","textChars":14,"textLines":1,"bbox":[853,350,280,42]}
+{"kind":"textbox","id":"sh/j65cjyx8","slide":2,"text":"GitHub, Azure, and support-ready setup","textPreview":"GitHub, Azure, and support-ready setup","textChars":38,"textLines":1,"bbox":[853,410,270,65]}
+{"kind":"shape","id":"sh/y5wbatgn","slide":2,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/03ntx8","slide":2,"text":"Emphasize that the portal is not a generic app generator. It gives users a dependable, Cedarville-managed starting point so they can focus on the department need.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/0cjmom","slide":3,"title":"CEDARVILLE APP PORTAL","textShapes":9}
+{"kind":"textbox","id":"sh/m14vylcz","slide":3,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/94vu90bq","slide":3,"text":"Codex is your collaborative partner for the work that follows","textPreview":"Codex is your collaborative partner for the work that follows","textChars":61,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/83md0vu5","slide":3,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/zydc36to","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"textbox","id":"sh/yxkbu1c3","slide":3,"text":"Codex can help you turn your requirements into app changes—while you remain responsible for the decisions and review.","textPreview":"Codex can help you turn your requirements into app changes—while you remain responsible for the decisions and review.","textChars":117,"textLines":1,"bbox":[72,178,740,84]}
+{"kind":"shape","id":"sh/l0vu5gbe","slide":3,"bbox":[858,188,282,282]}
+{"kind":"textbox","id":"sh/0zmtwbut","slide":3,"text":"Codex","textPreview":"Codex","textChars":5,"textLines":1,"bbox":[898,250,200,42]}
+{"kind":"textbox","id":"sh/juxcfats","slide":3,"text":"Clarify\nBuild\nExplain\nImprove","textPreview":"Clarify | Build | Explain | Improve","textChars":29,"textLines":4,"bbox":[920,322,160,120]}
+{"kind":"shape","id":"sh/itov65c7","slide":3,"bbox":[80,325,12,12]}
+{"kind":"textbox","id":"sh/0ze94z2t","slide":3,"text":"Describe the app’s goal, users, and rules in plain language.","textPreview":"Describe the app’s goal, users, and rules in plain language.","textChars":60,"textLines":1,"bbox":[108,315,652,68]}
+{"kind":"shape","id":"sh/10nqd4je","slide":3,"bbox":[80,398,12,12]}
+{"kind":"textbox","id":"sh/exwr29kn","slide":3,"text":"Ask Codex to make and explain changes in the managed repository.","textPreview":"Ask Codex to make and explain changes in the managed repository.","textChars":64,"textLines":1,"bbox":[108,388,652,68]}
+{"kind":"shape","id":"sh/zy58be18","slide":3,"bbox":[80,471,12,12]}
+{"kind":"textbox","id":"sh/cbe90z2x","slide":3,"text":"Review the result, test the important task, then publish the version you trust.","textPreview":"Review the result, test the important task, then publish the version you trust.","textChars":79,"textLines":1,"bbox":[108,461,652,68]}
+{"kind":"shape","id":"sh/dwnq94j2","slide":3,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/0cjmom","slide":3,"text":"Introduce Codex plainly: it is a collaborative coding agent. New users do not need to be programmers, but should be ready to explain their process, review outputs, and test the app’s key task. Avoid presenting Codex as an automatic approval or publishing authority.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide. Product framing for Codex is presenter guidance.\n[/Sources]"}
+{"kind":"slide","id":"sl/rnw3mq","slide":4,"title":"CEDARVILLE APP PORTAL","textShapes":15}
+{"kind":"textbox","id":"sh/ehszuxof","slide":4,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/1k3y5cnq","slide":4,"text":"Start with the portal’s guided lifecycle","textPreview":"Start with the portal’s guided lifecycle","textChars":40,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/0juhw76l","slide":4,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/ru1gzi5o","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"shape","id":"sh/qtsfqxo3","slide":4,"bbox":[72,245,250,245]}
+{"kind":"textbox","id":"sh/dwjy1snu","slide":4,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[94,265,45,40]}
+{"kind":"textbox","id":"sh/cvaxsn69","slide":4,"text":"Create or add","textPreview":"Create or add","textChars":13,"textLines":1,"bbox":[94,320,210,55]}
+{"kind":"textbox","id":"sh/bq5gbm58","slide":4,"text":"Choose a template, import code, or connect a local project.","textPreview":"Choose a template, import code, or connect a local project.","textChars":59,"textLines":1,"bbox":[94,390,204,82]}
+{"kind":"shape","id":"sh/apcz2hon","slide":4,"bbox":[357,245,250,245]}
+{"kind":"textbox","id":"sh/4nmt4jup","slide":4,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[379,265,45,40]}
+{"kind":"textbox","id":"sh/5ovadoba","slide":4,"text":"Customize","textPreview":"Customize","textChars":9,"textLines":1,"bbox":[379,320,210,55]}
+{"kind":"textbox","id":"sh/il4b29cj","slide":4,"text":"Work with Codex or a developer in the managed GitHub repository.","textPreview":"Work with Codex or a developer in the managed GitHub repository.","textChars":64,"textLines":1,"bbox":[379,390,204,82]}
+{"kind":"shape","id":"sh/jmdsbet4","slide":4,"bbox":[642,245,250,245]}
+{"kind":"textbox","id":"sh/wjmt0zud","slide":4,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[664,265,45,40]}
+{"kind":"textbox","id":"sh/hkva94by","slide":4,"text":"Prepare","textPreview":"Prepare","textChars":7,"textLines":1,"bbox":[664,320,210,55]}
+{"kind":"textbox","id":"sh/uhkry9cn","slide":4,"text":"Let the portal set up and check the GitHub–Azure connection.","textPreview":"Let the portal set up and check the GitHub–Azure connection.","textChars":60,"textLines":1,"bbox":[664,390,204,82]}
+{"kind":"shape","id":"sh/vids7ets","slide":4,"bbox":[927,245,250,245]}
+{"kind":"textbox","id":"sh/8v29wzuh","slide":4,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[949,265,45,40]}
+{"kind":"textbox","id":"sh/9wba54b2","slide":4,"text":"Publish & manage","textPreview":"Publish & manage","textChars":16,"textLines":1,"bbox":[949,320,210,55]}
+{"kind":"textbox","id":"sh/p0jidwze","slide":4,"text":"Make the approved version live, then maintain access and settings.","textPreview":"Make the approved version live, then maintain access and settings.","textChars":66,"textLines":1,"bbox":[949,390,204,82]}
+{"kind":"shape","id":"sh/ozahkrit","slide":4,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/rnw3mq","slide":4,"text":"Walk slowly through the lifecycle. The key idea is that the portal brings together the work that otherwise gets scattered: starting code, a source of truth, publishing setup, and day-to-day management.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/vacpkb","slide":5,"title":"CEDARVILLE APP PORTAL","textShapes":7}
+{"kind":"textbox","id":"sh/z2hwzexc","slide":5,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/k3qx8jex","slide":5,"text":"The Create App screen makes the starting choices visible","textPreview":"The Create App screen makes the starting choices visible","textChars":56,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/l4je1of2","slide":5,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/ad8f2pwf","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"shape","id":"sh/czqx4zel","slide":5,"bbox":[886,190,270,390]}
+{"kind":"textbox","id":"sh/x0zex4f6","slide":5,"text":"What to notice","textPreview":"What to notice","textChars":14,"textLines":1,"bbox":[916,225,210,36]}
+{"kind":"shape","id":"sh/u9sfetwz","slide":5,"bbox":[910,305,12,12]}
+{"kind":"textbox","id":"sh/va1w7ydk","slide":5,"text":"Recommended Templates use plain-language scenarios.","textPreview":"Recommended Templates use plain-language scenarios.","textChars":51,"textLines":1,"bbox":[938,295,192,71]}
+{"kind":"shape","id":"sh/b6xgjet0","slide":5,"bbox":[910,381,12,12]}
+{"kind":"textbox","id":"sh/q5oza9sf","slide":5,"text":"Developer Starters are available when a technical direction is already known.","textPreview":"Developer Starters are available when a technical direction is already known.","textChars":77,"textLines":1,"bbox":[938,371,192,71]}
+{"kind":"shape","id":"sh/dsfyl4b6","slide":5,"bbox":[910,457,12,12]}
+{"kind":"textbox","id":"sh/cr6hcjal","slide":5,"text":"Each choice signals database and Cedarville login availability.","textPreview":"Each choice signals database and Cedarville login availability.","textChars":63,"textLines":1,"bbox":[938,447,192,71]}
+{"kind":"shape","id":"sh/zuhgnetw","slide":5,"bbox":[0,704,1280,16]}
+{"kind":"image","id":"im/25kni9wb","slide":5,"name":"","geometry":"rect","alt":"Cedarville App Portal Create New App screen","bbox":[72,166,780,468]}
+{"kind":"notes","id":"nt/vacpkb","slide":5,"text":"Use the screenshot as a live orientation. Point out the Recommended Templates first, then the Developer Starters. Avoid reading every card; help people see that each option explains the kind of work it is best for.\n\n[Sources]\nInternal source: local Cedarville App Portal Create New App screen captured 2026-08-06 in test-auth mode; Cedarville App Portal User Guide.\n[/Sources]"}
+{"kind":"slide","id":"sl/ecawn2","slide":6,"title":"CEDARVILLE APP PORTAL","textShapes":11}
+{"kind":"textbox","id":"sh/epo7mx0b","slide":6,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/1cz6xsjm","slide":6,"text":"Choose the closest business problem—not the most technical label","textPreview":"Choose the closest business problem—not the most technical label","textChars":64,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/0rqpo7i1","slide":6,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/nehoz2hs","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"shape","id":"sh/2d87qx07","slide":6,"bbox":[72,182,1090,77]}
+{"kind":"textbox","id":"sh/pgz61czy","slide":6,"text":"Department Form + Approval","textPreview":"Department Form + Approval","textChars":26,"textLines":1,"bbox":[98,200,350,38]}
+{"kind":"textbox","id":"sh/ofqps7id","slide":6,"text":"A structured request, review, and searchable record","textPreview":"A structured request, review, and searchable record","textChars":51,"textLines":1,"bbox":[490,200,630,42]}
+{"kind":"shape","id":"sh/bi1o3mh4","slide":6,"bbox":[72,287,1090,77]}
+{"kind":"textbox","id":"sh/ah87uh0j","slide":6,"text":"Simple Data Tracker","textPreview":"Simple Data Tracker","textChars":19,"textLines":1,"bbox":[98,305,350,38]}
+{"kind":"textbox","id":"sh/szehsvup","slide":6,"text":"Shared editing, filtering, and history for a team","textPreview":"Shared editing, filtering, and history for a team","textChars":49,"textLines":1,"bbox":[490,305,630,42]}
+{"kind":"shape","id":"sh/t07y10ba","slide":6,"bbox":[72,392,1090,77]}
+{"kind":"textbox","id":"sh/6xwzqlcj","slide":6,"text":"Public Information Page","textPreview":"Public Information Page","textChars":23,"textLines":1,"bbox":[98,410,350,38]}
+{"kind":"textbox","id":"sh/ry5gzqt4","slide":6,"text":"A polished information site without logins or stored data","textPreview":"A polished information site without logins or stored data","textChars":57,"textLines":1,"bbox":[490,410,630,42]}
+{"kind":"shape","id":"sh/gnyhwvu1","slide":6,"bbox":[72,497,1090,77]}
+{"kind":"textbox","id":"sh/1o7y50b6","slide":6,"text":"Custom Web App / API","textPreview":"Custom Web App / API","textChars":20,"textLines":1,"bbox":[98,515,350,38]}
+{"kind":"textbox","id":"sh/e1gzu5cv","slide":6,"text":"A technical starting point when an architecture is already known","textPreview":"A technical starting point when an architecture is already known","textChars":64,"textLines":1,"bbox":[490,515,630,42]}
+{"kind":"shape","id":"sh/f2pg3qtg","slide":6,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/ecawn2","slide":6,"text":"Encourage users to describe the business problem first. A form and approval path, a team tracker, or an information page are usually easier starting points than picking a runtime. When in doubt, choose the template whose examples are closest to the project.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/5us3b8","slide":7,"title":"CEDARVILLE APP PORTAL","textShapes":10}
+{"kind":"textbox","id":"sh/wnatgvmt","slide":7,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/vm1s7q58","slide":7,"text":"Choose data and login options based on what the app needs","textPreview":"Choose data and login options based on what the app needs","textChars":57,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/ulsbel4n","slide":7,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/5c3ud0na","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"shape","id":"sh/4butkvmp","slide":7,"bbox":[72,210,520,270]}
+{"kind":"textbox","id":"sh/ja1cbq5k","slide":7,"text":"Use a database when…","textPreview":"Use a database when…","textChars":20,"textLines":1,"bbox":[105,244,400,38]}
+{"kind":"shape","id":"sh/i9sbil4z","slide":7,"bbox":[108,325,12,12]}
+{"kind":"textbox","id":"sh/lgza1gn6","slide":7,"text":"The app must save entries, records, or history.","textPreview":"The app must save entries, records, or history.","textChars":47,"textLines":1,"bbox":[136,315,402,69]}
+{"kind":"shape","id":"sh/kfqt8bml","slide":7,"bbox":[108,399,12,12]}
+{"kind":"textbox","id":"sh/e58ze1sr","slide":7,"text":"People need to search, filter, or update shared information.","textPreview":"People need to search, filter, or update shared information.","textChars":60,"textLines":1,"bbox":[136,389,402,69]}
+{"kind":"shape","id":"sh/f61g76tc","slide":7,"bbox":[684,210,520,270]}
+{"kind":"textbox","id":"sh/0rahgbah","slide":7,"text":"Use Cedarville login when…","textPreview":"Use Cedarville login when…","textChars":26,"textLines":1,"bbox":[717,244,430,38]}
+{"kind":"shape","id":"sh/1sjy9gr2","slide":7,"bbox":[720,325,12,12]}
+{"kind":"textbox","id":"sh/2tszilsn","slide":7,"text":"Only authorized Cedarville users should enter.","textPreview":"Only authorized Cedarville users should enter.","textChars":46,"textLines":1,"bbox":[748,315,402,69]}
+{"kind":"shape","id":"sh/nu1gbq98","slide":7,"bbox":[720,399,12,12]}
+{"kind":"textbox","id":"sh/ovahkvat","slide":7,"text":"The app needs identity-aware access or staff-facing workflows.","textPreview":"The app needs identity-aware access or staff-facing workflows.","textChars":62,"textLines":1,"bbox":[748,389,402,69]}
+{"kind":"textbox","id":"sh/pwjydgre","slide":7,"text":"Choose these features because the app needs them—not because they sound useful.","textPreview":"Choose these features because the app needs them—not because they sound useful.","textChars":79,"textLines":1,"bbox":[105,548,1040,42]}
+{"kind":"shape","id":"sh/axszmlsz","slide":7,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/5us3b8","slide":7,"text":"These are meaningful choices. A database and login can add capability, but they also add infrastructure and configuration. Tie the decision to the app’s actual behavior and audience.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/4jcsr6","slide":8,"title":"CEDARVILLE APP PORTAL","textShapes":8}
+{"kind":"textbox","id":"sh/25kfe1sv","slide":8,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/p8vepwrm","slide":8,"text":"When to choose Create Only or Create & Publish","textPreview":"When to choose Create Only or Create & Publish","textChars":46,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/o72xgba1","slide":8,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/badgr69c","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"shape","id":"sh/a94fi1s7","slide":8,"bbox":[112,220,450,280]}
+{"kind":"textbox","id":"sh/xcvytgri","slide":8,"text":"Create Only","textPreview":"Create Only","textChars":11,"textLines":1,"bbox":[150,258,360,48]}
+{"kind":"textbox","id":"sh/cbmxkbqx","slide":8,"text":"Choose this when the starter needs more customization or review before it is ready to deploy.","textPreview":"Choose this when the starter needs more customization or review before it is ready to deploy.","textChars":93,"textLines":1,"bbox":[150,340,350,96]}
+{"kind":"shape","id":"sh/re9wfm98","slide":8,"bbox":[720,220,450,280]}
+{"kind":"textbox","id":"sh/qd0f6hsn","slide":8,"text":"Create & Publish","textPreview":"Create & Publish","textChars":16,"textLines":1,"bbox":[758,258,370,48]}
+{"kind":"textbox","id":"sh/s7m1wfe5","slide":8,"text":"Choose this when the starter is ready for an initial Azure deployment and you want the portal to prepare the publishing path.","textPreview":"Choose this when the starter is ready for an initial Azure deployment and you want the portal to prepare the publishing path.","textChars":125,"textLines":1,"bbox":[758,340,350,110]}
+{"kind":"textbox","id":"sh/d8vipkfq","slide":8,"text":"In either case, keep the managed GitHub repository as the source of truth.","textPreview":"In either case, keep the managed GitHub repository as the source of truth.","textChars":74,"textLines":1,"bbox":[145,565,990,35]}
+{"kind":"shape","id":"sh/q54ju5wz","slide":8,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/4jcsr6","slide":8,"text":"Explain this in terms of readiness, not capability. Create Only is useful when a team needs time to work with Codex or a developer before a first deployment. Create & Publish follows the initial Azure path when the starter is appropriate for it.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/vmc4i9","slide":9,"title":"CEDARVILLE APP PORTAL","textShapes":12}
+{"kind":"textbox","id":"sh/ud43i90z","slide":9,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/hgvmt4zq","slide":9,"text":"GitHub is the shared source of truth for ongoing work","textPreview":"GitHub is the shared source of truth for ongoing work","textChars":53,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/gfmlkji5","slide":9,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/3ix4vehw","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"textbox","id":"sh/2h43m90b","slide":9,"text":"The ZIP is a useful snapshot. The managed repository is where the version you review and publish lives.","textPreview":"The ZIP is a useful snapshot. The managed repository is where the version you review and publish lives.","textChars":103,"textLines":1,"bbox":[72,184,1080,52]}
+{"kind":"shape","id":"sh/pkfmxozm","slide":9,"bbox":[72,330,245,170]}
+{"kind":"textbox","id":"sh/4j6loji1","slide":9,"text":"Portal","textPreview":"Portal","textChars":6,"textLines":1,"bbox":[92,355,205,34]}
+{"kind":"textbox","id":"sh/rmx4zyhs","slide":9,"text":"Creates or connects the managed repository","textPreview":"Creates or connects the managed repository","textChars":42,"textLines":1,"bbox":[95,411,200,60]}
+{"kind":"shape","id":"sh/qlo3qt07","slide":9,"bbox":[357,330,245,170]}
+{"kind":"textbox","id":"sh/8by903md","slide":9,"text":"Codex / developer","textPreview":"Codex / developer","textChars":17,"textLines":1,"bbox":[377,355,205,34]}
+{"kind":"textbox","id":"sh/9c7a983y","slide":9,"text":"Changes, explains, tests, and pushes the code","textPreview":"Changes, explains, tests, and pushes the code","textChars":45,"textLines":1,"bbox":[380,411,200,60]}
+{"kind":"shape","id":"sh/m9gryd47","slide":9,"bbox":[642,330,245,170]}
+{"kind":"textbox","id":"sh/nap87y5s","slide":9,"text":"GitHub","textPreview":"GitHub","textChars":6,"textLines":1,"bbox":[662,355,205,34]}
+{"kind":"textbox","id":"sh/wzy94nm9","slide":9,"text":"Keeps the version history and approved source","textPreview":"Keeps the version history and approved source","textChars":45,"textLines":1,"bbox":[665,411,200,60]}
+{"kind":"shape","id":"sh/x07ads3u","slide":9,"bbox":[927,330,245,170]}
+{"kind":"textbox","id":"sh/adgr2d4j","slide":9,"text":"Azure","textPreview":"Azure","textChars":5,"textLines":1,"bbox":[947,355,205,34]}
+{"kind":"textbox","id":"sh/vepsbil4","slide":9,"text":"Runs the version that is published","textPreview":"Runs the version that is published","textChars":34,"textLines":1,"bbox":[950,411,200,60]}
+{"kind":"shape","id":"sh/k3i98nml","slide":9,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/vmc4i9","slide":9,"text":"This slide corrects a common misunderstanding: after setup, users should not treat the downloaded ZIP as the ongoing working copy. The managed GitHub repository is the supported shared location for Codex, reviewers, collaborators, and Azure publishing.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/ivg6kl","slide":10,"title":"CEDARVILLE APP PORTAL","textShapes":15}
+{"kind":"textbox","id":"sh/547ipg7a","slide":10,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/i1wju1oj","slide":10,"text":"Publishing makes the reviewed GitHub version available in Azure","textPreview":"Publishing makes the reviewed GitHub version available in Azure","textChars":63,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/32p0n6p4","slide":10,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/s7y10v61","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"textbox","id":"sh/d87itg76","slide":10,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[72,215,55,50]}
+{"kind":"shape","id":"sh/q5gjylov","slide":10,"bbox":[72,280,240,210]}
+{"kind":"textbox","id":"sh/r6p0rqpg","slide":10,"text":"Confirm","textPreview":"Confirm","textChars":7,"textLines":1,"bbox":[92,310,200,40]}
+{"kind":"textbox","id":"sh/0bi14v6x","slide":10,"text":"The repository is ready, required settings are present, and the intended code is pushed.","textPreview":"The repository is ready, required settings are present, and the intended code is pushed.","textChars":88,"textLines":1,"bbox":[92,374,198,92]}
+{"kind":"textbox","id":"sh/1crix07i","slide":10,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[357,215,55,50]}
+{"kind":"shape","id":"sh/58j6dc7m","slide":10,"bbox":[357,280,240,210]}
+{"kind":"textbox","id":"sh/k7a54761","slide":10,"text":"Publish","textPreview":"Publish","textChars":7,"textLines":1,"bbox":[377,310,200,40]}
+{"kind":"textbox","id":"sh/j61ob2pg","slide":10,"text":"Start the publishing action from the app details page.","textPreview":"Start the publishing action from the app details page.","textChars":54,"textLines":1,"bbox":[377,374,198,92]}
+{"kind":"textbox","id":"sh/i5sn2xov","slide":10,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[642,215,55,50]}
+{"kind":"shape","id":"sh/tc36hc7i","slide":10,"bbox":[642,280,240,210]}
+{"kind":"textbox","id":"sh/sbap8r6d","slide":10,"text":"Test","textPreview":"Test","textChars":4,"textLines":1,"bbox":[662,310,200,40]}
+{"kind":"textbox","id":"sh/7a1ofmps","slide":10,"text":"Open the published app and try its most important task.","textPreview":"Open the published app and try its most important task.","textChars":55,"textLines":1,"bbox":[662,374,198,92]}
+{"kind":"textbox","id":"sh/69sn6ho7","slide":10,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[927,215,55,50]}
+{"kind":"shape","id":"sh/9gz65s7e","slide":10,"bbox":[927,280,240,210]}
+{"kind":"textbox","id":"sh/8fq5cnqt","slide":10,"text":"Return","textPreview":"Return","textChars":6,"textLines":1,"bbox":[947,310,200,40]}
+{"kind":"textbox","id":"sh/0zu5snyp","slide":10,"text":"Use My Apps to see status and manage the app over time.","textPreview":"Use My Apps to see status and manage the app over time.","textChars":55,"textLines":1,"bbox":[947,374,198,92]}
+{"kind":"shape","id":"sh/1k36lsfa","slide":10,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/ivg6kl","slide":10,"text":"Set the right expectation: a successful deployment means Azure started the app. It does not prove every form, permission, integration, or data rule works. The user must still test the most important task.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/rmo8kk","slide":11,"title":"CEDARVILLE APP PORTAL","textShapes":10}
+{"kind":"textbox","id":"sh/eto76hcf","slide":11,"text":"CEDARVILLE APP PORTAL","textPreview":"CEDARVILLE APP PORTAL","textChars":21,"textLines":1,"bbox":[72,32,600,22]}
+{"kind":"textbox","id":"sh/1gfqhcv6","slide":11,"text":"My Apps is where ownership, collaboration, and maintenance continue","textPreview":"My Apps is where ownership, collaboration, and maintenance continue","textChars":67,"textLines":1,"bbox":[72,68,980,55]}
+{"kind":"shape","id":"sh/0f6p87ul","slide":11,"bbox":[72,135,1136,3]}
+{"kind":"textbox","id":"sh/rqx8b2do","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1138,35,70,24]}
+{"kind":"shape","id":"sh/qp472xc3","slide":11,"bbox":[72,230,330,250]}
+{"kind":"textbox","id":"sh/dsfqdcvu","slide":11,"text":"Share","textPreview":"Share","textChars":5,"textLines":1,"bbox":[100,268,270,42]}
+{"kind":"textbox","id":"sh/sr6p47u9","slide":11,"text":"Invite Cedarville coworkers as portal collaborators. GitHub access is requested separately.","textPreview":"Invite Cedarville coworkers as portal collaborators. GitHub access is requested separately.","textChars":91,"textLines":1,"bbox":[100,340,265,100]}
+{"kind":"shape","id":"sh/bmh8nmd8","slide":11,"bbox":[450,230,330,250]}
+{"kind":"textbox","id":"sh/al87e1cn","slide":11,"text":"Maintain","textPreview":"Maintain","textChars":8,"textLines":1,"bbox":[478,268,270,42]}
+{"kind":"textbox","id":"sh/836xkbyl","slide":11,"text":"Check status, manage environment variables, download a copy, and repair setup when needed.","textPreview":"Check status, manage environment variables, download a copy, and repair setup when needed.","textChars":90,"textLines":1,"bbox":[478,340,265,100]}
+{"kind":"shape","id":"sh/t4fydgf6","slide":11,"bbox":[828,230,330,250]}
+{"kind":"textbox","id":"sh/614filgf","slide":11,"text":"Protect","textPreview":"Protect","textChars":7,"textLines":1,"bbox":[856,268,270,42]}
+{"kind":"textbox","id":"sh/72dgbqx0","slide":11,"text":"Keep secrets out of code, screenshots, chat, email, and support tickets.","textPreview":"Keep secrets out of code, screenshots, chat, email, and support tickets.","textChars":72,"textLines":1,"bbox":[856,340,265,100]}
+{"kind":"textbox","id":"sh/kfmxgby9","slide":11,"text":"For help: share the app name, support reference, approximate time, and exact message—never secret values.","textPreview":"For help: share the app name, support reference, approximate time, and exact message—never secret values.","textChars":105,"textLines":1,"bbox":[95,555,1060,42]}
+{"kind":"shape","id":"sh/l0vy9gfu","slide":11,"bbox":[0,704,1280,16]}
+{"kind":"notes","id":"nt/rmo8kk","slide":11,"text":"This is the stewardship slide. Clarify the difference between portal collaboration and GitHub access. Reinforce safe support practices and the quick rule: never send passwords, secrets, private keys, or environment variable contents.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}
+{"kind":"slide","id":"sl/h47gi9","slide":12,"title":"Your next move","textShapes":10}
+{"kind":"shape","id":"sh/utcnu9o7","slide":12,"bbox":[0,0,1280,16]}
+{"kind":"textbox","id":"sh/hw3m5ony","slide":12,"text":"Your next move","textPreview":"Your next move","textChars":14,"textLines":1,"bbox":[74,94,760,70]}
+{"kind":"textbox","id":"sh/gvu5wj6d","slide":12,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[92,212,40,35]}
+{"kind":"textbox","id":"sh/3y547e5o","slide":12,"text":"Name the problem and intended users.","textPreview":"Name the problem and intended users.","textChars":36,"textLines":1,"bbox":[155,205,890,44]}
+{"kind":"textbox","id":"sh/ixwnytoj","slide":12,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[92,294,40,35]}
+{"kind":"textbox","id":"sh/50n69onu","slide":12,"text":"Choose the closest Recommended Template.","textPreview":"Choose the closest Recommended Template.","textChars":40,"textLines":1,"bbox":[155,287,890,44]}
+{"kind":"textbox","id":"sh/4ze50j69","slide":12,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[92,376,40,35]}
+{"kind":"textbox","id":"sh/rm5oby50","slide":12,"text":"Create the app, then use Codex or a developer to customize it.","textPreview":"Create the app, then use Codex or a developer to customize it.","textChars":62,"textLines":1,"bbox":[155,369,890,44]}
+{"kind":"textbox","id":"sh/q1wn2tof","slide":12,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[92,458,40,35]}
+{"kind":"textbox","id":"sh/g3mpsvap","slide":12,"text":"Review, publish, and test the app’s key task.","textPreview":"Review, publish, and test the app’s key task.","textChars":45,"textLines":1,"bbox":[155,451,890,44]}
+{"kind":"textbox","id":"sh/h4f6l0ru","slide":12,"text":"Questions?","textPreview":"Questions?","textChars":10,"textLines":1,"bbox":[74,598,310,45]}
+{"kind":"notes","id":"nt/h47gi9","slide":12,"text":"Close by inviting questions about the participants’ first app ideas. If time remains, ask participants to name their audience and the primary task their app should support. This creates a productive bridge to choosing a template.\n\n[Sources]\nInternal source: Cedarville App Portal User Guide and Quick Start (reviewed 2026-08-03).\n[/Sources]"}

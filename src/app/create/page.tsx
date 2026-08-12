@@ -25,36 +25,6 @@ export default async function CreatePage() {
         <p>Choose a template to generate your Cedarville-approved app package.</p>
       </div>
 
-      <details
-        className="card"
-        style={{
-          maxWidth: "760px",
-          marginBottom: "1.25rem",
-          padding: "1rem 1.125rem",
-        }}
-      >
-        <summary style={{ cursor: "pointer", fontWeight: 600 }}>
-          What is GitHub?
-        </summary>
-        <div
-          style={{
-            marginTop: "0.75rem",
-            color: "var(--text-secondary)",
-            fontSize: "0.9375rem",
-          }}
-        >
-          <p>
-            GitHub is a secure place to store app code, keep track of changes,
-            and share work with the people and tools that need access.
-          </p>
-          <p style={{ marginTop: "0.625rem" }}>
-            The portal uses GitHub so Codex, Cedarville reviewers, and Azure
-            publishing can all work from the same managed repository instead of
-            passing files around manually.
-          </p>
-        </div>
-      </details>
-
       <div className="form-stack">
         {templateGroups.map((group) => (
           <section key={group.category} aria-labelledby={`${group.category}-templates-heading`}>
