@@ -1,10 +1,10 @@
 # Cedarville App Portal
 
-Internal portal for Cedarville staff to create a new app package from an approved template, track its managed GitHub repository, and move toward portal-managed Azure publishing.
+Internal portal for Cedarville staff to create managed GitHub repositories from approved templates and publish them through the portal.
 
 ## What It Does
 
-The portal signs staff in with Microsoft Entra ID, guides them through a template-backed app creation form, generates a ZIP package, and now treats a portal-created GitHub repository as the canonical source of truth for supported publishing.
+The portal signs staff in with Microsoft Entra ID, guides them through a template-backed app creation form, and creates a portal-managed GitHub repository as the canonical source of truth for supported publishing.
 
 Users can also add an existing compatible GitHub app repository. If the source repository is outside the configured Cedarville GitHub org, the portal imports it into the shared org while preserving history, scans and prepares it for supported Azure App Service runtimes, and lets the user choose either direct publishing additions or a review PR. Current import support covers root Next.js apps, Express apps, Python FastAPI apps, and plain static Python `http.server` apps with a root `index.html`.
 
@@ -25,9 +25,9 @@ Portal-managed Azure publishing for generated apps uses one shared resource grou
 
 For generated and imported apps, the portal tracks whether publishing setup is ready. If Azure, Entra, or GitHub credentials drift or rotate, the app offers Repair Publishing Setup to refresh portal-managed setup. Failed deployments present both Retry Publish and Repair Publishing Setup so the user can choose whether to rerun deployment or repair prerequisites first.
 
-The `My Apps` page also supports scoped deletion. A user can delete the portal record and ZIP artifact, the managed GitHub repository, and the app-specific Azure deployment independently. Azure deletion removes the app Web App and, when PostgreSQL was selected for that app, that app's PostgreSQL database only; it does not delete the shared PostgreSQL flexible server.
+The `My Apps` page also supports scoped deletion. A user can delete the portal record, the managed GitHub repository, and the app-specific Azure deployment independently. Azure deletion removes the app Web App and, when PostgreSQL was selected for that app, that app's PostgreSQL database only; it does not delete the shared PostgreSQL flexible server.
 
-The portal supports an admin and collaboration model for managing shared app work. Admins can manage portal users, grant portal admin access, see all apps, reassign app owners, add collaborators, and delete scoped app resources. Each app keeps one primary owner, while collaborators can download app artifacts, request GitHub access, and publish app changes.
+The portal supports an admin and collaboration model for managing shared app work. Admins can manage portal users, grant portal admin access, see all apps, reassign app owners, add collaborators, and delete scoped app resources. Each app keeps one primary owner, while collaborators can access app details, request GitHub access, and publish app changes.
 
 The portal sends immediate SMTP email notifications for app lifecycle, collaboration, and publishing events. Users can manage notification preferences from Settings, while collaboration invite emails always send because they grant access. Owners and admins can invite Cedarville coworkers by email; invitees must accept through Entra before they become collaborators. Owners and admins can also remove accepted collaborators from the app details screen (portal access is removed immediately; GitHub repository access is revoked best-effort when a managed repo and username exist).
 
@@ -47,7 +47,6 @@ The portal sends immediate SMTP email notifications for app lifecycle, collabora
 - `npm run dev` starts the Next.js development server.
 - `npm run build` creates a production build.
 - `npm test` runs the Vitest suite.
-- `npm run test:e2e -- e2e/create-and-download.spec.ts` runs the Playwright create-and-download flow.
 - `npm run prisma:seed` syncs the in-code template catalog into the database.
 - `npm run docs:pdf` regenerates the downloadable user documentation from `docs/user/` after the Python requirements in `scripts/docs/requirements.txt` are installed.
 

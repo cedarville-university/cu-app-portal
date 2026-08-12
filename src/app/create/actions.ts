@@ -1,12 +1,10 @@
 "use server";
 
-import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
-import { buildArchive } from "@/features/generation/build-archive";
-import { deleteArtifact, saveArtifact } from "@/features/generation/storage";
+import { buildSourceSnapshot } from "@/features/generation/build-source-snapshot";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { publishToAzureAction } from "@/features/publishing/actions";
 import { supportsGeneratedTemplateOneStep } from "@/features/publishing/providers";
@@ -110,24 +108,10 @@ export async function createAppAction(formData: FormData) {
       publishStatus: "NOT_STARTED",
     },
   });
-  let savedStoragePath: string | null = null;
   let repositoryReady = false;
 
   try {
-    const archive = await buildArchive(input);
-    const storagePath = await saveArtifact(archive.filename, archive.buffer);
-    savedStoragePath = storagePath;
-
-    await prisma.generatedArtifact.create({
-      data: {
-        appRequestId: request.id,
-        storagePath,
-        filename: archive.filename,
-        checksum: createHash("sha256").update(archive.buffer).digest("hex"),
-        contentType: "application/zip",
-        sizeBytes: archive.buffer.byteLength,
-      },
-    });
+    const files = await buildSourceSnapshot(input);
 
     await recordAuditEvent("REPOSITORY_BOOTSTRAP_REQUESTED", {
       requestId: request.id,
@@ -138,7 +122,7 @@ export async function createAppAction(formData: FormData) {
       const repository = await bootstrapManagedRepository({
         appRequestId: request.id,
         input,
-        files: archive.files,
+        files,
       });
 
       await prisma.appRequest.update({
@@ -305,10 +289,6 @@ export async function createAppAction(formData: FormData) {
       }
     }
   } catch (error) {
-    if (savedStoragePath) {
-      await deleteArtifact(savedStoragePath);
-    }
-
     await prisma.appRequest.update({
       where: { id: request.id },
       data: { generationStatus: "FAILED" },

@@ -817,7 +817,6 @@ export default async function DownloadPage({
   const appRequest = await prisma.appRequest.findFirst({
     where: appAccessWhere(requestId, userId, isAdmin),
     include: {
-      artifact: true,
       user: {
         select: {
           displayName: true,
@@ -863,10 +862,6 @@ export default async function DownloadPage({
   }
 
   const isImportedApp = appRequest.sourceOfTruth === "IMPORTED_REPOSITORY";
-
-  if (!appRequest.artifact && !isImportedApp) {
-    notFound();
-  }
 
   const canDeleteAppRequest = isAdmin || appRequest.userId === userId;
 
@@ -943,14 +938,6 @@ export default async function DownloadPage({
               : `${appRequest.appName} — Set up Codex, and publish to Azure.`}
           </p>
         </div>
-        {appRequest.repositoryStatus === "FAILED" && appRequest.artifact ? (
-          <Link
-            href={`/api/download/${requestId}`}
-            className="btn btn--secondary-solid"
-          >
-            ⬇ Download ZIP
-          </Link>
-        ) : null}
       </div>
 
       <div style={{ display: "grid", gap: "1.25rem" }}>
@@ -1138,7 +1125,6 @@ export default async function DownloadPage({
           ) : appRequest.repositoryStatus === "FAILED" ? (
             <div className="error-box">
               Repository setup failed.
-              {appRequest.artifact ? " Your ZIP download is still available." : ""}{" "}
               A portal administrator may need to fix the configuration before publishing can continue.
             </div>
           ) : (

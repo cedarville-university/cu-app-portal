@@ -8,7 +8,7 @@ import {
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
-import { buildArchive } from "@/features/generation/build-archive";
+import { buildSourceSnapshot } from "@/features/generation/build-source-snapshot";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
@@ -81,7 +81,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
   }
 
   const input = parseStoredCreateAppInput(appRequest.submittedConfig);
-  const archive = await buildArchive(input);
+  const files = await buildSourceSnapshot(input);
 
   await prisma.appRequest.update({
     where: { id: requestId },
@@ -101,7 +101,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
     const repository = await bootstrapManagedRepository({
       appRequestId: requestId,
       input,
-      files: archive.files,
+      files,
       reuseExistingRepository: true,
     });
 

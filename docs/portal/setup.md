@@ -88,7 +88,7 @@ Current v1 design decisions:
 
 Deletion behavior:
 
-- `My Apps` deletion is scoped. Users can delete the portal record and artifact, the managed GitHub repository, and the Azure deployment independently.
+- `My Apps` deletion is scoped. Users can delete the portal record, the managed GitHub repository, and the Azure deployment independently.
 - Azure deletion removes the selected app's Azure Web App and, if one was provisioned, the selected app's PostgreSQL database on the shared server.
 - Azure deletion never deletes the shared PostgreSQL flexible server.
 - If a user leaves GitHub or Azure unchecked while deleting the portal record, those resources must be deleted manually later because the portal record will no longer appear in `My Apps`.
@@ -132,7 +132,7 @@ Deleted vaults soft-delete for 90 days; the portal never purges them.
 - Each app has one primary owner.
 - Admins can see all users and apps, manage admin roles, reassign owners, manage collaborators, and delete scoped app resources.
 - App owners and admins can remove accepted collaborators from the app details screen.
-- Collaborators can view app details, download artifacts, request GitHub repository access for themselves, repair publishing setup, and publish app changes.
+- Collaborators can view app details, request GitHub repository access for themselves, repair publishing setup, and publish app changes.
 - Collaborators cannot delete app resources or reassign ownership.
 
 ### Notifications And Collaboration Invites
@@ -169,7 +169,6 @@ If Microsoft Graph returns `Authorization_RequestDenied`, first check whether th
 
 - `npm test`
 - `npm run build`
-- `npm run test:e2e -- e2e/create-and-download.spec.ts`
 
 ### User documentation
 
@@ -177,9 +176,9 @@ The Markdown files in `docs/user/` are the source of truth for the portal Help p
 
 The Azure deployment package must include `docs/user/` because Help pages read those Markdown files at runtime. The deployment workflow copies that directory to `release/docs/user/` and verifies that `quick-start.md` exists before publishing the release.
 
-For managed repo bootstrap verification, confirm the GitHub App is installed on the target org and then create an app through the portal. A successful request should end on the download page with a managed repo URL instead of a repository failure state.
+For managed repo bootstrap verification, confirm the GitHub App is installed on the target org and then create an app through the portal. A successful request should show a managed repository URL instead of a repository failure state.
 
 ## Notes
 
-- Generated ZIP artifacts are written to `.artifacts/`.
-- The Playwright flow uses a test-only auth bypass so the end-to-end package flow can be exercised without Cedarville SSO in local automation.
+- The portal does not retain generated source archives; source is sent directly to GitHub during repository bootstrap.
+- The Playwright flow uses a test-only auth bypass so the end-to-end creation flow can be exercised without Cedarville SSO in local automation.

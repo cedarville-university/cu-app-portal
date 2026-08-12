@@ -7,7 +7,6 @@ import {
   userHasAdminRole,
 } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
-import { deleteArtifact } from "@/features/generation/storage";
 import {
   safeNotifyDeletedAppEvent,
 } from "@/features/notifications/safe-notify";
@@ -91,7 +90,6 @@ async function loadDeletableAppRequest(requestId: string) {
       ? { id: requestId }
       : { id: requestId, userId: actorUserId },
     include: {
-      artifact: true,
       user: {
         select: deletedAppNotificationRecipientSelect,
       },
@@ -130,7 +128,6 @@ async function recordDeletionAudit(
 function revalidateDeletionViews(requestId: string) {
   try {
     revalidatePath("/apps");
-    revalidatePath(`/download/${requestId}`);
   } catch (error) {
     console.error("Failed to revalidate app deletion views.", error);
   }
@@ -214,21 +211,9 @@ function appDeletionNotificationRecipients(appRequest: {
   ];
 }
 
-async function deletePortalRecord(
-  appRequest: {
-    id: string;
-    artifact: { storagePath: string } | null;
-  },
-) {
-  if (appRequest.artifact?.storagePath) {
-    await deleteArtifact(appRequest.artifact.storagePath);
-  }
-
+async function deletePortalRecord(appRequest: { id: string }) {
   await prisma.$transaction(async (tx) => {
     await tx.publishAttempt.deleteMany({
-      where: { appRequestId: appRequest.id },
-    });
-    await tx.generatedArtifact.deleteMany({
       where: { appRequestId: appRequest.id },
     });
     await tx.appRequest.delete({

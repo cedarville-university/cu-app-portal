@@ -23,7 +23,7 @@ Use this page when you are creating a Cedarville app for the first time. You do 
 4. Select **Create and Publish** to prepare the app and its hosting. The portal creates a private GitHub repository for the code and prepares an Azure website for the app.
 5. Keep the page open while setup runs. When Publishing setup says **Ready**, select **Publish** if publishing has not already started.
 6. Wait for the publish status to become **Published**, then open the Published app link and try the main task your app is supposed to perform.
-7. Return to **My Apps** whenever you need to open, publish, share, download, repair, or delete the app.
+7. Return to **My Apps** whenever you need to open, publish, share, repair, or delete the app.
 
 ## Three terms you will see
 
@@ -38,4 +38,3 @@ Use this page when you are creating a Cedarville app for the first time. You do 
 Read the message shown beside the failed step. Try the action one more time. If Publishing setup says it needs repair, select **Repair Publishing Setup** before publishing again. See [Troubleshooting](/help/troubleshooting) for symptom-by-symptom help.
 
 Never send passwords, secret values, or the contents of environment variables when asking for help. Provide the app name, support reference if shown, the approximate time, and a screenshot of the message.
-

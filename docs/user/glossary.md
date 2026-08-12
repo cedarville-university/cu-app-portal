@@ -66,8 +66,3 @@ A safe identifier that helps Cedarville IT find technical records for a failed o
 ## Template
 
 An approved starting point that supplies common app files, features, and Cedarville defaults.
-
-## ZIP artifact
-
-A downloadable snapshot of generated app files. It is useful for convenience or recovery but is not the preferred source for ongoing development.
-

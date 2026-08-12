@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -11,7 +11,7 @@ function gitLsFiles() {
 
 describe("secret hygiene", () => {
   it("does not track plaintext local env files", () => {
-    const trackedFiles = gitLsFiles();
+    const trackedFiles = gitLsFiles().filter(existsSync);
     const trackedEnvFiles = trackedFiles.filter(
       (file) =>
         /(^|\/)\.env(?:\.|$)/.test(file) &&
@@ -34,7 +34,7 @@ describe("secret hygiene", () => {
   });
 
   it("does not publish obvious credential material in tracked text files", () => {
-    const trackedFiles = gitLsFiles();
+    const trackedFiles = gitLsFiles().filter(existsSync);
     const credentialPatterns = [
       /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
       /\bgh[pousr]_[A-Za-z0-9_]{20,}\b/,

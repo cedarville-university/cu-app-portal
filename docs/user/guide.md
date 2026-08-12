@@ -21,7 +21,7 @@ The portal does not design every screen or write every business rule for you. Af
 2. **Customize:** Use Codex or a developer to change the managed GitHub repository.
 3. **Prepare:** The portal adds and checks the settings needed for GitHub and Azure to work together.
 4. **Publish:** The portal starts the GitHub workflow that sends the current app to Azure.
-5. **Manage:** Use My Apps to check status, change settings, invite collaborators, download a copy, repair setup, or remove resources.
+5. **Manage:** Use My Apps to check status, change settings, invite collaborators, repair setup, or remove resources.
 
 ## 3. Choose the right starting point
 
@@ -57,7 +57,7 @@ Imported apps currently support root Next.js, Express, Python FastAPI, and plain
 6. Choose **Create Only** if you want to customize before hosting, or **Create and Publish** if the starter is ready for an initial deployment.
 7. Keep the result page open until repository and publishing setup statuses settle.
 
-The portal also creates a downloadable ZIP. Treat this as a convenience copy. Make ongoing changes in the managed GitHub repository so the portal, Codex, reviewers, and Azure all use the same source.
+The portal creates the managed GitHub repository directly. Make ongoing changes there so the portal, Codex, reviewers, and Azure all use the same source.
 
 ## 5. GitHub access and code changes
 
@@ -114,17 +114,11 @@ Good practices:
 
 Every app has one primary owner. Owners and administrators can invite Cedarville coworkers by email. The coworker must accept the invitation through Cedarville sign-in before becoming a collaborator.
 
-Collaborators can view app details, download artifacts, request their own GitHub access, repair publishing setup, and publish changes. They cannot delete app resources or transfer ownership. An administrator can reassign the primary owner when responsibility changes.
+Collaborators can view app details, request their own GitHub access, repair publishing setup, and publish changes. They cannot delete app resources or transfer ownership. An administrator can reassign the primary owner when responsibility changes.
 
 Removing a collaborator ends portal access immediately. GitHub access is revoked on a best-effort basis when the portal knows the person's GitHub username; verify repository access separately when removing someone from sensitive work.
 
-## 9. Downloads
-
-The ZIP download is a snapshot of generated starter files and instructions. Owners and collaborators can download it from the app details page. It is useful for review or recovery, but it is not the preferred place for continuing development once a managed repository exists.
-
-If a download returns Not Found, open the app through My Apps and verify that you are the owner or an accepted collaborator. The portal deliberately does not reveal another user's artifact.
-
-## 10. Repair Publishing Setup
+## 9. Repair Publishing Setup
 
 Use **Repair Publishing Setup** when the portal says managed publishing credentials or settings are missing, stale, or out of date. Repair refreshes portal-managed GitHub secrets, Azure connection settings, and federated credentials for that app.
 
@@ -136,7 +130,7 @@ Deletion is divided into separate scopes:
 
 | Choice | What it removes |
 | --- | --- |
-| Portal record and artifact | Removes the app from My Apps and deletes its stored ZIP. |
+| Portal record | Removes the app from My Apps. |
 | GitHub repository | Deletes the managed source repository and its history. |
 | Azure deployment | Deletes the app's Azure Web App and its app-specific database when one exists. |
 
@@ -157,4 +151,3 @@ Provide:
 - A screenshot with sensitive values hidden.
 
 Do not provide passwords, client secrets, database connection strings, environment-variable values, private keys, or downloaded app source unless support specifically arranges a secure transfer.
-

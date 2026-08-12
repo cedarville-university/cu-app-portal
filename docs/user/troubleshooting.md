@@ -22,7 +22,6 @@ Start with the row that most closely matches what you see. Read the full on-scre
 | Publish failed | GitHub Actions, Azure, the app build, or a required setting failed. | Open the failure details if available. Fix the named issue, retry once, and contact support if it repeats. |
 | Published app shows an error page | Azure started a deployment, but the app may have a code, startup, database, or configuration error. | Confirm required environment variables, then republish. Record the time and error text for support. |
 | Your latest change is missing | The change may not have been pushed to the managed repository or republished. | Confirm the commit is on GitHub, publish again if needed, then refresh the app without using the browser cache. |
-| Download returns Not Found | The artifact is missing or your account does not have access. | Open the app from My Apps. Confirm you are the owner or an accepted collaborator and that a download is listed. |
 | A collaborator cannot open the app in the portal | The invitation may not be accepted or the wrong Cedarville address was used. | Ask the person to use the invitation link and Cedarville sign-in. Remove and resend the invitation if the address is wrong. |
 | A collaborator cannot open GitHub | Portal collaboration does not automatically guarantee GitHub access. | Have the collaborator save their GitHub username and request repository access from the app page. |
 | An environment variable did not fix the app | The name may be wrong, the value may need rotation, or the app may need another publish. | Verify the exact name, replace the value, and follow the app's instructions to republish. Never send the value to support. |
@@ -46,4 +45,3 @@ Start with the row that most closely matches what you see. Read the full on-scre
 - Whether the issue happened once or repeated after one retry.
 
 Never send secret values, passwords, private keys, database connection strings, or the contents of environment variables.
-

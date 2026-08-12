@@ -84,7 +84,6 @@ model AppRequest {
   updatedAt        DateTime           @updatedAt
   user             User               @relation(fields: [userId], references: [id])
   template         Template           @relation(fields: [templateId], references: [id])
-  artifact         GeneratedArtifact?
   publishAttempts  PublishAttempt[]
   repositoryImport RepositoryImport?
   publishSetupChecks PublishSetupCheck[]
@@ -193,19 +192,6 @@ model NotificationDelivery {
   @@index([recipientEmail])
   @@index([eventKey])
   @@index([status])
-}
-
-model GeneratedArtifact {
-  id           String      @id @default(cuid())
-  appRequestId String      @unique
-  storagePath  String
-  filename     String
-  checksum     String
-  contentType  String
-  sizeBytes    Int
-  expiresAt    DateTime?
-  createdAt    DateTime    @default(now())
-  appRequest   AppRequest   @relation(fields: [appRequestId], references: [id])
 }
 
 model PublishAttempt {

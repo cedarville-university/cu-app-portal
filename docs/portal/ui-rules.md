@@ -148,7 +148,7 @@ Use the `.btn` class with exactly one variant and optionally one size modifier.
 |---|---|---|
 | `btn--primary-solid` | Solid navy | Primary page action (Publish, Submit). |
 | `btn--primary` | Navy outline | Secondary action where navy already dominates. |
-| `btn--secondary-solid` | Solid gold | Featured secondary action (Download ZIP, Grant Access). |
+| `btn--secondary-solid` | Solid gold | Featured secondary action (Grant Access). |
 | `btn--secondary` | Gold outline | Lower-emphasis secondary action. |
 | `btn--ghost` | Neutral outline | Tertiary / navigation-style actions (App Details, My Apps). |
 | `btn--danger` | Red outline | Destructive actions (Delete Selected Resources). |
@@ -418,7 +418,7 @@ Pages are tested with `@testing-library/react`. When writing new page tests, fol
 the patterns already established:
 
 - Mock `react-dom` → `useFormStatus` when the page renders `PendingSubmitButton`
-  (see `download/[requestId]/page.test.tsx`).
+  (see the app-details page tests).
 - Mock all server actions (`vi.mock("@/features/…/actions", …)`).
 - Mock `prisma` at the model method level (not the whole module).
 - Use `within(element)` to scope assertions to a specific card or list item.

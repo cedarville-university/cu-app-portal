@@ -13,7 +13,7 @@ No. Recommended Templates and the portal workflow are designed for first-time us
 
 ## What is GitHub, and why does the portal use it?
 
-GitHub is a managed online place for app code and change history. It gives Codex, reviewers, collaborators, and Azure publishing one supported source instead of passing ZIP files between people.
+GitHub is a managed online place for app code and change history. It gives Codex, reviewers, collaborators, and Azure publishing one supported source for the app.
 
 ## What is Azure?
 
@@ -47,10 +47,6 @@ Yes. The owner or an administrator can invite a Cedarville coworker as a collabo
 
 It refreshes portal-managed GitHub and Azure publishing credentials and settings. It does not delete resources, change your app's code, or start a deployment.
 
-## What is in the downloaded ZIP?
-
-For generated apps, it contains the generated starter snapshot and supporting instructions. It is a convenience and recovery artifact; ongoing development should use the managed GitHub repository.
-
 ## Where should passwords and API keys go?
 
 Use the app's Environment Variables area when instructed. Do not place real values in code, GitHub files, documentation, screenshots, chat messages, or email.
@@ -63,11 +59,6 @@ Yes, because deletion scopes are separate. However, if you remove the portal rec
 
 Do not assume it can. Deleting a GitHub repository or Azure deployment may permanently remove code, history, configuration, or data. Coordinate and preserve anything required before deleting.
 
-## Why does a download say Not Found instead of Access Denied?
-
-The portal deliberately returns a quiet Not Found response for artifacts that do not belong to the signed-in owner or collaborator. This avoids revealing another user's app information.
-
 ## What should I include in a support request?
 
 Include the app name, support reference, approximate time, action selected, and exact on-screen message. Never include passwords, secret values, private keys, or environment-variable contents.
-
