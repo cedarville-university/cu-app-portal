@@ -31,6 +31,10 @@ jobs:
           fi
 
       - name: Build application
+        env:
+          # Prisma validates this setting during the build. The portal configures
+          # the real production connection string in Azure App Service.
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
         run: npm run build
 
       - name: Prepare deployment package

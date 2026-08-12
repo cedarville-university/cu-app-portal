@@ -96,6 +96,8 @@ Publishing-capable templates can include assets such as:
 
 Current publishing-capable templates emit a generated deployment manifest at `app-portal/deployment-manifest.json` so generated-app fallback skills and portal-managed publishing flows can share the same deployment contract.
 
+Next.js publishing workflows provide a syntactically valid, non-production `DATABASE_URL` only to the GitHub Actions build step so Prisma can validate and generate the application without a live database. The portal-managed Azure App Service configuration remains the source of the real runtime connection string.
+
 Publishing-capable templates should assume this direction:
 
 - the portal renders the canonical source snapshot
