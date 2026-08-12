@@ -1,6 +1,6 @@
 # Template Authoring
 
-Templates are metadata-driven starter packages used by the portal to generate ZIP artifacts and managed GitHub repository contents from the same rendered source snapshot.
+Templates are metadata-driven starter packages used by the portal to generate managed GitHub repository contents from a rendered source snapshot.
 
 ## Template Structure
 
@@ -102,7 +102,6 @@ Publishing-capable templates should assume this direction:
 
 - the portal renders the canonical source snapshot
 - the portal-created GitHub repo is the supported publish source of truth
-- the ZIP is a convenience artifact, not the primary deployment handoff
 
 ## Database Sync
 
