@@ -48,6 +48,7 @@ export async function authConfig() {
   return {
     session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
     jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
+    pages: { signIn: "/login" },
     providers: [
       MicrosoftEntraID({
         clientId: authEnv.AUTH_MICROSOFT_ENTRA_ID_ID,

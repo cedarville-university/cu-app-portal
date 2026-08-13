@@ -15,4 +15,12 @@ describe("loginAction", () => {
       redirectTo: "/",
     });
   });
+
+  it("only accepts local redirect destinations", async () => {
+    await loginAction("https://example.com");
+
+    expect(mockSignIn).toHaveBeenCalledWith("microsoft-entra-id", {
+      redirectTo: "/",
+    });
+  });
 });

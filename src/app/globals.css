@@ -354,6 +354,77 @@ main {
   padding: 2.5rem 1.5rem 4rem;
 }
 
+/* ─── Sign In ─── */
+
+.login-page {
+  min-height: calc(100vh - var(--header-h));
+  max-width: none;
+  display: grid;
+  place-items: center;
+  padding: 3rem 1.5rem;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(252, 183, 22, 0.24), transparent 25rem),
+    radial-gradient(circle at 85% 80%, rgba(4, 178, 226, 0.18), transparent 22rem),
+    linear-gradient(135deg, #eef4f8, #f8f9fa 55%, #fdf8eb);
+}
+
+.login-card {
+  width: min(100%, 30rem);
+  overflow: hidden;
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.login-card__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 1rem 1.5rem;
+  background: var(--cu-navy);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.login-card__monogram {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--cu-gold);
+  color: var(--cu-navy);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.login-card__content {
+  display: grid;
+  gap: 1rem;
+  padding: 2.5rem;
+  text-align: center;
+}
+
+.login-card__eyebrow {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.login-card__content h1 { margin: -0.5rem 0 0; font-size: 2rem; }
+.login-card__description { color: var(--text-secondary); margin: 0 0 0.5rem; }
+.login-card__content form { margin: 0; }
+.login-card__help { margin: 0; padding: 1rem 1.5rem; border-top: 1px solid var(--border-light); color: var(--text-secondary); font-size: 0.8125rem; text-align: center; }
+
 .page-header {
   margin-bottom: 2rem;
   padding-bottom: 1.25rem;
