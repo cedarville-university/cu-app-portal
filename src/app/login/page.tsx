@@ -2,27 +2,13 @@ import React from "react";
 import Link from "next/link";
 import { loginAction } from "@/features/auth/login";
 
-function getSafeRedirectTo(callbackUrl: string | undefined) {
-  if (callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//")) {
-    return callbackUrl;
-  }
-
-  return "/";
-}
-
 export default async function LoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
   const { callbackUrl } = await searchParams;
-  const redirectTo = getSafeRedirectTo(callbackUrl);
-
-  async function signInAction() {
-    "use server";
-
-    await loginAction(redirectTo);
-  }
+  const redirectTo = callbackUrl ?? "/";
 
   return (
     <main className="login-page">
@@ -38,7 +24,8 @@ export default async function LoginPage({
             Sign in with your Cedarville account to create, publish, and manage
             your apps.
           </p>
-          <form action={signInAction}>
+          <form action={loginAction}>
+            <input type="hidden" name="redirectTo" value={redirectTo} />
             <button type="submit" className="btn btn--primary-solid btn--full">
               Sign in with Microsoft Entra
             </button>

@@ -2,10 +2,15 @@
 
 import { signIn } from "@/auth/session";
 
-export async function loginAction(redirectTo = "/") {
-  const safeRedirectTo = redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+function getSafeRedirectTo(redirectTo: string) {
+  return redirectTo.startsWith("/") && !redirectTo.startsWith("//")
     ? redirectTo
     : "/";
+}
+
+export async function loginAction(formData: FormData) {
+  const redirectTo = String(formData.get("redirectTo") ?? "/");
+  const safeRedirectTo = getSafeRedirectTo(redirectTo);
 
   await signIn("microsoft-entra-id", { redirectTo: safeRedirectTo });
 }

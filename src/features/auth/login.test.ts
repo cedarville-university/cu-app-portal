@@ -9,7 +9,7 @@ vi.mock("@/auth/session", () => ({
 
 describe("loginAction", () => {
   it("starts the Microsoft Entra sign-in flow and returns users home", async () => {
-    await loginAction();
+    await loginAction(new FormData());
 
     expect(mockSignIn).toHaveBeenCalledWith("microsoft-entra-id", {
       redirectTo: "/",
@@ -17,7 +17,10 @@ describe("loginAction", () => {
   });
 
   it("only accepts local redirect destinations", async () => {
-    await loginAction("https://example.com");
+    const formData = new FormData();
+    formData.set("redirectTo", "https://example.com");
+
+    await loginAction(formData);
 
     expect(mockSignIn).toHaveBeenCalledWith("microsoft-entra-id", {
       redirectTo: "/",
