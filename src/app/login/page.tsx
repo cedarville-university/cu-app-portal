@@ -17,7 +17,12 @@ export default async function LoginPage({
 }) {
   const { callbackUrl } = await searchParams;
   const redirectTo = getSafeRedirectTo(callbackUrl);
-  const signInAction = loginAction.bind(null, redirectTo);
+
+  async function signInAction() {
+    "use server";
+
+    await loginAction(redirectTo);
+  }
 
   return (
     <main className="login-page">
