@@ -4,7 +4,9 @@ This document covers publishing the Cedarville App Portal app itself to Azure Ap
 
 This is separate from portal-managed publishing for generated user apps. Generated app publishing is orchestrated by the running portal after an app request is created.
 
-For a full rebuild of the production environment, use [Redeploy the Portal from Scratch](./redeploy-portal-from-scratch.md).
+For operational readiness, incident triage, and the verified production
+deployment sequence, use the [Technical Operations and Support Guide](../portal/technical-operations.md)
+alongside this deployment reference.
 
 ## Generated App Publishing
 

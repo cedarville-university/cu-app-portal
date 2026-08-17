@@ -53,6 +53,7 @@ The portal sends immediate SMTP email notifications for app lifecycle, collabora
 ## Docs
 
 - [Portal setup](docs/portal/setup.md)
+- [Technical operations and support](docs/portal/technical-operations.md)
 - [Template authoring](docs/portal/template-authoring.md)
 - [User documentation maintenance](docs/user/README.md)
 - [Azure publishing](docs/publishing/azure-app-service.md)
