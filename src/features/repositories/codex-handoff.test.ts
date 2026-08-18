@@ -99,6 +99,9 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     expect(prompt).toContain("stage only intentional source, configuration, and documentation files by explicit path");
     expect(prompt).toContain("Re-check the staged file names and diff");
     expect(prompt).toContain("Unstage anything sensitive or local before committing");
+    expect(prompt).not.toContain("git restore --staged");
+    expect(prompt).toContain("git rm --cached -- <path>");
+    expect(prompt).toContain("without deleting the local file");
     expectOrderedSections(prompt);
     expect(prompt.indexOf("Safety rules")).toBeLessThan(
       prompt.indexOf("Managed repository:"),

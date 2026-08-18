@@ -96,7 +96,7 @@ export function buildLocalCodexGitSetupPrompt({
     "Inspect candidate files with git status before staging.",
     "After reviewing them, stage only intentional source, configuration, and documentation files by explicit path. Do not use a broad catch-all staging command.",
     "Re-check the staged file names and diff with git diff --cached --name-only and git diff --cached.",
-    "Unstage anything sensitive or local before committing with git restore --staged <path>.",
+    "Unstage anything sensitive or local before committing with git rm --cached -- <path>; this removes it from the staged list without deleting the local file and works before the first commit.",
     'git commit -m "Initial app source"',
     "Add the portal-managed repository as a remote named portal if it is not already configured:",
     `git remote add portal ${repositoryUrl}`,
