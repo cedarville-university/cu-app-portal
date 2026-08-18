@@ -34,6 +34,14 @@ describe("buildCodexHandoffPrompt", () => {
     expect(prompt).toContain(
       "Use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
     );
+    expect(prompt).toContain("The person I am helping is a beginner");
+    expect(prompt).toContain("Do not ask me to type terminal or Git commands");
+    expect(prompt).toContain("Ask only one question at a time");
+    expect(prompt).toContain("Never ask for my passwords or secret values");
+    expect(prompt).toContain("run the relevant tests");
+    expect(prompt).toContain("commit and push");
+    expect(prompt).toContain("return to the Cedarville App Portal");
+    expect(prompt).toContain("Return to the portal and select Publish to Azure");
   });
 });
 
@@ -57,5 +65,15 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     expect(prompt).toContain(
       "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
     );
+    expect(prompt).toContain("The person I am helping is a beginner");
+    expect(prompt).toContain("Do not ask me to type terminal or Git commands");
+    expect(prompt).toContain("Ask only one question at a time");
+    expect(prompt).toContain("Never ask for my passwords or secret values");
+    expect(prompt).toContain("run the relevant tests");
+    expect(prompt).toContain("commit and push");
+    expect(prompt).toContain("return to the Cedarville App Portal");
+    expect(prompt).toContain("preserve any existing Git history");
+    expect(prompt).toContain("report the repository and branch that received the push");
+    expect(prompt).toContain("Return to the portal and select My code has been uploaded");
   });
 });

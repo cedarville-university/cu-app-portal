@@ -8,11 +8,24 @@ export function buildCodexHandoffPrompt(
   } = {},
 ) {
   const prompt = [
+    "Who you are helping",
+    "The person I am helping is a beginner who may not know Git, repositories, branches, commits, pull requests, Azure, or publishing.",
+    "Explain what you are doing in everyday language.",
+    "",
+    "Your goal",
+    `Make safe changes to "${appName}" for Cedarville App Portal request ${requestId}.`,
+    "You own the technical workflow: inspect the app, make the changes, and verify the result.",
+    "",
+    "Safety rules",
+    "Do not ask me to type terminal or Git commands. Run the technical commands yourself.",
+    "Ask only one question at a time, and only when a true human choice is needed.",
+    "Never ask for my passwords or secret values. Do not expose, copy, commit, or paste credentials, tokens, or other secrets.",
+    "Use my connected GitHub account in Codex if GitHub access is required; do not ask for portal credentials.",
+    "",
+    "Work to perform",
     `Open the managed GitHub repository ${repositoryUrl}.`,
-    `This repo was created by the Cedarville App Portal for "${appName}" (request ${requestId}).`,
-    "Use the managed repository as the source of truth, review the existing files, and help me customize the app.",
+    "Use the managed repository as the source of truth, inspect the existing files, and make only safe, relevant changes.",
     "Use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
-    "If GitHub access is required, use my connected GitHub account in Codex rather than asking for portal credentials.",
   ];
 
   if (options.sourceRepositoryUrl) {
@@ -31,6 +44,15 @@ export function buildCodexHandoffPrompt(
     );
   }
 
+  prompt.push(
+    "",
+    "Before you finish",
+    "Before you finish, run the relevant tests, explain the result plainly, then commit and push the completed work through the portal-supported workflow.",
+    "Verify that the push succeeded and give me a simple status summary.",
+    "When the code is ready, return to the Cedarville App Portal.",
+    "Return to the portal and select Publish to Azure.",
+  );
+
   return prompt.join("\n");
 }
 
@@ -45,27 +67,45 @@ export function buildLocalCodexGitSetupPrompt({
   requestId: string;
   defaultBranch?: string | null;
 }) {
+  const branch = defaultBranch ?? "main";
+
   return [
-    `I have a local Codex-built app named "${appName}" that needs to be connected to the Cedarville App Portal managed GitHub repository.`,
-    `Portal request: ${requestId}`,
-    `Managed repository: ${repositoryUrl}`,
+    "Who you are helping",
+    "The person I am helping is a beginner who may not know Git, repositories, branches, commits, pull requests, Azure, or publishing.",
+    "Explain what you are doing in everyday language.",
     "",
+    "Your goal",
+    `Connect the local "${appName}" project to the Cedarville App Portal managed repository for request ${requestId}.`,
+    "You own the technical workflow: inspect the app, connect and upload the code safely, and verify the result.",
+    "",
+    "Safety rules",
+    "Do not ask me to type terminal or Git commands. Run the technical commands yourself.",
+    "Ask only one question at a time, and only when a true human choice is needed.",
+    "Never ask for my passwords or secret values. Do not expose, copy, commit, or paste credentials, tokens, or other secrets.",
     "Do not require the GitHub CLI.",
-    "Check whether the git command is available locally. If git is not installed, pause the repository setup and help me install Git first using the official installer or package manager for my operating system (https://git-scm.com/downloads/), then continue with the setup.",
-    "In the local project folder, inspect whether git is already initialized and whether there are existing commits/remotes.",
-    "If git is not initialized, run:",
+    "",
+    "Work to perform",
+    `Managed repository: ${repositoryUrl}`,
+    `Use ${branch} as the portal branch.`,
+    "Check whether the git command is available locally. If git is not installed, help me install Git first using the official installer or package manager for my operating system (https://git-scm.com/downloads/), then continue with the setup.",
+    "Inspect the local project, its Git status, existing remotes, and existing commits. First, preserve any existing Git history and remotes.",
+    "Check that secret and local environment files are excluded before staging anything.",
+    "If Git is not initialized, initialize it and create the initial commit without adding secret or local environment files:",
     "git init",
-    `git branch -M ${defaultBranch ?? "main"}`,
+    `git branch -M ${branch}`,
     "git add .",
     'git commit -m "Initial app source"',
-    "",
     "Add the portal-managed repository as a remote named portal if it is not already configured:",
     `git remote add portal ${repositoryUrl}`,
-    "",
     "Push the current local code to the portal-managed repository:",
-    `git push -u portal HEAD:${defaultBranch ?? "main"}`,
-    "",
+    `git push -u portal HEAD:${branch}`,
     "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
-    "After the push succeeds, tell me to return to the Cedarville App Portal and apply or review the Azure publishing setup.",
+    "",
+    "Before you finish",
+    "Before you finish, run the relevant tests, explain the result plainly, then commit and push the completed work through the portal-supported workflow.",
+    `Verify that the push succeeded, and report the repository and branch that received the push: ${repositoryUrl} (${branch}).`,
+    "Give me a simple status summary.",
+    "When the code is ready, return to the Cedarville App Portal.",
+    "Return to the portal and select My code has been uploaded.",
   ].join("\n");
 }
