@@ -76,6 +76,9 @@ describe("publishing setup actions", () => {
     expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/request-123");
+    expect(revalidatePath).toHaveBeenCalledWith(
+      "/onboarding/request-123",
+    );
   });
 
   it("notifies when repair leaves publishing setup blocked", async () => {

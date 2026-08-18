@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { revalidatePath } from "next/cache";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { prisma } from "@/lib/db";
@@ -105,6 +106,7 @@ describe("publishing actions", () => {
     mockGithub.commitFiles.mockReset();
     vi.mocked(recordAuditEvent).mockReset();
     vi.mocked(runPublishAttempt).mockReset();
+    vi.mocked(revalidatePath).mockReset();
     vi.mocked(runPublishAttempt).mockResolvedValue(undefined);
     vi.mocked(createGitHubAppClient).mockClear();
     mockGithub.readRepositoryTextFiles.mockResolvedValue({
@@ -166,6 +168,9 @@ describe("publishing actions", () => {
         publishErrorSummary: null,
       },
     });
+    expect(revalidatePath).toHaveBeenCalledWith(
+      "/onboarding/request-123",
+    );
   });
 
   it("allows a collaborator with app access to queue a publish attempt", async () => {

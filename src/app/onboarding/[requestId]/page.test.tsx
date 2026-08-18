@@ -20,6 +20,11 @@ vi.mock("@/features/app-requests/current-user", () => ({
 
 vi.mock("@/features/publishing/actions", () => ({
   publishToAzureAction: vi.fn(),
+  retryPublishAction: vi.fn(),
+}));
+
+vi.mock("@/features/publishing/setup/actions", () => ({
+  repairPublishingSetupAction: vi.fn(),
 }));
 
 vi.mock("@/features/repositories/actions", () => ({
@@ -71,7 +76,13 @@ function generatedApp(
     repositoryAccessStatus: "NOT_REQUESTED",
     repositoryAccessNote: null,
     publishingSetupStatus: "NOT_CHECKED",
+    publishingSetupErrorSummary: null,
     publishStatus: "NOT_STARTED",
+    publishErrorSummary: null,
+    primaryPublishUrl: null,
+    publishUrl: null,
+    publishAttempts: [],
+    publishSetupChecks: [],
     repositoryImport: null,
     user: { githubUsername: "owner-name" },
     ...overrides,
@@ -143,7 +154,17 @@ describe("AppOnboardingPage generated apps", () => {
           { collaborators: { some: { userId: "collaborator-123" } } },
         ],
       },
-      include: { repositoryImport: true },
+      include: {
+        repositoryImport: true,
+        publishAttempts: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+        publishSetupChecks: {
+          orderBy: { checkedAt: "desc" },
+          take: 7,
+        },
+      },
     });
   });
 
@@ -166,7 +187,17 @@ describe("AppOnboardingPage generated apps", () => {
     expect(screen.queryByDisplayValue("owner-name")).not.toBeInTheDocument();
     expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
       where: { id: "req_123" },
-      include: { repositoryImport: true },
+      include: {
+        repositoryImport: true,
+        publishAttempts: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+        publishSetupChecks: {
+          orderBy: { checkedAt: "desc" },
+          take: 7,
+        },
+      },
     });
   });
 
@@ -630,6 +661,249 @@ describe("AppOnboardingPage imported and local preparation", () => {
       "href",
       "/apps/add?source=github&repositoryUrl=https%3A%2F%2Fgithub.com%2Fexternal-org%2Fcampus-dashboard&appName=Campus%20Dashboard",
     );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});
+
+describe("AppOnboardingPage publishing setup and recovery", () => {
+  function preparedImportedApp(overrides: Record<string, unknown> = {}) {
+    return importedApp({
+      repositoryImport: {
+        ...importedApp().repositoryImport,
+        preparationStatus: "COMMITTED",
+        preparationMode: "DIRECT_COMMIT",
+      },
+      ...overrides,
+    });
+  }
+
+  it("finishes imported publishing setup before offering publish", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({ publishingSetupStatus: "NOT_CHECKED" }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Finish publishing setup" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Publish to Azure" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it.each(["CHECKING", "REPAIRING"])(
+    "checks %s publishing setup automatically without a stale action",
+    async (publishingSetupStatus) => {
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+        preparedImportedApp({ publishingSetupStatus }),
+      );
+
+      await renderPage();
+
+      expect(screen.getByRole("status")).toHaveTextContent(
+        /checks this page automatically/i,
+      );
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["NEEDS_REPAIR", "BLOCKED"])(
+    "offers only safe setup repair when publishing setup is %s",
+    async (publishingSetupStatus) => {
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+        preparedImportedApp({
+          publishingSetupStatus,
+          publishingSetupErrorSummary:
+            "The portal could not confirm one publishing setting.",
+          publishSetupChecks: [
+            {
+              id: "check-123",
+              appRequestId: "req_123",
+              checkKey: "github_actions_secrets",
+              status: "FAIL",
+              message: "A managed publishing setting needs attention.",
+              metadata: { requestId: "provider-request-123" },
+              checkedAt: new Date("2026-08-18T18:00:00Z"),
+              createdAt: new Date("2026-08-18T18:00:00Z"),
+              updatedAt: new Date("2026-08-18T18:00:00Z"),
+            },
+          ],
+        }),
+      );
+
+      await renderPage();
+
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        /could not confirm one publishing setting/i,
+      );
+      expect(
+        screen.getByRole("button", { name: "Fix publishing setup" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Publish to Azure" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Try publishing again" }),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button")).toHaveLength(1);
+      expect(
+        screen.getByText("github_actions_secrets"),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/provider-request-123/i)).toBeInTheDocument();
+    },
+  );
+
+  it("offers initial publish only after imported setup is ready", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({ publishingSetupStatus: "READY" }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Publish to Azure" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Finish publishing setup" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Fix publishing setup" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it.each(["QUEUED", "PROVISIONING", "DEPLOYING"])(
+    "shows automatic progress and a deployment log while publish is %s",
+    async (publishStatus) => {
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+        preparedImportedApp({
+          publishingSetupStatus: "READY",
+          publishStatus,
+          publishAttempts: [
+            {
+              id: "attempt-123",
+              appRequestId: "req_123",
+              status: publishStatus,
+              stage: publishStatus,
+              errorSummary: null,
+              startedAt: new Date("2026-08-18T18:00:00Z"),
+              githubWorkflowRunId: "456",
+              githubWorkflowRunUrl:
+                "https://github.com/cedarville-it/campus-dashboard/actions/runs/456",
+              deploymentStartedAt: null,
+              verifiedAt: null,
+              finishedAt: null,
+              createdAt: new Date("2026-08-18T18:00:00Z"),
+            },
+          ],
+        }),
+      );
+
+      await renderPage();
+
+      expect(screen.getByRole("status")).toHaveTextContent(
+        /checks publishing progress automatically/i,
+      );
+      expect(
+        screen.getByRole("link", { name: "Open deployment log" }),
+      ).toHaveAttribute(
+        "href",
+        "https://github.com/cedarville-it/campus-dashboard/actions/runs/456",
+      );
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    },
+  );
+
+  it("offers valid publish recovery with user-safe error details", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        publishingSetupStatus: "NEEDS_REPAIR",
+        publishingSetupErrorSummary:
+          "One publishing connection needs to be refreshed.",
+        publishStatus: "FAILED",
+        publishErrorSummary:
+          "The app did not finish publishing. No app code was deleted.",
+      }),
+    );
+
+    await renderPage();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /did not finish publishing/i,
+    );
+    expect(screen.getByText(/one publishing connection needs/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Try publishing again" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Fix publishing setup" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Publish to Azure" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("does not offer an invalid retry while setup repair is still running", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        publishingSetupStatus: "REPAIRING",
+        publishStatus: "FAILED",
+        publishErrorSummary: "The last publish did not finish.",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.queryByRole("button", { name: "Try publishing again" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /checks this page automatically/i,
+    );
+  });
+
+  it("hands a successfully published app to its full details page", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        publishingSetupStatus: "READY",
+        publishStatus: "SUCCEEDED",
+        primaryPublishUrl: "https://campus-dashboard.azurewebsites.net",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /your app is online/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Open app details" }),
+    ).toHaveAttribute("href", "/download/req_123");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("offers no mutation after a deployment has been removed", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        publishingSetupStatus: "READY",
+        publishStatus: "DELETED",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /no longer published/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to My Apps" })).toHaveAttribute(
+      "href",
+      "/apps",
+    );
+    expect(screen.getByText(/contact the portal support team/i)).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

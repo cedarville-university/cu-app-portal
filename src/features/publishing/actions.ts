@@ -77,6 +77,7 @@ async function recordPublishRequested({
 function revalidatePublishViews(requestId: string) {
   try {
     revalidatePath(`/download/${requestId}`);
+    revalidatePath(`/onboarding/${requestId}`);
     revalidatePath("/apps");
   } catch (error) {
     console.error("Failed to revalidate publish views.", error);

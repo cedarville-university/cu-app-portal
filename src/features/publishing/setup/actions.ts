@@ -11,7 +11,11 @@ import { prisma } from "@/lib/db";
 import { repairPublishingSetup } from "./service";
 
 function revalidatePublishingSetupViews(requestId: string) {
-  for (const path of ["/apps", `/download/${requestId}`]) {
+  for (const path of [
+    "/apps",
+    `/download/${requestId}`,
+    `/onboarding/${requestId}`,
+  ]) {
     try {
       revalidatePath(path);
     } catch (error) {
