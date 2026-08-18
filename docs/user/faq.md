@@ -33,7 +33,7 @@ Not necessarily. Publishing makes the app run in Azure. Who can enter depends on
 
 ## Does creating a starter publish it?
 
-No. **Create App** makes the starter and its managed repository, then stops. Choose **Publish the starter now** for the shortest route or **Customize it with Codex first**. The app goes online only after you explicitly select **Publish to Azure**.
+No. **Create App** makes the starter and its managed repository, then stops. **Publish the starter now** starts Azure publishing immediately and is the only publish confirmation for an unchanged starter. **Customize it with Codex first** leads through GitHub access and setup before a later **Publish to Azure** action.
 
 ## Do I need a GitHub account?
 
@@ -45,7 +45,7 @@ Not to publish an unchanged generated starter. You need one when Codex or a pers
 
 ## What happens after someone changes the code?
 
-The change must be committed and pushed to the portal-managed GitHub repository. Then push-to-deploy may publish automatically, or an authorized portal user can select Publish.
+The change must be committed and pushed to the portal-managed GitHub repository. Then push-to-deploy may publish automatically, or an authorized portal user can select **Publish to Azure**.
 
 ## Can another person help manage my app?
 

@@ -58,7 +58,7 @@ Imported apps currently support root Next.js, Express, Python FastAPI, and plain
 
 When **Your starter app is ready** appears, choose **Publish the starter now** or **Customize it with Codex first**.
 
-**Publish the starter now** is the quickest route and does not require your own GitHub account. **Customize it with Codex first** starts the GitHub access and Codex handoff steps. Codex is optional; the portal never assumes that customization is required.
+**Publish the starter now** starts Azure publishing immediately. It is the only publish confirmation for an unchanged starter and does not require your own GitHub account. **Customize it with Codex first** starts the GitHub access and Codex handoff steps. Codex is optional; after customized code is pushed and setup is ready, that path later presents **Publish to Azure**.
 
 ## 5. GitHub access and Codex customization
 
@@ -100,7 +100,7 @@ Before publishing, confirm:
 - Required environment variables have been added.
 - The code you want is present in the managed GitHub repository.
 
-Select **Publish to Azure** from the focused wizard. This separate button is your explicit confirmation: setup and repair never publish on their own. Publishing may take several minutes. Preparation, setup checks, repairs, and publishing pages refresh automatically, so leave the page open and do not repeat an action while it is running.
+For a customized generated app or an imported or local app, select **Publish to Azure** from the focused wizard after preparation and setup are ready. This separate button is the explicit confirmation for those paths; setup and repair never publish on their own. An unchanged generated starter does not show a second confirmation because **Publish the starter now** already starts publishing. Publishing may take several minutes. Preparation, setup checks, repairs, and publishing pages refresh automatically, so leave the page open and do not repeat an action while it is running.
 
 When publishing succeeds, the wizard shows **Your app is online** and **Open app details**. The full app details page is intentionally withheld until this first success. If you leave earlier, My Apps shows **Continue Setup** and resumes the exact safe step. After success, My Apps shows **Manage App**.
 

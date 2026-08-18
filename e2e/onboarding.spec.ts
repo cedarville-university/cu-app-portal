@@ -167,9 +167,13 @@ test.describe("novice onboarding", () => {
       .getByRole("heading", { name: "E2E Published Starter" })
       .locator("..")
       .locator("..");
-    await expect(
-      publishedCard.getByRole("link", { name: "Manage App" }),
-    ).toHaveAttribute("href", `/download/${fixtureIds.published}`);
+    const publishedManageLink = publishedCard.getByRole("link", {
+      name: "Manage App",
+    });
+    await expect(publishedManageLink).toHaveAttribute(
+      "href",
+      `/download/${fixtureIds.published}`,
+    );
 
     await unpublishedCard.getByRole("link", { name: "Continue Setup" }).click();
     await expect(
@@ -183,7 +187,8 @@ test.describe("novice onboarding", () => {
     ).toBeVisible();
 
     await page.goto("/apps");
-    await page.getByRole("link", { name: "Manage App", exact: true }).click();
+    await publishedManageLink.click();
+    await expect(page).toHaveURL(`/download/${fixtureIds.published}`);
     await expect(page.getByRole("heading", { name: "Your App Is Ready" })).toBeVisible();
     await expect(page.getByText("E2E Published Starter — Set up Codex, and publish to Azure.")).toBeVisible();
   });

@@ -22,10 +22,9 @@ GitHub is a secure website that stores app files and their change history. Azure
 2. Choose a recommended template. Each template explains what it is best for. If you are unsure, use the option whose examples are closest to your project.
 3. Enter the app name and description. Choose database or Cedarville login options only when the form offers them and your app needs them.
 4. Select **Create App**. This creates the starter and its private online code home; it does not publish.
-5. Choose **Publish the starter now** if the starter is ready, or **Customize it with Codex first**. Codex is an AI coding assistant. To customize, follow the page's GitHub account and invitation steps, paste its prompt into Codex, and return after Codex says the changes were pushed.
-6. Select **Publish to Azure** when you are ready. This is the explicit confirmation that puts the current code online.
-7. Leave the progress page open. It updates automatically during preparation, publishing setup, and publishing. Do not click an action again while it is running.
-8. When **Your app is online** appears, select **Open app details** and test the app's main task.
+5. **Publish the starter now** starts Azure publishing immediately. It is the only publish confirmation for an unchanged starter. Or select **Customize it with Codex first**. Codex is an AI coding assistant. Follow the page's GitHub account and invitation steps, paste its prompt into Codex, and return after Codex says the changes were pushed. The customized path later asks you to select **Publish to Azure** after setup is ready.
+6. Leave the progress page open. It updates automatically during preparation, publishing setup, and publishing. Do not click an action again while it is running.
+7. When **Your app is online** appears, select **Open app details** and test the app's main task.
 
 ## Return later
 

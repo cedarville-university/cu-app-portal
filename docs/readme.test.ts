@@ -28,6 +28,28 @@ describe("README", () => {
     expect(quickStart).toContain("Continue Setup");
     expect(quickStart).not.toContain("Create and Publish");
   });
+
+  it("documents generated starter publication as one button, not a second confirmation", () => {
+    const sources = [
+      readFileSync("docs/user/quick-start.md", "utf8"),
+      readFileSync("docs/user/guide.md", "utf8"),
+      readFileSync("docs/user/faq.md", "utf8"),
+      readFileSync("docs/portal/setup.md", "utf8"),
+    ];
+
+    for (const source of sources) {
+      expect(source).toContain(
+        "**Publish the starter now** starts Azure publishing immediately",
+      );
+    }
+
+    expect(sources.join("\n")).not.toContain(
+      "The app goes online only after you explicitly select **Publish to Azure**",
+    );
+    expect(sources.join("\n")).not.toContain(
+      "Select **Publish to Azure** when you are ready. This is the explicit confirmation",
+    );
+  });
 });
 
 describe("portal setup docs", () => {
