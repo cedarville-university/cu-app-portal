@@ -15,8 +15,13 @@ const initialAddExistingAppFormState: AddExistingAppFormState = {
 
 export function AddExistingAppForm({
   initialState = initialAddExistingAppFormState,
+  initialValues = {},
 }: {
   initialState?: AddExistingAppFormState;
+  initialValues?: {
+    repositoryUrl?: string;
+    appName?: string;
+  };
 }) {
   const [state, formAction] = useActionState(
     addExistingAppFormAction,
@@ -35,6 +40,7 @@ export function AddExistingAppForm({
           type="url"
           required
           placeholder="https://github.com/owner/repo"
+          defaultValue={initialValues.repositoryUrl ?? ""}
           className="form-control"
         />
         <p
@@ -58,6 +64,7 @@ export function AddExistingAppForm({
           name="appName"
           type="text"
           required
+          defaultValue={initialValues.appName ?? ""}
           className="form-control"
         />
       </div>

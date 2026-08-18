@@ -79,10 +79,10 @@ export function deriveOnboardingState(
   }
   if (input.publishStatus === "FAILED") return { kind: "PUBLISH_FAILED" };
 
+  if (input.importStatus === "FAILED") return { kind: "IMPORT_FAILED" };
+
   if (input.repositoryStatus === "FAILED") return { kind: "REPOSITORY_FAILED" };
   if (input.repositoryStatus === "PENDING") return { kind: "REPOSITORY_PENDING" };
-
-  if (input.importStatus === "FAILED") return { kind: "IMPORT_FAILED" };
 
   const isImported = input.sourceOfTruth === "IMPORTED_REPOSITORY";
   if (isImported || input.isLocalSource) {

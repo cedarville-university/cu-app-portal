@@ -10,11 +10,19 @@ import {
   type OnboardingPathChoice,
   type OnboardingStateInput,
 } from "@/features/onboarding/state";
+import { OnboardingProgressRefresh } from "@/features/onboarding/progress-refresh";
 import { OnboardingStepShell } from "@/features/onboarding/step-shell";
 import { publishToAzureAction } from "@/features/publishing/actions";
 import { saveGitHubUsernameAndGrantAccessAction } from "@/features/repositories/actions";
 import { parseRepositoryAccessActorUsername } from "@/features/repositories/access";
-import { buildCodexHandoffPrompt } from "@/features/repositories/codex-handoff";
+import {
+  prepareExistingAppAction,
+  verifyExistingAppPreparationAction,
+} from "@/features/repository-imports/actions";
+import {
+  buildCodexHandoffPrompt,
+  buildLocalCodexGitSetupPrompt,
+} from "@/features/repositories/codex-handoff";
 import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-handoff-button";
 import { prisma } from "@/lib/db";
 
@@ -81,6 +89,32 @@ function PublishForm({
         idleLabel={label}
         pendingLabel="Publishing to Azure..."
         statusText="Creating the Azure home for your app and starting publication."
+        variant="primary-solid"
+      />
+    </form>
+  );
+}
+
+function PreparationForm({
+  requestId,
+  mode,
+  label,
+  pendingLabel,
+  statusText,
+}: {
+  requestId: string;
+  mode: "DIRECT_COMMIT" | "PULL_REQUEST";
+  label: string;
+  pendingLabel: string;
+  statusText: string;
+}) {
+  return (
+    <form action={prepareExistingAppAction.bind(null, requestId)}>
+      <input type="hidden" name="preparationMode" value={mode} />
+      <PendingSubmitButton
+        idleLabel={label}
+        pendingLabel={pendingLabel}
+        statusText={statusText}
         variant="primary-solid"
       />
     </form>
@@ -210,6 +244,34 @@ export default async function AppOnboardingPage({
       </a>
     </p>
   ) : undefined;
+
+  if (state.kind === "IMPORT_FAILED" && app.repositoryImport) {
+    const restartHref = `/apps/add?source=github&repositoryUrl=${encodeURIComponent(
+      app.repositoryImport.sourceRepositoryUrl,
+    )}&appName=${encodeURIComponent(app.appName)}`;
+
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Code"
+          title="We couldn't copy your app yet"
+          explanation="The portal did not finish making a managed Cedarville copy. It left this request unchanged so it will not overwrite or delete any repository files."
+          next="Start a new import from the original GitHub repository. The portal will choose a fresh managed repository name instead of reusing the partial copy."
+          supportReference={app.supportReference}
+        >
+          <div className="wizard-actions">
+            {app.repositoryImport.importErrorSummary ? (
+              <p role="alert">{app.repositoryImport.importErrorSummary}</p>
+            ) : null}
+            <Link className="btn btn--primary-solid" href={restartHref}>
+              Start again with this repository
+            </Link>
+          </div>
+        </OnboardingStepShell>
+      </main>
+    );
+  }
 
   if (state.kind === "GENERATED_PATH_CHOICE") {
     return (
@@ -378,6 +440,199 @@ export default async function AppOnboardingPage({
               for you. Do not share passwords or secret values.
             </p>
             <PublishForm requestId={app.id} />
+          </div>
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
+  if (state.kind === "LOCAL_CODE_UPLOAD" && app.repositoryUrl) {
+    const prompt = buildLocalCodexGitSetupPrompt({
+      repositoryUrl: app.repositoryUrl,
+      appName: app.appName,
+      requestId: app.id,
+      defaultBranch: app.repositoryDefaultBranch,
+    });
+
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Code"
+          title="Upload your local app with Codex"
+          explanation="Codex is an assistant that can connect the app folder on your computer to its private GitHub code home. Paste this prompt into Codex and let it handle the technical Git steps."
+          next="Wait until Codex says the upload succeeded. Then return here and confirm the upload so the portal can check and prepare the app for publishing."
+          supportReference={app.supportReference}
+          details={repositoryDetails}
+        >
+          <div className="wizard-actions">
+            <pre className="wizard-prompt">
+              <code>{prompt}</code>
+            </pre>
+            <CopyCodexHandoffButton prompt={prompt} />
+            <p>
+              Do not select the confirmation until Codex reports that the push
+              to the managed repository succeeded.
+            </p>
+            <PreparationForm
+              requestId={app.id}
+              mode="DIRECT_COMMIT"
+              label="My code has been uploaded"
+              pendingLabel="Checking my uploaded code..."
+              statusText="Checking the uploaded app and adding the files needed for Azure publishing."
+            />
+          </div>
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
+  if (state.kind === "PREPARATION_READY") {
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Prepare"
+          title="Prepare your app for publishing"
+          explanation="The portal will inspect your app and add Cedarville's Azure publishing files. It will not overwrite publishing files that are already there."
+          next="If there are no conflicts, the portal will finish the publishing setup. If existing files need a decision, it will guide you through a safe GitHub review."
+          supportReference={app.supportReference}
+          details={repositoryDetails}
+        >
+          <PreparationForm
+            requestId={app.id}
+            mode="DIRECT_COMMIT"
+            label="Prepare my app for publishing"
+            pendingLabel="Preparing my app..."
+            statusText="Checking your app and adding the files needed for Azure publishing."
+          />
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
+  if (state.kind === "PREPARATION_RUNNING") {
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Prepare"
+          title="The portal is preparing your app"
+          explanation="The portal is checking the app and adding the files Azure needs. No action is needed while this work is running."
+          next="This page will move to the next safe step as soon as preparation finishes."
+          supportReference={app.supportReference}
+          details={repositoryDetails}
+        >
+          <OnboardingProgressRefresh statusText="The portal is checking your app automatically while preparation continues. You can leave this page open." />
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
+  if (state.kind === "PREPARATION_FAILED") {
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Prepare"
+          title="Preparation needs another try"
+          explanation="The app is still safe. The portal saved the preparation method you chose and will use that same method for this retry."
+          next="Try again once. If the same message returns, share the support reference with the portal support team."
+          supportReference={app.supportReference}
+          details={repositoryDetails}
+        >
+          <div className="wizard-actions">
+            {app.repositoryImport?.preparationErrorSummary ? (
+              <p role="alert">
+                {app.repositoryImport.preparationErrorSummary}
+              </p>
+            ) : null}
+            <PreparationForm
+              requestId={app.id}
+              mode={state.retryMode}
+              label="Try preparation again"
+              pendingLabel="Trying preparation again..."
+              statusText="Retrying the same safe preparation method used before."
+            />
+          </div>
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
+  if (state.kind === "PREPARATION_CONFLICT") {
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Prepare"
+          title="Review existing publishing files safely"
+          explanation="Your app already has publishing files, so the portal will not replace them directly. It can open a pull request, which is a proposed set of changes you can review on GitHub before anything is merged into the app."
+          next="Open the safe review, compare the proposed files on GitHub, and merge them only when they look right. The wizard will then check that the approved files reached the app."
+          supportReference={app.supportReference}
+          details={repositoryDetails}
+        >
+          <div className="wizard-actions">
+            {app.repositoryImport?.preparationErrorSummary ? (
+              <p role="alert">
+                {app.repositoryImport.preparationErrorSummary}
+              </p>
+            ) : null}
+            <PreparationForm
+              requestId={app.id}
+              mode="PULL_REQUEST"
+              label="Open a safe review on GitHub"
+              pendingLabel="Opening the GitHub review..."
+              statusText="Creating a proposed set of publishing changes for you to review on GitHub."
+            />
+          </div>
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
+  if (state.kind === "PREPARATION_REVIEW_OPEN") {
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Prepare"
+          title="Review and approve the publishing changes"
+          explanation="A pull request is a GitHub review page for proposed changes. Open it, review the files, approve the changes, and merge them into the app's main code before returning here."
+          next="After you merge the pull request on GitHub, ask the portal to confirm that the publishing files are now part of the app."
+          supportReference={app.supportReference}
+          details={repositoryDetails}
+        >
+          <div className="wizard-actions">
+            {app.repositoryImport?.preparationPullRequestUrl ? (
+              <a
+                className="btn btn--secondary"
+                href={app.repositoryImport.preparationPullRequestUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open the GitHub review
+              </a>
+            ) : null}
+            {app.repositoryImport?.preparationErrorSummary ? (
+              <p role="alert">
+                {app.repositoryImport.preparationErrorSummary}
+              </p>
+            ) : null}
+            <form
+              action={verifyExistingAppPreparationAction.bind(
+                null,
+                app.id,
+                undefined,
+              )}
+            >
+              <PendingSubmitButton
+                idleLabel="I've approved the changes"
+                pendingLabel="Checking the approved changes..."
+                statusText="Checking that the reviewed publishing files were merged into the app."
+                variant="primary-solid"
+              />
+            </form>
           </div>
         </OnboardingStepShell>
       </main>

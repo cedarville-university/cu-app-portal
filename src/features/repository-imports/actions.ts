@@ -12,6 +12,7 @@ import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { preflightPublishingSetup } from "@/features/publishing/setup/service";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
+import { parseRepositoryAccessActorUsername } from "@/features/repositories/access";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
@@ -39,7 +40,6 @@ const localCodexAppSchema = z.object({
 });
 
 const preparationModeSchema = z.enum(["DIRECT_COMMIT", "PULL_REQUEST"]);
-const PREPARABLE_STATUSES = ["PENDING_USER_CHOICE", "FAILED"] as const;
 
 type AddExistingAppDeps = {
   defaultOrg?: string;
@@ -304,7 +304,7 @@ function isPublishingFileConflictError(error: unknown) {
 }
 
 function buildPublishingFileConflictFeedback(message: string) {
-  return `${message} The portal will not overwrite existing publishing files directly. Open an Azure publishing PR to review the generated changes in Git, or resolve them manually and verify readiness here.`;
+  return `${message} The portal will not overwrite existing publishing files directly. Open a safe GitHub review to compare and approve the proposed publishing changes.`;
 }
 
 function buildImportedSubmittedConfig({
@@ -738,6 +738,15 @@ function revalidateImportedRepositoryViews(requestId: string) {
   revalidatePath(`/onboarding/${requestId}`);
 }
 
+function hasLocalOnlySource(submittedConfig: unknown) {
+  return Boolean(
+    submittedConfig &&
+      typeof submittedConfig === "object" &&
+      "localOnlySource" in submittedConfig &&
+      submittedConfig.localOnlySource === true,
+  );
+}
+
 export async function prepareExistingAppAction(
   requestId: string,
   formData: FormData,
@@ -760,22 +769,53 @@ export async function prepareExistingAppAction(
     throw new Error("Imported app repository is not ready for preparation.");
   }
 
-  const preparationTransitionWhere: Prisma.RepositoryImportWhereInput =
-    mode === "PULL_REQUEST"
-      ? {
-          id: appRequest.repositoryImport.id,
-          OR: [
-            { preparationStatus: { in: [...PREPARABLE_STATUSES] } },
-            {
-              compatibilityStatus: "CONFLICTED" as const,
-              preparationStatus: "BLOCKED" as const,
-            },
-          ],
-        }
-      : {
-          id: appRequest.repositoryImport.id,
-          preparationStatus: { in: [...PREPARABLE_STATUSES] },
-        };
+  const preparation = appRequest.repositoryImport;
+  const isInitialDirectPreparation =
+    preparation.preparationStatus === "PENDING_USER_CHOICE" &&
+    mode === "DIRECT_COMMIT";
+  const isSameModeRetry =
+    preparation.preparationStatus === "FAILED" &&
+    preparation.preparationMode === mode;
+  const isConflictReview =
+    preparation.preparationStatus === "BLOCKED" &&
+    preparation.compatibilityStatus === "CONFLICTED" &&
+    mode === "PULL_REQUEST";
+  const isLocalUploadConfirmation =
+    isInitialDirectPreparation &&
+    hasLocalOnlySource(appRequest.submittedConfig);
+
+  if (!isInitialDirectPreparation && !isSameModeRetry && !isConflictReview) {
+    throw new Error("Imported app preparation is not awaiting this action.");
+  }
+
+  if (isConflictReview || isLocalUploadConfirmation) {
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { githubUsername: true },
+    });
+    const accessActor = parseRepositoryAccessActorUsername(
+      appRequest.repositoryAccessNote,
+    );
+    const actorHasAccess =
+      appRequest.repositoryAccessStatus === "GRANTED" &&
+      actor?.githubUsername &&
+      accessActor?.toLowerCase() === actor.githubUsername.toLowerCase();
+
+    if (!actorHasAccess) {
+      throw new Error(
+        isConflictReview
+          ? "GitHub access for the signed-in user is required before opening a review."
+          : "GitHub access for the signed-in user is required before confirming a local upload.",
+      );
+    }
+  }
+
+  const preparationTransitionWhere: Prisma.RepositoryImportWhereInput = {
+    id: preparation.id,
+    preparationStatus: preparation.preparationStatus,
+    ...(isSameModeRetry ? { preparationMode: mode } : {}),
+    ...(isConflictReview ? { compatibilityStatus: "CONFLICTED" } : {}),
+  };
 
   const runningImport = await prisma.repositoryImport.updateMany({
     where: preparationTransitionWhere,
@@ -787,7 +827,7 @@ export async function prepareExistingAppAction(
   });
 
   if (runningImport.count !== 1) {
-    throw new Error("Imported app preparation is not awaiting a user choice.");
+    throw new Error("Imported app preparation is no longer awaiting this action.");
   }
 
   try {
@@ -914,9 +954,7 @@ export async function verifyExistingAppPreparationAction(
   }
 
   const canVerifyPreparation =
-    appRequest.repositoryImport.preparationStatus === "PULL_REQUEST_OPENED" ||
-    (appRequest.repositoryImport.preparationStatus === "BLOCKED" &&
-      appRequest.repositoryImport.compatibilityStatus === "CONFLICTED");
+    appRequest.repositoryImport.preparationStatus === "PULL_REQUEST_OPENED";
 
   if (!canVerifyPreparation) {
     throw new Error(

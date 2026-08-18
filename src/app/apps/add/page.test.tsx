@@ -224,6 +224,28 @@ describe("AddExistingAppPage", () => {
     ).toHaveTextContent(/current step/i);
   });
 
+  it("prefills a failed import restart from the original request values", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+
+    render(
+      await AddExistingAppPage({
+        searchParams: Promise.resolve({
+          source: "github",
+          repositoryUrl:
+            "https://github.com/external-org/campus-dashboard",
+          appName: "Campus Dashboard",
+        }),
+      }),
+    );
+
+    expect(screen.getByLabelText(/github repository url/i)).toHaveValue(
+      "https://github.com/external-org/campus-dashboard",
+    );
+    expect(screen.getByLabelText(/^app name$/i)).toHaveValue(
+      "Campus Dashboard",
+    );
+  });
+
   it("puts the computer-only form first and marks it as the current step when selected", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
 

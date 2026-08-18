@@ -24,11 +24,23 @@ async function submitLocalCodexAppAction(formData: FormData) {
 export default async function AddExistingAppPage({
   searchParams,
 }: {
-  searchParams: Promise<{ source?: string | string[] }>;
+  searchParams: Promise<{
+    source?: string | string[];
+    repositoryUrl?: string | string[];
+    appName?: string | string[];
+  }>;
 }) {
   const userId = await getCurrentUserIdOrNull();
-  const { source } = await searchParams;
+  const { source, repositoryUrl, appName } = await searchParams;
   const selectedSource = getSourcePath(source);
+  const initialRepositoryUrl = Array.isArray(repositoryUrl)
+    ? repositoryUrl[0]
+    : repositoryUrl;
+  const initialAppName = Array.isArray(appName) ? appName[0] : appName;
+  const githubInitialValues = {
+    repositoryUrl: initialRepositoryUrl,
+    appName: initialAppName,
+  };
 
   if (!userId) {
     redirect("/");
@@ -110,7 +122,7 @@ export default async function AddExistingAppPage({
               apps with a root index.html for Azure App Service publishing.
             </p>
           </details>
-          <AddExistingAppForm />
+          <AddExistingAppForm initialValues={githubInitialValues} />
           </div>
         ) : null}
 
@@ -182,7 +194,7 @@ export default async function AddExistingAppPage({
                 apps with a root index.html for Azure App Service publishing.
               </p>
             </details>
-            <AddExistingAppForm />
+            <AddExistingAppForm initialValues={githubInitialValues} />
           </div>
         ) : null}
       </div>

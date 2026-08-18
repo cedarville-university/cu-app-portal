@@ -68,4 +68,23 @@ describe("AddExistingAppForm", () => {
       "The portal could not find that repository on GitHub. Double-check the repository URL and make sure the repository is public so the portal can read it.",
     );
   });
+
+  it("prefills a safe restart with the original source and app name", () => {
+    render(
+      <AddExistingAppForm
+        initialValues={{
+          repositoryUrl:
+            "https://github.com/external-org/campus-dashboard",
+          appName: "Campus Dashboard",
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText(/github repository url/i)).toHaveValue(
+      "https://github.com/external-org/campus-dashboard",
+    );
+    expect(screen.getByLabelText(/^app name$/i)).toHaveValue(
+      "Campus Dashboard",
+    );
+  });
 });

@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 
 export function OnboardingProgressRefresh({
   intervalMs = 5000,
+  statusText = "This page checks progress automatically. You can leave it open.",
 }: {
   intervalMs?: number;
+  statusText?: string;
 }) {
   const router = useRouter();
 
@@ -15,9 +17,5 @@ export function OnboardingProgressRefresh({
     return () => window.clearInterval(timer);
   }, [intervalMs, router]);
 
-  return (
-    <p role="status">
-      This page checks progress automatically. You can leave it open.
-    </p>
-  );
+  return <p role="status">{statusText}</p>;
 }

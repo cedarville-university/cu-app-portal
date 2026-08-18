@@ -166,6 +166,14 @@ describe("deriveOnboardingState workflow states", () => {
     ).toEqual({ kind: "PREPARATION_FAILED", retryMode: "PULL_REQUEST" });
   });
 
+  it("prioritizes failed-import recovery over the partial target repository failure", () => {
+    expect(
+      deriveOnboardingState(
+        imported({ importStatus: "FAILED", repositoryStatus: "FAILED" }),
+      ),
+    ).toEqual({ kind: "IMPORT_FAILED" });
+  });
+
   it("records which GitHub step resumes after access is granted", () => {
     expect(
       deriveOnboardingState(generated({ pathChoice: "customize" })),

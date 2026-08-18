@@ -26,6 +26,18 @@ vi.mock("@/features/repositories/actions", () => ({
   saveGitHubUsernameAndGrantAccessAction: vi.fn(),
 }));
 
+vi.mock("@/features/repository-imports/actions", () => ({
+  prepareExistingAppAction: vi.fn(),
+  verifyExistingAppPreparationAction: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  notFound: vi.fn(() => {
+    throw new Error("not-found");
+  }),
+  useRouter: vi.fn(() => ({ refresh: vi.fn() })),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: {
@@ -64,6 +76,27 @@ function generatedApp(
     user: { githubUsername: "owner-name" },
     ...overrides,
   } as unknown as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>;
+}
+
+function importedApp(
+  overrides: Record<string, unknown> = {},
+): Awaited<ReturnType<typeof prisma.appRequest.findFirst>> {
+  return generatedApp({
+    sourceOfTruth: "IMPORTED_REPOSITORY",
+    repositoryImport: {
+      id: "import_123",
+      sourceRepositoryUrl:
+        "https://github.com/external-org/campus-dashboard",
+      importStatus: "SUCCEEDED",
+      importErrorSummary: null,
+      compatibilityStatus: "COMPATIBLE",
+      preparationStatus: "PENDING_USER_CHOICE",
+      preparationMode: null,
+      preparationPullRequestUrl: null,
+      preparationErrorSummary: null,
+    },
+    ...overrides,
+  });
 }
 
 async function renderPage(
@@ -332,5 +365,199 @@ describe("AppOnboardingPage generated apps", () => {
     expect(
       screen.getByRole("button", { name: "Publish to Azure" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("AppOnboardingPage imported and local preparation", () => {
+  it("offers only direct preparation while an imported app awaits a choice", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(importedApp());
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Prepare my app for publishing" }),
+    ).toBeInTheDocument();
+    expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
+      "DIRECT_COMMIT",
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("checks preparation progress automatically without offering a stale action", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          preparationStatus: "RUNNING",
+          preparationMode: "DIRECT_COMMIT",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /checking your app automatically/i,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("retries a failed preparation with its stored prior mode only", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          preparationStatus: "FAILED",
+          preparationMode: "PULL_REQUEST",
+          preparationErrorSummary: "GitHub was temporarily unavailable.",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Try preparation again" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /github was temporarily unavailable/i,
+    );
+    expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
+      "PULL_REQUEST",
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("requires current-actor GitHub access before offering conflict review", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote: "GitHub access is ready for @owner-name.",
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          compatibilityStatus: "CONFLICTED",
+          preparationStatus: "BLOCKED",
+          preparationErrorSummary:
+            "Existing publishing files need a safe review.",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: /send repository invite/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Open a safe review on GitHub" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers only a safe GitHub review for an accessible conflict", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote:
+          "GitHub access is ready for @collaborator-name.",
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          compatibilityStatus: "CONFLICTED",
+          preparationStatus: "BLOCKED",
+          preparationErrorSummary:
+            "Existing publishing files need a safe review.",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Open a safe review on GitHub" }),
+    ).toBeInTheDocument();
+    expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
+      "PULL_REQUEST",
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("shows the opened review and only verifies after the user approves it", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          preparationStatus: "PULL_REQUEST_OPENED",
+          preparationMode: "PULL_REQUEST",
+          preparationPullRequestUrl:
+            "https://github.com/cedarville-it/campus-dashboard/pull/12",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("link", { name: "Open the GitHub review" }),
+    ).toHaveAttribute(
+      "href",
+      "https://github.com/cedarville-it/campus-dashboard/pull/12",
+    );
+    expect(
+      screen.getByRole("button", { name: "I've approved the changes" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("gives a local app the beginner upload prompt before direct preparation", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        submittedConfig: { localOnlySource: true },
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote:
+          "GitHub access is ready for @collaborator-name.",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByText(/connect the local "campus dashboard" project/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "My code has been uploaded" }),
+    ).toBeInTheDocument();
+    expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
+      "DIRECT_COMMIT",
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("restarts a failed import from the original source without reusing its partial target", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryStatus: "FAILED",
+        repositoryUrl: null,
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          importStatus: "FAILED",
+          importErrorSummary: "GitHub stopped the repository copy.",
+          preparationStatus: "BLOCKED",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /github stopped the repository copy/i,
+    );
+    expect(
+      screen.getByRole("link", {
+        name: "Start again with this repository",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/apps/add?source=github&repositoryUrl=https%3A%2F%2Fgithub.com%2Fexternal-org%2Fcampus-dashboard&appName=Campus%20Dashboard",
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
