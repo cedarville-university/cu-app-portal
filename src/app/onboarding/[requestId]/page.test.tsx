@@ -590,6 +590,11 @@ describe("AppOnboardingPage imported and local preparation", () => {
       }),
     ).toBeInTheDocument();
     expect(
+      screen.getByText(
+        /Return to the portal and select "I've repaired and uploaded my code"\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.queryByRole("button", { name: "Try preparation again" }),
     ).not.toBeInTheDocument();
     expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(

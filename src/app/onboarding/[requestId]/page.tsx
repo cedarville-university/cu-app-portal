@@ -22,6 +22,8 @@ import {
 import {
   buildCodexHandoffPrompt,
   buildLocalCodexGitSetupPrompt,
+  LOCAL_REPAIR_CONFIRMATION_LABEL,
+  LOCAL_UPLOAD_CONFIRMATION_LABEL,
 } from "@/features/repositories/codex-handoff";
 import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-handoff-button";
 import { prisma } from "@/lib/db";
@@ -504,8 +506,8 @@ export default async function AppOnboardingPage({
               mode="DIRECT_COMMIT"
               label={
                 isRepair
-                  ? "I've repaired and uploaded my code"
-                  : "My code has been uploaded"
+                  ? LOCAL_REPAIR_CONFIRMATION_LABEL
+                  : LOCAL_UPLOAD_CONFIRMATION_LABEL
               }
               pendingLabel="Checking my uploaded code..."
               statusText="Checking the uploaded app and adding the files needed for Azure publishing."

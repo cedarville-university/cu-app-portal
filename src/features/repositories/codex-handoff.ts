@@ -1,3 +1,7 @@
+export const LOCAL_UPLOAD_CONFIRMATION_LABEL = "My code has been uploaded";
+export const LOCAL_REPAIR_CONFIRMATION_LABEL =
+  "I've repaired and uploaded my code";
+
 export function buildCodexHandoffPrompt(
   repositoryUrl: string,
   appName: string,
@@ -118,7 +122,9 @@ export function buildLocalCodexGitSetupPrompt({
     `Verify that the push succeeded, and report the repository and branch that received the push: ${repositoryUrl} (${branch}).`,
     "Give me a simple status summary.",
     "When the code is ready, return to the Cedarville App Portal.",
-    "Return to the portal and select My code has been uploaded.",
+    preparationErrorSummary
+      ? `Return to the portal and select "${LOCAL_REPAIR_CONFIRMATION_LABEL}".`
+      : `Return to the portal and select ${LOCAL_UPLOAD_CONFIRMATION_LABEL}.`,
   ];
 
   if (preparationErrorSummary) {
