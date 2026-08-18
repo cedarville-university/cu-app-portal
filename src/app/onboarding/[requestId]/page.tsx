@@ -21,7 +21,10 @@ import {
   getPublishingSetupRepairEligibility,
 } from "@/features/publishing/eligibility";
 import { repairPublishingSetupAction } from "@/features/publishing/setup/actions";
-import { saveGitHubUsernameAndGrantAccessAction } from "@/features/repositories/actions";
+import {
+  retryRepositoryBootstrapAction,
+  saveGitHubUsernameAndGrantAccessAction,
+} from "@/features/repositories/actions";
 import { parseRepositoryAccessActorUsername } from "@/features/repositories/access";
 import {
   prepareExistingAppAction,
@@ -404,6 +407,54 @@ export default async function AppOnboardingPage({
       ]}
     />
   );
+
+  if (state.kind === "REPOSITORY_PENDING") {
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Code"
+          title="The portal is creating your app's code home"
+          explanation="The portal is creating a private online home for your app's code. This usually finishes within a few minutes, and no action is needed while it runs."
+          next="This page will move to the next safe code step automatically when the code home is ready."
+          details={publishingTechnicalDetails}
+        >
+          <OnboardingProgressRefresh statusText="The portal checks the code home automatically while setup continues. You can leave this page open." />
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
+  if (state.kind === "REPOSITORY_FAILED") {
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Code"
+          title="The app's code home needs another try"
+          explanation="The portal could not finish the protected code-home setup. Try again to have the portal create or reconnect that private code home using the saved starter."
+          next="When the code home is ready, this page moves to the next safe code step automatically. If the same message returns, share the support reference with the portal support team."
+          details={publishingTechnicalDetails}
+        >
+          <div className="wizard-actions">
+            <p role="alert">
+              The code-home setup did not finish. Your starter and saved request
+              are safe. Trying again does not publish your app or delete its
+              saved work.
+            </p>
+            <form action={retryRepositoryBootstrapAction.bind(null, app.id)}>
+              <PendingSubmitButton
+                idleLabel="Try code-home setup again"
+                pendingLabel="Trying code-home setup again..."
+                statusText="The portal is retrying the protected code-home setup without publishing the app."
+                variant="primary-solid"
+              />
+            </form>
+          </div>
+        </OnboardingStepShell>
+      </main>
+    );
+  }
 
   if (state.kind === "IMPORT_FAILED" && app.repositoryImport) {
     const restartHref = `/apps/add?source=github&repositoryUrl=${encodeURIComponent(
@@ -1115,19 +1166,30 @@ export default async function AppOnboardingPage({
     );
   }
 
-  return (
-    <main>
-      <OnboardingStepShell
-        appName={app.appName}
-        currentStage="Prepare"
-        title="Your app setup is continuing"
-        explanation="The portal has saved your progress and will guide the next available step here."
-        next="Return to this page after the current setup work is complete."
-        supportReference={app.supportReference}
-        details={repositoryDetails}
-      >
-        <p role="status">Your setup is safe to leave here for now.</p>
-      </OnboardingStepShell>
-    </main>
-  );
+  if (
+    state.kind === "IMPORT_FAILED" ||
+    state.kind === "CODEX_CUSTOMIZATION" ||
+    state.kind === "LOCAL_CODE_UPLOAD" ||
+    state.kind === "LOCAL_CODE_REPAIR"
+  ) {
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Code"
+          title="This code step needs support"
+          explanation="The portal could not load the saved repository details required for this step. Your saved request is safe, and no repository, setup, or publishing action will start from this page."
+          next="Return to My Apps and share the support reference with the portal support team so they can restore the missing code-home details."
+          details={publishingTechnicalDetails}
+        >
+          <Link className="btn btn--primary-solid" href="/apps">
+            Return to My Apps
+          </Link>
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
+  state satisfies never;
+  throw new Error("Unhandled onboarding state.");
 }

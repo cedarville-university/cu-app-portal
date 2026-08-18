@@ -9,7 +9,10 @@ const mocks = vi.hoisted(() => ({
   appAccessWhere: vi.fn(),
   appRequestFindFirst: vi.fn(),
   appRequestUpdate: vi.fn(),
+  userFindUnique: vi.fn(),
   userUpdate: vi.fn(),
+  buildSourceSnapshot: vi.fn(),
+  bootstrapManagedRepository: vi.fn(),
   grantManagedRepositoryAccess: vi.fn(),
   recordAuditEvent: vi.fn(),
 }));
@@ -31,6 +34,14 @@ vi.mock("@/features/notifications/safe-notify", () => ({
   safeNotifyAppEvent: vi.fn(),
 }));
 
+vi.mock("@/features/generation/build-source-snapshot", () => ({
+  buildSourceSnapshot: mocks.buildSourceSnapshot,
+}));
+
+vi.mock("./bootstrap-managed-repository", () => ({
+  bootstrapManagedRepository: mocks.bootstrapManagedRepository,
+}));
+
 vi.mock("@/lib/audit", () => ({
   recordAuditEvent: mocks.recordAuditEvent,
 }));
@@ -42,7 +53,7 @@ vi.mock("@/lib/db", () => ({
       update: mocks.appRequestUpdate,
     },
     user: {
-      findUnique: vi.fn(),
+      findUnique: mocks.userFindUnique,
       update: mocks.userUpdate,
     },
   },
@@ -56,7 +67,10 @@ vi.mock("./access", async (importOriginal) => {
   };
 });
 
-import { saveGitHubUsernameAndGrantAccessAction } from "./actions";
+import {
+  retryRepositoryBootstrapAction,
+  saveGitHubUsernameAndGrantAccessAction,
+} from "./actions";
 
 describe("repository access actions", () => {
   beforeEach(() => {
@@ -99,5 +113,94 @@ describe("repository access actions", () => {
           "GitHub access failed for @collaborator-name: GitHub could not find that account.",
       },
     });
+  });
+});
+
+describe("repository bootstrap retry", () => {
+  const failedRequest = {
+    id: "req_123",
+    repositoryStatus: "FAILED",
+    supportReference: "SUP-20260818-ABC123",
+    submittedConfig: {
+      templateSlug: "web-app",
+      appName: "Campus Dashboard",
+      description: "Shows campus information.",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.resolveCurrentUserId.mockResolvedValue("collaborator-123");
+    mocks.userHasAdminRole.mockResolvedValue(false);
+    mocks.appAccessWhere.mockReturnValue({
+      id: "req_123",
+      OR: [
+        { userId: "collaborator-123" },
+        { collaborators: { some: { userId: "collaborator-123" } } },
+      ],
+    });
+    mocks.appRequestFindFirst.mockResolvedValue(failedRequest);
+    mocks.userFindUnique.mockResolvedValue({
+      id: "collaborator-123",
+      githubUsername: null,
+    });
+    mocks.appRequestUpdate.mockResolvedValue({});
+    mocks.buildSourceSnapshot.mockResolvedValue([
+      { path: "README.md", content: "# Campus Dashboard\n" },
+    ]);
+    mocks.bootstrapManagedRepository.mockResolvedValue({
+      provider: "github",
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      url: "https://github.com/cedarville-it/campus-dashboard",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+    mocks.recordAuditEvent.mockResolvedValue(undefined);
+  });
+
+  it("rejects a retry when the signed-in actor cannot access the app", async () => {
+    mocks.appRequestFindFirst.mockResolvedValue(null);
+
+    await expect(retryRepositoryBootstrapAction("req_123")).rejects.toThrow(
+      "App request not found.",
+    );
+
+    expect(mocks.bootstrapManagedRepository).not.toHaveBeenCalled();
+    expect(mocks.appRequestUpdate).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("rejects a retry unless repository setup is failed", async () => {
+    mocks.appRequestFindFirst.mockResolvedValue({
+      ...failedRequest,
+      repositoryStatus: "PENDING",
+    });
+
+    await expect(retryRepositoryBootstrapAction("req_123")).rejects.toThrow(
+      "Only failed repository bootstraps can be retried.",
+    );
+
+    expect(mocks.buildSourceSnapshot).not.toHaveBeenCalled();
+    expect(mocks.bootstrapManagedRepository).not.toHaveBeenCalled();
+    expect(mocks.appRequestUpdate).not.toHaveBeenCalled();
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("revalidates onboarding after a guarded repository retry succeeds", async () => {
+    await retryRepositoryBootstrapAction("req_123");
+
+    expect(mocks.bootstrapManagedRepository).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appRequestId: "req_123",
+        reuseExistingRepository: true,
+      }),
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/onboarding/req_123");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/apps");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/download/req_123");
   });
 });

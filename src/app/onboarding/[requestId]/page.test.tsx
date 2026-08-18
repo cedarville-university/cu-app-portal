@@ -1,5 +1,5 @@
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AppOnboardingPage from "./page";
 
@@ -28,6 +28,7 @@ vi.mock("@/features/publishing/setup/actions", () => ({
 }));
 
 vi.mock("@/features/repositories/actions", () => ({
+  retryRepositoryBootstrapAction: vi.fn(),
   saveGitHubUsernameAndGrantAccessAction: vi.fn(),
 }));
 
@@ -137,6 +138,95 @@ afterEach(() => {
 });
 
 describe("AppOnboardingPage generated apps", () => {
+  it("shows automatic Code-stage progress while the repository is pending", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      generatedApp({
+        repositoryStatus: "PENDING",
+        repositoryUrl: null,
+      }),
+    );
+
+    await renderPage();
+
+    const progress = screen.getByRole("list", { name: /app setup progress/i });
+    expect(within(progress).getByText("Code")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: /the portal is creating your app's code home/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/usually finishes within a few minutes/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /checks the code home automatically/i,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/technical details for support/i).closest("details"),
+    ).not.toHaveAttribute("open");
+    expect(screen.getByText("SUP-20260818-ABC123")).toBeInTheDocument();
+  });
+
+  it("offers only a safe repository retry after repository setup fails", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      generatedApp({
+        repositoryStatus: "FAILED",
+        repositoryUrl: null,
+        publishErrorSummary:
+          "GitHub App installation 404 for cedarville-it; provider request gh-raw-123.",
+      }),
+    );
+
+    await renderPage();
+
+    const progress = screen.getByRole("list", { name: /app setup progress/i });
+    expect(within(progress).getByText("Code")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: /the app's code home needs another try/i,
+      }),
+    ).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(/your starter and saved request are safe/i);
+    expect(alert).not.toHaveTextContent(/github|installation|gh-raw-123/i);
+    expect(
+      screen.getByText(
+        /create or reconnect that private code home using the saved starter/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/does not publish your app or delete its saved work/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/moves to the next safe code step automatically/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Try code-home setup again" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(screen.queryByLabelText("GitHub username")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /publish|publishing setup/i }),
+    ).not.toBeInTheDocument();
+    const rawFailure = screen.getByText(
+      "GitHub App installation 404 for cedarville-it; provider request gh-raw-123.",
+    );
+    expect(rawFailure.closest("details")).not.toHaveAttribute("open");
+    expect(rawFailure.closest("details")).toHaveTextContent(
+      /technical details for support/i,
+    );
+    expect(rawFailure.closest("details")).toHaveTextContent(
+      "SUP-20260818-ABC123",
+    );
+  });
+
   it("uses the signed-in actor's GitHub username rather than the app owner's", async () => {
     await renderPage({ path: "customize", account: "existing" });
 
