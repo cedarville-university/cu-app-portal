@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   appAccessWhere,
   userHasAdminRole,
@@ -912,6 +912,10 @@ export default async function DownloadPage({
 
   if (!appRequest) {
     notFound();
+  }
+
+  if (appRequest.publishStatus !== "SUCCEEDED" && !isAdmin) {
+    redirect(`/onboarding/${appRequest.id}`);
   }
 
   const isImportedApp = appRequest.sourceOfTruth === "IMPORTED_REPOSITORY";

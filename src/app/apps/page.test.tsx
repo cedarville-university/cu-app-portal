@@ -177,11 +177,11 @@ describe("MyAppsPage", () => {
       within(card).getByRole("link", { name: "https://dashboard.example.edu" }),
     ).toHaveAttribute("href", "https://dashboard.example.edu");
     expect(
-      within(card).getByRole("link", { name: /app details/i }),
-    ).toHaveAttribute("href", "/download/req_123");
+      within(card).getByRole("link", { name: /continue setup/i }),
+    ).toHaveAttribute("href", "/onboarding/req_123");
     expect(
       within(card).getByRole("link", { name: "Campus Dashboard" }),
-    ).toHaveAttribute("href", "/download/req_123");
+    ).toHaveAttribute("href", "/onboarding/req_123");
 
     expect(
       within(card).queryByRole("button", { name: /retry publish/i }),
@@ -303,5 +303,15 @@ describe("MyAppsPage", () => {
         /pub\. config:\s*not checked/i,
       ),
     ).not.toBeInTheDocument();
+    expect(
+      within(appCard as HTMLElement).getByRole("link", {
+        name: /manage app/i,
+      }),
+    ).toHaveAttribute("href", "/download/req_legacy_published");
+    expect(
+      within(appCard as HTMLElement).getByRole("link", {
+        name: "Campus Dashboard",
+      }),
+    ).toHaveAttribute("href", "/download/req_legacy_published");
   });
 });

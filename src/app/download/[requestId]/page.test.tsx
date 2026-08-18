@@ -14,6 +14,9 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
     throw new Error("not-found");
   }),
+  redirect: vi.fn((path: string) => {
+    throw new Error(`redirect:${path}`);
+  }),
 }));
 
 vi.mock("@/features/app-requests/current-user", () => ({
@@ -141,7 +144,53 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("DownloadPage publishing recovery", () => {
+describe("DownloadPage navigation", () => {
+  it("redirects an unpublished non-admin to onboarding", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(appRequest());
+
+    await expect(
+      DownloadPage({
+        params: Promise.resolve({ requestId: "request-123" }),
+      }),
+    ).rejects.toThrow("redirect:/onboarding/request-123");
+  });
+
+  it("renders published app details for a non-admin", async () => {
+    await renderPage({ publishStatus: "SUCCEEDED" });
+
+    expect(
+      screen.getByRole("heading", { name: /your app is ready/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders unpublished app details for an admin", async () => {
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-123",
+      userId: "user-123",
+      role: "ADMIN",
+      createdAt: new Date("2026-08-18T12:00:00Z"),
+      updatedAt: new Date("2026-08-18T12:00:00Z"),
+    });
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /your app is ready/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("DownloadPage admin publishing recovery", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-123",
+      userId: "user-123",
+      role: "ADMIN",
+      createdAt: new Date("2026-08-18T12:00:00Z"),
+      updatedAt: new Date("2026-08-18T12:00:00Z"),
+    });
+  });
+
   it.each(["CHECKING", "REPAIRING"])(
     "waits safely while publishing setup is %s",
     async (publishingSetupStatus) => {

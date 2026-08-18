@@ -134,13 +134,18 @@ export default async function MyAppsPage() {
               request.publishUrl,
             );
             const repositoryImport = request.repositoryImport;
+            const isPublished = request.publishStatus === "SUCCEEDED";
+            const destination = isPublished
+              ? `/download/${request.id}`
+              : `/onboarding/${request.id}`;
+            const actionLabel = isPublished ? "Manage App" : "Continue Setup";
 
             return (
               <li key={request.id} className="app-card">
                 <div className="app-card__header">
                   <h2 className="app-card__name">
                     <Link
-                      href={`/download/${request.id}`}
+                      href={destination}
                       className="app-card__name-link"
                     >
                       {request.appName}
@@ -228,10 +233,10 @@ export default async function MyAppsPage() {
 
                   <div className="app-card__actions">
                     <Link
-                      href={`/download/${request.id}`}
+                      href={destination}
                       className="btn btn--ghost btn--sm"
                     >
-                      App Details
+                      {actionLabel}
                     </Link>
                   </div>
                 </div>

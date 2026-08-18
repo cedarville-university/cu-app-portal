@@ -35,10 +35,11 @@ describe("middleware protection", () => {
     capturedAuthConfigFactory = undefined;
   });
 
-  it("protects create, download, apps, and admin routes", async () => {
+  it("protects create, onboarding, download, apps, and admin routes", async () => {
     const { config, middleware } = await import("./middleware");
 
     expect(config.matcher).toContain("/create/:path*");
+    expect(config.matcher).toContain("/onboarding/:path*");
     expect(config.matcher).toContain("/download/:path*");
     expect(config.matcher).toContain("/apps/:path*");
     expect(config.matcher).toContain("/admin/:path*");
