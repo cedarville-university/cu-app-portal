@@ -1,7 +1,7 @@
 ---
 title: Frequently Asked Questions
 description: Answers to common questions about apps, GitHub, Azure, access, and publishing.
-lastReviewed: 2026-08-03
+lastReviewed: 2026-08-18
 owner: Cedarville IT
 ---
 
@@ -31,9 +31,17 @@ Not as a simple switch. A template shapes the starter code and available feature
 
 Not necessarily. Publishing makes the app run in Azure. Who can enter depends on the app's Microsoft Entra login and authorization rules. Confirm the intended audience before sharing its URL.
 
-## What is the difference between Create Only and Create and Publish?
+## Does creating a starter publish it?
 
-Create Only prepares the app and managed repository without immediately completing the first deployment. Create and Publish also prepares Azure publishing and starts the initial publishing path when setup succeeds.
+No. **Create App** makes the starter and its managed repository, then stops. Choose **Publish the starter now** for the shortest route or **Customize it with Codex first**. The app goes online only after you explicitly select **Publish to Azure**.
+
+## Do I need a GitHub account?
+
+Not to publish an unchanged generated starter. You need one when Codex or a person must access the private repository. The wizard can open GitHub account creation, save your username, send the repository invitation, and confirm access.
+
+## What is the difference between Continue Setup and Manage App?
+
+**Continue Setup** returns an unpublished app to its focused first-publish wizard. **Manage App** appears after a successful first publish and opens the full app details page.
 
 ## What happens after someone changes the code?
 

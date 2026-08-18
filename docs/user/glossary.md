@@ -1,7 +1,7 @@
 ---
 title: Glossary
 description: Plain-language definitions for portal, GitHub, and Azure terms.
-lastReviewed: 2026-08-03
+lastReviewed: 2026-08-18
 owner: Cedarville IT
 ---
 
@@ -47,6 +47,10 @@ The service Cedarville uses to store app code, record changes, collaborate, and 
 
 The private GitHub repository created or imported by the portal and treated as the supported source of truth.
 
+## Pull request
+
+A GitHub review page that shows proposed file changes before they are merged into the app. The portal uses one instead of overwriting conflicting publishing files.
+
 ## Microsoft Entra login
 
 Cedarville sign-in used to identify users and control who may enter an app.
@@ -58,6 +62,10 @@ Build and send the current managed GitHub version to Azure so it can run in a we
 ## Publishing setup
 
 The GitHub workflow, Azure resources, secrets, and credentials that allow the portal to publish an app safely.
+
+## Source of truth
+
+The managed GitHub copy that Cedarville tools treat as the current app. Local changes must be uploaded there before the portal can publish them.
 
 ## Support reference
 

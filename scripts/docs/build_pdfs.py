@@ -19,8 +19,6 @@ from reportlab.platypus import (
     BaseDocTemplate,
     Frame,
     HRFlowable,
-    ListFlowable,
-    ListItem,
     PageBreak,
     PageTemplate,
     Paragraph,
@@ -78,6 +76,15 @@ def make_styles(compact: bool = False):
             leading=leading,
             textColor=TEXT,
             spaceAfter=5 if compact else 8,
+        ),
+        "list": ParagraphStyle(
+            "ListBody",
+            parent=base["BodyText"],
+            fontName="Helvetica",
+            fontSize=body_size,
+            leading=leading,
+            textColor=TEXT,
+            spaceAfter=2,
         ),
         "h1": ParagraphStyle(
             "Heading1",
@@ -147,13 +154,14 @@ def markdown_flowables(markdown: str, styles: dict, available_width: float) -> l
             index += 1
             continue
         if line.startswith("## "):
-            if line == "## Safe retry sequence":
-                flowables.append(PageBreak())
             flowables.append(Paragraph(inline_markup(line[3:]), styles["h2"]))
             index += 1
             continue
         if line.startswith("### "):
             flowables.append(Paragraph(inline_markup(line[4:]), styles["h3"]))
+            heading_spacer = Spacer(1, 4)
+            heading_spacer.keepWithNext = True
+            flowables.append(heading_spacer)
             index += 1
             continue
 
@@ -190,24 +198,32 @@ def markdown_flowables(markdown: str, styles: dict, available_width: float) -> l
         list_match = re.match(r"^(?:- |(\d+)\. )(.*)$", line)
         if list_match:
             numbered = list_match.group(1) is not None
-            items = []
-            start = int(list_match.group(1)) if numbered else None
+            rows = []
             while index < len(lines):
                 current = lines[index].strip()
                 current_match = re.match(r"^(?:- |(\d+)\. )(.*)$", current)
                 if not current_match or (current_match.group(1) is not None) != numbered:
                     break
-                items.append(ListItem(Paragraph(inline_markup(current_match.group(2)), styles["body"]), leftIndent=12))
+                marker = current_match.group(1) if numbered else "&#8226;"
+                rows.append([
+                    Paragraph(marker, styles["list"]),
+                    Paragraph(inline_markup(current_match.group(2)), styles["list"]),
+                ])
                 index += 1
-            flowables.append(ListFlowable(
-                items,
-                bulletType="1" if numbered else "bullet",
-                start=start,
-                leftIndent=17,
-                bulletFontName="Helvetica-Bold",
-                bulletFontSize=styles["body"].fontSize,
-                spaceAfter=4,
-            ))
+            list_table = Table(
+                rows,
+                colWidths=[20, available_width - 20],
+                hAlign="LEFT",
+            )
+            list_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (0, -1), 6),
+                ("RIGHTPADDING", (1, 0), (1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]))
+            flowables.extend([list_table, Spacer(1, 4)])
             continue
 
         paragraph_lines = [line]

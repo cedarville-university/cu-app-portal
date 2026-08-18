@@ -14,6 +14,19 @@ describe("README", () => {
     expect(readme).toContain("Recommended Templates");
     expect(readme).toContain("Developer Starters");
     expect(readme).toContain("Department Form + Approval");
+    expect(readme).toContain("Create New App");
+    expect(readme).toContain("Add Existing App");
+    expect(readme).toContain("Continue Setup");
+    expect(readme).toContain("Manage App");
+  });
+
+  it("keeps the quick start aligned with the guided first-publish choices", () => {
+    const quickStart = readFileSync("docs/user/quick-start.md", "utf8");
+
+    expect(quickStart).toContain("Publish the starter now");
+    expect(quickStart).toContain("Customize it with Codex first");
+    expect(quickStart).toContain("Continue Setup");
+    expect(quickStart).not.toContain("Create and Publish");
   });
 });
 

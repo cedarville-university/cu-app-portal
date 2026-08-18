@@ -7,7 +7,10 @@ describe("user help documents", () => {
   it("loads the quick start and its maintenance metadata", async () => {
     const document = await getHelpDocument("quick-start");
     expect(document.title).toBe("Quick Start");
-    expect(document.body).toContain("Create and publish your app");
+    expect(document.body).toContain("Publish the starter now");
+    expect(document.body).toContain("Customize it with Codex first");
+    expect(document.body).toContain("Continue Setup");
+    expect(document.body).not.toContain("Create and Publish");
     expect(document.lastReviewed).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 

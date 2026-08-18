@@ -47,13 +47,17 @@ Notes for GitHub App setup:
 
 ### Add Existing App
 
-The portal routes both home-page creation choices through the initial onboarding wizard. It asks whether the app is new, already in GitHub, or still local before opening the appropriate template or repository form. After a repository is created or imported, the user is sent to a focused setup checklist for GitHub access, Codex handoff, repository preparation, and first Azure publish. The full app details page is still the place for later publishing, repair, collaboration, environment variables, and deletion.
+The home page routes **Create New App** and **Add Existing App** through the initial onboarding wizard. New-app users are told that template selection is next. Existing-app users receive separate **Already on GitHub** and **Only on my computer** routes, with the selected form identified by the query string and heading (the local route also uses `#local-app`). After a repository is created or imported, the user enters a focused setup sequence for GitHub access, optional Codex handoff, repository preparation, and an explicitly requested first Azure publish.
+
+Template creation never publishes automatically. A generated starter stops at **Publish the starter now** or **Customize it with Codex first**. Users who customize can create a GitHub account if needed, save the username, accept the private repository invitation, and copy a complete prompt into Codex. Imported apps are prepared only after the user requests it; publishing-file conflicts use a pull request for review instead of overwriting files. Local apps use a Codex-owned upload flow and must not advance until the user selects **My code has been uploaded** after Codex confirms the push.
+
+The onboarding page auto-refreshes while repository creation, preparation, publishing setup, or publishing is in progress. Recovery stays in the focused wizard: preparation can be retried with the saved method, unsupported local apps return to Codex repair, and failed setup offers **Fix publishing setup** without dispatching a deployment. **Publish to Azure** remains a separate confirmation. My Apps sends every unpublished request to **Continue Setup** and every successfully published request to **Manage App**. Full collaboration, environment-variable, recurring publishing, and deletion controls appear only on the full app details page after first-publish success.
 
 The add-existing-app flow uses the same GitHub App configuration as portal-managed repository creation. In V1, the portal accepts repositories it can read through the configured GitHub App installation or through public GitHub access; there is no user GitHub OAuth or personal access token access in V1.
 
 When a submitted repository is outside `GITHUB_DEFAULT_ORG`, the portal imports it into the default org with a short-lived GitHub App installation token and preserves the source repository history. The GitHub App needs repository creation permission in the target org, plus read access to private source repositories that are imported.
 
-If a user has built an app locally with Codex but has not created any GitHub repository yet, the portal can create the destination repository directly in `GITHUB_DEFAULT_ORG`. The resulting app details page gives Codex a handoff prompt and plain `git` commands to initialize the local folder if needed, add the managed repository as a `portal` remote, and push the current code. GitHub CLI (`gh`) is not required for this path.
+If a user has built an app locally with Codex but has not created any GitHub repository yet, the portal can create the destination repository directly in `GITHUB_DEFAULT_ORG`. The onboarding wizard gives Codex a handoff prompt and plain `git` commands to initialize the local folder if needed, preserve any existing history and remotes, add the managed repository as a `portal` remote, and push the current code. GitHub CLI (`gh`) is not required for this path.
 
 V1 supports root Next.js apps, Express apps, Python FastAPI apps, and plain static Python `http.server` apps with a root `index.html` for Azure App Service publishing. After import or scan, the portal prepares the repository for the matching supported Azure App Service publishing path. Express and static `http.server` imports do not add PostgreSQL or Microsoft Entra login; use a generated template when an app needs those options.
 
@@ -183,4 +187,4 @@ For managed repo bootstrap verification, confirm the GitHub App is installed on 
 ## Notes
 
 - The portal does not retain generated source archives; source is sent directly to GitHub during repository bootstrap.
-- The Playwright flow uses a test-only auth bypass so the end-to-end creation flow can be exercised without Cedarville SSO in local automation.
+- The Playwright onboarding flow uses a test-only auth bypass so entry routes, template selection, form focus, generated-starter resume, and My Apps routing can be exercised without Cedarville SSO. Its fixture records are written directly to local PostgreSQL, so it does not call live GitHub or Azure providers. Request-specific publish and recovery branches remain covered by server-rendered page tests.
