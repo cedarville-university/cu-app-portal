@@ -54,6 +54,22 @@ describe("deriveOnboardingState generated apps", () => {
     [generatedReady, "GENERATED_PATH_CHOICE"],
     [{ ...generatedReady, pathChoice: "starter" }, "READY_TO_PUBLISH"],
     [
+      {
+        ...generatedReady,
+        pathChoice: "starter",
+        repositoryAccessStatus: "INVITED",
+      },
+      "READY_TO_PUBLISH",
+    ],
+    [
+      {
+        ...generatedReady,
+        pathChoice: "starter",
+        repositoryAccessStatus: "GRANTED",
+      },
+      "READY_TO_PUBLISH",
+    ],
+    [
       { ...generatedReady, pathChoice: "customize" },
       "GITHUB_ACCOUNT_REQUIRED",
     ],

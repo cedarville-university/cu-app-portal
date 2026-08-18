@@ -141,16 +141,16 @@ export function deriveOnboardingState(
   }
 
   if (!isImported && !input.isLocalSource) {
-    if (input.repositoryAccessStatus === "INVITED") {
-      return { kind: "GITHUB_INVITATION_PENDING" };
-    }
-    if (input.repositoryAccessStatus === "GRANTED") {
-      return { kind: "CODEX_CUSTOMIZATION" };
-    }
-    if (input.pathChoice === "customize") {
-      return { kind: "GITHUB_ACCOUNT_REQUIRED", resume: "customize" };
-    }
     if (input.pathChoice !== "starter") {
+      if (input.repositoryAccessStatus === "INVITED") {
+        return { kind: "GITHUB_INVITATION_PENDING" };
+      }
+      if (input.repositoryAccessStatus === "GRANTED") {
+        return { kind: "CODEX_CUSTOMIZATION" };
+      }
+      if (input.pathChoice === "customize") {
+        return { kind: "GITHUB_ACCOUNT_REQUIRED", resume: "customize" };
+      }
       return { kind: "GENERATED_PATH_CHOICE" };
     }
   }
