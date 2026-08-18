@@ -26,6 +26,24 @@ export function parseGitHubUsername(value: unknown) {
   return githubUsernameSchema.parse(value);
 }
 
+export function buildRepositoryAccessFailureNote(
+  githubUsername: string,
+  error: unknown,
+) {
+  const actorUsername = parseGitHubUsername(githubUsername);
+  const errorMessage = error instanceof Error ? error.message : "unknown";
+
+  return `GitHub access failed for @${actorUsername}: ${errorMessage}`;
+}
+
+export function parseRepositoryAccessActorUsername(note: string | null) {
+  return (
+    note?.match(
+      /^(?:GitHub invited|GitHub access is ready for|GitHub access failed for) @([a-z\d](?:[a-z\d-]{0,37}[a-z\d])?)(?=[\s:.])/i,
+    )?.[1] ?? null
+  );
+}
+
 export function parseOptionalGitHubUsername(formData: FormData) {
   const rawValue = formData.get("githubUsername");
 

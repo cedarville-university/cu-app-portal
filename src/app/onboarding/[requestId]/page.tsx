@@ -13,6 +13,7 @@ import {
 import { OnboardingStepShell } from "@/features/onboarding/step-shell";
 import { publishToAzureAction } from "@/features/publishing/actions";
 import { saveGitHubUsernameAndGrantAccessAction } from "@/features/repositories/actions";
+import { parseRepositoryAccessActorUsername } from "@/features/repositories/access";
 import { buildCodexHandoffPrompt } from "@/features/repositories/codex-handoff";
 import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-handoff-button";
 import { prisma } from "@/lib/db";
@@ -56,12 +57,12 @@ function repositoryAccessStatusForActor({
   note: string | null;
   githubUsername: string | null;
 }) {
-  if (status !== "GRANTED" && status !== "INVITED") return status;
+  if (status !== "GRANTED" && status !== "INVITED" && status !== "FAILED") {
+    return status;
+  }
   if (!githubUsername) return "NOT_REQUESTED";
 
-  const accessUsername = note?.match(
-    /@([a-z\d](?:[a-z\d-]{0,37}[a-z\d])?)/i,
-  )?.[1];
+  const accessUsername = parseRepositoryAccessActorUsername(note);
   return accessUsername?.toLowerCase() === githubUsername.toLowerCase()
     ? status
     : "NOT_REQUESTED";
@@ -194,16 +195,13 @@ export default async function AppOnboardingPage({
 
   const pathChoice = parsePathChoice(query.path);
   const accountChoice = parseAccountChoice(query.account);
+  const repositoryAccessStatus = repositoryAccessStatusForActor({
+    status: app.repositoryAccessStatus,
+    note: app.repositoryAccessNote,
+    githubUsername: currentActor.githubUsername,
+  });
   const state = deriveOnboardingState(
-    stateInputForApp(
-      app,
-      pathChoice,
-      repositoryAccessStatusForActor({
-        status: app.repositoryAccessStatus,
-        note: app.repositoryAccessNote,
-        githubUsername: currentActor.githubUsername,
-      }),
-    ),
+    stateInputForApp(app, pathChoice, repositoryAccessStatus),
   );
   const repositoryDetails = app.repositoryUrl ? (
     <p>
@@ -245,14 +243,14 @@ export default async function AppOnboardingPage({
     if (currentActor.githubUsername || accountChoice === "existing") {
       accountAction = (
         <>
-          {app.repositoryAccessStatus === "FAILED" && app.repositoryAccessNote ? (
+          {repositoryAccessStatus === "FAILED" && app.repositoryAccessNote ? (
             <p role="alert">{app.repositoryAccessNote}</p>
           ) : null}
           <GitHubUsernameForm
             requestId={app.id}
             githubUsername={currentActor.githubUsername}
             label={
-              app.repositoryAccessStatus === "FAILED"
+              repositoryAccessStatus === "FAILED"
                 ? "Try GitHub access again"
                 : "Send repository invite"
             }

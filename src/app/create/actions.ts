@@ -6,7 +6,10 @@ import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
 import { buildSourceSnapshot } from "@/features/generation/build-source-snapshot";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
-import { grantManagedRepositoryAccess } from "@/features/repositories/access";
+import {
+  buildRepositoryAccessFailureNote,
+  grantManagedRepositoryAccess,
+} from "@/features/repositories/access";
 import { bootstrapManagedRepository } from "@/features/repositories/bootstrap-managed-repository";
 import {
   getActiveTemplateBySlug,
@@ -168,8 +171,10 @@ export async function createAppAction(formData: FormData) {
             where: { id: request.id },
             data: {
               repositoryAccessStatus: "FAILED",
-              repositoryAccessNote:
-                error instanceof Error ? error.message : "unknown",
+              repositoryAccessNote: buildRepositoryAccessFailureNote(
+                currentUser.githubUsername,
+                error,
+              ),
             },
           });
 

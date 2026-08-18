@@ -156,6 +156,29 @@ describe("AppOnboardingPage generated apps", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("does not show the owner's failed GitHub access or retry to a collaborator", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      generatedApp({
+        repositoryAccessStatus: "FAILED",
+        repositoryAccessNote:
+          "GitHub access failed for @owner-name: GitHub could not find that account.",
+      }),
+    );
+
+    await renderPage({ path: "customize" });
+
+    expect(screen.getByDisplayValue("collaborator-name")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /send repository invite/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/github could not find that account/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /try github access again/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("lets a generated-app user publish the starter or customize it first", async () => {
     await renderPage();
 
@@ -271,14 +294,15 @@ describe("AppOnboardingPage generated apps", () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       generatedApp({
         repositoryAccessStatus: "FAILED",
-        repositoryAccessNote: "GitHub could not find that account.",
+        repositoryAccessNote:
+          "GitHub access failed for @collaborator-name: GitHub could not find that account.",
       }),
     );
 
     await renderPage({ path: "customize" });
 
     expect(
-      screen.getByText("GitHub could not find that account."),
+      screen.getByText(/github access failed for @collaborator-name/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /try github access again/i }),

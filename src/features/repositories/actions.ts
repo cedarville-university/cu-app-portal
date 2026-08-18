@@ -12,7 +12,11 @@ import { buildSourceSnapshot } from "@/features/generation/build-source-snapshot
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-import { grantManagedRepositoryAccess, parseGitHubUsername } from "./access";
+import {
+  buildRepositoryAccessFailureNote,
+  grantManagedRepositoryAccess,
+  parseGitHubUsername,
+} from "./access";
 import { bootstrapManagedRepository } from "./bootstrap-managed-repository";
 import { getTemplateBySlug } from "@/features/templates/catalog";
 
@@ -179,8 +183,10 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
           where: { id: requestId },
           data: {
             repositoryAccessStatus: "FAILED",
-            repositoryAccessNote:
-              error instanceof Error ? error.message : "unknown",
+            repositoryAccessNote: buildRepositoryAccessFailureNote(
+              user.githubUsername,
+              error,
+            ),
           },
         });
 
@@ -302,8 +308,10 @@ export async function saveGitHubUsernameAndGrantAccessAction(
       where: { id: requestId },
       data: {
         repositoryAccessStatus: "FAILED",
-        repositoryAccessNote:
-          error instanceof Error ? error.message : "unknown",
+        repositoryAccessNote: buildRepositoryAccessFailureNote(
+          githubUsername,
+          error,
+        ),
       },
     });
 
