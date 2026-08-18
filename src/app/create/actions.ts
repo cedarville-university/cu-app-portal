@@ -303,5 +303,5 @@ export async function createAppAction(formData: FormData) {
     throw error;
   }
 
-  redirect(`/download/${request.id}`);
+  redirect(`/onboarding/${request.id}`);
 }

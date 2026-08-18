@@ -10,7 +10,7 @@ async function submitLocalCodexAppAction(formData: FormData) {
   "use server";
 
   const result = await createManagedRepositoryForLocalAppAction(formData);
-  redirect(`/download/${result.requestId}`);
+  redirect(`/onboarding/${result.requestId}`);
 }
 
 export default async function AddExistingAppPage() {
@@ -97,7 +97,7 @@ export default async function AddExistingAppPage() {
             git in your local app, add the managed repository as a remote, and
             push your code.
           </p>
-          <form action={submitLocalCodexAppAction} className="form-stack">
+          <form id="local-app" action={submitLocalCodexAppAction} className="form-stack">
             <div className="form-group">
               <label htmlFor="localAppName" className="form-label">
                 Local App Name

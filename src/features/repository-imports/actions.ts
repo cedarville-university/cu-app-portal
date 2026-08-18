@@ -614,7 +614,7 @@ export async function addExistingAppFormAction(
     };
   }
 
-  redirect(`/download/${result.requestId}`);
+  redirect(`/onboarding/${result.requestId}`);
 }
 
 export async function createManagedRepositoryForLocalAppAction(
@@ -735,6 +735,7 @@ function createDefaultPreparationGitHubClient(owner: string) {
 function revalidateImportedRepositoryViews(requestId: string) {
   revalidatePath("/apps");
   revalidatePath(`/download/${requestId}`);
+  revalidatePath(`/onboarding/${requestId}`);
 }
 
 export async function prepareExistingAppAction(

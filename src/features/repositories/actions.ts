@@ -224,6 +224,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
   }
 
   revalidatePath(`/download/${requestId}`);
+  revalidatePath(`/onboarding/${requestId}`);
   revalidatePath("/apps");
 }
 
@@ -316,5 +317,6 @@ export async function saveGitHubUsernameAndGrantAccessAction(
   }
 
   revalidatePath(`/download/${requestId}`);
+  revalidatePath(`/onboarding/${requestId}`);
   revalidatePath("/apps");
 }

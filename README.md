@@ -4,7 +4,7 @@ Internal portal for Cedarville staff to create managed GitHub repositories from 
 
 ## What It Does
 
-The portal signs staff in with Microsoft Entra ID, guides them through a template-backed app creation form, and creates a portal-managed GitHub repository as the canonical source of truth for supported publishing.
+The portal signs staff in with Microsoft Entra ID and begins creation or import with a plain-language onboarding wizard. The wizard asks whether the app is new, already on GitHub, or only local; it then guides the user through managed GitHub repository setup, Codex access, and the first Azure publish. The full app details page remains available for ongoing management after initial setup and publishing.
 
 Users can also add an existing compatible GitHub app repository. If the source repository is outside the configured Cedarville GitHub org, the portal imports it into the shared org while preserving history, scans and prepares it for supported Azure App Service runtimes, and lets the user choose either direct publishing additions or a review PR. Current import support covers root Next.js apps, Express apps, Python FastAPI apps, and plain static Python `http.server` apps with a root `index.html`.
 

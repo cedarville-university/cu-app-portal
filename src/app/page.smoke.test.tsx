@@ -11,9 +11,9 @@ describe("HomePage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /create new app/i }),
-    ).toHaveAttribute("href", "/create");
+    ).toHaveAttribute("href", "/onboarding?start=new");
     expect(
       screen.getByRole("link", { name: /add existing app/i }),
-    ).toHaveAttribute("href", "/apps/add");
+    ).toHaveAttribute("href", "/onboarding?start=existing");
   });
 });

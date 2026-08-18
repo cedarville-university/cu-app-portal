@@ -1126,6 +1126,120 @@ select.form-control {
   margin-top: 0.05rem;
 }
 
+/* ─── Initial onboarding wizard ─── */
+
+.eyebrow {
+  color: var(--cu-teal);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+}
+
+.wizard-progress {
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0 0 1.75rem;
+  padding: 0;
+}
+
+.wizard-progress li {
+  color: var(--text-muted);
+  flex: 1;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding-bottom: 0.55rem;
+  border-bottom: 3px solid var(--border-light);
+}
+
+.wizard-progress .wizard-progress__active {
+  border-color: var(--cu-gold);
+  color: var(--cu-navy);
+}
+
+.wizard-choice {
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+}
+
+.wizard-choice__step {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 0.625rem;
+  text-transform: uppercase;
+}
+
+.wizard-back, .wizard-footer {
+  margin-top: 1.5rem;
+}
+
+.wizard-steps {
+  display: grid;
+  gap: 1rem;
+  max-width: 800px;
+}
+
+.wizard-step {
+  background: var(--bg-white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 1.25rem;
+}
+
+.wizard-step__number {
+  align-items: center;
+  background: var(--cu-navy);
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  font-size: 0.875rem;
+  font-weight: 700;
+  height: 30px;
+  justify-content: center;
+  width: 30px;
+}
+
+.wizard-step--complete .wizard-step__number { background: var(--status-success); }
+.wizard-step__content h2 { font-size: 1.125rem; margin-bottom: 0.5rem; }
+.wizard-step__content > :last-child { margin-bottom: 0; }
+.success-text { color: var(--status-success); font-weight: 600; }
+
+.wizard-inline-form {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.wizard-inline-form .form-control { max-width: 260px; }
+
+.wizard-prompt {
+  background: var(--cu-navy);
+  border-radius: var(--radius);
+  color: white;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  margin: 0.875rem 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: 1rem;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 600px) {
+  .wizard-progress { gap: 0.25rem; }
+  .wizard-progress li { font-size: 0.7rem; }
+}
+
 /* ─── Empty state ─── */
 
 .empty-state {

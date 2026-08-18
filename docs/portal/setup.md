@@ -47,6 +47,8 @@ Notes for GitHub App setup:
 
 ### Add Existing App
 
+The portal routes both home-page creation choices through the initial onboarding wizard. It asks whether the app is new, already in GitHub, or still local before opening the appropriate template or repository form. After a repository is created or imported, the user is sent to a focused setup checklist for GitHub access, Codex handoff, repository preparation, and first Azure publish. The full app details page is still the place for later publishing, repair, collaboration, environment variables, and deletion.
+
 The add-existing-app flow uses the same GitHub App configuration as portal-managed repository creation. In V1, the portal accepts repositories it can read through the configured GitHub App installation or through public GitHub access; there is no user GitHub OAuth or personal access token access in V1.
 
 When a submitted repository is outside `GITHUB_DEFAULT_ORG`, the portal imports it into the default org with a short-lived GitHub App installation token and preserves the source repository history. The GitHub App needs repository creation permission in the target org, plus read access to private source repositories that are imported.

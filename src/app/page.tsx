@@ -12,11 +12,11 @@ export default function HomePage() {
           (Microsoft&rsquo;s cloud hosting service) — all from one place.
         </p>
         <div className="hero__actions">
-          <Link href="/create" className="btn btn--secondary-solid btn--lg">
+          <Link href="/onboarding?start=new" className="btn btn--secondary-solid btn--lg">
             Create New App
           </Link>
           <Link
-            href="/apps/add"
+            href="/onboarding?start=existing"
             className="btn btn--ghost btn--lg"
             style={{
               color: "rgba(255,255,255,0.85)",

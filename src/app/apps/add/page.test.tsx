@@ -177,12 +177,12 @@ describe("AddExistingAppPage", () => {
     formData.set("description", "Local app built with Codex.");
 
     await expect(localFormAction(formData)).rejects.toThrow(
-      "redirect:/download/req_local_app",
+      "redirect:/onboarding/req_local_app",
     );
     expect(createManagedRepositoryForLocalAppAction).toHaveBeenCalledWith(
       formData,
     );
-    expect(mockRedirect).toHaveBeenCalledWith("/download/req_local_app");
+    expect(mockRedirect).toHaveBeenCalledWith("/onboarding/req_local_app");
   });
 
   it("disables repository analysis and shows live status while pending", async () => {
