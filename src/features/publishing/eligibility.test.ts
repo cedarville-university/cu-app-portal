@@ -72,7 +72,36 @@ describe("canQueuePublish", () => {
     });
   });
 
-  it("shares setup-repair guards for repository and transient setup state", () => {
+  it.each([
+    [
+      { ...generatedPublish, repositoryStatus: "PENDING" },
+      "REPOSITORY_NOT_READY",
+    ],
+    [
+      {
+        ...generatedPublish,
+        sourceOfTruth: "IMPORTED_REPOSITORY",
+        preparationStatus: "FAILED",
+      },
+      "PREPARATION_NOT_COMMITTED",
+    ],
+    ...["QUEUED", "PROVISIONING", "DEPLOYING", "DELETED"].map(
+      (publishStatus) => [
+        { ...generatedPublish, publishStatus },
+        "PUBLISH_STATUS_NOT_ALLOWED",
+      ],
+    ),
+    ...["CHECKING", "REPAIRING"].map((publishingSetupStatus) => [
+      { ...generatedPublish, publishingSetupStatus },
+      "PUBLISHING_SETUP_IN_PROGRESS",
+    ]),
+    ...["READY", "UNEXPECTED"].map((publishingSetupStatus) => [
+      { ...generatedPublish, publishingSetupStatus },
+      "PUBLISHING_SETUP_ACTION_NOT_ALLOWED",
+    ]),
+  ] as const)(
+    "rejects setup repair with the shared %s reason",
+    (input, reason) => {
     expect(publishingEligibility).toHaveProperty(
       "getPublishingSetupRepairEligibility",
     );
@@ -80,28 +109,43 @@ describe("canQueuePublish", () => {
     const getRepairEligibility = (
       publishingEligibility as typeof publishingEligibility & {
         getPublishingSetupRepairEligibility: (input: {
+          sourceOfTruth: string;
           repositoryStatus: string;
+          preparationStatus?: string;
           publishingSetupStatus: string;
+          publishStatus: string;
         }) => { eligible: boolean; reason?: string };
       }
     ).getPublishingSetupRepairEligibility;
 
-    expect(
-      getRepairEligibility({
-        repositoryStatus: "FAILED",
-        publishingSetupStatus: "NEEDS_REPAIR",
-      }),
-    ).toEqual({ eligible: false, reason: "REPOSITORY_NOT_READY" });
-    expect(
-      getRepairEligibility({
-        repositoryStatus: "READY",
-        publishingSetupStatus: "REPAIRING",
-      }),
-    ).toEqual({
-      eligible: false,
-      reason: "PUBLISHING_SETUP_IN_PROGRESS",
-    });
-  });
+      expect(getRepairEligibility(input)).toEqual({ eligible: false, reason });
+    },
+  );
+
+  it.each(["NOT_CHECKED", "NEEDS_REPAIR", "BLOCKED"])(
+    "allows setup work for exactly the actionable %s setup state",
+    (publishingSetupStatus) => {
+      expect(
+        publishingEligibility.getPublishingSetupRepairEligibility({
+          ...generatedPublish,
+          publishingSetupStatus,
+        }),
+      ).toEqual({ eligible: true });
+    },
+  );
+
+  it.each(["NOT_STARTED", "FAILED", "SUCCEEDED"])(
+    "allows setup work in the relevant %s publish relationship",
+    (publishStatus) => {
+      expect(
+        publishingEligibility.getPublishingSetupRepairEligibility({
+          ...generatedPublish,
+          publishStatus,
+          publishingSetupStatus: "NEEDS_REPAIR",
+        }),
+      ).toEqual({ eligible: true });
+    },
+  );
 
   it("allows an initial generated-app publish before setup is checked", () => {
     expect(

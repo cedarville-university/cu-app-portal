@@ -56,6 +56,8 @@ describe("publishing setup actions", () => {
       id: "request-123",
       userId: "user-123",
       repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "NOT_STARTED",
       publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(repairPublishingSetup).mockResolvedValue(undefined);
@@ -74,6 +76,7 @@ describe("publishing setup actions", () => {
           },
         ],
       },
+      include: { repositoryImport: true },
     });
     expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
@@ -89,6 +92,8 @@ describe("publishing setup actions", () => {
       id: "request-123",
       userId: "user-123",
       repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "FAILED",
       publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
@@ -127,6 +132,7 @@ describe("publishing setup actions", () => {
           },
         ],
       },
+      include: { repositoryImport: true },
     });
     expect(repairPublishingSetup).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
@@ -138,6 +144,8 @@ describe("publishing setup actions", () => {
       id: "request-123",
       userId: "user-123",
       repositoryStatus: "PENDING",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "NOT_STARTED",
       publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
 
@@ -154,6 +162,8 @@ describe("publishing setup actions", () => {
       id: "request-123",
       userId: "user-123",
       repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "FAILED",
       publishingSetupStatus: "REPAIRING",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
 
@@ -164,6 +174,102 @@ describe("publishing setup actions", () => {
     expect(repairPublishingSetup).not.toHaveBeenCalled();
   });
 
+  it("rejects setup work before imported preparation is committed", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      repositoryImport: { preparationStatus: "FAILED" },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(repairPublishingSetupAction("request-123")).rejects.toThrow(
+      "Imported repository preparation must be committed before publishing setup.",
+    );
+
+    expect(repairPublishingSetup).not.toHaveBeenCalled();
+  });
+
+  it.each(["QUEUED", "PROVISIONING", "DEPLOYING", "DELETED"] as const)(
+    "rejects setup work for the unrelated %s publish state",
+    async (publishStatus) => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+        id: "request-123",
+        userId: "user-123",
+        repositoryStatus: "READY",
+        sourceOfTruth: "PORTAL_MANAGED_REPO",
+        publishStatus,
+        publishingSetupStatus: "NEEDS_REPAIR",
+      } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+      await expect(repairPublishingSetupAction("request-123")).rejects.toThrow(
+        "Publishing setup cannot be changed while publishing is active or unavailable.",
+      );
+
+      expect(repairPublishingSetup).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects setup work that is already ready", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "SUCCEEDED",
+      publishingSetupStatus: "READY",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(repairPublishingSetupAction("request-123")).rejects.toThrow(
+      "Publishing setup cannot be started or repaired from its current state.",
+    );
+
+    expect(repairPublishingSetup).not.toHaveBeenCalled();
+  });
+
+  it.each(["NOT_CHECKED", "NEEDS_REPAIR", "BLOCKED"] as const)(
+    "starts valid setup work for %s",
+    async (publishingSetupStatus) => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+        id: "request-123",
+        userId: "user-123",
+        repositoryStatus: "READY",
+        sourceOfTruth: "PORTAL_MANAGED_REPO",
+        publishStatus: "NOT_STARTED",
+        publishingSetupStatus,
+      } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+      vi.mocked(repairPublishingSetup).mockResolvedValue(undefined);
+
+      await repairPublishingSetupAction("request-123");
+
+      expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
+    },
+  );
+
+  it("starts initial setup after imported preparation is committed", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      repositoryImport: { preparationStatus: "COMMITTED" },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(repairPublishingSetup).mockResolvedValue(undefined);
+
+    await repairPublishingSetupAction("request-123");
+
+    expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
+  });
+
   it("repairs publishing setup for a collaborator with app access", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
     vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
@@ -171,6 +277,8 @@ describe("publishing setup actions", () => {
       id: "request-123",
       userId: "owner-123",
       repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "FAILED",
       publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(repairPublishingSetup).mockResolvedValue(undefined);
@@ -189,6 +297,7 @@ describe("publishing setup actions", () => {
           },
         ],
       },
+      include: { repositoryImport: true },
     });
     expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
   });
@@ -201,6 +310,8 @@ describe("publishing setup actions", () => {
       id: "request-123",
       userId: "user-123",
       repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "FAILED",
       publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(repairPublishingSetup).mockRejectedValue(repairError);

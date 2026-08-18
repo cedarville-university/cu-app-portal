@@ -11,6 +11,28 @@ import { getPublishingSetupRepairEligibility } from "@/features/publishing/eligi
 import { prisma } from "@/lib/db";
 import { repairPublishingSetup } from "./service";
 
+function publishingSetupEligibilityError(
+  reason: Exclude<
+    ReturnType<typeof getPublishingSetupRepairEligibility>,
+    { eligible: true }
+  >["reason"],
+) {
+  switch (reason) {
+    case "REPOSITORY_NOT_READY":
+      return "Managed repository is not ready for publishing setup.";
+    case "PREPARATION_NOT_COMMITTED":
+      return "Imported repository preparation must be committed before publishing setup.";
+    case "PUBLISH_STATUS_NOT_ALLOWED":
+      return "Publishing setup cannot be changed while publishing is active or unavailable.";
+    case "PUBLISHING_SETUP_IN_PROGRESS":
+      return "Publishing setup is already being checked or repaired.";
+    case "PUBLISHING_SETUP_ACTION_NOT_ALLOWED":
+      return "Publishing setup cannot be started or repaired from its current state.";
+    case "PUBLISHING_SETUP_NOT_READY":
+      return "Publishing setup is not ready for this action.";
+  }
+}
+
 function revalidatePublishingSetupViews(requestId: string) {
   for (const path of [
     "/apps",
@@ -62,19 +84,22 @@ export async function repairPublishingSetupAction(requestId: string) {
   const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
     where: appAccessWhere(requestId, userId, isAdmin),
+    include: { repositoryImport: true },
   });
 
   if (!appRequest) {
     throw new Error("App request not found.");
   }
 
-  const eligibility = getPublishingSetupRepairEligibility(appRequest);
+  const eligibility = getPublishingSetupRepairEligibility({
+    sourceOfTruth: appRequest.sourceOfTruth,
+    repositoryStatus: appRequest.repositoryStatus,
+    preparationStatus: appRequest.repositoryImport?.preparationStatus,
+    publishingSetupStatus: appRequest.publishingSetupStatus,
+    publishStatus: appRequest.publishStatus,
+  });
   if (!eligibility.eligible) {
-    throw new Error(
-      eligibility.reason === "REPOSITORY_NOT_READY"
-        ? "Managed repository is not ready for publishing setup."
-        : "Publishing setup is already being checked or repaired.",
-    );
+    throw new Error(publishingSetupEligibilityError(eligibility.reason));
   }
 
   try {

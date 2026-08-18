@@ -11,7 +11,8 @@ export type PublishEligibilityReason =
   | "PREPARATION_NOT_COMMITTED"
   | "PUBLISH_STATUS_NOT_ALLOWED"
   | "PUBLISHING_SETUP_IN_PROGRESS"
-  | "PUBLISHING_SETUP_NOT_READY";
+  | "PUBLISHING_SETUP_NOT_READY"
+  | "PUBLISHING_SETUP_ACTION_NOT_ALLOWED";
 
 export type PublishEligibilityResult =
   | { eligible: true }
@@ -77,12 +78,22 @@ export function canQueuePublish(
   return getPublishEligibility(input, options).eligible;
 }
 
-export function getPublishingSetupRepairEligibility(input: {
-  repositoryStatus: string;
-  publishingSetupStatus: string;
-}): PublishEligibilityResult {
+export function getPublishingSetupRepairEligibility(
+  input: PublishEligibilityInput,
+): PublishEligibilityResult {
   if (input.repositoryStatus !== "READY") {
     return { eligible: false, reason: "REPOSITORY_NOT_READY" };
+  }
+
+  if (
+    input.sourceOfTruth === "IMPORTED_REPOSITORY" &&
+    input.preparationStatus !== "COMMITTED"
+  ) {
+    return { eligible: false, reason: "PREPARATION_NOT_COMMITTED" };
+  }
+
+  if (!["NOT_STARTED", "FAILED", "SUCCEEDED"].includes(input.publishStatus)) {
+    return { eligible: false, reason: "PUBLISH_STATUS_NOT_ALLOWED" };
   }
 
   if (
@@ -92,5 +103,9 @@ export function getPublishingSetupRepairEligibility(input: {
     return { eligible: false, reason: "PUBLISHING_SETUP_IN_PROGRESS" };
   }
 
-  return { eligible: true };
+  return ["NOT_CHECKED", "NEEDS_REPAIR", "BLOCKED"].includes(
+    input.publishingSetupStatus,
+  )
+    ? { eligible: true }
+    : { eligible: false, reason: "PUBLISHING_SETUP_ACTION_NOT_ALLOWED" };
 }

@@ -378,6 +378,8 @@ export default async function AppOnboardingPage({
     allowedPublishStatuses: ["FAILED"],
     allowFailedSetupRetry: true,
   });
+  const setupActionEligibility =
+    getPublishingSetupRepairEligibility(stateInput);
   const state =
     derivedState.kind === "PUBLISH_FAILED" &&
     !failedPublishEligibility.eligible &&
@@ -854,10 +856,16 @@ export default async function AppOnboardingPage({
           next="When the connections are ready, this page will offer the button that puts your app online."
           details={publishingTechnicalDetails}
         >
-          <PublishingSetupForm
-            requestId={app.id}
-            label="Finish publishing setup"
-          />
+          {setupActionEligibility.eligible ? (
+            <PublishingSetupForm
+              requestId={app.id}
+              label="Finish publishing setup"
+            />
+          ) : (
+            <Link className="btn btn--primary-solid" href="/apps">
+              Return to My Apps
+            </Link>
+          )}
         </OnboardingStepShell>
       </main>
     );
@@ -897,10 +905,16 @@ export default async function AppOnboardingPage({
               online resources are safe. Choose Fix publishing setup to refresh
               the protected connection.
             </p>
-            <PublishingSetupForm
-              requestId={app.id}
-              label="Fix publishing setup"
-            />
+            {setupActionEligibility.eligible ? (
+              <PublishingSetupForm
+                requestId={app.id}
+                label="Fix publishing setup"
+              />
+            ) : (
+              <Link className="btn btn--primary-solid" href="/apps">
+                Return to My Apps
+              </Link>
+            )}
           </div>
         </OnboardingStepShell>
       </main>
@@ -1022,12 +1036,7 @@ export default async function AppOnboardingPage({
       );
     }
 
-    const setupRepairEligibility = getPublishingSetupRepairEligibility(
-      stateInput,
-    );
-    const canOfferSetupRepair =
-      setupRepairEligibility.eligible &&
-      ["NEEDS_REPAIR", "BLOCKED"].includes(app.publishingSetupStatus);
+    const canOfferSetupRepair = setupActionEligibility.eligible;
 
     return (
       <main>

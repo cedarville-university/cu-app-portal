@@ -11,6 +11,10 @@ import {
   publishToAzureAction,
   retryPublishAction,
 } from "@/features/publishing/actions";
+import {
+  getPublishEligibility,
+  getPublishingSetupRepairEligibility,
+} from "@/features/publishing/eligibility";
 import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
 import { deleteAppFormAction } from "@/features/app-deletion/actions";
 import { repairPublishingSetupAction } from "@/features/publishing/setup/actions";
@@ -88,10 +92,6 @@ function isImportedRepositoryPrepared(
   return (
     sourceOfTruth !== "IMPORTED_REPOSITORY" || preparationStatus === "COMMITTED"
   );
-}
-
-function needsPublishingSetupRepair(status: string | null | undefined) {
-  return status === "NEEDS_REPAIR" || status === "BLOCKED";
 }
 
 function isPublishingSetupBlocking(status: string | null | undefined) {
@@ -263,6 +263,9 @@ function formatCheckKey(key: string) {
 
 function renderPublishingSetupStatus(request: {
   id: string;
+  repositoryStatus: string;
+  sourceOfTruth: string;
+  preparationStatus?: string | null;
   publishStatus?: string | null;
   publishingSetupStatus?: string | null;
   publishingSetupErrorSummary?: string | null;
@@ -277,6 +280,13 @@ function renderPublishingSetupStatus(request: {
     publishingSetupStatus: request.publishingSetupStatus,
   });
   const repairAction = repairPublishingSetupAction.bind(null, request.id);
+  const setupActionEligibility = getPublishingSetupRepairEligibility({
+    repositoryStatus: request.repositoryStatus,
+    sourceOfTruth: request.sourceOfTruth,
+    preparationStatus: request.preparationStatus,
+    publishStatus: request.publishStatus ?? "NOT_STARTED",
+    publishingSetupStatus: status,
+  });
 
   return (
     <section aria-label="Publishing setup status" className="setup-status">
@@ -297,7 +307,7 @@ function renderPublishingSetupStatus(request: {
           ))}
         </ul>
       ) : null}
-      {needsPublishingSetupRepair(status) && request.publishStatus !== "FAILED" ? (
+      {setupActionEligibility.eligible && request.publishStatus !== "FAILED" ? (
         <form action={repairAction}>
           <PendingSubmitButton
             idleLabel="Repair Publishing Setup"
@@ -308,6 +318,16 @@ function renderPublishingSetupStatus(request: {
             title="Attempts to automatically fix the publishing configuration so your app can be deployed to Azure"
           />
         </form>
+      ) : null}
+      {!setupActionEligibility.eligible &&
+      setupActionEligibility.reason === "PUBLISHING_SETUP_IN_PROGRESS" ? (
+        <div className="info-box">
+          <p>
+            A publishing check is still running. Your saved app is safe, and
+            another publish or repair should not start until it finishes.
+          </p>
+          <Link href={`/onboarding/${request.id}`}>View publishing progress</Link>
+        </div>
       ) : null}
     </section>
   );
@@ -610,27 +630,60 @@ function renderPublishAction({
   if (publishStatus === "FAILED") {
     const retryAction = retryPublishAction.bind(null, requestId);
     const repairAction = repairPublishingSetupAction.bind(null, requestId);
+    const eligibilityInput = {
+      repositoryStatus,
+      sourceOfTruth,
+      preparationStatus,
+      publishStatus,
+      publishingSetupStatus: publishingSetupStatus ?? "NOT_CHECKED",
+    };
+    const retryEligibility = getPublishEligibility(eligibilityInput, {
+      allowedPublishStatuses: ["FAILED"],
+      allowFailedSetupRetry: true,
+    });
+    const setupActionEligibility =
+      getPublishingSetupRepairEligibility(eligibilityInput);
+
+    if (
+      !retryEligibility.eligible &&
+      retryEligibility.reason === "PUBLISHING_SETUP_IN_PROGRESS"
+    ) {
+      return null;
+    }
+
+    if (!retryEligibility.eligible && !setupActionEligibility.eligible) {
+      return (
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.9375rem" }}>
+          Publishing recovery is not available from this saved state. Open the
+          guided progress page for the next safe step.
+        </p>
+      );
+    }
 
     return (
       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-        <form action={retryAction}>
-          <PendingSubmitButton
-            idleLabel="Retry Publish"
-            pendingLabel="Retrying Publish…"
-            statusText="Retrying publish to Azure…"
-            variant="primary"
-            title="Starts a new Azure deployment now and refreshes portal-managed publishing credentials if needed"
-          />
-        </form>
-        <form action={repairAction}>
-          <PendingSubmitButton
-            idleLabel="Repair Publishing Setup"
-            pendingLabel="Repairing Publishing Setup..."
-            statusText="Refreshing your Azure hosting, Microsoft login, and GitHub publishing settings."
-            variant="ghost"
-            title="Refreshes publishing credentials and settings without starting an Azure deployment"
-          />
-        </form>
+        {retryEligibility.eligible ? (
+          <form action={retryAction}>
+            <PendingSubmitButton
+              idleLabel="Retry Publish"
+              pendingLabel="Retrying Publish…"
+              statusText="Retrying publish to Azure…"
+              variant="primary"
+              title="Starts a new Azure deployment now and refreshes portal-managed publishing credentials if needed"
+            />
+          </form>
+        ) : null}
+        {setupActionEligibility.eligible ? (
+          <form action={repairAction}>
+            <PendingSubmitButton
+              idleLabel="Repair Publishing Setup"
+              pendingLabel="Repairing Publishing Setup..."
+              statusText="Refreshing your Azure hosting, Microsoft login, and GitHub publishing settings."
+              variant="ghost"
+              title="Refreshes publishing credentials and settings without starting an Azure deployment"
+            />
+          </form>
+        ) : null}
       </div>
     );
   }
@@ -1205,6 +1258,9 @@ export default async function DownloadPage({
 
           {renderPublishingSetupStatus({
             id: appRequest.id,
+            repositoryStatus: appRequest.repositoryStatus,
+            sourceOfTruth: appRequest.sourceOfTruth,
+            preparationStatus: appRequest.repositoryImport?.preparationStatus,
             publishStatus: appRequest.publishStatus,
             publishingSetupStatus: effectivePublishingSetupStatus,
             publishingSetupErrorSummary: appRequest.publishingSetupErrorSummary,
