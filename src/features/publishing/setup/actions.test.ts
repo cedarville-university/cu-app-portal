@@ -55,6 +55,8 @@ describe("publishing setup actions", () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "request-123",
       userId: "user-123",
+      repositoryStatus: "READY",
+      publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(repairPublishingSetup).mockResolvedValue(undefined);
 
@@ -86,6 +88,8 @@ describe("publishing setup actions", () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "request-123",
       userId: "user-123",
+      repositoryStatus: "READY",
+      publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
       id: "request-123",
@@ -128,12 +132,46 @@ describe("publishing setup actions", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
+  it("rejects setup repair while the managed repository is not ready", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "PENDING",
+      publishingSetupStatus: "NEEDS_REPAIR",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(repairPublishingSetupAction("request-123")).rejects.toThrow(
+      "Managed repository is not ready for publishing setup.",
+    );
+
+    expect(repairPublishingSetup).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate setup repair while setup work is in progress", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      publishingSetupStatus: "REPAIRING",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(repairPublishingSetupAction("request-123")).rejects.toThrow(
+      "Publishing setup is already being checked or repaired.",
+    );
+
+    expect(repairPublishingSetup).not.toHaveBeenCalled();
+  });
+
   it("repairs publishing setup for a collaborator with app access", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
     vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "request-123",
       userId: "owner-123",
+      repositoryStatus: "READY",
+      publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(repairPublishingSetup).mockResolvedValue(undefined);
 
@@ -162,6 +200,8 @@ describe("publishing setup actions", () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "request-123",
       userId: "user-123",
+      repositoryStatus: "READY",
+      publishingSetupStatus: "NEEDS_REPAIR",
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
     vi.mocked(repairPublishingSetup).mockRejectedValue(repairError);
 

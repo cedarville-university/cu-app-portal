@@ -7,6 +7,7 @@ import {
 } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
+import { getPublishingSetupRepairEligibility } from "@/features/publishing/eligibility";
 import { prisma } from "@/lib/db";
 import { repairPublishingSetup } from "./service";
 
@@ -65,6 +66,15 @@ export async function repairPublishingSetupAction(requestId: string) {
 
   if (!appRequest) {
     throw new Error("App request not found.");
+  }
+
+  const eligibility = getPublishingSetupRepairEligibility(appRequest);
+  if (!eligibility.eligible) {
+    throw new Error(
+      eligibility.reason === "REPOSITORY_NOT_READY"
+        ? "Managed repository is not ready for publishing setup."
+        : "Publishing setup is already being checked or repaired.",
+    );
   }
 
   try {

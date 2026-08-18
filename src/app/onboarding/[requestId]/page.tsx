@@ -16,7 +16,10 @@ import {
   publishToAzureAction,
   retryPublishAction,
 } from "@/features/publishing/actions";
-import { canQueuePublish } from "@/features/publishing/eligibility";
+import {
+  getPublishEligibility,
+  getPublishingSetupRepairEligibility,
+} from "@/features/publishing/eligibility";
 import { repairPublishingSetupAction } from "@/features/publishing/setup/actions";
 import { saveGitHubUsernameAndGrantAccessAction } from "@/features/repositories/actions";
 import { parseRepositoryAccessActorUsername } from "@/features/repositories/access";
@@ -145,6 +148,7 @@ function formatTechnicalValue(value: unknown) {
 function PublishingTechnicalDetails({
   supportReference,
   checks,
+  summaries = [],
 }: {
   supportReference: string;
   checks: Array<{
@@ -153,7 +157,10 @@ function PublishingTechnicalDetails({
     message: string;
     metadata: unknown;
   }>;
+  summaries?: Array<string | null | undefined>;
 }) {
+  const technicalSummaries = [...new Set(summaries.filter(Boolean))] as string[];
+
   return (
     <details className="onboarding-step-shell__support">
       <summary>Technical details for support</summary>
@@ -161,6 +168,16 @@ function PublishingTechnicalDetails({
         If you need help, share this support reference:{" "}
         <code>{supportReference}</code>
       </p>
+      {technicalSummaries.length ? (
+        <>
+          <h3>Recorded system details</h3>
+          <ul>
+            {technicalSummaries.map((summary) => (
+              <li key={summary}>{summary}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
       {checks.length ? (
         <ul>
           {checks.map((check) => {
@@ -356,7 +373,17 @@ export default async function AppOnboardingPage({
     pathChoice,
     repositoryAccessStatus,
   );
-  const state = deriveOnboardingState(stateInput);
+  const derivedState = deriveOnboardingState(stateInput);
+  const failedPublishEligibility = getPublishEligibility(stateInput, {
+    allowedPublishStatuses: ["FAILED"],
+    allowFailedSetupRetry: true,
+  });
+  const state =
+    derivedState.kind === "PUBLISH_FAILED" &&
+    !failedPublishEligibility.eligible &&
+    failedPublishEligibility.reason === "PREPARATION_NOT_COMMITTED"
+      ? deriveOnboardingState({ ...stateInput, publishStatus: "NOT_STARTED" })
+      : derivedState;
   const repositoryDetails = app.repositoryUrl ? (
     <p>
       <a href={app.repositoryUrl} target="_blank" rel="noreferrer">
@@ -364,6 +391,17 @@ export default async function AppOnboardingPage({
       </a>
     </p>
   ) : undefined;
+  const publishingTechnicalDetails = (
+    <PublishingTechnicalDetails
+      supportReference={app.supportReference}
+      checks={app.publishSetupChecks}
+      summaries={[
+        app.publishErrorSummary,
+        app.publishingSetupErrorSummary,
+        app.publishAttempts[0]?.errorSummary,
+      ]}
+    />
+  );
 
   if (state.kind === "IMPORT_FAILED" && app.repositoryImport) {
     const restartHref = `/apps/add?source=github&repositoryUrl=${encodeURIComponent(
@@ -797,12 +835,7 @@ export default async function AppOnboardingPage({
           title="Your app is ready to publish"
           explanation="Azure is Cedarville's online hosting service for this app. Publishing creates its online home and starts the first release. This usually takes several minutes, and you can safely leave the progress page open."
           next="The portal will check progress automatically and tell you when the app is online or when it needs your help."
-          details={
-            <PublishingTechnicalDetails
-              supportReference={app.supportReference}
-              checks={app.publishSetupChecks}
-            />
-          }
+          details={publishingTechnicalDetails}
         >
           <PublishForm requestId={app.id} />
         </OnboardingStepShell>
@@ -819,12 +852,7 @@ export default async function AppOnboardingPage({
           title="Finish the last check before publishing"
           explanation="The portal needs to confirm the protected connections used to publish this app. This check does not change your app code, start publishing, or delete anything, and it usually takes one or two minutes."
           next="When the connections are ready, this page will offer the button that puts your app online."
-          details={
-            <PublishingTechnicalDetails
-              supportReference={app.supportReference}
-              checks={app.publishSetupChecks}
-            />
-          }
+          details={publishingTechnicalDetails}
         >
           <PublishingSetupForm
             requestId={app.id}
@@ -844,12 +872,7 @@ export default async function AppOnboardingPage({
           title="The portal is checking publishing setup"
           explanation="The portal is confirming the protected connections that will put your app online. No action is needed; this often finishes within one or two minutes."
           next="This page will move to publishing or show a safe repair step as soon as the check finishes."
-          details={
-            <PublishingTechnicalDetails
-              supportReference={app.supportReference}
-              checks={app.publishSetupChecks}
-            />
-          }
+          details={publishingTechnicalDetails}
         >
           <OnboardingProgressRefresh statusText="The portal checks this page automatically while publishing setup continues. You can leave it open." />
         </OnboardingStepShell>
@@ -866,17 +889,14 @@ export default async function AppOnboardingPage({
           title="Fix publishing setup before publishing"
           explanation="One protected connection needs to be refreshed before the app can go online. The portal can safely refresh it without deleting app code, removing online resources, or starting a publish."
           next="The repair usually takes one or two minutes. If the same message returns, share the support reference with the portal support team."
-          details={
-            <PublishingTechnicalDetails
-              supportReference={app.supportReference}
-              checks={app.publishSetupChecks}
-            />
-          }
+          details={publishingTechnicalDetails}
         >
           <div className="wizard-actions">
-            {app.publishingSetupErrorSummary ? (
-              <p role="alert">{app.publishingSetupErrorSummary}</p>
-            ) : null}
+            <p role="alert">
+              Publishing setup needs attention. Your app code and existing
+              online resources are safe. Choose Fix publishing setup to refresh
+              the protected connection.
+            </p>
             <PublishingSetupForm
               requestId={app.id}
               label="Fix publishing setup"
@@ -903,12 +923,7 @@ export default async function AppOnboardingPage({
           title="Your app is being published"
           explanation={`${progressExplanation} Publishing often takes several minutes, and no action is needed while it runs.`}
           next="This page will check automatically and show the app details when publishing succeeds. If it stops, the portal will explain the safest next step."
-          details={
-            <PublishingTechnicalDetails
-              supportReference={app.supportReference}
-              checks={app.publishSetupChecks}
-            />
-          }
+          details={publishingTechnicalDetails}
         >
           <div className="wizard-actions">
             <OnboardingProgressRefresh statusText="The portal checks publishing progress automatically. You can leave this page open." />
@@ -929,17 +944,90 @@ export default async function AppOnboardingPage({
   }
 
   if (state.kind === "PUBLISH_FAILED") {
-    const setupIsChanging = ["CHECKING", "REPAIRING"].includes(
-      app.publishingSetupStatus,
+    if (
+      !failedPublishEligibility.eligible &&
+      failedPublishEligibility.reason === "REPOSITORY_NOT_READY"
+    ) {
+      if (app.repositoryStatus === "PENDING") {
+        return (
+          <main>
+            <OnboardingStepShell
+              appName={app.appName}
+              currentStage="Code"
+              title="Your app's code home is still being prepared"
+              explanation="The portal is still creating the protected code home needed before publishing can be tried again. Your app code and saved work are safe, and no repair or publish will start while this finishes."
+              next="This page checks repository progress automatically. Preparation often finishes within a few minutes, and the next safe action will appear here."
+              details={publishingTechnicalDetails}
+            >
+              <OnboardingProgressRefresh statusText="The portal checks repository progress automatically. You can leave this page open." />
+            </OnboardingStepShell>
+          </main>
+        );
+      }
+
+      return (
+        <main>
+          <OnboardingStepShell
+            appName={app.appName}
+            currentStage="Code"
+            title="Your app's code home needs support"
+            explanation="The portal could not confirm the protected code home required for publishing. Your saved request is safe, and no repair or publish will start from this page."
+            next="Return to My Apps and share the support reference with the portal support team. They can check the code home without asking you to repeat publishing setup."
+            details={publishingTechnicalDetails}
+          >
+            <Link className="btn btn--primary-solid" href="/apps">
+              Return to My Apps
+            </Link>
+          </OnboardingStepShell>
+        </main>
+      );
+    }
+
+    if (
+      !failedPublishEligibility.eligible &&
+      failedPublishEligibility.reason === "PUBLISHING_SETUP_IN_PROGRESS"
+    ) {
+      return (
+        <main>
+          <OnboardingStepShell
+            appName={app.appName}
+            currentStage="Publish"
+            title="The portal is finishing a publishing check"
+            explanation="The portal is already checking or refreshing the protected publishing connection. Your app code and saved work are safe, and another publish will not start while this check runs."
+            next="This page checks every few seconds. The next safe recovery action will appear when the check finishes, usually within one or two minutes."
+            details={publishingTechnicalDetails}
+          >
+            <OnboardingProgressRefresh statusText="The portal checks this page automatically while publishing setup continues. You can leave it open." />
+          </OnboardingStepShell>
+        </main>
+      );
+    }
+
+    if (!failedPublishEligibility.eligible) {
+      return (
+        <main>
+          <OnboardingStepShell
+            appName={app.appName}
+            currentStage="Publish"
+            title="Publishing needs support before another try"
+            explanation="The portal cannot safely start another publish from the current saved state. Your app code and saved work are safe, and nothing will be changed from this page."
+            next="Return to My Apps and share the support reference with the portal support team so they can identify the next safe recovery step."
+            details={publishingTechnicalDetails}
+          >
+            <Link className="btn btn--primary-solid" href="/apps">
+              Return to My Apps
+            </Link>
+          </OnboardingStepShell>
+        </main>
+      );
+    }
+
+    const setupRepairEligibility = getPublishingSetupRepairEligibility(
+      stateInput,
     );
-    const canRetry = canQueuePublish(stateInput, {
-      allowedPublishStatuses: ["FAILED"],
-      allowFailedSetupRetry: true,
-    });
-    const errorSummary =
-      app.publishErrorSummary ??
-      app.publishAttempts[0]?.errorSummary ??
-      "The app did not finish publishing. Your app code and saved setup are still safe.";
+    const canOfferSetupRepair =
+      setupRepairEligibility.eligible &&
+      ["NEEDS_REPAIR", "BLOCKED"].includes(app.publishingSetupStatus);
 
     return (
       <main>
@@ -947,44 +1035,30 @@ export default async function AppOnboardingPage({
           appName={app.appName}
           currentStage="Publish"
           title="Your app did not finish publishing"
-          explanation={
-            setupIsChanging
-              ? "The portal is already checking or refreshing the protected publishing connections. Wait here so it can finish before starting another attempt."
-              : "Your app code and saved work are still safe. You can try publishing again now, or refresh the protected publishing connections first if this message has happened more than once."
-          }
+          explanation="The last attempt stopped before your app came online. Your app code, saved work, and existing online resources are still safe."
           next={
-            setupIsChanging
-              ? "This page checks every few seconds. When setup finishes, it will show the next safe recovery action."
-              : "A new attempt usually takes several minutes. If it fails again after fixing setup, share the support reference with the portal support team."
+            canOfferSetupRepair
+              ? "Try publishing again first. If the same problem returns, refresh publishing setup before another attempt. Each step usually takes several minutes."
+              : "Try publishing again to start a fresh attempt. This usually takes several minutes; if it stops again, share the support reference with the portal support team."
           }
-          details={
-            <PublishingTechnicalDetails
-              supportReference={app.supportReference}
-              checks={app.publishSetupChecks}
-            />
-          }
+          details={publishingTechnicalDetails}
         >
           <div className="wizard-actions">
-            <p role="alert">{errorSummary}</p>
-            {app.publishingSetupErrorSummary &&
-            app.publishingSetupErrorSummary !== errorSummary ? (
-              <p>{app.publishingSetupErrorSummary}</p>
+            <p role="alert">
+              Publishing did not complete. Your app code and saved work are
+              still safe. Choose Try publishing again to start a fresh attempt.
+            </p>
+            <RetryPublishForm requestId={app.id} />
+            {canOfferSetupRepair ? (
+              <form action={repairPublishingSetupAction.bind(null, app.id)}>
+                <PendingSubmitButton
+                  idleLabel="Fix publishing setup"
+                  pendingLabel="Checking publishing setup..."
+                  statusText="Refreshing the protected settings used for publishing without starting a deployment."
+                  variant="secondary"
+                />
+              </form>
             ) : null}
-            {setupIsChanging ? (
-              <OnboardingProgressRefresh statusText="The portal checks this page automatically while publishing setup continues. You can leave it open." />
-            ) : (
-              <>
-                {canRetry ? <RetryPublishForm requestId={app.id} /> : null}
-                <form action={repairPublishingSetupAction.bind(null, app.id)}>
-                  <PendingSubmitButton
-                    idleLabel="Fix publishing setup"
-                    pendingLabel="Checking publishing setup..."
-                    statusText="Refreshing the protected settings used for publishing without starting a deployment."
-                    variant="secondary"
-                  />
-                </form>
-              </>
-            )}
           </div>
         </OnboardingStepShell>
       </main>
@@ -1000,12 +1074,7 @@ export default async function AppOnboardingPage({
           title="Your app is online"
           explanation="Publishing finished successfully. The full app page now lets you open the app, invite coworkers, manage settings, and publish future changes."
           next="Open app details now. You can return there later from My Apps whenever you need to manage this app."
-          details={
-            <PublishingTechnicalDetails
-              supportReference={app.supportReference}
-              checks={app.publishSetupChecks}
-            />
-          }
+          details={publishingTechnicalDetails}
         >
           <Link
             className="btn btn--primary-solid"
@@ -1027,12 +1096,7 @@ export default async function AppOnboardingPage({
           title="This app is no longer published"
           explanation="The app's online deployment was removed. The portal will not recreate or change anything from this screen."
           next="Return to My Apps to choose another app. Contact the portal support team if this deployment should still be online."
-          details={
-            <PublishingTechnicalDetails
-              supportReference={app.supportReference}
-              checks={app.publishSetupChecks}
-            />
-          }
+          details={publishingTechnicalDetails}
         >
           <Link className="btn btn--primary-solid" href="/apps">
             Return to My Apps

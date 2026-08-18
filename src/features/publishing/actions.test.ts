@@ -338,6 +338,69 @@ describe("publishing actions", () => {
     expect(runPublishAttempt).not.toHaveBeenCalled();
   });
 
+  it.each(["PENDING", "FAILED"] as const)(
+    "rejects failed-publish retries while the repository is %s",
+    async (repositoryStatus) => {
+      vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+      vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+        id: "request-123",
+        userId: "user-123",
+        repositoryStatus,
+        publishStatus: "FAILED",
+        sourceOfTruth: "PORTAL_MANAGED_REPO",
+        publishingSetupStatus: "READY",
+      } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+      await expect(retryPublishAction("request-123")).rejects.toThrow(
+        "Managed repository is not ready for publishing.",
+      );
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(runPublishAttempt).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects failed-publish retries until imported preparation is committed", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      publishStatus: "FAILED",
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      publishingSetupStatus: "READY",
+      repositoryImport: {
+        preparationStatus: "FAILED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(retryPublishAction("request-123")).rejects.toThrow(
+      "Imported app repository preparation must be committed before publishing.",
+    );
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(runPublishAttempt).not.toHaveBeenCalled();
+  });
+
+  it("rejects retry when the saved publish is no longer failed", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      publishStatus: "QUEUED",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishingSetupStatus: "READY",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(retryPublishAction("request-123")).rejects.toThrow(
+      "Only failed publish attempts can be retried.",
+    );
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(runPublishAttempt).not.toHaveBeenCalled();
+  });
+
   it("allows a failed publish to retry while repair remains available", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({

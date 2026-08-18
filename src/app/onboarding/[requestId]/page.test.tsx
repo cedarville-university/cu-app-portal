@@ -716,7 +716,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
         preparedImportedApp({
           publishingSetupStatus,
           publishingSetupErrorSummary:
-            "The portal could not confirm one publishing setting.",
+            "Azure App Service PUT failed: secret=provider-detail.",
           publishSetupChecks: [
             {
               id: "check-123",
@@ -736,7 +736,16 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       await renderPage();
 
       expect(screen.getByRole("alert")).toHaveTextContent(
-        /could not confirm one publishing setting/i,
+        /publishing setup needs attention/i,
+      );
+      expect(screen.getByRole("alert")).not.toHaveTextContent(
+        /azure app service|provider-detail/i,
+      );
+      const unsafeSummary = screen.getByText(
+        "Azure App Service PUT failed: secret=provider-detail.",
+      );
+      expect(unsafeSummary.closest("details")).toHaveTextContent(
+        /technical details for support/i,
       );
       expect(
         screen.getByRole("button", { name: "Fix publishing setup" }),
@@ -821,19 +830,32 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       preparedImportedApp({
         publishingSetupStatus: "NEEDS_REPAIR",
         publishingSetupErrorSummary:
-          "One publishing connection needs to be refreshed.",
+          "GitHub Actions OIDC subject mismatch: refs/heads/main.",
         publishStatus: "FAILED",
         publishErrorSummary:
-          "The app did not finish publishing. No app code was deleted.",
+          "Azure ARM 403 AuthorizationFailed for subscription 0000.",
       }),
     );
 
     await renderPage();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      /did not finish publishing/i,
+      /publishing did not complete/i,
     );
-    expect(screen.getByText(/one publishing connection needs/i)).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /app code and saved work are still safe/i,
+    );
+    expect(screen.getByRole("alert")).not.toHaveTextContent(
+      /azure|authorizationfailed|github actions|oidc/i,
+    );
+    for (const unsafeSummary of [
+      "Azure ARM 403 AuthorizationFailed for subscription 0000.",
+      "GitHub Actions OIDC subject mismatch: refs/heads/main.",
+    ]) {
+      expect(screen.getByText(unsafeSummary).closest("details")).toHaveTextContent(
+        /technical details for support/i,
+      );
+    }
     expect(
       screen.getByRole("button", { name: "Try publishing again" }),
     ).toBeInTheDocument();
@@ -844,6 +866,25 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       screen.queryByRole("button", { name: "Publish to Azure" }),
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("offers only publish retry when failed publishing setup is already ready", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        publishingSetupStatus: "READY",
+        publishStatus: "FAILED",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Try publishing again" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Fix publishing setup" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
   it("does not offer an invalid retry while setup repair is still running", async () => {
@@ -864,6 +905,84 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       /checks this page automatically/i,
     );
+  });
+
+  it("waits without mutations when a failed publish has a pending repository", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        repositoryStatus: "PENDING",
+        publishingSetupStatus: "READY",
+        publishStatus: "FAILED",
+        publishErrorSummary: "Provider job failed with correlation id raw-123.",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /code home is still being prepared/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /checks repository progress automatically/i,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /publishing|setup/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Provider job failed with correlation id raw-123.")
+        .closest("details"),
+    ).toHaveTextContent(/technical details for support/i);
+  });
+
+  it("offers support without mutations when a failed publish has a failed repository", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        repositoryStatus: "FAILED",
+        publishingSetupStatus: "NEEDS_REPAIR",
+        publishStatus: "FAILED",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /code home needs support/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/no repair or publish will start/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to My Apps" })).toHaveAttribute(
+      "href",
+      "/apps",
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("returns an uncommitted imported app to its stored preparation recovery", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        publishStatus: "FAILED",
+        publishingSetupStatus: "READY",
+        repositoryImport: {
+          ...preparedImportedApp().repositoryImport,
+          preparationStatus: "FAILED",
+          preparationMode: "DIRECT_COMMIT",
+          preparationErrorSummary: "Preparation stopped before committing.",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Try preparation again" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Try publishing again" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Fix publishing setup" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
   it("hands a successfully published app to its full details page", async () => {

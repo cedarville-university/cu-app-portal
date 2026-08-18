@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as publishingEligibility from "./eligibility";
 import { canQueuePublish } from "./eligibility";
 
 const generatedPublish = {
@@ -9,6 +10,99 @@ const generatedPublish = {
 };
 
 describe("canQueuePublish", () => {
+  it.each([
+    [
+      { ...generatedPublish, repositoryStatus: "PENDING" },
+      "REPOSITORY_NOT_READY",
+    ],
+    [
+      {
+        ...generatedPublish,
+        sourceOfTruth: "IMPORTED_REPOSITORY",
+        preparationStatus: "FAILED",
+      },
+      "PREPARATION_NOT_COMMITTED",
+    ],
+    [
+      { ...generatedPublish, publishStatus: "QUEUED" },
+      "PUBLISH_STATUS_NOT_ALLOWED",
+    ],
+    [
+      {
+        ...generatedPublish,
+        publishStatus: "FAILED",
+        publishingSetupStatus: "REPAIRING",
+      },
+      "PUBLISHING_SETUP_IN_PROGRESS",
+    ],
+    [
+      {
+        ...generatedPublish,
+        publishingSetupStatus: "UNEXPECTED",
+      },
+      "PUBLISHING_SETUP_NOT_READY",
+    ],
+  ])("explains ineligibility as %s", (input, reason) => {
+    expect(publishingEligibility).toHaveProperty("getPublishEligibility");
+
+    const getPublishEligibility = (
+      publishingEligibility as typeof publishingEligibility & {
+        getPublishEligibility: (
+          input: typeof generatedPublish & {
+            preparationStatus?: string;
+          },
+          options: {
+            allowedPublishStatuses: string[];
+            allowFailedSetupRetry?: boolean;
+          },
+        ) => { eligible: boolean; reason?: string };
+      }
+    ).getPublishEligibility;
+    const options =
+      input.publishStatus === "FAILED"
+        ? {
+            allowedPublishStatuses: ["FAILED"],
+            allowFailedSetupRetry: true,
+          }
+        : { allowedPublishStatuses: ["NOT_STARTED"] };
+
+    expect(getPublishEligibility(input, options)).toEqual({
+      eligible: false,
+      reason,
+    });
+  });
+
+  it("shares setup-repair guards for repository and transient setup state", () => {
+    expect(publishingEligibility).toHaveProperty(
+      "getPublishingSetupRepairEligibility",
+    );
+
+    const getRepairEligibility = (
+      publishingEligibility as typeof publishingEligibility & {
+        getPublishingSetupRepairEligibility: (input: {
+          repositoryStatus: string;
+          publishingSetupStatus: string;
+        }) => { eligible: boolean; reason?: string };
+      }
+    ).getPublishingSetupRepairEligibility;
+
+    expect(
+      getRepairEligibility({
+        repositoryStatus: "FAILED",
+        publishingSetupStatus: "NEEDS_REPAIR",
+      }),
+    ).toEqual({ eligible: false, reason: "REPOSITORY_NOT_READY" });
+    expect(
+      getRepairEligibility({
+        repositoryStatus: "READY",
+        publishingSetupStatus: "REPAIRING",
+      }),
+    ).toEqual({
+      eligible: false,
+      reason: "PUBLISHING_SETUP_IN_PROGRESS",
+    });
+  });
+
   it("allows an initial generated-app publish before setup is checked", () => {
     expect(
       canQueuePublish(generatedPublish, {

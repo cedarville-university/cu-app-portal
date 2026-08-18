@@ -11,7 +11,10 @@ import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { supportsPostSuccessPushToDeploy } from "./providers";
-import { canQueuePublish } from "./eligibility";
+import {
+  getPublishEligibility,
+  type PublishEligibilityReason,
+} from "./eligibility";
 import { runPublishAttempt } from "./run-publish-attempt";
 import {
   AZURE_DEPLOY_WORKFLOW_PATH,
@@ -139,45 +142,29 @@ async function queuePublishAttempt(
 ) {
   const appRequest = await loadAccessibleAppRequest(requestId);
 
-  if (appRequest.repositoryStatus !== "READY") {
-    throw new Error("Managed repository is not ready for publishing.");
-  }
+  const eligibility = getPublishEligibility(
+    {
+      sourceOfTruth: appRequest.sourceOfTruth,
+      repositoryStatus: appRequest.repositoryStatus,
+      preparationStatus: appRequest.repositoryImport?.preparationStatus,
+      publishingSetupStatus: appRequest.publishingSetupStatus ?? "NOT_CHECKED",
+      publishStatus: appRequest.publishStatus,
+    },
+    {
+      allowedPublishStatuses: allowedStatuses,
+      allowFailedSetupRetry: options.allowFailedSetupRetry,
+    },
+  );
 
-  if (
-    appRequest.sourceOfTruth === "IMPORTED_REPOSITORY" &&
-    appRequest.repositoryImport?.preparationStatus !== "COMMITTED"
-  ) {
+  if (!eligibility.eligible) {
     throw new Error(
-      "Imported app repository preparation must be committed before publishing.",
-    );
-  }
-
-  if (
-    !canQueuePublish(
-      {
+      publishEligibilityError({
+        reason: eligibility.reason,
         sourceOfTruth: appRequest.sourceOfTruth,
-        repositoryStatus: appRequest.repositoryStatus,
-        preparationStatus: appRequest.repositoryImport?.preparationStatus,
-        publishingSetupStatus: appRequest.publishingSetupStatus ?? "NOT_CHECKED",
-        publishStatus: appRequest.publishStatus,
-      },
-      {
-        allowedPublishStatuses: allowedStatuses,
-        allowFailedSetupRetry: options.allowFailedSetupRetry,
-      },
-    )
-  ) {
-    if (BLOCKING_SETUP_STATUSES.has(appRequest.publishingSetupStatus)) {
-      throw new Error("Publishing setup must be repaired before publishing.");
-    }
-
-    if (appRequest.sourceOfTruth === "IMPORTED_REPOSITORY") {
-      throw new Error(
-        "Imported app publishing setup must be ready before publishing.",
-      );
-    }
-
-    throw new Error("Publishing setup must be ready before publishing.");
+        publishingSetupStatus: appRequest.publishingSetupStatus,
+        retryOnly: allowedStatuses.length === 1 && allowedStatuses[0] === "FAILED",
+      }),
+    );
   }
 
   const attemptId = await prisma.$transaction(async (tx) => {
@@ -227,6 +214,37 @@ async function queuePublishAttempt(
   return attemptId;
 }
 
+function publishEligibilityError({
+  reason,
+  sourceOfTruth,
+  publishingSetupStatus,
+  retryOnly,
+}: {
+  reason: PublishEligibilityReason;
+  sourceOfTruth: string;
+  publishingSetupStatus: string;
+  retryOnly: boolean;
+}) {
+  if (reason === "REPOSITORY_NOT_READY") {
+    return "Managed repository is not ready for publishing.";
+  }
+  if (reason === "PREPARATION_NOT_COMMITTED") {
+    return "Imported app repository preparation must be committed before publishing.";
+  }
+  if (reason === "PUBLISH_STATUS_NOT_ALLOWED") {
+    return retryOnly
+      ? "Only failed publish attempts can be retried."
+      : "Publish request is already queued or running.";
+  }
+  if (BLOCKING_SETUP_STATUSES.has(publishingSetupStatus)) {
+    return "Publishing setup must be repaired before publishing.";
+  }
+  if (sourceOfTruth === "IMPORTED_REPOSITORY") {
+    return "Imported app publishing setup must be ready before publishing.";
+  }
+  return "Publishing setup must be ready before publishing.";
+}
+
 export async function publishToAzureAction(requestId: string) {
   const attemptId = await queuePublishAttempt(requestId, [
     "NOT_STARTED",
@@ -237,12 +255,6 @@ export async function publishToAzureAction(requestId: string) {
 }
 
 export async function retryPublishAction(requestId: string) {
-  const appRequest = await loadAccessibleAppRequest(requestId);
-
-  if (appRequest.publishStatus !== "FAILED") {
-    throw new Error("Only failed publish attempts can be retried.");
-  }
-
   const attemptId = await queuePublishAttempt(requestId, ["FAILED"], {
     allowFailedSetupRetry: true,
   });
