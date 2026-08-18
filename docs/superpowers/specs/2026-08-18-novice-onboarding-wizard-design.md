@@ -162,6 +162,7 @@ Expected high-level states are:
 - `PREPARATION_FAILED`
 - `PREPARATION_CONFLICT`
 - `PREPARATION_REVIEW_OPEN`
+- `PUBLISHING_SETUP_NOT_STARTED`
 - `PUBLISHING_SETUP_CHECKING`
 - `PUBLISHING_SETUP_REPAIR_REQUIRED`
 - `READY_TO_PUBLISH`
@@ -210,7 +211,11 @@ Publishing presentation follows the same rules as the existing detailed page:
 
 Publishing setup statuses receive distinct UI:
 
-- `NOT_CHECKED` or `CHECKING`: explain that the portal is checking settings.
+- Imported `NOT_CHECKED`: offer **Finish publishing setup**, backed by the
+  existing repair/setup service. Generated `NOT_CHECKED` remains eligible for
+  its existing first-publish provisioning path.
+- `CHECKING`: explain that the portal is checking settings and refresh
+  automatically.
 - `READY`: allow publishing when repository requirements also pass.
 - `NEEDS_REPAIR` or `BLOCKED`: offer repair and explain that it does not delete
   code or Azure resources.
