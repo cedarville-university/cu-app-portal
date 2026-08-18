@@ -82,23 +82,23 @@ describe("TemplateForm", () => {
     render(<TemplateForm template={template} />);
 
     expect(
-      screen.getByRole("button", { name: /publishing/i }),
+      screen.getByRole("button", { name: /creating your app/i }),
     ).toBeDisabled();
     expect(screen.getAllByRole("status")[0]).toHaveTextContent(
-      /creating your app and starting azure publishing/i,
+      /creating your app and its private code repository/i,
     );
   });
 
-  it("shows only the one-step create and publish submit action", () => {
+  it("shows only the repository-only create submit action", () => {
     render(<TemplateForm template={template} />);
 
-    const submitButton = screen.getByRole("button", {
-      name: "Create and Publish",
-    });
+    const submitButton = screen.getByRole("button", { name: "Create App" });
 
     expect(submitButton).toHaveAttribute("name", "createIntent");
-    expect(submitButton).toHaveAttribute("value", "createAndPublish");
-    expect(screen.queryByRole("button", { name: "Create App" })).toBeNull();
+    expect(submitButton).toHaveAttribute("value", "createOnly");
+    expect(
+      screen.queryByRole("button", { name: "Create and Publish" }),
+    ).not.toBeInTheDocument();
   });
 
   it("includes template feature choices in submitted form values", () => {

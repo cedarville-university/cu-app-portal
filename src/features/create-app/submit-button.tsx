@@ -11,12 +11,12 @@ type SubmitButtonProps = {
 };
 
 export function SubmitButton({
-  idleLabel = "Create and Publish",
-  pendingLabel = "Publishing...",
-  statusText = "Creating your app and starting Azure publishing.",
+  idleLabel = "Create App",
+  pendingLabel = "Creating Your App...",
+  statusText = "Creating your app and its private code repository.",
   variant = "primary-solid",
   name = "createIntent",
-  value = "createAndPublish",
+  value = "createOnly",
 }: SubmitButtonProps) {
   return (
     <PendingSubmitButton

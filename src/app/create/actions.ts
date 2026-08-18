@@ -6,8 +6,6 @@ import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
 import { buildSourceSnapshot } from "@/features/generation/build-source-snapshot";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
-import { publishToAzureAction } from "@/features/publishing/actions";
-import { supportsGeneratedTemplateOneStep } from "@/features/publishing/providers";
 import { grantManagedRepositoryAccess } from "@/features/repositories/access";
 import { bootstrapManagedRepository } from "@/features/repositories/bootstrap-managed-repository";
 import {
@@ -17,18 +15,6 @@ import {
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { createSupportReference } from "@/lib/support-reference";
-
-type CreateIntent = "createOnly" | "createAndPublish";
-
-function extractCreateIntent(formData: FormData): CreateIntent {
-  const rawIntent = String(formData.get("createIntent") ?? "createOnly");
-
-  if (rawIntent === "createOnly" || rawIntent === "createAndPublish") {
-    return rawIntent;
-  }
-
-  throw new Error("Invalid create action.");
-}
 
 export async function extractCreateAppInput(
   formData: FormData,
@@ -66,20 +52,10 @@ export async function extractCreateAppInput(
 
 export async function createAppAction(formData: FormData) {
   const input = await extractCreateAppInput(formData);
-  const createIntent = extractCreateIntent(formData);
   const template = getActiveTemplateBySlug(input.templateSlug);
 
   if (!template) {
     throw new Error("Template not found.");
-  }
-
-  if (
-    createIntent === "createAndPublish" &&
-    !supportsGeneratedTemplateOneStep(template)
-  ) {
-    throw new Error(
-      `Create and publish is not supported for ${input.hostingTarget}.`,
-    );
   }
 
   const persistedTemplate = await prisma.template.upsert({
@@ -108,8 +84,6 @@ export async function createAppAction(formData: FormData) {
       publishStatus: "NOT_STARTED",
     },
   });
-  let repositoryReady = false;
-
   try {
     const files = await buildSourceSnapshot(input);
 
@@ -139,8 +113,6 @@ export async function createAppAction(formData: FormData) {
           repositoryAccessNote: null,
         },
       });
-      repositoryReady = true;
-
       await recordAuditEvent("REPOSITORY_BOOTSTRAP_SUCCEEDED", {
         requestId: request.id,
         supportReference,
@@ -254,40 +226,6 @@ export async function createAppAction(formData: FormData) {
       directRecipientUserIds: [userId],
     });
 
-    if (createIntent === "createAndPublish" && repositoryReady) {
-      try {
-        await publishToAzureAction(request.id);
-      } catch (error) {
-        const errorSummary =
-          error instanceof Error ? error.message : "unknown";
-
-        console.error("Initial publish queueing failed", {
-          requestId: request.id,
-          supportReference,
-          error,
-        });
-
-        await prisma.appRequest.update({
-          where: { id: request.id },
-          data: {
-            publishStatus: "FAILED",
-            publishErrorSummary: errorSummary,
-          },
-        });
-
-        await recordAuditEvent("PUBLISH_FAILED", {
-          requestId: request.id,
-          error: errorSummary,
-          initialPublish: true,
-        });
-        await safeNotifyAppEvent({
-          appRequestId: request.id,
-          eventKey: "PUBLISH_FAILED",
-          actorUserId: userId,
-          directRecipientUserIds: [userId],
-        });
-      }
-    }
   } catch (error) {
     await prisma.appRequest.update({
       where: { id: request.id },
