@@ -11,6 +11,7 @@ import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { supportsPostSuccessPushToDeploy } from "./providers";
+import { canQueuePublish } from "./eligibility";
 import { runPublishAttempt } from "./run-publish-attempt";
 import {
   AZURE_DEPLOY_WORKFLOW_PATH,
@@ -136,21 +137,9 @@ async function queuePublishAttempt(
   options: { allowFailedSetupRetry?: boolean } = {},
 ) {
   const appRequest = await loadAccessibleAppRequest(requestId);
-  const canRetryFailedSetup =
-    options.allowFailedSetupRetry &&
-    FAILED_RETRY_QUEUEABLE_SETUP_STATUSES.includes(
-      appRequest.publishingSetupStatus as QueueablePublishingSetupStatus,
-    );
 
   if (appRequest.repositoryStatus !== "READY") {
     throw new Error("Managed repository is not ready for publishing.");
-  }
-
-  if (
-    BLOCKING_SETUP_STATUSES.has(appRequest.publishingSetupStatus) &&
-    !canRetryFailedSetup
-  ) {
-    throw new Error("Publishing setup must be repaired before publishing.");
   }
 
   if (
@@ -163,13 +152,31 @@ async function queuePublishAttempt(
   }
 
   if (
-    appRequest.sourceOfTruth === "IMPORTED_REPOSITORY" &&
-    appRequest.publishingSetupStatus !== "READY" &&
-    !canRetryFailedSetup
+    !canQueuePublish(
+      {
+        sourceOfTruth: appRequest.sourceOfTruth,
+        repositoryStatus: appRequest.repositoryStatus,
+        preparationStatus: appRequest.repositoryImport?.preparationStatus,
+        publishingSetupStatus: appRequest.publishingSetupStatus ?? "NOT_CHECKED",
+        publishStatus: appRequest.publishStatus,
+      },
+      {
+        allowedPublishStatuses: allowedStatuses,
+        allowFailedSetupRetry: options.allowFailedSetupRetry,
+      },
+    )
   ) {
-    throw new Error(
-      "Imported app publishing setup must be ready before publishing.",
-    );
+    if (BLOCKING_SETUP_STATUSES.has(appRequest.publishingSetupStatus)) {
+      throw new Error("Publishing setup must be repaired before publishing.");
+    }
+
+    if (appRequest.sourceOfTruth === "IMPORTED_REPOSITORY") {
+      throw new Error(
+        "Imported app publishing setup must be ready before publishing.",
+      );
+    }
+
+    throw new Error("Publishing setup must be ready before publishing.");
   }
 
   const attemptId = await prisma.$transaction(async (tx) => {
