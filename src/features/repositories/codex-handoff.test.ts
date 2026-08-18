@@ -4,6 +4,21 @@ import {
   buildLocalCodexGitSetupPrompt,
 } from "./codex-handoff";
 
+function expectOrderedSections(prompt: string) {
+  const sectionIndexes = [
+    "Who you are helping",
+    "Your goal",
+    "Safety rules",
+    "Work to perform",
+    "Before you finish",
+  ].map((section) => prompt.indexOf(section));
+
+  sectionIndexes.forEach((index) => expect(index).toBeGreaterThan(-1));
+  sectionIndexes.slice(1).forEach((index, position) => {
+    expect(index).toBeGreaterThan(sectionIndexes[position]);
+  });
+}
+
 describe("buildCodexHandoffPrompt", () => {
   it("includes portal remote instructions for successfully imported repos", () => {
     const prompt = buildCodexHandoffPrompt(
@@ -42,6 +57,10 @@ describe("buildCodexHandoffPrompt", () => {
     expect(prompt).toContain("commit and push");
     expect(prompt).toContain("return to the Cedarville App Portal");
     expect(prompt).toContain("Return to the portal and select Publish to Azure");
+    expectOrderedSections(prompt);
+    expect(prompt.indexOf("Safety rules")).toBeLessThan(
+      prompt.indexOf("Open the managed GitHub repository"),
+    );
   });
 });
 
@@ -75,5 +94,14 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     expect(prompt).toContain("preserve any existing Git history");
     expect(prompt).toContain("report the repository and branch that received the push");
     expect(prompt).toContain("Return to the portal and select My code has been uploaded");
+    expect(prompt).not.toContain("git add .");
+    expect(prompt).toContain("Inspect candidate files with git status");
+    expect(prompt).toContain("stage only intentional source, configuration, and documentation files by explicit path");
+    expect(prompt).toContain("Re-check the staged file names and diff");
+    expect(prompt).toContain("Unstage anything sensitive or local before committing");
+    expectOrderedSections(prompt);
+    expect(prompt.indexOf("Safety rules")).toBeLessThan(
+      prompt.indexOf("Managed repository:"),
+    );
   });
 });
