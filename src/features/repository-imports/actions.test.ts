@@ -1194,6 +1194,90 @@ describe("repository import actions", () => {
     expect(prepareImportedRepository).not.toHaveBeenCalled();
   });
 
+  it("rejects a pull-request retry when GitHub access belongs to a different actor", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collaborator-name",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_pr_retry_wrong_actor",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: "GitHub access is ready for @owner-name.",
+      repositoryImport: {
+        id: "import_pr_retry_wrong_actor",
+        preparationMode: "PULL_REQUEST",
+        preparationStatus: "FAILED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({
+      status: "PULL_REQUEST_OPENED",
+      commitSha: "commit-sha",
+      pullRequestUrl:
+        "https://github.com/cedarville-it/campus-dashboard/pull/22",
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    const formData = new FormData();
+    formData.set("preparationMode", "PULL_REQUEST");
+
+    await expect(
+      prepareExistingAppAction("req_pr_retry_wrong_actor", formData),
+    ).rejects.toThrow(
+      "GitHub access for the signed-in user is required before retrying a review.",
+    );
+    expect(prisma.repositoryImport.updateMany).not.toHaveBeenCalled();
+    expect(prepareImportedRepository).not.toHaveBeenCalled();
+  });
+
+  it("rejects a local preparation retry when the actor has no GitHub access", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_local_retry_no_access",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      submittedConfig: { localOnlySource: true },
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "NOT_REQUESTED",
+      repositoryAccessNote: null,
+      repositoryImport: {
+        id: "import_local_retry_no_access",
+        preparationMode: "DIRECT_COMMIT",
+        preparationStatus: "FAILED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    const formData = new FormData();
+    formData.set("preparationMode", "DIRECT_COMMIT");
+
+    await expect(
+      prepareExistingAppAction("req_local_retry_no_access", formData),
+    ).rejects.toThrow(
+      "GitHub access for the signed-in user is required before retrying a local upload.",
+    );
+    expect(prisma.repositoryImport.updateMany).not.toHaveBeenCalled();
+    expect(prepareImportedRepository).not.toHaveBeenCalled();
+  });
+
   it("prepares an imported app by direct commit", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
@@ -1458,6 +1542,8 @@ describe("repository import actions", () => {
       repositoryOwner: "cedarville-it",
       repositoryName: "campus-dashboard",
       repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: "GitHub access is ready for @portalstaff.",
       repositoryImport: {
         id: "import_retry_preparation",
         preparationMode: "PULL_REQUEST",
@@ -1517,6 +1603,143 @@ describe("repository import actions", () => {
       }),
     });
     expect(preflightPublishingSetup).not.toHaveBeenCalled();
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: "user-123" },
+      select: { githubUsername: true },
+    });
+  });
+
+  it("lets the same actor retry local preparation after a transient failure", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_local_retry",
+      userId: "user-123",
+      appName: "Campus Dashboard",
+      submittedConfig: { localOnlySource: true },
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: "GitHub access is ready for @portalstaff.",
+      repositoryImport: {
+        id: "import_local_retry",
+        preparationMode: "DIRECT_COMMIT",
+        preparationStatus: "FAILED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    const formData = new FormData();
+    formData.set("preparationMode", "DIRECT_COMMIT");
+
+    await expect(
+      prepareExistingAppAction("req_local_retry", formData),
+    ).resolves.toBeUndefined();
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: "user-123" },
+      select: { githubUsername: true },
+    });
+    expect(prepareImportedRepository).toHaveBeenCalled();
+  });
+
+  it("returns an incompatible local app to repair and upload guidance", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_local_incompatible",
+      userId: "user-123",
+      appName: "Campus Dashboard",
+      submittedConfig: { localOnlySource: true },
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: "GitHub access is ready for @portalstaff.",
+      repositoryImport: {
+        id: "import_local_incompatible",
+        compatibilityStatus: "NOT_SCANNED",
+        preparationMode: null,
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockRejectedValue(
+      Object.assign(
+        new Error(
+          "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
+        ),
+        { name: "RepositoryCompatibilityError" },
+      ),
+    );
+
+    const formData = new FormData();
+    formData.set("preparationMode", "DIRECT_COMMIT");
+
+    await expect(
+      prepareExistingAppAction("req_local_incompatible", formData),
+    ).resolves.toBeUndefined();
+    expect(prisma.repositoryImport.update).toHaveBeenCalledWith({
+      where: { id: "import_local_incompatible" },
+      data: {
+        preparationMode: "DIRECT_COMMIT",
+        compatibilityStatus: "UNSUPPORTED",
+        preparationStatus: "PENDING_USER_CHOICE",
+        preparationErrorSummary:
+          "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
+      },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith(
+      "/onboarding/req_local_incompatible",
+    );
+  });
+
+  it("re-confirms repaired local code and clears the incompatible state", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_local_repaired",
+      userId: "user-123",
+      appName: "Campus Dashboard",
+      submittedConfig: { localOnlySource: true },
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: "GitHub access is ready for @portalstaff.",
+      repositoryImport: {
+        id: "import_local_repaired",
+        compatibilityStatus: "UNSUPPORTED",
+        preparationMode: "DIRECT_COMMIT",
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({
+      status: "COMMITTED",
+      commitSha: "commit-sha",
+      pullRequestUrl: null,
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    const formData = new FormData();
+    formData.set("preparationMode", "DIRECT_COMMIT");
+
+    await expect(
+      prepareExistingAppAction("req_local_repaired", formData),
+    ).resolves.toBeUndefined();
+    expect(prisma.repositoryImport.update).toHaveBeenCalledWith({
+      where: { id: "import_local_repaired" },
+      data: expect.objectContaining({
+        compatibilityStatus: "COMPATIBLE",
+        preparationStatus: "COMMITTED",
+        preparationErrorSummary: null,
+      }),
+    });
   });
 
   it("marks publishing setup as needing repair when committed preparation preflight fails", async () => {
@@ -2361,13 +2584,63 @@ describe("repository import actions", () => {
 
     await verifyExistingAppPreparationAction("req_missing", { github });
 
-    expect(prisma.repositoryImport.update).toHaveBeenCalledWith({
-      where: { id: "import_missing" },
-      data: {
+    expect(prisma.repositoryImport.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "import_missing",
         preparationStatus: "PULL_REQUEST_OPENED",
+      },
+      data: {
         preparationErrorSummary: `Missing publishing files on default branch: ${missingPath}`,
       },
     });
+    expect(recordAuditEvent).not.toHaveBeenCalledWith(
+      "REPOSITORY_PREPARATION_VERIFIED",
+      expect.anything(),
+    );
+  });
+
+  it("does not overwrite a concurrent committed transition with stale not-ready feedback", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_verify_concurrent",
+      userId: "user-123",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryImport: {
+        id: "import_verify_concurrent",
+        preparationStatus: "PULL_REQUEST_OPENED",
+        preparationPullRequestUrl:
+          "https://github.com/cedarville-it/campus-dashboard/pull/15",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.repositoryImport.updateMany).mockResolvedValueOnce({
+      count: 0,
+    });
+    const [missingPath, ...presentPaths] = PUBLISHING_BUNDLE_PATHS;
+    const github = {
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({
+        "package.json": readyPackageJson,
+        ...Object.fromEntries(presentPaths.map((path) => [path, "content"])),
+      }),
+    };
+
+    await expect(
+      verifyExistingAppPreparationAction("req_verify_concurrent", { github }),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.repositoryImport.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "import_verify_concurrent",
+        preparationStatus: "PULL_REQUEST_OPENED",
+        preparationPullRequestUrl:
+          "https://github.com/cedarville-it/campus-dashboard/pull/15",
+      },
+      data: {
+        preparationErrorSummary: `Missing publishing files on default branch: ${missingPath}`,
+      },
+    });
+    expect(prisma.repositoryImport.update).not.toHaveBeenCalled();
     expect(recordAuditEvent).not.toHaveBeenCalledWith(
       "REPOSITORY_PREPARATION_VERIFIED",
       expect.anything(),
@@ -2401,10 +2674,12 @@ describe("repository import actions", () => {
 
     await verifyExistingAppPreparationAction("req_incomplete_package", { github });
 
-    expect(prisma.repositoryImport.update).toHaveBeenCalledWith({
-      where: { id: "import_incomplete_package" },
-      data: {
+    expect(prisma.repositoryImport.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "import_incomplete_package",
         preparationStatus: "PULL_REQUEST_OPENED",
+      },
+      data: {
         preparationErrorSummary:
           'Repository is not ready for publishing: package.json is missing a start script; the portal can add "next start".; package.json is missing engines.node; the portal can add ">=24".',
       },

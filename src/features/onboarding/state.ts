@@ -29,6 +29,7 @@ export type OnboardingState =
   | { kind: "GITHUB_INVITATION_PENDING" }
   | { kind: "CODEX_CUSTOMIZATION" }
   | { kind: "LOCAL_CODE_UPLOAD" }
+  | { kind: "LOCAL_CODE_REPAIR" }
   | { kind: "PREPARATION_READY" }
   | { kind: "PREPARATION_RUNNING" }
   | {
@@ -97,6 +98,14 @@ export function deriveOnboardingState(
       return githubAccessState(input, "local");
     }
 
+    if (
+      input.isLocalSource &&
+      input.preparationStatus === "PENDING_USER_CHOICE" &&
+      input.compatibilityStatus === "UNSUPPORTED"
+    ) {
+      return { kind: "LOCAL_CODE_REPAIR" };
+    }
+
     if (input.isLocalSource && input.preparationStatus === "PENDING_USER_CHOICE") {
       return { kind: "LOCAL_CODE_UPLOAD" };
     }
@@ -108,6 +117,13 @@ export function deriveOnboardingState(
       return { kind: "PREPARATION_RUNNING" };
     }
     if (input.preparationStatus === "FAILED") {
+      if (
+        input.preparationMode === "PULL_REQUEST" &&
+        input.repositoryAccessStatus !== "GRANTED"
+      ) {
+        return githubAccessState(input, "review");
+      }
+
       return {
         kind: "PREPARATION_FAILED",
         retryMode:

@@ -19,6 +19,7 @@ import { prisma } from "@/lib/db";
 import { createSupportReference } from "@/lib/support-reference";
 import { IMPORTED_NEXT_RUNTIME, type ImportedAppRuntime } from "./compatibility";
 import {
+  isRepositoryCompatibilityError,
   isRepositoryImportInputError,
   repositoryImportInputError,
 } from "./errors";
@@ -783,12 +784,20 @@ export async function prepareExistingAppAction(
   const isLocalUploadConfirmation =
     isInitialDirectPreparation &&
     hasLocalOnlySource(appRequest.submittedConfig);
+  const isPullRequestRetry = isSameModeRetry && mode === "PULL_REQUEST";
+  const isLocalPreparationRetry =
+    isSameModeRetry && hasLocalOnlySource(appRequest.submittedConfig);
 
   if (!isInitialDirectPreparation && !isSameModeRetry && !isConflictReview) {
     throw new Error("Imported app preparation is not awaiting this action.");
   }
 
-  if (isConflictReview || isLocalUploadConfirmation) {
+  if (
+    isConflictReview ||
+    isLocalUploadConfirmation ||
+    isPullRequestRetry ||
+    isLocalPreparationRetry
+  ) {
     const actor = await prisma.user.findUnique({
       where: { id: userId },
       select: { githubUsername: true },
@@ -802,11 +811,15 @@ export async function prepareExistingAppAction(
       accessActor?.toLowerCase() === actor.githubUsername.toLowerCase();
 
     if (!actorHasAccess) {
-      throw new Error(
-        isConflictReview
-          ? "GitHub access for the signed-in user is required before opening a review."
-          : "GitHub access for the signed-in user is required before confirming a local upload.",
-      );
+      const message = isConflictReview
+        ? "GitHub access for the signed-in user is required before opening a review."
+        : isLocalPreparationRetry
+          ? "GitHub access for the signed-in user is required before retrying a local upload."
+          : isPullRequestRetry
+            ? "GitHub access for the signed-in user is required before retrying a review."
+            : "GitHub access for the signed-in user is required before confirming a local upload.";
+
+      throw new Error(message);
     }
   }
 
@@ -845,6 +858,9 @@ export async function prepareExistingAppAction(
       where: { id: appRequest.repositoryImport.id },
       data: {
         preparationMode: mode,
+        ...(result.status === "COMMITTED"
+          ? { compatibilityStatus: "COMPATIBLE" as const }
+          : {}),
         preparationStatus: result.status,
         preparationPullRequestUrl: result.pullRequestUrl,
         preparationErrorSummary: null,
@@ -879,6 +895,9 @@ export async function prepareExistingAppAction(
     }
   } catch (error) {
     const isPublishingConflict = isPublishingFileConflictError(error);
+    const isLocalCompatibilityFailure =
+      hasLocalOnlySource(appRequest.submittedConfig) &&
+      isRepositoryCompatibilityError(error);
     const isGitHubAuthFailure = isGitHubAuthenticationError(error);
     const isGitHubPermissionFailure =
       isGitHubIntegrationPermissionError(error);
@@ -892,8 +911,14 @@ export async function prepareExistingAppAction(
         preparationMode: mode,
         ...(isPublishingConflict
           ? { compatibilityStatus: "CONFLICTED" as const }
+          : isLocalCompatibilityFailure
+            ? { compatibilityStatus: "UNSUPPORTED" as const }
           : {}),
-        preparationStatus: isPublishingConflict ? "BLOCKED" : "FAILED",
+        preparationStatus: isPublishingConflict
+          ? "BLOCKED"
+          : isLocalCompatibilityFailure
+            ? "PENDING_USER_CHOICE"
+            : "FAILED",
         preparationErrorSummary: message,
       },
     });
@@ -911,7 +936,12 @@ export async function prepareExistingAppAction(
       directRecipientUserIds: [userId],
     });
 
-    if (isPublishingConflict || isGitHubAuthFailure || isGitHubPermissionFailure) {
+    if (
+      isPublishingConflict ||
+      isLocalCompatibilityFailure ||
+      isGitHubAuthFailure ||
+      isGitHubPermissionFailure
+    ) {
       revalidateImportedRepositoryViews(requestId);
       return;
     }
@@ -971,10 +1001,18 @@ export async function verifyExistingAppPreparationAction(
   });
 
   if (!readiness.ready) {
-    await prisma.repositoryImport.update({
-      where: { id: appRequest.repositoryImport.id },
-      data: {
+    await prisma.repositoryImport.updateMany({
+      where: {
+        id: appRequest.repositoryImport.id,
         preparationStatus: appRequest.repositoryImport.preparationStatus,
+        ...(appRequest.repositoryImport.preparationPullRequestUrl
+          ? {
+              preparationPullRequestUrl:
+                appRequest.repositoryImport.preparationPullRequestUrl,
+            }
+          : {}),
+      },
+      data: {
         preparationErrorSummary: formatPublishReadinessError(readiness),
       },
     });

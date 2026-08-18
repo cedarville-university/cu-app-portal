@@ -77,10 +77,23 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     expect(prompt).toContain("If git is not installed");
     expect(prompt).toContain("help me install Git first");
     expect(prompt).toContain("https://git-scm.com/downloads/");
+    expect(prompt).toContain("git remote get-url portal");
     expect(prompt).toContain(
-      "git remote add portal https://github.com/cedarville-it/campus-dashboard",
+      "Verify that its URL exactly matches https://github.com/cedarville-it/campus-dashboard",
     );
-    expect(prompt).toContain("git push -u portal HEAD:main");
+    expect(prompt).toContain(
+      "Never push to an existing portal remote whose URL does not exactly match",
+    );
+    expect(prompt).toContain(
+      "preserve that remote and choose an unused, unambiguous name",
+    );
+    expect(prompt).toContain(
+      "git push -u <verified-managed-remote> HEAD:main",
+    );
+    expect(prompt).not.toContain("git push -u portal HEAD:main");
+    expect(prompt.indexOf("git remote get-url portal")).toBeLessThan(
+      prompt.indexOf("git push -u <verified-managed-remote> HEAD:main"),
+    );
     expect(prompt).toContain(
       "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
     );

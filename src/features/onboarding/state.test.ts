@@ -161,9 +161,38 @@ describe("deriveOnboardingState workflow states", () => {
   it("keeps preparation retry mode in the state", () => {
     expect(
       deriveOnboardingState(
-        imported({ preparationStatus: "FAILED", preparationMode: "PULL_REQUEST" }),
+        imported({
+          repositoryAccessStatus: "GRANTED",
+          preparationStatus: "FAILED",
+          preparationMode: "PULL_REQUEST",
+        }),
       ),
     ).toEqual({ kind: "PREPARATION_FAILED", retryMode: "PULL_REQUEST" });
+  });
+
+  it("returns an incompatible local upload to Codex repair guidance", () => {
+    expect(
+      deriveOnboardingState(
+        local({
+          repositoryAccessStatus: "GRANTED",
+          preparationStatus: "PENDING_USER_CHOICE",
+          preparationMode: "DIRECT_COMMIT",
+          compatibilityStatus: "UNSUPPORTED",
+        }),
+      ),
+    ).toEqual({ kind: "LOCAL_CODE_REPAIR" });
+  });
+
+  it("requires actor access again before a failed pull-request retry", () => {
+    expect(
+      deriveOnboardingState(
+        imported({
+          preparationStatus: "FAILED",
+          preparationMode: "PULL_REQUEST",
+          repositoryAccessStatus: "NOT_REQUESTED",
+        }),
+      ),
+    ).toEqual({ kind: "GITHUB_ACCOUNT_REQUIRED", resume: "review" });
   });
 
   it("prioritizes failed-import recovery over the partial target repository failure", () => {

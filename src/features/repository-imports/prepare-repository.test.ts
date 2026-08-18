@@ -454,8 +454,10 @@ describe("prepareImportedRepository", () => {
         mode: "DIRECT_COMMIT",
         github,
       }),
-    ).rejects.toThrow(
-      "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
-    );
+    ).rejects.toMatchObject({
+      name: "RepositoryCompatibilityError",
+      message:
+        "Repository is not compatible with v1 Azure publishing. Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.",
+    });
   });
 });

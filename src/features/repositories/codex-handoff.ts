@@ -61,15 +61,17 @@ export function buildLocalCodexGitSetupPrompt({
   appName,
   requestId,
   defaultBranch = "main",
+  preparationErrorSummary,
 }: {
   repositoryUrl: string;
   appName: string;
   requestId: string;
   defaultBranch?: string | null;
+  preparationErrorSummary?: string | null;
 }) {
   const branch = defaultBranch ?? "main";
 
-  return [
+  const prompt = [
     "Who you are helping",
     "The person I am helping is a beginner who may not know Git, repositories, branches, commits, pull requests, Azure, or publishing.",
     "Explain what you are doing in everyday language.",
@@ -98,10 +100,17 @@ export function buildLocalCodexGitSetupPrompt({
     "Re-check the staged file names and diff with git diff --cached --name-only and git diff --cached.",
     "Unstage anything sensitive or local before committing with git rm --cached -- <path>; this removes it from the staged list without deleting the local file and works before the first commit.",
     'git commit -m "Initial app source"',
-    "Add the portal-managed repository as a remote named portal if it is not already configured:",
+    "Check whether a remote named portal already exists and inspect its URL:",
+    "git remote get-url portal",
+    `Verify that its URL exactly matches ${repositoryUrl} before using it for any push.`,
+    "Never push to an existing portal remote whose URL does not exactly match the managed repository.",
+    "If portal does not exist, add it with this exact managed repository URL:",
     `git remote add portal ${repositoryUrl}`,
+    "If portal exists with a different URL and is clearly an obsolete portal entry, record the old URL and update only that remote with git remote set-url portal <managed-repository-url>.",
+    "If the existing portal remote may still be useful, preserve that remote and choose an unused, unambiguous name such as portal-managed (or portal-managed-2 if needed). Do not rename, delete, or overwrite other remotes.",
+    "Run git remote get-url <verified-managed-remote> and confirm it exactly matches the managed repository before continuing.",
     "Push the current local code to the portal-managed repository:",
-    `git push -u portal HEAD:${branch}`,
+    `git push -u <verified-managed-remote> HEAD:${branch}`,
     "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
     "",
     "Before you finish",
@@ -110,5 +119,19 @@ export function buildLocalCodexGitSetupPrompt({
     "Give me a simple status summary.",
     "When the code is ready, return to the Cedarville App Portal.",
     "Return to the portal and select My code has been uploaded.",
-  ].join("\n");
+  ];
+
+  if (preparationErrorSummary) {
+    prompt.splice(
+      prompt.indexOf("Work to perform"),
+      0,
+      "Repair needed before uploading again",
+      "The portal inspected the previous upload and found a deterministic compatibility problem. Repair the app itself before pushing and confirming another upload; repeating the same portal action without code changes will not help.",
+      `Portal feedback: ${preparationErrorSummary}`,
+      "Inspect that feedback, make the smallest safe source-code or runtime change that resolves it, and run the relevant tests before continuing with the upload steps below.",
+      "",
+    );
+  }
+
+  return prompt.join("\n");
 }

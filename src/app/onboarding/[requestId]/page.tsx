@@ -446,12 +446,20 @@ export default async function AppOnboardingPage({
     );
   }
 
-  if (state.kind === "LOCAL_CODE_UPLOAD" && app.repositoryUrl) {
+  if (
+    (state.kind === "LOCAL_CODE_UPLOAD" ||
+      state.kind === "LOCAL_CODE_REPAIR") &&
+    app.repositoryUrl
+  ) {
+    const isRepair = state.kind === "LOCAL_CODE_REPAIR";
     const prompt = buildLocalCodexGitSetupPrompt({
       repositoryUrl: app.repositoryUrl,
       appName: app.appName,
       requestId: app.id,
       defaultBranch: app.repositoryDefaultBranch,
+      preparationErrorSummary: isRepair
+        ? app.repositoryImport?.preparationErrorSummary
+        : null,
     });
 
     return (
@@ -459,13 +467,30 @@ export default async function AppOnboardingPage({
         <OnboardingStepShell
           appName={app.appName}
           currentStage="Code"
-          title="Upload your local app with Codex"
-          explanation="Codex is an assistant that can connect the app folder on your computer to its private GitHub code home. Paste this prompt into Codex and let it handle the technical Git steps."
-          next="Wait until Codex says the upload succeeded. Then return here and confirm the upload so the portal can check and prepare the app for publishing."
+          title={
+            isRepair
+              ? "Repair and upload your local app with Codex"
+              : "Upload your local app with Codex"
+          }
+          explanation={
+            isRepair
+              ? "The portal found that this app's current runtime cannot be prepared for publishing. Repair the app before confirming another upload. Paste the instructions into Codex so it can explain the portal feedback, update the app safely, test it, and upload the repaired code."
+              : "Codex is an assistant that can connect the app folder on your computer to its private GitHub code home. Paste this prompt into Codex and let it handle the technical Git steps."
+          }
+          next={
+            isRepair
+              ? "Wait until Codex says the repair, tests, and upload all succeeded. Then confirm here so the portal can inspect the changed code again."
+              : "Wait until Codex says the upload succeeded. Then return here and confirm the upload so the portal can check and prepare the app for publishing."
+          }
           supportReference={app.supportReference}
           details={repositoryDetails}
         >
           <div className="wizard-actions">
+            {isRepair && app.repositoryImport?.preparationErrorSummary ? (
+              <p role="alert">
+                {app.repositoryImport.preparationErrorSummary}
+              </p>
+            ) : null}
             <pre className="wizard-prompt">
               <code>{prompt}</code>
             </pre>
@@ -477,7 +502,11 @@ export default async function AppOnboardingPage({
             <PreparationForm
               requestId={app.id}
               mode="DIRECT_COMMIT"
-              label="My code has been uploaded"
+              label={
+                isRepair
+                  ? "I've repaired and uploaded my code"
+                  : "My code has been uploaded"
+              }
               pendingLabel="Checking my uploaded code..."
               statusText="Checking the uploaded app and adding the files needed for Azure publishing."
             />

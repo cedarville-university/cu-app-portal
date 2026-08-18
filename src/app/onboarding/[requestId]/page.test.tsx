@@ -405,6 +405,9 @@ describe("AppOnboardingPage imported and local preparation", () => {
   it("retries a failed preparation with its stored prior mode only", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       importedApp({
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote:
+          "GitHub access is ready for @collaborator-name.",
         repositoryImport: {
           ...importedApp().repositoryImport,
           preparationStatus: "FAILED",
@@ -426,6 +429,30 @@ describe("AppOnboardingPage imported and local preparation", () => {
       "PULL_REQUEST",
     );
     expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("does not offer a pull-request retry using another actor's GitHub access", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote: "GitHub access is ready for @owner-name.",
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          preparationStatus: "FAILED",
+          preparationMode: "PULL_REQUEST",
+          preparationErrorSummary: "GitHub was temporarily unavailable.",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: /send repository invite/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Try preparation again" }),
+    ).not.toBeInTheDocument();
   });
 
   it("requires current-actor GitHub access before offering conflict review", async () => {
@@ -525,6 +552,46 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(
       screen.getByRole("button", { name: "My code has been uploaded" }),
     ).toBeInTheDocument();
+    expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
+      "DIRECT_COMMIT",
+    );
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("returns an incompatible local app to Codex repair and upload guidance", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        submittedConfig: { localOnlySource: true },
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote:
+          "GitHub access is ready for @collaborator-name.",
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          compatibilityStatus: "UNSUPPORTED",
+          preparationStatus: "PENDING_USER_CHOICE",
+          preparationMode: "DIRECT_COMMIT",
+          preparationErrorSummary:
+            "The app needs a supported start command before Azure can publish it.",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /needs a supported start command/i,
+    );
+    expect(
+      screen.getByText(/repair the app before confirming another upload/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "I've repaired and uploaded my code",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Try preparation again" }),
+    ).not.toBeInTheDocument();
     expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
       "DIRECT_COMMIT",
     );

@@ -5,6 +5,7 @@ import {
   type ImportedAppRuntime,
   scanRepositoryCompatibility,
 } from "./compatibility";
+import { repositoryCompatibilityError } from "./errors";
 import { planPublishingBundle } from "./publishing-bundle";
 
 type PreparationMode = "DIRECT_COMMIT" | "PULL_REQUEST";
@@ -168,7 +169,7 @@ export async function prepareImportedRepository({
   );
 
   if (compatibility.status === "UNSUPPORTED" || blockingFindings.length > 0) {
-    throw new Error(
+    throw repositoryCompatibilityError(
       formatCompatibilityError(
         "Repository is not compatible with v1 Azure publishing.",
         blockingFindings.length > 0 ? blockingFindings : compatibility.findings,
@@ -177,7 +178,7 @@ export async function prepareImportedRepository({
   }
 
   if (!compatibility.runtime) {
-    throw new Error(
+    throw repositoryCompatibilityError(
       formatCompatibilityError(
         "Repository is not compatible with v1 Azure publishing.",
         compatibility.findings,
