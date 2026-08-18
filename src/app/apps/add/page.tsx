@@ -6,6 +6,14 @@ import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { createManagedRepositoryForLocalAppAction } from "@/features/repository-imports/actions";
 import { AddExistingAppForm } from "@/features/repository-imports/add-existing-app-form";
 
+type SourcePath = "github" | "local" | null;
+
+function getSourcePath(value: string | string[] | undefined): SourcePath {
+  const source = Array.isArray(value) ? value[0] : value;
+
+  return source === "github" || source === "local" ? source : null;
+}
+
 async function submitLocalCodexAppAction(formData: FormData) {
   "use server";
 
@@ -13,8 +21,14 @@ async function submitLocalCodexAppAction(formData: FormData) {
   redirect(`/onboarding/${result.requestId}`);
 }
 
-export default async function AddExistingAppPage() {
+export default async function AddExistingAppPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ source?: string | string[] }>;
+}) {
   const userId = await getCurrentUserIdOrNull();
+  const { source } = await searchParams;
+  const selectedSource = getSourcePath(source);
 
   if (!userId) {
     redirect("/");
@@ -74,7 +88,9 @@ export default async function AddExistingAppPage() {
       </details>
 
       <div style={{ display: "grid", gap: "1.25rem", maxWidth: "760px" }}>
-        <div className="card">
+        {selectedSource !== "local" ? (
+          <div className="card">
+            {selectedSource === "github" ? <p className="eyebrow" aria-current="step">Current step</p> : null}
           <h2 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>
             Already on GitHub
           </h2>
@@ -85,17 +101,18 @@ export default async function AddExistingAppPage() {
             apps with a root index.html for Azure App Service publishing.
           </p>
           <AddExistingAppForm />
-        </div>
+          </div>
+        ) : null}
 
         <div className="card card--gold-border">
+          {selectedSource === "local" ? <p className="eyebrow" aria-current="step">Current step</p> : null}
           <h2 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>
-            Not on GitHub Yet
+            Only on my computer
           </h2>
           <p style={{ color: "var(--text-secondary)", marginBottom: "1rem" }}>
-            The portal will create an empty managed GitHub repository first. On
-            the next page, copy the Codex instructions so Codex can initialize
-            git in your local app, add the managed repository as a remote, and
-            push your code.
+            The portal will create an empty online home for your app first. On
+            the next page, copy the Codex instructions to add your local app
+            to that home.
           </p>
           <form id="local-app" action={submitLocalCodexAppAction} className="form-stack">
             <div className="form-group">
@@ -134,6 +151,21 @@ export default async function AddExistingAppPage() {
             </div>
           </form>
         </div>
+
+        {selectedSource === "local" ? (
+          <div className="card">
+            <h2 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>
+              Already on GitHub
+            </h2>
+            <p style={{ color: "var(--text-secondary)", marginBottom: "1rem" }}>
+              Paste the repository URL and the portal will copy it into the managed
+              Cedarville org when needed. The portal currently detects root Next.js
+              apps, Express apps, Python FastAPI apps, and plain static Python
+              apps with a root index.html for Azure App Service publishing.
+            </p>
+            <AddExistingAppForm />
+          </div>
+        ) : null}
       </div>
     </main>
   );

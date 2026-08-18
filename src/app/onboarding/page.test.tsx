@@ -1,6 +1,10 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import OnboardingStartPage from "./page";
+
+afterEach(() => {
+  cleanup();
+});
 
 describe("OnboardingStartPage", () => {
   it("asks users where their app is starting from", async () => {
@@ -18,7 +22,7 @@ describe("OnboardingStartPage", () => {
     ).toHaveAttribute("href", "/onboarding?start=existing");
   });
 
-  it("asks about GitHub before a new app template is selected", async () => {
+  it("sends a new app directly to template choices without asking about GitHub", async () => {
     render(
       await OnboardingStartPage({
         searchParams: Promise.resolve({ start: "new" }),
@@ -26,11 +30,32 @@ describe("OnboardingStartPage", () => {
     );
 
     expect(
-      screen.getByRole("heading", { name: /do you already have a github account/i }),
+      screen.getByRole("heading", { name: /choose a starting point/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /yes, i have one/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /choose an app template/i })).toHaveAttribute(
       "href",
       "/create",
+    );
+    expect(screen.queryByText(/github account/i)).not.toBeInTheDocument();
+  });
+
+  it("asks whether existing app code is on GitHub or only on the computer", async () => {
+    render(
+      await OnboardingStartPage({
+        searchParams: Promise.resolve({ start: "existing" }),
+      }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /where is your app's code/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /already on github/i })).toHaveAttribute(
+      "href",
+      "/apps/add?source=github",
+    );
+    expect(screen.getByRole("link", { name: /only on my computer/i })).toHaveAttribute(
+      "href",
+      "/apps/add?source=local#local-app",
     );
   });
 });

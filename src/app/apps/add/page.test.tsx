@@ -41,6 +41,10 @@ vi.mock("@/features/repository-imports/actions", () => ({
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import { createManagedRepositoryForLocalAppAction } from "@/features/repository-imports/actions";
 
+const emptyPageProps = {
+  searchParams: Promise.resolve({}),
+};
+
 function findElementsByType(
   element: React.ReactNode,
   type: string,
@@ -73,7 +77,7 @@ describe("AddExistingAppPage", () => {
   it("redirects unauthenticated users home", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue(null);
 
-    await expect(AddExistingAppPage()).rejects.toThrow("redirect:/");
+    await expect(AddExistingAppPage(emptyPageProps)).rejects.toThrow("redirect:/");
     expect(mockRedirect).toHaveBeenCalledWith("/");
   });
 
@@ -83,7 +87,7 @@ describe("AddExistingAppPage", () => {
       requestId: "req_local_app",
     });
 
-    const page = await AddExistingAppPage();
+    const page = await AddExistingAppPage(emptyPageProps);
     render(page);
 
     const breadcrumb = screen.getByRole("navigation", {
@@ -130,7 +134,7 @@ describe("AddExistingAppPage", () => {
   it("shows an expandable GitHub explanation help box", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
 
-    render(await AddExistingAppPage());
+    render(await AddExistingAppPage(emptyPageProps));
 
     const helpToggle = screen.getByText("What is GitHub?");
     const helpBox = helpToggle.closest("details");
@@ -155,14 +159,14 @@ describe("AddExistingAppPage", () => {
       requestId: "req_local_app",
     });
 
-    const page = await AddExistingAppPage();
+    const page = await AddExistingAppPage(emptyPageProps);
     render(page);
 
     expect(
-      screen.getByRole("heading", { name: /not on github yet/i }),
+      screen.getByRole("heading", { name: /only on my computer/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/the portal will create an empty managed github repository/i),
+      screen.getByText(/the portal will create an empty online home for your app/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /create managed repository/i }),
@@ -185,11 +189,46 @@ describe("AddExistingAppPage", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/onboarding/req_local_app");
   });
 
+  it("puts the GitHub form first and marks it as the current step when selected", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+
+    render(
+      await AddExistingAppPage({
+        searchParams: Promise.resolve({ source: "github" }),
+      }),
+    );
+
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    expect(headings[0]).toHaveAccessibleName(/already on github/i);
+    expect(headings[1]).toHaveAccessibleName(/only on my computer/i);
+    expect(
+      headings[0].closest(".card"),
+    ).toHaveTextContent(/current step/i);
+  });
+
+  it("puts the computer-only form first and marks it as the current step when selected", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+
+    render(
+      await AddExistingAppPage({
+        searchParams: Promise.resolve({ source: "local" }),
+      }),
+    );
+
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    expect(headings[0]).toHaveAccessibleName(/only on my computer/i);
+    expect(headings[1]).toHaveAccessibleName(/already on github/i);
+    expect(
+      headings[0].closest(".card"),
+    ).toHaveTextContent(/current step/i);
+    expect(screen.getByLabelText(/github repository url/i)).toBeInTheDocument();
+  });
+
   it("disables repository analysis and shows live status while pending", async () => {
     mockUseFormStatus.mockReturnValue({ pending: true });
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
 
-    render(await AddExistingAppPage());
+    render(await AddExistingAppPage(emptyPageProps));
 
     expect(
       screen.getByRole("button", { name: /checking repository/i }),

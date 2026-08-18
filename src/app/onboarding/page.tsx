@@ -65,38 +65,46 @@ export default async function OnboardingStartPage({
           </div>
         </section>
       ) : selectedPath === "new" ? (
-        <section className="form-stack" aria-labelledby="github-account-heading">
-          <h2 id="github-account-heading">Do you already have a GitHub account?</h2>
+        <section className="form-stack" aria-labelledby="new-app-heading">
+          <h2 id="new-app-heading">Choose a starting point</h2>
           <p className="muted">
-            GitHub stores your app&rsquo;s code. The portal can create the repository
-            either way; an account lets Codex work with the code later.
+            A template gives you a ready-to-customize starting version of an app.
+            The portal will guide you through saving your work online after you
+            choose one.
           </p>
-          <div className="grid grid--2">
-            <Link className="card card--interactive card--navy-border wizard-choice" href="/create">
-              <span className="card__title">Yes, I have one</span>
-              <span className="card__desc">Choose a template. We&rsquo;ll ask for your GitHub username after the app is created.</span>
-            </Link>
-            <Link className="card card--interactive card--gold-border wizard-choice" href="/create">
-              <span className="card__title">Not yet</span>
-              <span className="card__desc">You can still create your app now. We&rsquo;ll show you how to create a free account before you need repository access.</span>
+          <div>
+            <Link href="/create" className="btn btn--primary-solid">
+              Choose an app template
             </Link>
           </div>
         </section>
       ) : selectedPath === "existing" ? (
         <section className="form-stack" aria-labelledby="existing-github-heading">
-          <h2 id="existing-github-heading">Great — we&rsquo;ll start with your repository</h2>
+          <h2 id="existing-github-heading">Where is your app's code?</h2>
           <p className="muted">
-            You&rsquo;ll paste its GitHub web address next. The portal checks whether it can prepare the app for Azure and copies it into the managed Cedarville organization when needed.
+            Choose the place where you can find the app right now. We&rsquo;ll show
+            you the next step from there.
           </p>
-          <div><Link href="/apps/add" className="btn btn--primary-solid">Continue to repository check</Link></div>
+          <div className="grid grid--2">
+            <Link className="card card--interactive card--navy-border wizard-choice" href="/apps/add?source=github">
+              <span className="card__title">Already on GitHub</span>
+              <span className="card__desc">Paste the web address for the place where your app is saved online.</span>
+            </Link>
+            <Link className="card card--interactive card--gold-border wizard-choice" href="/apps/add?source=local#local-app">
+              <span className="card__title">Only on my computer</span>
+              <span className="card__desc">Create an online home for your app, then follow the steps to add your files.</span>
+            </Link>
+          </div>
         </section>
       ) : (
         <section className="form-stack" aria-labelledby="local-app-heading">
-          <h2 id="local-app-heading">Your local app needs a home on GitHub</h2>
+          <h2 id="local-app-heading">Your app needs an online home</h2>
           <p className="muted">
-            The portal will make an empty managed repository. Next, it gives you a Codex-ready prompt that safely connects and pushes the app from your computer.
+            The portal will create a private online space for your app. Next,
+            it will give you a Codex-ready prompt to safely add the app from
+            your computer.
           </p>
-          <div><Link href="/apps/add#local-app" className="btn btn--primary-solid">Create a managed repository</Link></div>
+          <div><Link href="/apps/add?source=local#local-app" className="btn btn--primary-solid">Create an online home for my app</Link></div>
         </section>
       )}
 
