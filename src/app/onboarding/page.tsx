@@ -31,16 +31,16 @@ export default async function OnboardingStartPage({
         <p className="eyebrow">App setup guide</p>
         <h1>Let&rsquo;s set up your app</h1>
         <p>
-          We&rsquo;ll guide you from your starting point to a managed GitHub
-          repository and Azure publishing. You can return to the full app
-          details page whenever you need it later.
+          We&rsquo;ll guide you from where you are today through saving your app
+          online and sharing it when it&rsquo;s ready. You can return to the full
+          app details page whenever you need it later.
         </p>
       </div>
 
       <ol className="wizard-progress" aria-label="Onboarding progress">
         <li className="wizard-progress__active">Choose a starting point</li>
-        <li>Set up your code repository</li>
-        <li>Customize and publish</li>
+        <li>Save your app online</li>
+        <li>Make it your own and share it</li>
       </ol>
 
       {!selectedPath ? (
@@ -50,17 +50,17 @@ export default async function OnboardingStartPage({
             <Link className="card card--interactive card--navy-border wizard-choice" href="/onboarding?start=new">
               <span className="wizard-choice__step">Option 1</span>
               <span className="card__title">I need a new app</span>
-              <span className="card__desc">Start with a Cedarville-approved template. The portal creates the GitHub repository for you.</span>
+              <span className="card__desc">Start with a Cedarville-approved template. The portal will set up a private online space for your app.</span>
             </Link>
             <Link className="card card--interactive card--gold-border wizard-choice" href="/onboarding?start=existing">
               <span className="wizard-choice__step">Option 2</span>
               <span className="card__title">My app is already on GitHub</span>
-              <span className="card__desc">Bring an existing repository into the portal-managed publishing workflow.</span>
+              <span className="card__desc">Bring an app you have already saved online into the portal.</span>
             </Link>
             <Link className="card card--interactive card--navy-border wizard-choice" href="/onboarding?start=local">
               <span className="wizard-choice__step">Option 3</span>
               <span className="card__title">My app is only on my computer</span>
-              <span className="card__desc">Create an empty managed repository, then use Codex to connect and push your local app.</span>
+              <span className="card__desc">Create a private online space for your app, then follow simple steps to add the files from your computer.</span>
             </Link>
           </div>
         </section>
@@ -88,7 +88,7 @@ export default async function OnboardingStartPage({
           <div className="grid grid--2">
             <Link className="card card--interactive card--navy-border wizard-choice" href="/apps/add?source=github">
               <span className="card__title">Already on GitHub</span>
-              <span className="card__desc">Paste the web address for the place where your app is saved online.</span>
+              <span className="card__desc">Share its web address so we can check it and guide you through the next step.</span>
             </Link>
             <Link className="card card--interactive card--gold-border wizard-choice" href="/apps/add?source=local#local-app">
               <span className="card__title">Only on my computer</span>
@@ -101,8 +101,7 @@ export default async function OnboardingStartPage({
           <h2 id="local-app-heading">Your app needs an online home</h2>
           <p className="muted">
             The portal will create a private online space for your app. Next,
-            it will give you a Codex-ready prompt to safely add the app from
-            your computer.
+            it will give you simple steps to add the app from your computer.
           </p>
           <div><Link href="/apps/add?source=local#local-app" className="btn btn--primary-solid">Create an online home for my app</Link></div>
         </section>

@@ -20,6 +20,11 @@ describe("OnboardingStartPage", () => {
     expect(
       screen.getByRole("link", { name: /my app is already on github/i }),
     ).toHaveAttribute("href", "/onboarding?start=existing");
+    expect(
+      screen.getByText(/bring an app you have already saved online into the portal/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/portal-managed publishing workflow/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/connect and push/i)).not.toBeInTheDocument();
   });
 
   it("sends a new app directly to template choices without asking about GitHub", async () => {
@@ -57,5 +62,8 @@ describe("OnboardingStartPage", () => {
       "href",
       "/apps/add?source=local#local-app",
     );
+    expect(
+      screen.getByText(/share its web address so we can check it/i),
+    ).toBeInTheDocument();
   });
 });

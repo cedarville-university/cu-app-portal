@@ -51,9 +51,10 @@ export default async function AddExistingAppPage({
       <div className="page-header">
         <h1>Add Existing App</h1>
         <p>
-          Connect app code so the portal can handle Azure publishing for it.
-          Use an existing GitHub repository, or let the portal create a managed
-          repository first and give Codex the setup steps for your local app.
+          Bring your app into the portal so it can help you put it online when
+          you&rsquo;re ready. If your app is already saved online, use its web
+          address. If the files are only on your computer, start by creating a
+          private online space for them.
         </p>
       </div>
 
@@ -76,13 +77,13 @@ export default async function AddExistingAppPage({
           }}
         >
           <p>
-            GitHub is a secure place to store app code, keep track of changes,
-            and share work with the people and tools that need access.
+            GitHub is a secure website where app files can be saved, shared,
+            and updated over time.
           </p>
           <p style={{ marginTop: "0.625rem" }}>
-            The portal uses GitHub so Codex, Cedarville reviewers, and Azure
-            publishing can all work from the same managed repository instead of
-            passing files around manually.
+            In GitHub, the online folder that holds an app is called a
+            repository. The portal uses one shared online copy so people and
+            tools can work from the same files instead of passing files around.
           </p>
         </div>
       </details>
@@ -95,11 +96,20 @@ export default async function AddExistingAppPage({
             Already on GitHub
           </h2>
           <p style={{ color: "var(--text-secondary)", marginBottom: "1rem" }}>
-            Paste the repository URL and the portal will copy it into the managed
-            Cedarville org when needed. The portal currently detects root Next.js
-            apps, Express apps, Python FastAPI apps, and plain static Python
-            apps with a root index.html for Azure App Service publishing.
+            GitHub is a secure website where app files can be saved online.
+            Paste your app&rsquo;s web address. The portal will check it, then make
+            the Cedarville copy needed to help put it online.
           </p>
+          <details className="card" style={{ marginBottom: "1rem", padding: "0.75rem 1rem" }}>
+            <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+              What kinds of apps can I add?
+            </summary>
+            <p style={{ marginTop: "0.75rem", color: "var(--text-secondary)" }}>
+              For people who work with code: the portal recognizes root Next.js
+              apps, Express apps, Python FastAPI apps, and plain static Python
+              apps with a root index.html for Azure App Service publishing.
+            </p>
+          </details>
           <AddExistingAppForm />
           </div>
         ) : null}
@@ -111,8 +121,8 @@ export default async function AddExistingAppPage({
           </h2>
           <p style={{ color: "var(--text-secondary)", marginBottom: "1rem" }}>
             The portal will create an empty online home for your app first. On
-            the next page, copy the Codex instructions to add your local app
-            to that home.
+            the next page, follow simple steps to add your local app to that
+            home.
           </p>
           <form id="local-app" action={submitLocalCodexAppAction} className="form-stack">
             <div className="form-group">
@@ -142,11 +152,11 @@ export default async function AddExistingAppPage({
 
             <div>
               <PendingSubmitButton
-                idleLabel="Create Managed Repository"
-                pendingLabel="Creating Repository..."
-                statusText="Creating a managed GitHub repository for your local Codex app."
+                idleLabel="Create online home"
+                pendingLabel="Creating online home..."
+                statusText="Creating a private online space for your app."
                 variant="primary-solid"
-                title="Creates an empty managed repository and then shows Codex instructions for pushing your local app code"
+                title="Creates a private online space, then shows steps for adding your app files"
               />
             </div>
           </form>
@@ -158,11 +168,20 @@ export default async function AddExistingAppPage({
               Already on GitHub
             </h2>
             <p style={{ color: "var(--text-secondary)", marginBottom: "1rem" }}>
-              Paste the repository URL and the portal will copy it into the managed
-              Cedarville org when needed. The portal currently detects root Next.js
-              apps, Express apps, Python FastAPI apps, and plain static Python
-              apps with a root index.html for Azure App Service publishing.
+              GitHub is a secure website where app files can be saved online.
+              Paste your app&rsquo;s web address. The portal will check it, then make
+              the Cedarville copy needed to help put it online.
             </p>
+            <details className="card" style={{ marginBottom: "1rem", padding: "0.75rem 1rem" }}>
+              <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+                What kinds of apps can I add?
+              </summary>
+              <p style={{ marginTop: "0.75rem", color: "var(--text-secondary)" }}>
+                For people who work with code: the portal recognizes root Next.js
+                apps, Express apps, Python FastAPI apps, and plain static Python
+                apps with a root index.html for Azure App Service publishing.
+              </p>
+            </details>
             <AddExistingAppForm />
           </div>
         ) : null}

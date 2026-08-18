@@ -108,10 +108,9 @@ describe("AddExistingAppPage", () => {
       screen.getByRole("heading", { name: /add existing app/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /currently detects root next.js apps, express apps, python fastapi apps, and plain static python apps/i,
-      ),
+      screen.getByText(/help you put it online when you.re ready/i),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/Cedarville org/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/github repository url/i)).toHaveAttribute(
       "type",
       "url",
@@ -146,14 +145,32 @@ describe("AddExistingAppPage", () => {
 
     expect(helpBox).toHaveAttribute("open");
     expect(
-      screen.getByText(/github is a secure place to store app code/i),
+      within(helpBox as HTMLElement).getByText(
+        /github is a secure website where app files can be saved/i,
+      ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/the portal uses github so codex/i),
+      within(helpBox as HTMLElement).getByText(
+        /online folder that holds an app is called a repository/i,
+      ),
     ).toBeInTheDocument();
   });
 
-  it("renders a local Codex app path that creates a managed repository first", async () => {
+  it("keeps compatibility jargon inside optional help", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+
+    render(await AddExistingAppPage(emptyPageProps));
+
+    const technicalHelp = screen.getByText(/what kinds of apps can i add/i).closest("details");
+
+    expect(technicalHelp).not.toBeNull();
+    expect(technicalHelp).not.toHaveAttribute("open");
+    expect(
+      screen.getByText(/paste your app.s web address. the portal will check it/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a local app path that creates an online home first", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(createManagedRepositoryForLocalAppAction).mockResolvedValue({
       requestId: "req_local_app",
@@ -168,8 +185,9 @@ describe("AddExistingAppPage", () => {
     expect(
       screen.getByText(/the portal will create an empty online home for your app/i),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/Codex instructions/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /create managed repository/i }),
+      screen.getByRole("button", { name: /create online home/i }),
     ).toHaveAttribute("type", "submit");
 
     const forms = findElementsByType(page, "form");
