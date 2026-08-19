@@ -84,7 +84,10 @@ describe("publishing setup actions", () => {
     expect(repairPublishingSetup).toHaveBeenCalledWith(
       "request-123",
       undefined,
-      { statusAlreadyClaimed: true },
+      {
+        statusAlreadyClaimed: true,
+        attemptClaimedAt: expect.any(Date),
+      },
     );
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/request-123");
@@ -269,10 +272,37 @@ describe("publishing setup actions", () => {
       expect(repairPublishingSetup).toHaveBeenCalledWith(
         "request-123",
         undefined,
-        { statusAlreadyClaimed: true },
+        {
+          statusAlreadyClaimed: true,
+          attemptClaimedAt: expect.any(Date),
+        },
       );
     },
   );
+
+  it("threads the atomic claim identity into the repair service", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NEEDS_REPAIR",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(repairPublishingSetup).mockResolvedValue(undefined);
+
+    await repairPublishingSetupAction("request-123");
+
+    const attemptClaimedAt = vi.mocked(prisma.appRequest.updateMany).mock
+      .calls[0]?.[0].data.updatedAt;
+    expect(attemptClaimedAt).toBeInstanceOf(Date);
+    expect(repairPublishingSetup).toHaveBeenCalledWith(
+      "request-123",
+      undefined,
+      { statusAlreadyClaimed: true, attemptClaimedAt },
+    );
+  });
 
   it("starts initial setup after imported preparation is committed", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
@@ -292,7 +322,10 @@ describe("publishing setup actions", () => {
     expect(repairPublishingSetup).toHaveBeenCalledWith(
       "request-123",
       undefined,
-      { statusAlreadyClaimed: true },
+      {
+        statusAlreadyClaimed: true,
+        attemptClaimedAt: expect.any(Date),
+      },
     );
   });
 
@@ -328,7 +361,10 @@ describe("publishing setup actions", () => {
     expect(repairPublishingSetup).toHaveBeenCalledWith(
       "request-123",
       undefined,
-      { statusAlreadyClaimed: true },
+      {
+        statusAlreadyClaimed: true,
+        attemptClaimedAt: expect.any(Date),
+      },
     );
   });
 
@@ -353,7 +389,10 @@ describe("publishing setup actions", () => {
     expect(repairPublishingSetup).toHaveBeenCalledWith(
       "request-123",
       undefined,
-      { statusAlreadyClaimed: true },
+      {
+        statusAlreadyClaimed: true,
+        attemptClaimedAt: expect.any(Date),
+      },
     );
     expect(consoleError).toHaveBeenCalledWith(
       "Publishing setup repair failed.",
@@ -374,6 +413,39 @@ describe("publishing setup actions", () => {
       },
     });
     consoleError.mockRestore();
+  });
+
+  it("treats a stale repair outcome as a no-op without rollback or notification side effects", async () => {
+    const staleAttemptError = new Error(
+      "This publishing setup repair attempt is no longer current.",
+    );
+    staleAttemptError.name = "StalePublishingSetupRepairAttemptError";
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "FAILED",
+      publishingSetupStatus: "NEEDS_REPAIR",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(repairPublishingSetup).mockRejectedValue(staleAttemptError);
+
+    await expect(
+      repairPublishingSetupAction("request-123"),
+    ).resolves.toBeUndefined();
+
+    expect(prisma.appRequest.updateMany).toHaveBeenCalledTimes(1);
+    expect(safeNotifyAppEvent).not.toHaveBeenCalled();
+    expect(consoleWarn).toHaveBeenCalledWith(
+      "Publishing setup repair attempt skipped after its claim changed.",
+      { requestId: "request-123" },
+    );
+    expect(revalidatePath).toHaveBeenCalledWith(
+      "/onboarding/request-123",
+    );
+    consoleWarn.mockRestore();
   });
 
   it("allows only one duplicate submission to mutate external setup", async () => {

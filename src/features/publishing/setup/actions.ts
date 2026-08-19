@@ -14,6 +14,13 @@ import { repairPublishingSetup } from "./service";
 const SETUP_REPAIR_FAILURE_SUMMARY =
   "Publishing setup could not be completed. Share the support reference with the portal support team.";
 
+function isStaleRepairAttempt(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.name === "StalePublishingSetupRepairAttemptError"
+  );
+}
+
 function publishingSetupEligibilityError(
   reason: Exclude<
     ReturnType<typeof getPublishingSetupRepairEligibility>,
@@ -125,12 +132,21 @@ export async function repairPublishingSetupAction(requestId: string) {
   try {
     await repairPublishingSetup(requestId, undefined, {
       statusAlreadyClaimed: true,
+      attemptClaimedAt,
     });
     await notifyIfPublishingSetupBlocked({
       requestId,
       actorUserId: userId,
     });
   } catch (error) {
+    if (isStaleRepairAttempt(error)) {
+      console.warn(
+        "Publishing setup repair attempt skipped after its claim changed.",
+        { requestId },
+      );
+      return;
+    }
+
     await prisma.appRequest.updateMany({
       where: {
         id: requestId,

@@ -1,5 +1,5 @@
 import { DefaultAzureCredential } from "@azure/identity";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
@@ -20,7 +20,10 @@ import {
   buildPublishTargetNames,
 } from "@/features/publishing/azure/naming";
 import { prisma } from "@/lib/db";
-import { persistPublishingSetupChecks } from "./checks";
+import {
+  persistPublishingSetupChecks,
+  replacePublishingSetupChecks,
+} from "./checks";
 import {
   classifyPublishingSetupError,
   summarizePublishingSetupChecks,
@@ -62,6 +65,27 @@ type SetupDb = Pick<
   PrismaClient,
   "$transaction" | "appRequest" | "publishSetupCheck"
 >;
+
+type ClaimedRepairAttempt = {
+  attemptClaimedAt: Date;
+};
+
+type RepairPublishingSetupOptions =
+  | {
+      statusAlreadyClaimed?: false;
+      attemptClaimedAt?: never;
+    }
+  | {
+      statusAlreadyClaimed: true;
+      attemptClaimedAt: Date;
+    };
+
+export class StalePublishingSetupRepairAttemptError extends Error {
+  constructor() {
+    super("This publishing setup repair attempt is no longer current.");
+    this.name = "StalePublishingSetupRepairAttemptError";
+  }
+}
 
 type SetupAppRequest = {
   id: string;
@@ -520,13 +544,53 @@ async function recordChecks({
   appRequestId,
   checks,
   db,
+  claimedRepairAttempt,
 }: {
   appRequestId: string;
   checks: PublishingSetupCheckResult[];
   db: SetupDb;
+  claimedRepairAttempt?: ClaimedRepairAttempt;
 }) {
   const checkedAt = new Date();
   const summary = summarizePublishingSetupChecks(checks);
+
+  if (claimedRepairAttempt) {
+    const persisted = await db.$transaction(async (transaction) => {
+      const completed = await transaction.appRequest.updateMany({
+        where: {
+          id: appRequestId,
+          publishingSetupStatus: "REPAIRING",
+          updatedAt: claimedRepairAttempt.attemptClaimedAt,
+        },
+        data: {
+          publishingSetupStatus: summary.setupStatus,
+          publishingSetupCheckedAt: checkedAt,
+          publishingSetupErrorSummary: summary.errorSummary,
+        },
+      });
+
+      if (completed.count !== 1) {
+        return false;
+      }
+
+      await replacePublishingSetupChecks({
+        prisma: transaction,
+        appRequestId,
+        checks,
+        checkedAt,
+      });
+      return true;
+    });
+
+    if (!persisted) {
+      throw new StalePublishingSetupRepairAttemptError();
+    }
+
+    return {
+      checks,
+      ...summary,
+    };
+  }
 
   const updateStatusOperation = db.appRequest.update({
     where: { id: appRequestId },
@@ -549,6 +613,46 @@ async function recordChecks({
     checks,
     ...summary,
   };
+}
+
+async function persistRepairAppRequestWrite({
+  appRequestId,
+  db,
+  claimedRepairAttempt,
+  data,
+  preserveAttemptIdentity = false,
+}: {
+  appRequestId: string;
+  db: SetupDb;
+  claimedRepairAttempt?: ClaimedRepairAttempt;
+  data: Prisma.AppRequestUpdateManyMutationInput;
+  preserveAttemptIdentity?: boolean;
+}) {
+  if (!claimedRepairAttempt) {
+    await db.appRequest.update({
+      where: { id: appRequestId },
+      data,
+    });
+    return;
+  }
+
+  const updated = await db.appRequest.updateMany({
+    where: {
+      id: appRequestId,
+      publishingSetupStatus: "REPAIRING",
+      updatedAt: claimedRepairAttempt.attemptClaimedAt,
+    },
+    data: {
+      ...data,
+      ...(preserveAttemptIdentity
+        ? { updatedAt: claimedRepairAttempt.attemptClaimedAt }
+        : {}),
+    },
+  });
+
+  if (updated.count !== 1) {
+    throw new StalePublishingSetupRepairAttemptError();
+  }
 }
 
 async function checkWorkflowFile({
@@ -1024,19 +1128,31 @@ async function runPreflightChecks(
 export async function preflightPublishingSetup(
   appRequestId: string,
   providedDeps?: PublishingSetupServiceDeps,
+  options: { attemptClaimedAt?: Date } = {},
 ) {
   const deps = providedDeps ?? createDefaultSetupDeps();
   const db = deps.prisma ?? prisma;
   const appRequest = await loadSetupRequest(appRequestId, db);
   const checks = await runPreflightChecks(appRequest, deps);
 
-  return recordChecks({ appRequestId, checks, db });
+  return recordChecks({
+    appRequestId,
+    checks,
+    db,
+    ...(options.attemptClaimedAt
+      ? {
+          claimedRepairAttempt: {
+            attemptClaimedAt: options.attemptClaimedAt,
+          },
+        }
+      : {}),
+  });
 }
 
 export async function repairPublishingSetup(
   appRequestId: string,
   providedDeps?: PublishingSetupServiceDeps,
-  options: { statusAlreadyClaimed?: boolean } = {},
+  options: RepairPublishingSetupOptions = {},
 ) {
   const deps = providedDeps ?? createDefaultSetupDeps();
   const db = deps.prisma ?? prisma;
@@ -1057,6 +1173,9 @@ export async function repairPublishingSetup(
     supportReference: appRequest.supportReference,
   });
   let repairStep: PublishingSetupCheckKey = "azure_resource_access";
+  const claimedRepairAttempt = options.statusAlreadyClaimed
+    ? { attemptClaimedAt: options.attemptClaimedAt }
+    : undefined;
 
   if (!options.statusAlreadyClaimed) {
     await db.appRequest.update({
@@ -1158,8 +1277,11 @@ export async function repairPublishingSetup(
       });
     }
 
-    await db.appRequest.update({
-      where: { id: appRequestId },
+    await persistRepairAppRequestWrite({
+      appRequestId,
+      db,
+      claimedRepairAttempt,
+      preserveAttemptIdentity: true,
       data: {
         azureResourceGroup: deps.config.resourceGroup,
         azureAppServicePlan: deps.config.appServicePlan,
@@ -1173,8 +1295,16 @@ export async function repairPublishingSetup(
       },
     });
 
-    return preflightPublishingSetup(appRequestId, deps);
+    return preflightPublishingSetup(appRequestId, deps, {
+      ...(claimedRepairAttempt
+        ? { attemptClaimedAt: claimedRepairAttempt.attemptClaimedAt }
+        : {}),
+    });
   } catch (error) {
+    if (error instanceof StalePublishingSetupRepairAttemptError) {
+      throw error;
+    }
+
     const classification = classifyPublishingSetupError({
       step: repairStep,
       error,
@@ -1182,8 +1312,10 @@ export async function repairPublishingSetup(
         repairStep === "github_federated_credential",
     });
 
-    await db.appRequest.update({
-      where: { id: appRequestId },
+    await persistRepairAppRequestWrite({
+      appRequestId,
+      db,
+      claimedRepairAttempt,
       data: {
         publishingSetupStatus: classification.setupStatus,
         publishingSetupErrorSummary: classification.summary,

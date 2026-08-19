@@ -106,10 +106,11 @@ const readyImportedHttpServerRequest = {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    $transaction: vi.fn((operations) => Promise.all(operations)),
+    $transaction: vi.fn(),
     appRequest: {
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     publishSetupCheck: {
       upsert: vi.fn(),
@@ -203,11 +204,16 @@ function createDeps(
 describe("publishing setup service", () => {
   beforeEach(() => {
     vi.mocked(prisma.$transaction).mockReset();
-    vi.mocked(prisma.$transaction).mockImplementation((operations) =>
-      Promise.all(operations),
+    vi.mocked(prisma.$transaction).mockImplementation(
+      ((input: unknown) =>
+        typeof input === "function"
+          ? (input as (tx: typeof prisma) => Promise<unknown>)(prisma)
+          : Promise.all(input as Promise<unknown>[])) as typeof prisma.$transaction,
     );
     vi.mocked(prisma.appRequest.findUnique).mockReset();
     vi.mocked(prisma.appRequest.update).mockReset();
+    vi.mocked(prisma.appRequest.updateMany).mockReset();
+    vi.mocked(prisma.appRequest.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.publishSetupCheck.upsert).mockReset();
     vi.mocked(prisma.publishSetupCheck.upsert).mockResolvedValue(
       {} as Awaited<ReturnType<typeof prisma.publishSetupCheck.upsert>>,
@@ -826,9 +832,11 @@ describe("publishing setup service", () => {
 
   it("does not rewrite the repairing state after the action already claimed it", async () => {
     const deps = createDeps();
+    const attemptClaimedAt = new Date("2026-08-19T13:00:00.000Z");
 
     await repairPublishingSetup("req_123", deps, {
       statusAlreadyClaimed: true,
+      attemptClaimedAt,
     });
 
     expect(prisma.appRequest.update).not.toHaveBeenCalledWith({
@@ -839,6 +847,108 @@ describe("publishing setup service", () => {
       },
     });
     expect(deps.arm.putWebApp).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a lost claim after successful external repair as stale without persisting final results", async () => {
+    const deps = createDeps();
+    const attemptClaimedAt = new Date("2026-08-19T13:01:00.000Z");
+    vi.mocked(prisma.appRequest.updateMany)
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      repairPublishingSetup("req_123", deps, {
+        statusAlreadyClaimed: true,
+        attemptClaimedAt,
+      }),
+    ).rejects.toThrow(/no longer current/i);
+
+    expect(deps.arm.putWebApp).toHaveBeenCalledTimes(1);
+    expect(prisma.appRequest.updateMany).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: "req_123",
+        publishingSetupStatus: "REPAIRING",
+        updatedAt: attemptClaimedAt,
+      },
+      data: expect.objectContaining({
+        azureWebAppName: "app-campus-dashboard-req123",
+        updatedAt: attemptClaimedAt,
+      }),
+    });
+    expect(prisma.publishSetupCheck.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalled();
+  });
+
+  it("does not persist preflight status or checks after a claimed repair loses ownership", async () => {
+    const deps = createDeps();
+    const attemptClaimedAt = new Date("2026-08-19T13:02:00.000Z");
+    vi.mocked(prisma.appRequest.updateMany).mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      preflightPublishingSetup("req_123", deps, { attemptClaimedAt }),
+    ).rejects.toThrow(/no longer current/i);
+
+    expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "req_123",
+        publishingSetupStatus: "REPAIRING",
+        updatedAt: attemptClaimedAt,
+      },
+      data: expect.objectContaining({ publishingSetupStatus: "READY" }),
+    });
+    expect(prisma.publishSetupCheck.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalled();
+  });
+
+  it("does not persist repaired resource fields after the attempt loses its claim", async () => {
+    const deps = createDeps();
+    const attemptClaimedAt = new Date("2026-08-19T13:03:00.000Z");
+    vi.mocked(prisma.appRequest.updateMany).mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      repairPublishingSetup("req_123", deps, {
+        statusAlreadyClaimed: true,
+        attemptClaimedAt,
+      }),
+    ).rejects.toThrow(/no longer current/i);
+
+    expect(prisma.appRequest.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          azureWebAppName: "app-campus-dashboard-req123",
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalled();
+  });
+
+  it("does not persist failure classification after the attempt loses its claim", async () => {
+    const baseDeps = createDeps();
+    const providerError = new Error("provider repair failed");
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        putWebApp: vi.fn().mockRejectedValue(providerError),
+      },
+    });
+    const attemptClaimedAt = new Date("2026-08-19T13:04:00.000Z");
+    vi.mocked(prisma.appRequest.updateMany).mockResolvedValueOnce({ count: 0 });
+
+    await expect(
+      repairPublishingSetup("req_123", deps, {
+        statusAlreadyClaimed: true,
+        attemptClaimedAt,
+      }),
+    ).rejects.toThrow(/no longer current/i);
+
+    expect(prisma.appRequest.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          publishingSetupErrorSummary: expect.any(String),
+        }),
+      }),
+    );
+    expect(prisma.publishSetupCheck.upsert).not.toHaveBeenCalled();
   });
 
   it("replaces a legacy credential with the immutable repository subject", async () => {

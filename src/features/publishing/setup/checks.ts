@@ -45,6 +45,18 @@ type PersistPublishingSetupChecksInput = {
   additionalOperations?: Promise<unknown>[];
 };
 
+type ReplacePublishingSetupChecksInput = Omit<
+  PersistPublishingSetupChecksInput,
+  "prisma" | "additionalOperations"
+> & {
+  prisma: {
+    publishSetupCheck: Pick<
+      typeof prisma.publishSetupCheck,
+      "deleteMany" | "upsert"
+    >;
+  };
+};
+
 function normalizeMetadataKey(key: string) {
   return key.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -124,6 +136,59 @@ function sanitizeMetadata(metadata: unknown): Prisma.InputJsonObject {
   return {};
 }
 
+function publishingSetupCheckOperations({
+  prisma: prismaClient,
+  appRequestId,
+  checks,
+  checkedAt,
+}: ReplacePublishingSetupChecksInput) {
+  const currentCheckKeys = checks.map((check) => check.checkKey);
+
+  return [
+    prismaClient.publishSetupCheck.deleteMany({
+      where: {
+        appRequestId,
+        checkKey: {
+          notIn: currentCheckKeys,
+        },
+      },
+    }),
+    ...checks.map((check) => {
+      const metadata = sanitizeMetadata(check.metadata);
+      const message = redactDiagnosticString(check.message);
+
+      return prismaClient.publishSetupCheck.upsert({
+        where: {
+          appRequestId_checkKey: {
+            appRequestId,
+            checkKey: check.checkKey,
+          },
+        },
+        create: {
+          appRequestId,
+          checkKey: check.checkKey,
+          status: check.status,
+          message,
+          metadata,
+          checkedAt,
+        },
+        update: {
+          status: check.status,
+          message,
+          metadata,
+          checkedAt,
+        },
+      });
+    }),
+  ];
+}
+
+export async function replacePublishingSetupChecks(
+  input: ReplacePublishingSetupChecksInput,
+) {
+  await Promise.all(publishingSetupCheckOperations(input));
+}
+
 export async function persistPublishingSetupChecks({
   prisma: prismaClient = prisma,
   appRequestId,
@@ -131,44 +196,13 @@ export async function persistPublishingSetupChecks({
   checkedAt,
   additionalOperations = [],
 }: PersistPublishingSetupChecksInput) {
-  const currentCheckKeys = checks.map((check) => check.checkKey);
-
   await prismaClient.$transaction(
     [
-      prismaClient.publishSetupCheck.deleteMany({
-        where: {
-          appRequestId,
-          checkKey: {
-            notIn: currentCheckKeys,
-          },
-        },
-      }),
-      ...checks.map((check) => {
-        const metadata = sanitizeMetadata(check.metadata);
-        const message = redactDiagnosticString(check.message);
-
-        return prismaClient.publishSetupCheck.upsert({
-          where: {
-            appRequestId_checkKey: {
-              appRequestId,
-              checkKey: check.checkKey,
-            },
-          },
-          create: {
-            appRequestId,
-            checkKey: check.checkKey,
-            status: check.status,
-            message,
-            metadata,
-            checkedAt,
-          },
-          update: {
-            status: check.status,
-            message,
-            metadata,
-            checkedAt,
-          },
-        });
+      ...publishingSetupCheckOperations({
+        prisma: prismaClient,
+        appRequestId,
+        checks,
+        checkedAt,
       }),
       ...additionalOperations,
     ],
