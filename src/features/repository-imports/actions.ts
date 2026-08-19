@@ -12,7 +12,7 @@ import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { preflightPublishingSetup } from "@/features/publishing/setup/service";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
-import { parseRepositoryAccessActorUsername } from "@/features/repositories/access";
+import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
@@ -802,13 +802,14 @@ export async function prepareExistingAppAction(
       where: { id: userId },
       select: { githubUsername: true },
     });
-    const accessActor = parseRepositoryAccessActorUsername(
-      appRequest.repositoryAccessNote,
-    );
-    const actorHasAccess =
-      appRequest.repositoryAccessStatus === "GRANTED" &&
-      actor?.githubUsername &&
-      accessActor?.toLowerCase() === actor.githubUsername.toLowerCase();
+    const actorAccess = await resolveRepositoryAccessForActor({
+      requestId: appRequest.id,
+      actorUserId: userId,
+      githubUsername: actor?.githubUsername ?? null,
+      legacyStatus: appRequest.repositoryAccessStatus,
+      legacyNote: appRequest.repositoryAccessNote,
+    });
+    const actorHasAccess = actorAccess.status === "GRANTED";
 
     if (!actorHasAccess) {
       const message = isConflictReview

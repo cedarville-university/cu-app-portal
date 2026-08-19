@@ -1,9 +1,17 @@
+import type {
+  PublishStatus,
+  PublishingSetupStatus,
+  RepositoryPreparationStatus,
+  RepositoryStatus,
+  SourceOfTruth,
+} from "@prisma/client";
+
 export type PublishEligibilityInput = {
-  sourceOfTruth: string;
-  repositoryStatus: string;
-  preparationStatus?: string | null;
-  publishingSetupStatus: string;
-  publishStatus: string;
+  sourceOfTruth: SourceOfTruth;
+  repositoryStatus: RepositoryStatus;
+  preparationStatus?: RepositoryPreparationStatus | null;
+  publishingSetupStatus: PublishingSetupStatus;
+  publishStatus: PublishStatus;
 };
 
 export type PublishEligibilityReason =
@@ -19,7 +27,7 @@ export type PublishEligibilityResult =
   | { eligible: false; reason: PublishEligibilityReason };
 
 type PublishEligibilityOptions = {
-  allowedPublishStatuses: string[];
+  allowedPublishStatuses: readonly PublishStatus[];
   allowFailedSetupRetry?: boolean;
 };
 
@@ -71,7 +79,7 @@ export function getPublishEligibility(
 export function canQueuePublish(
   input: PublishEligibilityInput,
   options: {
-    allowedPublishStatuses: string[];
+    allowedPublishStatuses: readonly PublishStatus[];
     allowFailedSetupRetry?: boolean;
   },
 ) {

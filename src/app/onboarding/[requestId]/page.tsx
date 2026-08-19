@@ -25,7 +25,7 @@ import {
   retryRepositoryBootstrapAction,
   saveGitHubUsernameAndGrantAccessAction,
 } from "@/features/repositories/actions";
-import { parseRepositoryAccessActorUsername } from "@/features/repositories/access";
+import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
 import {
   prepareExistingAppAction,
   verifyExistingAppPreparationAction,
@@ -67,26 +67,6 @@ function accountChoiceHref(
   if (pathChoice) query.set("path", pathChoice);
   query.set("account", accountChoice);
   return `/onboarding/${requestId}?${query.toString()}`;
-}
-
-function repositoryAccessStatusForActor({
-  status,
-  note,
-  githubUsername,
-}: {
-  status: string;
-  note: string | null;
-  githubUsername: string | null;
-}) {
-  if (status !== "GRANTED" && status !== "INVITED" && status !== "FAILED") {
-    return status;
-  }
-  if (!githubUsername) return "NOT_REQUESTED";
-
-  const accessUsername = parseRepositoryAccessActorUsername(note);
-  return accessUsername?.toLowerCase() === githubUsername.toLowerCase()
-    ? status
-    : "NOT_REQUESTED";
 }
 
 function PublishForm({
@@ -152,6 +132,7 @@ function PublishingTechnicalDetails({
   supportReference,
   checks,
   summaries = [],
+  showProviderDiagnostics = false,
 }: {
   supportReference: string;
   checks: Array<{
@@ -161,8 +142,11 @@ function PublishingTechnicalDetails({
     metadata: unknown;
   }>;
   summaries?: Array<string | null | undefined>;
+  showProviderDiagnostics?: boolean;
 }) {
-  const technicalSummaries = [...new Set(summaries.filter(Boolean))] as string[];
+  const technicalSummaries = showProviderDiagnostics
+    ? ([...new Set(summaries.filter(Boolean))] as string[])
+    : [];
 
   return (
     <details className="onboarding-step-shell__support">
@@ -199,8 +183,8 @@ function PublishingTechnicalDetails({
                 <p>
                   Result: {check.status === "PASS" ? "Passed" : "Needs attention"}
                 </p>
-                <p>{check.message}</p>
-                {metadata.length ? (
+                {showProviderDiagnostics ? <p>{check.message}</p> : null}
+                {showProviderDiagnostics && metadata.length ? (
                   <ul>
                     {metadata.map(([key, value]) => (
                       <li key={key}>
@@ -311,7 +295,7 @@ function stateInputForApp(
     };
   }>,
   pathChoice: OnboardingPathChoice,
-  repositoryAccessStatus: string,
+  repositoryAccessStatus: OnboardingStateInput["repositoryAccessStatus"],
 ): OnboardingStateInput {
   return {
     sourceOfTruth: app.sourceOfTruth,
@@ -366,11 +350,14 @@ export default async function AppOnboardingPage({
 
   const pathChoice = parsePathChoice(query.path);
   const accountChoice = parseAccountChoice(query.account);
-  const repositoryAccessStatus = repositoryAccessStatusForActor({
-    status: app.repositoryAccessStatus,
-    note: app.repositoryAccessNote,
+  const actorRepositoryAccess = await resolveRepositoryAccessForActor({
+    requestId: app.id,
+    actorUserId: userId,
     githubUsername: currentActor.githubUsername,
+    legacyStatus: app.repositoryAccessStatus,
+    legacyNote: app.repositoryAccessNote,
   });
+  const repositoryAccessStatus = actorRepositoryAccess.status;
   const stateInput = stateInputForApp(
     app,
     pathChoice,
@@ -405,6 +392,7 @@ export default async function AppOnboardingPage({
         app.publishingSetupErrorSummary,
         app.publishAttempts[0]?.errorSummary,
       ]}
+      showProviderDiagnostics={isAdmin}
     />
   );
 
@@ -473,7 +461,11 @@ export default async function AppOnboardingPage({
         >
           <div className="wizard-actions">
             {app.repositoryImport.importErrorSummary ? (
-              <p role="alert">{app.repositoryImport.importErrorSummary}</p>
+              <p role="alert">
+                {isAdmin
+                  ? app.repositoryImport.importErrorSummary
+                  : "The managed copy did not finish. Start again from the saved source repository."}
+              </p>
             ) : null}
             <Link className="btn btn--primary-solid" href={restartHref}>
               Start again with this repository
@@ -516,8 +508,8 @@ export default async function AppOnboardingPage({
     if (currentActor.githubUsername || accountChoice === "existing") {
       accountAction = (
         <>
-          {repositoryAccessStatus === "FAILED" && app.repositoryAccessNote ? (
-            <p role="alert">{app.repositoryAccessNote}</p>
+          {repositoryAccessStatus === "FAILED" && actorRepositoryAccess.note ? (
+            <p role="alert">{actorRepositoryAccess.note}</p>
           ) : null}
           <GitHubUsernameForm
             requestId={app.id}
@@ -669,7 +661,9 @@ export default async function AppOnboardingPage({
       requestId: app.id,
       defaultBranch: app.repositoryDefaultBranch,
       preparationErrorSummary: isRepair
-        ? app.repositoryImport?.preparationErrorSummary
+        ? isAdmin
+          ? app.repositoryImport?.preparationErrorSummary
+          : "The uploaded app needs repair before publishing."
         : null,
     });
 
@@ -699,7 +693,9 @@ export default async function AppOnboardingPage({
           <div className="wizard-actions">
             {isRepair && app.repositoryImport?.preparationErrorSummary ? (
               <p role="alert">
-                {app.repositoryImport.preparationErrorSummary}
+                {isAdmin
+                  ? app.repositoryImport.preparationErrorSummary
+                  : "The uploaded app needs repair before publishing. Use the Codex instructions below, then upload the repaired code."}
               </p>
             ) : null}
             <pre className="wizard-prompt">
@@ -784,7 +780,9 @@ export default async function AppOnboardingPage({
           <div className="wizard-actions">
             {app.repositoryImport?.preparationErrorSummary ? (
               <p role="alert">
-                {app.repositoryImport.preparationErrorSummary}
+                {isAdmin
+                  ? app.repositoryImport.preparationErrorSummary
+                  : "Publishing preparation did not finish. Your repository files remain safe."}
               </p>
             ) : null}
             <PreparationForm
@@ -815,7 +813,9 @@ export default async function AppOnboardingPage({
           <div className="wizard-actions">
             {app.repositoryImport?.preparationErrorSummary ? (
               <p role="alert">
-                {app.repositoryImport.preparationErrorSummary}
+                {isAdmin
+                  ? app.repositoryImport.preparationErrorSummary
+                  : "Existing publishing files need a safe review before the portal can continue."}
               </p>
             ) : null}
             <PreparationForm
@@ -856,7 +856,9 @@ export default async function AppOnboardingPage({
             ) : null}
             {app.repositoryImport?.preparationErrorSummary ? (
               <p role="alert">
-                {app.repositoryImport.preparationErrorSummary}
+                {isAdmin
+                  ? app.repositoryImport.preparationErrorSummary
+                  : "The publishing changes still need to be reviewed and merged on GitHub."}
               </p>
             ) : null}
             <form

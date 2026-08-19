@@ -1036,6 +1036,7 @@ export async function preflightPublishingSetup(
 export async function repairPublishingSetup(
   appRequestId: string,
   providedDeps?: PublishingSetupServiceDeps,
+  options: { statusAlreadyClaimed?: boolean } = {},
 ) {
   const deps = providedDeps ?? createDefaultSetupDeps();
   const db = deps.prisma ?? prisma;
@@ -1057,13 +1058,15 @@ export async function repairPublishingSetup(
   });
   let repairStep: PublishingSetupCheckKey = "azure_resource_access";
 
-  await db.appRequest.update({
-    where: { id: appRequestId },
-    data: {
-      publishingSetupStatus: "REPAIRING",
-      publishingSetupErrorSummary: null,
-    },
-  });
+  if (!options.statusAlreadyClaimed) {
+    await db.appRequest.update({
+      where: { id: appRequestId },
+      data: {
+        publishingSetupStatus: "REPAIRING",
+        publishingSetupErrorSummary: null,
+      },
+    });
+  }
 
   try {
     repairStep = "azure_resource_access";

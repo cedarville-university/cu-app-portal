@@ -49,17 +49,34 @@ function normalizeMetadataKey(key: string) {
   return key.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function redactDiagnosticString(value: string) {
+  return value
+    .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+    .replace(
+      /\b(secret|token|password|api[_-]?key|client[_-]?secret|sig(?:nature)?|authorization|connection[_-]?string|database[_-]?url)\s*[:=]\s*[^\s,;]+/gi,
+      "$1=[redacted]",
+    )
+    .replace(
+      /([a-z][a-z\d+.-]*:\/\/)[^\s/:@]+:[^\s/@]+@/gi,
+      "$1[redacted]@",
+    )
+    .slice(0, 500);
+}
+
 function sanitizeJsonValue(value: unknown): Prisma.InputJsonValue | undefined {
   if (value === null) {
     return undefined;
   }
 
   if (
-    typeof value === "string" ||
     typeof value === "boolean" ||
     (typeof value === "number" && Number.isFinite(value))
   ) {
     return value;
+  }
+
+  if (typeof value === "string") {
+    return redactDiagnosticString(value);
   }
 
   if (value instanceof Date) {
@@ -128,6 +145,7 @@ export async function persistPublishingSetupChecks({
       }),
       ...checks.map((check) => {
         const metadata = sanitizeMetadata(check.metadata);
+        const message = redactDiagnosticString(check.message);
 
         return prismaClient.publishSetupCheck.upsert({
           where: {
@@ -140,13 +158,13 @@ export async function persistPublishingSetupChecks({
             appRequestId,
             checkKey: check.checkKey,
             status: check.status,
-            message: check.message,
+            message,
             metadata,
             checkedAt,
           },
           update: {
             status: check.status,
-            message: check.message,
+            message,
             metadata,
             checkedAt,
           },

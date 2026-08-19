@@ -20,6 +20,11 @@ type CreateRepositoryInput = {
   defaultBranch: string;
   autoInit?: boolean;
   reuseIfAlreadyExists?: boolean;
+  ownershipMarker?: {
+    description: string;
+    path: string;
+    content: string;
+  };
 };
 
 type UpdateRepositoryDefaultBranchInput = {
@@ -146,6 +151,7 @@ type GitHubRepositoryResponse = {
   html_url: string;
   default_branch: string;
   name: string;
+  description?: string | null;
   created_at?: string;
   owner: {
     id?: number;
@@ -313,11 +319,36 @@ function isRetriableGitHubConflict(error: unknown) {
   );
 }
 
-function isPossibleExistingRepositoryError(error: unknown) {
+function isRepositoryAlreadyExistsError(error: unknown) {
+  if (!(error instanceof Error) || !("status" in error) || error.status !== 422) {
+    return false;
+  }
+
+  const validationErrors = "errors" in error ? error.errors : null;
+
   return (
-    error instanceof Error &&
-    "status" in error &&
-    error.status === 422
+    Array.isArray(validationErrors) &&
+    validationErrors.some((validationError) => {
+      if (!validationError || typeof validationError !== "object") {
+        return false;
+      }
+
+      const resource =
+        "resource" in validationError ? validationError.resource : null;
+      const field = "field" in validationError ? validationError.field : null;
+      const code = "code" in validationError ? validationError.code : null;
+      const message =
+        "message" in validationError ? validationError.message : null;
+
+      return (
+        resource === "Repository" &&
+        field === "name" &&
+        (code === "already_exists" ||
+          (code === "custom" &&
+            typeof message === "string" &&
+            message.toLowerCase().includes("already exists")))
+      );
+    })
   );
 }
 
@@ -421,16 +452,42 @@ async function createCommitFromFiles({
     }),
   );
 
-  await readJson<{ ref: string }>(
-    await fetchImpl(
-      `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/refs/${githubRefPath("heads", branch)}`,
-      {
-        method: "PATCH",
-        headers,
-        body: JSON.stringify({ sha: commit.sha, force: false }),
-      },
-    ),
-  );
+  if (expectedHeadSha) {
+    const currentHead = await readJson<GitHubRefResponse>(
+      await fetchImpl(
+        `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/ref/${githubRefPath("heads", branch)}`,
+        { method: "GET", headers },
+      ),
+    );
+
+    if (currentHead.object.sha !== expectedHeadSha) {
+      throw new Error(STALE_REPOSITORY_HEAD_ERROR);
+    }
+  }
+
+  try {
+    await readJson<{ ref: string }>(
+      await fetchImpl(
+        `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/refs/${githubRefPath("heads", branch)}`,
+        {
+          method: "PATCH",
+          headers,
+          body: JSON.stringify({ sha: commit.sha, force: false }),
+        },
+      ),
+    );
+  } catch (error) {
+    if (
+      expectedHeadSha &&
+      error instanceof Error &&
+      "status" in error &&
+      error.status === 422
+    ) {
+      throw new Error(STALE_REPOSITORY_HEAD_ERROR);
+    }
+
+    throw error;
+  }
 
   return { commitSha: commit.sha };
 }
@@ -666,6 +723,7 @@ export function createGitHubAppClient({
       defaultBranch,
       autoInit = true,
       reuseIfAlreadyExists = false,
+      ownershipMarker,
     }: CreateRepositoryInput) {
       const headers = await withInstallationHeaders();
       const createRepoResponse = await fetchImpl(
@@ -677,6 +735,9 @@ export function createGitHubAppClient({
             name,
             visibility,
             auto_init: autoInit,
+            ...(ownershipMarker
+              ? { description: ownershipMarker.description }
+              : {}),
           }),
         },
       );
@@ -689,7 +750,8 @@ export function createGitHubAppClient({
       } catch (error) {
         if (
           !reuseIfAlreadyExists ||
-          !isPossibleExistingRepositoryError(error)
+          !ownershipMarker ||
+          !isRepositoryAlreadyExistsError(error)
         ) {
           throw error;
         }
@@ -706,6 +768,12 @@ export function createGitHubAppClient({
           );
         } catch {
           throw error;
+        }
+
+        if (repository.description !== ownershipMarker.description) {
+          throw new Error(
+            "The existing managed repository does not belong to this app request.",
+          );
         }
       }
 
@@ -727,66 +795,23 @@ export function createGitHubAppClient({
             ),
           );
 
-          const tree = [];
-
-          for (const [filePath, content] of Object.entries(files)) {
-            const blobResponse = await fetchImpl(
-              `https://api.github.com/repos/${owner}/${name}/git/blobs`,
-              {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
-                  content,
-                  encoding: "utf-8",
-                }),
-              },
-            );
-            const blob = await readJson<GitHubBlobResponse>(blobResponse);
-
-            tree.push({
-              path: filePath,
-              mode: "100644",
-              type: "blob",
-              sha: blob.sha,
-            });
-          }
-
-          const treeResponse = await fetchImpl(
-            `https://api.github.com/repos/${owner}/${name}/git/trees`,
-            {
-              method: "POST",
-              headers,
-              body: JSON.stringify({ tree }),
-            },
-          );
-          const createdTree = await readJson<GitHubTreeResponse>(treeResponse);
-
-          const commitResponse = await fetchImpl(
-            `https://api.github.com/repos/${owner}/${name}/git/commits`,
-            {
-              method: "POST",
-              headers,
-              body: JSON.stringify({
-                message: "Initial portal app source",
-                tree: createdTree.sha,
-                parents: [defaultBranchRef.object.sha],
-              }),
-            },
-          );
-          const commit = await readJson<GitHubCommitResponse>(commitResponse);
-
-          const refResponse = await fetchImpl(
-            `https://api.github.com/repos/${owner}/${name}/git/refs/heads/${repository.default_branch}`,
-            {
-              method: "PATCH",
-              headers,
-              body: JSON.stringify({
-                sha: commit.sha,
-                force: false,
-              }),
-            },
-          );
-          await readJson<{ ref: string }>(refResponse);
+          const sourceFiles = ownershipMarker
+            ? {
+                ...files,
+                [ownershipMarker.path]: ownershipMarker.content,
+              }
+            : files;
+          await createCommitFromFiles({
+            owner,
+            name,
+            branch: repository.default_branch,
+            message: "Initial portal app source",
+            expectedHeadSha: defaultBranchRef.object.sha,
+            files: sourceFiles,
+            fetchImpl,
+            headers,
+            parentSha: defaultBranchRef.object.sha,
+          });
 
           const updateRepoResponse = await fetchImpl(
             `https://api.github.com/repos/${owner}/${name}`,

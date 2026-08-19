@@ -18,6 +18,8 @@ describe("README", () => {
     expect(readme).toContain("Add Existing App");
     expect(readme).toContain("Continue Setup");
     expect(readme).toContain("Manage App");
+    expect(readme).toContain("request-unique managed repository name");
+    expect(readme).toContain("tracked per signed-in actor");
   });
 
   it("keeps the quick start aligned with the guided first-publish choices", () => {
@@ -86,6 +88,12 @@ describe("portal setup docs", () => {
     expect(setup).toContain("short-lived GitHub App installation token");
     expect(setup).toContain("repository creation permission");
     expect(setup).toContain("GitHub CLI (`gh`) is not required");
+    expect(setup).toContain("stable request-unique target name");
+    expect(setup).toContain("append-only audit events");
+    expect(setup).toContain("atomically claimed before any provider mutation");
+    expect(setup).toContain(
+      "narrowly scoped local repository-bootstrap substitute",
+    );
     expect(setup).toContain(
       "root Next.js apps, Express apps, Python FastAPI apps, and plain static Python `http.server` apps",
     );

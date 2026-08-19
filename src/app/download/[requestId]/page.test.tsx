@@ -78,6 +78,7 @@ vi.mock("@/lib/db", () => ({
     user: { findUnique: vi.fn() },
     userRole: { findFirst: vi.fn() },
     appRequest: { findFirst: vi.fn() },
+    auditLog: { findFirst: vi.fn() },
   },
 }));
 
@@ -87,6 +88,7 @@ import { prisma } from "@/lib/db";
 function appRequest(overrides: Record<string, unknown> = {}) {
   return {
     id: "request-123",
+    supportReference: "SUP-20260818-ABC123",
     userId: "user-123",
     appName: "Campus Dashboard",
     sourceOfTruth: "PORTAL_MANAGED_REPO",
@@ -137,6 +139,7 @@ beforeEach(() => {
   vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
   vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.user.findUnique).mockResolvedValue({ githubUsername: null });
+  vi.mocked(prisma.auditLog.findFirst).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -267,5 +270,170 @@ describe("DownloadPage admin publishing recovery", () => {
     expect(
       screen.queryByRole("button", { name: /repair publishing setup/i }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("DownloadPage actor-specific GitHub access", () => {
+  it.each([
+    {
+      actorUserId: "owner-123",
+      githubUsername: "owner-name",
+      role: "owner",
+      event: "REPOSITORY_ACCESS_FAILED",
+      status: "FAILED",
+      expected: /could not confirm repository access for @owner-name/i,
+    },
+    {
+      actorUserId: "collaborator-123",
+      githubUsername: "collaborator-name",
+      role: "collaborator",
+      event: "REPOSITORY_ACCESS_SUCCEEDED",
+      status: "INVITED",
+      expected: /github invited @collaborator-name/i,
+    },
+    {
+      actorUserId: "admin-123",
+      githubUsername: "admin-name",
+      role: "admin",
+      event: "REPOSITORY_ACCESS_SUCCEEDED",
+      status: "GRANTED",
+      expected: /repository access has been granted/i,
+    },
+  ] as const)(
+    "renders the durable $status outcome for the $role actor only",
+    async ({ actorUserId, githubUsername, role, event, status, expected }) => {
+      vi.mocked(getCurrentUserIdOrNull).mockResolvedValue(actorUserId);
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({ githubUsername });
+      if (role === "admin") {
+        vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+          id: "role-123",
+          userId: actorUserId,
+          role: "ADMIN",
+          createdAt: new Date("2026-08-18T12:00:00Z"),
+          updatedAt: new Date("2026-08-18T12:00:00Z"),
+        });
+      }
+      vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({
+        event,
+        details: {
+          requestId: "request-123",
+          actorUserId,
+          githubUsername,
+          accessStatus: status,
+          safeSummary: "secret=provider-detail&token=raw-token",
+        },
+      } as Awaited<ReturnType<typeof prisma.auditLog.findFirst>>);
+
+      await renderPage({
+        userId: "owner-123",
+        publishStatus: "SUCCEEDED",
+        repositoryAccessStatus: "FAILED",
+        repositoryAccessNote:
+          "GitHub access failed for @another-actor: secret=other-actor-detail",
+      });
+
+      expect(screen.getByText(expected)).toBeInTheDocument();
+      expect(document.body).not.toHaveTextContent(
+        /another-actor|other-actor-detail|provider-detail|raw-token|secret=/i,
+      );
+      expect(prisma.auditLog.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            AND: expect.arrayContaining([
+              { details: { path: ["actorUserId"], equals: actorUserId } },
+            ]),
+          }),
+        }),
+      );
+    },
+  );
+
+  it("keeps one actor's durable grant when another actor last wrote shared failure", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collaborator-name",
+    });
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({
+      event: "REPOSITORY_ACCESS_SUCCEEDED",
+      details: {
+        requestId: "request-123",
+        actorUserId: "user-123",
+        githubUsername: "collaborator-name",
+        accessStatus: "GRANTED",
+      },
+    } as Awaited<ReturnType<typeof prisma.auditLog.findFirst>>);
+
+    await renderPage({
+      publishStatus: "SUCCEEDED",
+      repositoryAccessStatus: "FAILED",
+      repositoryAccessNote:
+        "GitHub access failed for @owner-name: secret=owner-provider-detail",
+    });
+
+    expect(
+      screen.getByText(/repository access has been granted/i),
+    ).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/owner-name|owner-provider-detail/i);
+  });
+});
+
+describe("DownloadPage diagnostic redaction", () => {
+  const hostileSummary =
+    "Azure response https://management.azure.com/op?token=raw-token secret=provider-detail";
+
+  it("keeps provider evidence out of the full ordinary-user DOM", async () => {
+    await renderPage({
+      publishStatus: "SUCCEEDED",
+      publishErrorSummary: hostileSummary,
+      publishingSetupErrorSummary: `Error.message: ${hostileSummary}`,
+      publishSetupChecks: [
+        {
+          checkKey: "azure_resource_access",
+          status: "FAIL",
+          message: `Provider metadata requestId=raw-123 ${hostileSummary}`,
+          metadata: { requestId: "secret=metadata-detail" },
+        },
+      ],
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      repositoryImport: {
+        importStatus: "FAILED",
+        importErrorSummary: `Import ${hostileSummary}`,
+        compatibilityStatus: "UNSUPPORTED",
+        preparationStatus: "FAILED",
+        preparationMode: "DIRECT_COMMIT",
+        preparationErrorSummary: `Preparation ${hostileSummary}`,
+      },
+    });
+
+    expect(document.body.innerHTML).not.toMatch(
+      /management\.azure\.com|raw-token|provider-detail|raw-123|metadata-detail|secret=|error\.message/i,
+    );
+    expect(screen.getByText("SUP-20260818-ABC123")).toBeInTheDocument();
+    expect(screen.getByText(/share this support reference/i)).toBeInTheDocument();
+  });
+
+  it("shows raw provider diagnostics only to an admin", async () => {
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-123",
+      userId: "user-123",
+      role: "ADMIN",
+      createdAt: new Date("2026-08-18T12:00:00Z"),
+      updatedAt: new Date("2026-08-18T12:00:00Z"),
+    });
+
+    await renderPage({
+      publishErrorSummary: hostileSummary,
+      publishingSetupErrorSummary: `Error.message: ${hostileSummary}`,
+      publishSetupChecks: [
+        {
+          checkKey: "azure_resource_access",
+          status: "FAIL",
+          message: `Provider metadata requestId=raw-123 ${hostileSummary}`,
+          metadata: { requestId: "secret=metadata-detail" },
+        },
+      ],
+    });
+
+    expect(document.body).toHaveTextContent("provider-detail");
+    expect(document.body).toHaveTextContent("raw-123");
   });
 });

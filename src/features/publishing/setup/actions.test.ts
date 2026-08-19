@@ -23,6 +23,7 @@ vi.mock("@/lib/db", () => ({
     appRequest: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
+      updateMany: vi.fn(),
     },
     userRole: {
       findFirst: vi.fn(),
@@ -44,6 +45,8 @@ describe("publishing setup actions", () => {
       id: "request-123",
       publishingSetupStatus: "READY",
     } as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>);
+    vi.mocked(prisma.appRequest.updateMany).mockReset();
+    vi.mocked(prisma.appRequest.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.userRole.findFirst).mockReset();
     vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
     vi.mocked(repairPublishingSetup).mockReset();
@@ -78,7 +81,11 @@ describe("publishing setup actions", () => {
       },
       include: { repositoryImport: true },
     });
-    expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
+    expect(repairPublishingSetup).toHaveBeenCalledWith(
+      "request-123",
+      undefined,
+      { statusAlreadyClaimed: true },
+    );
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/request-123");
     expect(revalidatePath).toHaveBeenCalledWith(
@@ -248,7 +255,22 @@ describe("publishing setup actions", () => {
 
       await repairPublishingSetupAction("request-123");
 
-      expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
+      expect(prisma.appRequest.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: "request-123",
+          publishingSetupStatus,
+        },
+        data: expect.objectContaining({
+          publishingSetupStatus: "REPAIRING",
+          publishingSetupErrorSummary: null,
+          updatedAt: expect.any(Date),
+        }),
+      });
+      expect(repairPublishingSetup).toHaveBeenCalledWith(
+        "request-123",
+        undefined,
+        { statusAlreadyClaimed: true },
+      );
     },
   );
 
@@ -267,7 +289,11 @@ describe("publishing setup actions", () => {
 
     await repairPublishingSetupAction("request-123");
 
-    expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
+    expect(repairPublishingSetup).toHaveBeenCalledWith(
+      "request-123",
+      undefined,
+      { statusAlreadyClaimed: true },
+    );
   });
 
   it("repairs publishing setup for a collaborator with app access", async () => {
@@ -299,7 +325,11 @@ describe("publishing setup actions", () => {
       },
       include: { repositoryImport: true },
     });
-    expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
+    expect(repairPublishingSetup).toHaveBeenCalledWith(
+      "request-123",
+      undefined,
+      { statusAlreadyClaimed: true },
+    );
   });
 
   it("catches repair failures and revalidates the app views", async () => {
@@ -320,13 +350,63 @@ describe("publishing setup actions", () => {
       repairPublishingSetupAction("request-123"),
     ).resolves.toBeUndefined();
 
-    expect(repairPublishingSetup).toHaveBeenCalledWith("request-123");
+    expect(repairPublishingSetup).toHaveBeenCalledWith(
+      "request-123",
+      undefined,
+      { statusAlreadyClaimed: true },
+    );
     expect(consoleError).toHaveBeenCalledWith(
       "Publishing setup repair failed.",
       { requestId: "request-123", error: repairError },
     );
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/request-123");
+    expect(prisma.appRequest.updateMany).toHaveBeenLastCalledWith({
+      where: {
+        id: "request-123",
+        publishingSetupStatus: "REPAIRING",
+        updatedAt: expect.any(Date),
+      },
+      data: {
+        publishingSetupStatus: "NEEDS_REPAIR",
+        publishingSetupErrorSummary:
+          "Publishing setup could not be completed. Share the support reference with the portal support team.",
+      },
+    });
     consoleError.mockRestore();
+  });
+
+  it("allows only one duplicate submission to mutate external setup", async () => {
+    let finishRepair!: () => void;
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "request-123",
+      userId: "user-123",
+      repositoryStatus: "READY",
+      sourceOfTruth: "PORTAL_MANAGED_REPO",
+      publishStatus: "FAILED",
+      publishingSetupStatus: "NEEDS_REPAIR",
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.appRequest.updateMany)
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+    vi.mocked(repairPublishingSetup).mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishRepair = resolve;
+      }),
+    );
+
+    const first = repairPublishingSetupAction("request-123");
+    await vi.waitFor(() => {
+      expect(repairPublishingSetup).toHaveBeenCalledTimes(1);
+    });
+
+    await expect(
+      repairPublishingSetupAction("request-123"),
+    ).rejects.toThrow(/already being checked or repaired/i);
+    expect(repairPublishingSetup).toHaveBeenCalledTimes(1);
+
+    finishRepair();
+    await first;
   });
 });

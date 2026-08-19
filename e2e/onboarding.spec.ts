@@ -10,6 +10,18 @@ const fixtureIds = {
   unpublished: "e2e-onboarding-unpublished",
   published: "e2e-onboarding-published",
 };
+const createdAppNamePrefix = "E2E Created Starter";
+const createdAppName = `${createdAppNamePrefix} Handoff`;
+const createdRequestIds: string[] = [];
+
+function e2eAppRequestWhere() {
+  return {
+    OR: [
+      { id: { in: [...Object.values(fixtureIds), ...createdRequestIds] } },
+      { appName: { startsWith: createdAppNamePrefix } },
+    ],
+  };
+}
 
 test.describe("novice onboarding", () => {
   test.beforeAll(async () => {
@@ -40,7 +52,7 @@ test.describe("novice onboarding", () => {
     });
 
     await prisma.appRequest.deleteMany({
-      where: { id: { in: Object.values(fixtureIds) } },
+      where: e2eAppRequestWhere(),
     });
     await prisma.appRequest.createMany({
       data: [
@@ -101,7 +113,7 @@ test.describe("novice onboarding", () => {
 
   test.afterAll(async () => {
     await prisma.appRequest.deleteMany({
-      where: { id: { in: Object.values(fixtureIds) } },
+      where: e2eAppRequestWhere(),
     });
     await prisma.template.deleteMany({
       where: {
@@ -148,6 +160,48 @@ test.describe("novice onboarding", () => {
     await expect(page).toHaveURL(/\/apps\/add\?source=local#local-app$/);
     await expect(page.getByRole("heading", { name: "Only on my computer" })).toBeVisible();
     await expect(page.getByLabel("Local App Name")).toBeVisible();
+  });
+
+  test("submits a generated create form and hands the saved request to the wizard", async ({
+    page,
+  }) => {
+    await page.goto("/create/public-information-page");
+    await page.getByLabel("App Name").fill(createdAppName);
+    await page
+      .getByLabel("Short Description")
+      .fill("Created through the browser without live provider calls.");
+    await page.getByRole("button", { name: "Create App" }).click();
+
+    await expect(page).toHaveURL(/\/onboarding\/[^/?#]+$/);
+    const requestId = new URL(page.url()).pathname.split("/").at(-1);
+    expect(requestId).toBeTruthy();
+    createdRequestIds.push(requestId!);
+
+    await expect(
+      page.getByRole("heading", { name: "Your starter app is ready" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Publish the starter now" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Customize it with Codex first" }),
+    ).toBeVisible();
+
+    const request = await prisma.appRequest.findUniqueOrThrow({
+      where: { id: requestId! },
+      select: {
+        appName: true,
+        repositoryStatus: true,
+        repositoryAccessStatus: true,
+        publishStatus: true,
+      },
+    });
+    expect(request).toEqual({
+      appName: createdAppName,
+      repositoryStatus: "READY",
+      repositoryAccessStatus: "NOT_REQUESTED",
+      publishStatus: "NOT_STARTED",
+    });
   });
 
   test("resumes unpublished setup and reserves full management for published apps", async ({

@@ -55,6 +55,9 @@ vi.mock("@/lib/db", () => ({
     appRequest: {
       findFirst: vi.fn(),
     },
+    auditLog: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -130,6 +133,7 @@ beforeEach(() => {
     githubUsername: "collaborator-name",
   } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
   vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(generatedApp());
+  vi.mocked(prisma.auditLog.findFirst).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -215,16 +219,8 @@ describe("AppOnboardingPage generated apps", () => {
     expect(
       screen.queryByRole("button", { name: /publish|publishing setup/i }),
     ).not.toBeInTheDocument();
-    const rawFailure = screen.getByText(
-      "GitHub App installation 404 for cedarville-it; provider request gh-raw-123.",
-    );
-    expect(rawFailure.closest("details")).not.toHaveAttribute("open");
-    expect(rawFailure.closest("details")).toHaveTextContent(
-      /technical details for support/i,
-    );
-    expect(rawFailure.closest("details")).toHaveTextContent(
-      "SUP-20260818-ABC123",
-    );
+    expect(document.body).not.toHaveTextContent(/gh-raw-123|installation 404/i);
+    expect(screen.getByText("SUP-20260818-ABC123")).toBeInTheDocument();
   });
 
   it("uses the signed-in actor's GitHub username rather than the app owner's", async () => {
@@ -333,6 +329,63 @@ describe("AppOnboardingPage generated apps", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("uses the collaborator's durable outcome after another actor overwrites the shared columns", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      generatedApp({
+        repositoryAccessStatus: "FAILED",
+        repositoryAccessNote:
+          "GitHub access failed for @owner-name: secret=owner-provider-detail",
+      }),
+    );
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({
+      event: "REPOSITORY_ACCESS_SUCCEEDED",
+      details: {
+        requestId: "req_123",
+        actorUserId: "collaborator-123",
+        githubUsername: "collaborator-name",
+        accessStatus: "GRANTED",
+      },
+    } as Awaited<ReturnType<typeof prisma.auditLog.findFirst>>);
+
+    await renderPage({ path: "customize" });
+
+    expect(
+      screen.getByRole("heading", { name: /customize your app with codex/i }),
+    ).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/owner-name|owner-provider-detail/i);
+  });
+
+  it("renders only the actor-safe failure summary from a durable failed outcome", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      generatedApp({
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote: "GitHub access is ready for @owner-name.",
+      }),
+    );
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({
+      event: "REPOSITORY_ACCESS_FAILED",
+      details: {
+        requestId: "req_123",
+        actorUserId: "collaborator-123",
+        githubUsername: "collaborator-name",
+        accessStatus: "FAILED",
+        safeSummary: "secret=provider-detail&token=raw-token",
+      },
+    } as Awaited<ReturnType<typeof prisma.auditLog.findFirst>>);
+
+    await renderPage({ path: "customize" });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /could not confirm repository access for @collaborator-name/i,
+    );
+    expect(document.body).not.toHaveTextContent(
+      /owner-name|provider-detail|raw-token|secret=/i,
+    );
+    expect(
+      screen.getByRole("button", { name: /try github access again/i }),
+    ).toBeInTheDocument();
+  });
+
   it("lets a generated-app user publish the starter or customize it first", async () => {
     await renderPage();
 
@@ -343,6 +396,28 @@ describe("AppOnboardingPage generated apps", () => {
       screen.getByRole("link", { name: /customize it with codex first/i }),
     ).toHaveAttribute("href", "/onboarding/req_123?path=customize");
     expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
+
+  it("shows the path choice before using a legacy granted-access status", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      generatedApp({
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote:
+          "GitHub access is ready for @collaborator-name.",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: /publish the starter now/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /customize it with codex first/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Publish to Azure" }),
+    ).not.toBeInTheDocument();
   });
 
   it("publishes the starter without requiring GitHub access", async () => {
@@ -456,7 +531,9 @@ describe("AppOnboardingPage generated apps", () => {
     await renderPage({ path: "customize" });
 
     expect(
-      screen.getByText(/github access failed for @collaborator-name/i),
+      screen.getByText(
+        /could not confirm repository access for @collaborator-name/i,
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /try github access again/i }),
@@ -543,9 +620,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(
       screen.getByRole("button", { name: "Try preparation again" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      /github was temporarily unavailable/i,
-    );
+    expect(document.body).not.toHaveTextContent(/github was temporarily unavailable/i);
     expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
       "PULL_REQUEST",
     );
@@ -700,8 +775,9 @@ describe("AppOnboardingPage imported and local preparation", () => {
     await renderPage();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      /needs a supported start command/i,
+      /needs repair before publishing/i,
     );
+    expect(document.body).not.toHaveTextContent(/supported start command/i);
     expect(
       screen.getByText(/repair the app before confirming another upload/i),
     ).toBeInTheDocument();
@@ -741,8 +817,9 @@ describe("AppOnboardingPage imported and local preparation", () => {
     await renderPage();
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      /github stopped the repository copy/i,
+      /managed copy did not finish/i,
     );
+    expect(document.body).not.toHaveTextContent(/github stopped the repository copy/i);
     expect(
       screen.getByRole("link", {
         name: "Start again with this repository",
@@ -813,8 +890,9 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
               appRequestId: "req_123",
               checkKey: "github_actions_secrets",
               status: "FAIL",
-              message: "A managed publishing setting needs attention.",
-              metadata: { requestId: "provider-request-123" },
+              message:
+                "Azure response body secret=provider-check-detail&token=raw-check-token",
+              metadata: { requestId: "provider-request-123?sig=raw-signature" },
               checkedAt: new Date("2026-08-18T18:00:00Z"),
               createdAt: new Date("2026-08-18T18:00:00Z"),
               updatedAt: new Date("2026-08-18T18:00:00Z"),
@@ -831,11 +909,8 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       expect(screen.getByRole("alert")).not.toHaveTextContent(
         /azure app service|provider-detail/i,
       );
-      const unsafeSummary = screen.getByText(
-        "Azure App Service PUT failed: secret=provider-detail.",
-      );
-      expect(unsafeSummary.closest("details")).toHaveTextContent(
-        /technical details for support/i,
+      expect(document.body.innerHTML).not.toMatch(
+        /azure app service put|provider-detail|provider-check-detail|raw-check-token|raw-signature|secret=|token=/i,
       );
       expect(
         screen.getByRole("button", { name: "Fix publishing setup" }),
@@ -850,9 +925,50 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       expect(
         screen.getByText("github_actions_secrets"),
       ).toBeInTheDocument();
-      expect(screen.getByText(/provider-request-123/i)).toBeInTheDocument();
+      expect(document.body).not.toHaveTextContent(/provider-request-123/i);
+      expect(screen.getByText("SUP-20260818-ABC123")).toBeInTheDocument();
     },
   );
+
+  it("shows raw publishing diagnostics only to an admin", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("admin-123");
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
+      id: "role-123",
+      userId: "admin-123",
+      role: "ADMIN",
+      createdAt: new Date("2026-08-18T12:00:00Z"),
+      updatedAt: new Date("2026-08-18T12:00:00Z"),
+    });
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "admin-name",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({
+        publishingSetupStatus: "NEEDS_REPAIR",
+        publishingSetupErrorSummary:
+          "Azure response body secret=admin-provider-detail",
+        publishSetupChecks: [
+          {
+            id: "check-123",
+            appRequestId: "req_123",
+            checkKey: "azure_resource_access",
+            status: "FAIL",
+            message: "Admin diagnostic requestId=admin-raw-123",
+            metadata: { requestId: "admin-provider-request" },
+            checkedAt: new Date("2026-08-18T18:00:00Z"),
+            createdAt: new Date("2026-08-18T18:00:00Z"),
+            updatedAt: new Date("2026-08-18T18:00:00Z"),
+          },
+        ],
+      }),
+    );
+
+    await renderPage();
+
+    expect(document.body).toHaveTextContent("admin-provider-detail");
+    expect(document.body).toHaveTextContent("admin-raw-123");
+    expect(document.body).toHaveTextContent("admin-provider-request");
+  });
 
   it("offers initial publish only after imported setup is ready", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
@@ -938,14 +1054,10 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(screen.getByRole("alert")).not.toHaveTextContent(
       /azure|authorizationfailed|github actions|oidc/i,
     );
-    for (const unsafeSummary of [
-      "Azure ARM 403 AuthorizationFailed for subscription 0000.",
-      "GitHub Actions OIDC subject mismatch: refs/heads/main.",
-    ]) {
-      expect(screen.getByText(unsafeSummary).closest("details")).toHaveTextContent(
-        /technical details for support/i,
-      );
-    }
+    expect(document.body).not.toHaveTextContent(
+      /authorizationfailed|subscription 0000|oidc subject|refs\/heads\/main/i,
+    );
+    expect(screen.getByText("SUP-20260818-ABC123")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Try publishing again" }),
     ).toBeInTheDocument();
@@ -1019,10 +1131,8 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(
       screen.queryByRole("button", { name: /publishing|setup/i }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Provider job failed with correlation id raw-123.")
-        .closest("details"),
-    ).toHaveTextContent(/technical details for support/i);
+    expect(document.body).not.toHaveTextContent(/correlation id raw-123/i);
+    expect(screen.getByText("SUP-20260818-ABC123")).toBeInTheDocument();
   });
 
   it("offers support without mutations when a failed publish has a failed repository", async () => {

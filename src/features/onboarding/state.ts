@@ -1,18 +1,29 @@
+import type {
+  PublishStatus,
+  PublishingSetupStatus,
+  RepositoryAccessStatus,
+  RepositoryCompatibilityStatus,
+  RepositoryImportStatus,
+  RepositoryPreparationMode,
+  RepositoryPreparationStatus,
+  RepositoryStatus,
+  SourceOfTruth,
+} from "@prisma/client";
 import { canQueuePublish } from "@/features/publishing/eligibility";
 
 export type OnboardingPathChoice = "starter" | "customize" | null;
 
 export type OnboardingStateInput = {
-  sourceOfTruth: string;
-  repositoryStatus: string;
+  sourceOfTruth: SourceOfTruth;
+  repositoryStatus: RepositoryStatus;
   repositoryUrl: string | null;
-  repositoryAccessStatus: string;
-  importStatus: string | null;
-  preparationStatus: string | null;
-  preparationMode: string | null;
-  compatibilityStatus: string | null;
-  publishingSetupStatus: string;
-  publishStatus: string;
+  repositoryAccessStatus: RepositoryAccessStatus;
+  importStatus: RepositoryImportStatus | null;
+  preparationStatus: RepositoryPreparationStatus | null;
+  preparationMode: RepositoryPreparationMode | null;
+  compatibilityStatus: RepositoryCompatibilityStatus | null;
+  publishingSetupStatus: PublishingSetupStatus;
+  publishStatus: PublishStatus;
   isLocalSource: boolean;
   pathChoice: OnboardingPathChoice;
 };
@@ -51,19 +62,22 @@ function githubAccessState(
   input: OnboardingStateInput,
   resume: "customize" | "local" | "review",
 ): OnboardingState {
-  if (input.repositoryAccessStatus === "GRANTED") {
-    return resume === "customize"
-      ? { kind: "CODEX_CUSTOMIZATION" }
-      : resume === "local"
-        ? { kind: "LOCAL_CODE_UPLOAD" }
-        : { kind: "PREPARATION_CONFLICT" };
+  switch (input.repositoryAccessStatus) {
+    case "GRANTED":
+      return resume === "customize"
+        ? { kind: "CODEX_CUSTOMIZATION" }
+        : resume === "local"
+          ? { kind: "LOCAL_CODE_UPLOAD" }
+          : { kind: "PREPARATION_CONFLICT" };
+    case "INVITED":
+      return { kind: "GITHUB_INVITATION_PENDING" };
+    case "NOT_REQUESTED":
+    case "FAILED":
+      return { kind: "GITHUB_ACCOUNT_REQUIRED", resume };
+    default:
+      input.repositoryAccessStatus satisfies never;
+      return { kind: "GITHUB_ACCOUNT_REQUIRED", resume };
   }
-
-  if (input.repositoryAccessStatus === "INVITED") {
-    return { kind: "GITHUB_INVITATION_PENDING" };
-  }
-
-  return { kind: "GITHUB_ACCOUNT_REQUIRED", resume };
 }
 
 function isPublishEligible(input: OnboardingStateInput) {
@@ -73,17 +87,36 @@ function isPublishEligible(input: OnboardingStateInput) {
 export function deriveOnboardingState(
   input: OnboardingStateInput,
 ): OnboardingState {
-  if (input.publishStatus === "SUCCEEDED") return { kind: "PUBLISHED" };
-  if (input.publishStatus === "DELETED") return { kind: "PUBLISH_DELETED" };
-  if (["QUEUED", "PROVISIONING", "DEPLOYING"].includes(input.publishStatus)) {
-    return { kind: "PUBLISHING" };
+  switch (input.publishStatus) {
+    case "SUCCEEDED":
+      return { kind: "PUBLISHED" };
+    case "DELETED":
+      return { kind: "PUBLISH_DELETED" };
+    case "QUEUED":
+    case "PROVISIONING":
+    case "DEPLOYING":
+      return { kind: "PUBLISHING" };
+    case "FAILED":
+      return { kind: "PUBLISH_FAILED" };
+    case "NOT_STARTED":
+      break;
+    default:
+      input.publishStatus satisfies never;
   }
-  if (input.publishStatus === "FAILED") return { kind: "PUBLISH_FAILED" };
 
   if (input.importStatus === "FAILED") return { kind: "IMPORT_FAILED" };
 
-  if (input.repositoryStatus === "FAILED") return { kind: "REPOSITORY_FAILED" };
-  if (input.repositoryStatus === "PENDING") return { kind: "REPOSITORY_PENDING" };
+  switch (input.repositoryStatus) {
+    case "FAILED":
+      return { kind: "REPOSITORY_FAILED" };
+    case "PENDING":
+      return { kind: "REPOSITORY_PENDING" };
+    case "READY":
+    case "DELETED":
+      break;
+    default:
+      input.repositoryStatus satisfies never;
+  }
 
   const isImported = input.sourceOfTruth === "IMPORTED_REPOSITORY";
   if (isImported || input.isLocalSource) {
@@ -157,17 +190,12 @@ export function deriveOnboardingState(
   }
 
   if (!isImported && !input.isLocalSource) {
-    if (input.pathChoice !== "starter") {
-      if (input.repositoryAccessStatus === "INVITED") {
-        return { kind: "GITHUB_INVITATION_PENDING" };
-      }
-      if (input.repositoryAccessStatus === "GRANTED") {
-        return { kind: "CODEX_CUSTOMIZATION" };
-      }
-      if (input.pathChoice === "customize") {
-        return { kind: "GITHUB_ACCOUNT_REQUIRED", resume: "customize" };
-      }
+    if (input.pathChoice === null) {
       return { kind: "GENERATED_PATH_CHOICE" };
+    }
+
+    if (input.pathChoice === "customize") {
+      return githubAccessState(input, "customize");
     }
   }
 

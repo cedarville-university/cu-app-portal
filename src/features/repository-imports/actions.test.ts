@@ -157,6 +157,7 @@ vi.mock("@/lib/db", () => ({
       repositoryImport: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
       user: { findUnique: vi.fn() },
       userRole: { findFirst: vi.fn() },
+      auditLog: { findFirst: vi.fn(), create: vi.fn() },
       $transaction: vi.fn((callback) => callback(prismaMock)),
     };
 
@@ -212,6 +213,9 @@ describe("repository import actions", () => {
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
     vi.mocked(prisma.userRole.findFirst).mockReset();
     vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.auditLog.findFirst).mockReset();
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.auditLog.create).mockReset();
     vi.mocked(prisma.$transaction).mockReset();
     vi.mocked(prisma.$transaction).mockImplementation((callback) =>
       callback(prisma),
@@ -1150,6 +1154,69 @@ describe("repository import actions", () => {
     );
     expect(prisma.repositoryImport.updateMany).not.toHaveBeenCalled();
     expect(prepareImportedRepository).not.toHaveBeenCalled();
+  });
+
+  it("allows conflict review from the signed-in actor's durable grant after another actor writes shared status", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collaborator-name",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({
+      event: "REPOSITORY_ACCESS_SUCCEEDED",
+      details: {
+        requestId: "req_conflict_concurrent_actor",
+        actorUserId: "collaborator-123",
+        githubUsername: "collaborator-name",
+        accessStatus: "GRANTED",
+      },
+    } as Awaited<ReturnType<typeof prisma.auditLog.findFirst>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_conflict_concurrent_actor",
+      userId: "owner-123",
+      appName: "Campus Dashboard",
+      submittedConfig: {},
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "FAILED",
+      repositoryAccessNote:
+        "GitHub access failed for @owner-name: secret=owner-provider-detail",
+      repositoryImport: {
+        id: "import_conflict_concurrent_actor",
+        compatibilityStatus: "CONFLICTED",
+        preparationStatus: "BLOCKED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({
+      status: "PULL_REQUEST_OPENED",
+      commitSha: "commit-sha",
+      pullRequestUrl:
+        "https://github.com/cedarville-it/campus-dashboard/pull/23",
+      runtime: IMPORTED_NEXT_RUNTIME,
+      databaseProvider: "postgresql",
+      entraLogin: true,
+    });
+
+    const formData = new FormData();
+    formData.set("preparationMode", "PULL_REQUEST");
+
+    await expect(
+      prepareExistingAppAction("req_conflict_concurrent_actor", formData),
+    ).resolves.toBeUndefined();
+
+    expect(prepareImportedRepository).toHaveBeenCalled();
+    expect(prisma.auditLog.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          event: {
+            in: [
+              "REPOSITORY_ACCESS_SUCCEEDED",
+              "REPOSITORY_ACCESS_FAILED",
+            ],
+          },
+        }),
+      }),
+    );
   });
 
   it("rejects local upload confirmation when GitHub access belongs to a different actor", async () => {

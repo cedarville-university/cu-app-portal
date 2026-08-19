@@ -1,13 +1,27 @@
-import { describe, expect, it } from "vitest";
+import type { PublishStatus, PublishingSetupStatus } from "@prisma/client";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import * as publishingEligibility from "./eligibility";
-import { canQueuePublish } from "./eligibility";
+import {
+  canQueuePublish,
+  getPublishEligibility,
+  getPublishingSetupRepairEligibility,
+  type PublishEligibilityInput,
+  type PublishEligibilityReason,
+} from "./eligibility";
+
+expectTypeOf<
+  PublishEligibilityInput["publishStatus"]
+>().toEqualTypeOf<PublishStatus>();
+expectTypeOf<
+  PublishEligibilityInput["publishingSetupStatus"]
+>().toEqualTypeOf<PublishingSetupStatus>();
 
 const generatedPublish = {
   sourceOfTruth: "PORTAL_MANAGED_REPO",
   repositoryStatus: "READY",
   publishingSetupStatus: "NOT_CHECKED",
   publishStatus: "NOT_STARTED",
-};
+} satisfies PublishEligibilityInput;
 
 describe("canQueuePublish", () => {
   it.each([
@@ -35,40 +49,38 @@ describe("canQueuePublish", () => {
       },
       "PUBLISHING_SETUP_IN_PROGRESS",
     ],
-    [
-      {
-        ...generatedPublish,
-        publishingSetupStatus: "UNEXPECTED",
-      },
-      "PUBLISHING_SETUP_NOT_READY",
-    ],
-  ])("explains ineligibility as %s", (input, reason) => {
-    expect(publishingEligibility).toHaveProperty("getPublishEligibility");
+  ] satisfies Array<[PublishEligibilityInput, PublishEligibilityReason]>)(
+    "explains ineligibility as %s",
+    (input, reason) => {
+      expect(publishingEligibility).toHaveProperty("getPublishEligibility");
+      const options =
+        input.publishStatus === "FAILED"
+          ? {
+              allowedPublishStatuses: ["FAILED"] as const,
+              allowFailedSetupRetry: true,
+            }
+          : { allowedPublishStatuses: ["NOT_STARTED"] as const };
 
-    const getPublishEligibility = (
-      publishingEligibility as typeof publishingEligibility & {
-        getPublishEligibility: (
-          input: typeof generatedPublish & {
-            preparationStatus?: string;
-          },
-          options: {
-            allowedPublishStatuses: string[];
-            allowFailedSetupRetry?: boolean;
-          },
-        ) => { eligible: boolean; reason?: string };
-      }
-    ).getPublishEligibility;
-    const options =
-      input.publishStatus === "FAILED"
-        ? {
-            allowedPublishStatuses: ["FAILED"],
-            allowFailedSetupRetry: true,
-          }
-        : { allowedPublishStatuses: ["NOT_STARTED"] };
+      expect(getPublishEligibility(input, options)).toEqual({
+        eligible: false,
+        reason,
+      });
+    },
+  );
 
-    expect(getPublishEligibility(input, options)).toEqual({
+  it("fails closed for an unknown setup status crossing an external boundary", () => {
+    const externalInput = {
+      ...generatedPublish,
+      publishingSetupStatus: "UNEXPECTED",
+    } as unknown as PublishEligibilityInput;
+
+    expect(
+      getPublishEligibility(externalInput, {
+        allowedPublishStatuses: ["NOT_STARTED"],
+      }),
+    ).toEqual({
       eligible: false,
-      reason,
+      reason: "PUBLISHING_SETUP_NOT_READY",
     });
   });
 
@@ -85,44 +97,61 @@ describe("canQueuePublish", () => {
       },
       "PREPARATION_NOT_COMMITTED",
     ],
-    ...["QUEUED", "PROVISIONING", "DEPLOYING", "DELETED"].map(
-      (publishStatus) => [
-        { ...generatedPublish, publishStatus },
-        "PUBLISH_STATUS_NOT_ALLOWED",
-      ],
-    ),
-    ...["CHECKING", "REPAIRING"].map((publishingSetupStatus) => [
-      { ...generatedPublish, publishingSetupStatus },
+    [
+      { ...generatedPublish, publishStatus: "QUEUED" },
+      "PUBLISH_STATUS_NOT_ALLOWED",
+    ],
+    [
+      { ...generatedPublish, publishStatus: "PROVISIONING" },
+      "PUBLISH_STATUS_NOT_ALLOWED",
+    ],
+    [
+      { ...generatedPublish, publishStatus: "DEPLOYING" },
+      "PUBLISH_STATUS_NOT_ALLOWED",
+    ],
+    [
+      { ...generatedPublish, publishStatus: "DELETED" },
+      "PUBLISH_STATUS_NOT_ALLOWED",
+    ],
+    [
+      { ...generatedPublish, publishingSetupStatus: "CHECKING" },
       "PUBLISHING_SETUP_IN_PROGRESS",
-    ]),
-    ...["READY", "UNEXPECTED"].map((publishingSetupStatus) => [
-      { ...generatedPublish, publishingSetupStatus },
+    ],
+    [
+      { ...generatedPublish, publishingSetupStatus: "REPAIRING" },
+      "PUBLISHING_SETUP_IN_PROGRESS",
+    ],
+    [
+      { ...generatedPublish, publishingSetupStatus: "READY" },
       "PUBLISHING_SETUP_ACTION_NOT_ALLOWED",
-    ]),
-  ] as const)(
+    ],
+  ] satisfies Array<[PublishEligibilityInput, PublishEligibilityReason]>)(
     "rejects setup repair with the shared %s reason",
     (input, reason) => {
-    expect(publishingEligibility).toHaveProperty(
-      "getPublishingSetupRepairEligibility",
-    );
+      expect(publishingEligibility).toHaveProperty(
+        "getPublishingSetupRepairEligibility",
+      );
 
-    const getRepairEligibility = (
-      publishingEligibility as typeof publishingEligibility & {
-        getPublishingSetupRepairEligibility: (input: {
-          sourceOfTruth: string;
-          repositoryStatus: string;
-          preparationStatus?: string;
-          publishingSetupStatus: string;
-          publishStatus: string;
-        }) => { eligible: boolean; reason?: string };
-      }
-    ).getPublishingSetupRepairEligibility;
-
-      expect(getRepairEligibility(input)).toEqual({ eligible: false, reason });
+      expect(getPublishingSetupRepairEligibility(input)).toEqual({
+        eligible: false,
+        reason,
+      });
     },
   );
 
-  it.each(["NOT_CHECKED", "NEEDS_REPAIR", "BLOCKED"])(
+  it("rejects unknown setup data at the repair runtime boundary", () => {
+    const externalInput = {
+      ...generatedPublish,
+      publishingSetupStatus: "UNEXPECTED",
+    } as unknown as PublishEligibilityInput;
+
+    expect(getPublishingSetupRepairEligibility(externalInput)).toEqual({
+      eligible: false,
+      reason: "PUBLISHING_SETUP_ACTION_NOT_ALLOWED",
+    });
+  });
+
+  it.each(["NOT_CHECKED", "NEEDS_REPAIR", "BLOCKED"] as const)(
     "allows setup work for exactly the actionable %s setup state",
     (publishingSetupStatus) => {
       expect(
@@ -134,7 +163,7 @@ describe("canQueuePublish", () => {
     },
   );
 
-  it.each(["NOT_STARTED", "FAILED", "SUCCEEDED"])(
+  it.each(["NOT_STARTED", "FAILED", "SUCCEEDED"] as const)(
     "allows setup work in the relevant %s publish relationship",
     (publishStatus) => {
       expect(
@@ -197,7 +226,7 @@ describe("canQueuePublish", () => {
       sourceOfTruth: "IMPORTED_REPOSITORY",
       preparationStatus: "COMMITTED",
       publishingSetupStatus: "READY",
-    };
+    } satisfies PublishEligibilityInput;
 
     expect(
       canQueuePublish(importedPublish, {

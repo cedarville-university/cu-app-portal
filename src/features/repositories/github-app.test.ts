@@ -615,9 +615,16 @@ describe("createGitHubAppClient", () => {
         ),
       )
       .mockResolvedValueOnce(createJsonResponse({ object: { sha: "seed-commit-sha" } }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          sha: "seed-commit-sha",
+          tree: { sha: "seed-tree-sha" },
+        }),
+      )
       .mockResolvedValueOnce(createJsonResponse({ sha: "blob-sha-1" }))
       .mockResolvedValueOnce(createJsonResponse({ sha: "tree-sha-1" }))
       .mockResolvedValueOnce(createJsonResponse({ sha: "commit-sha-1" }))
+      .mockResolvedValueOnce(createJsonResponse({ object: { sha: "seed-commit-sha" } }))
       .mockResolvedValueOnce(createJsonResponse({ ref: "refs/heads/main" }))
       .mockResolvedValueOnce(
         createJsonResponse({
@@ -650,7 +657,7 @@ describe("createGitHubAppClient", () => {
       "https://github.com/cedarville-it/campus-dashboard",
     );
     expect(sleepImpl).toHaveBeenCalledWith(250);
-    expect(fetchImpl).toHaveBeenCalledTimes(9);
+    expect(fetchImpl).toHaveBeenCalledTimes(11);
   });
 
   it("reads repository metadata and ignores missing optional text files", async () => {

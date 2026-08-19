@@ -11,6 +11,9 @@ import { getPublishingSetupRepairEligibility } from "@/features/publishing/eligi
 import { prisma } from "@/lib/db";
 import { repairPublishingSetup } from "./service";
 
+const SETUP_REPAIR_FAILURE_SUMMARY =
+  "Publishing setup could not be completed. Share the support reference with the portal support team.";
+
 function publishingSetupEligibilityError(
   reason: Exclude<
     ReturnType<typeof getPublishingSetupRepairEligibility>,
@@ -102,13 +105,46 @@ export async function repairPublishingSetupAction(requestId: string) {
     throw new Error(publishingSetupEligibilityError(eligibility.reason));
   }
 
+  const attemptClaimedAt = new Date();
+  const claimed = await prisma.appRequest.updateMany({
+    where: {
+      id: requestId,
+      publishingSetupStatus: appRequest.publishingSetupStatus,
+    },
+    data: {
+      publishingSetupStatus: "REPAIRING",
+      publishingSetupErrorSummary: null,
+      updatedAt: attemptClaimedAt,
+    },
+  });
+
+  if (claimed.count !== 1) {
+    throw new Error("Publishing setup is already being checked or repaired.");
+  }
+
   try {
-    await repairPublishingSetup(requestId);
+    await repairPublishingSetup(requestId, undefined, {
+      statusAlreadyClaimed: true,
+    });
     await notifyIfPublishingSetupBlocked({
       requestId,
       actorUserId: userId,
     });
   } catch (error) {
+    await prisma.appRequest.updateMany({
+      where: {
+        id: requestId,
+        publishingSetupStatus: "REPAIRING",
+        updatedAt: attemptClaimedAt,
+      },
+      data: {
+        publishingSetupStatus:
+          appRequest.publishingSetupStatus === "BLOCKED"
+            ? "BLOCKED"
+            : "NEEDS_REPAIR",
+        publishingSetupErrorSummary: SETUP_REPAIR_FAILURE_SUMMARY,
+      },
+    });
     await notifyIfPublishingSetupBlocked({
       requestId,
       actorUserId: userId,

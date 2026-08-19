@@ -1,6 +1,13 @@
 import React from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import type {
+  PublishStatus,
+  PublishingSetupStatus,
+  RepositoryPreparationStatus,
+  RepositoryStatus,
+  SourceOfTruth,
+} from "@prisma/client";
 import {
   appAccessWhere,
   userHasAdminRole,
@@ -24,6 +31,7 @@ import {
   retryRepositoryBootstrapAction,
   saveGitHubUsernameAndGrantAccessAction,
 } from "@/features/repositories/actions";
+import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
 import {
   prepareExistingAppAction,
   verifyExistingAppPreparationAction,
@@ -263,18 +271,18 @@ function formatCheckKey(key: string) {
 
 function renderPublishingSetupStatus(request: {
   id: string;
-  repositoryStatus: string;
-  sourceOfTruth: string;
-  preparationStatus?: string | null;
-  publishStatus?: string | null;
-  publishingSetupStatus?: string | null;
+  repositoryStatus: RepositoryStatus;
+  sourceOfTruth: SourceOfTruth;
+  preparationStatus?: RepositoryPreparationStatus | null;
+  publishStatus?: PublishStatus | null;
+  publishingSetupStatus?: PublishingSetupStatus | null;
   publishingSetupErrorSummary?: string | null;
   publishSetupChecks?: Array<{
     checkKey: string;
     status: string;
     message: string;
   }>;
-}) {
+}, showProviderDiagnostics = false) {
   const status = getEffectivePublishingSetupStatus({
     publishStatus: request.publishStatus,
     publishingSetupStatus: request.publishingSetupStatus,
@@ -292,7 +300,7 @@ function renderPublishingSetupStatus(request: {
     <section aria-label="Publishing setup status" className="setup-status">
       <h3 className="setup-status__title">Publishing setup</h3>
       <p>Status: {formatStatus(status)}</p>
-      {request.publishingSetupErrorSummary ? (
+      {showProviderDiagnostics && request.publishingSetupErrorSummary ? (
         <p className="setup-status__summary">
           {request.publishingSetupErrorSummary}
         </p>
@@ -301,8 +309,8 @@ function renderPublishingSetupStatus(request: {
         <ul className="setup-status__checks">
           {request.publishSetupChecks.map((check) => (
             <li key={check.checkKey}>
-              {formatCheckKey(check.checkKey)}: {formatStatus(check.status)} —{" "}
-              {check.message}
+              {formatCheckKey(check.checkKey)}: {formatStatus(check.status)}
+              {showProviderDiagnostics ? <> — {check.message}</> : null}
             </li>
           ))}
         </ul>
@@ -426,6 +434,7 @@ function renderLocalCodexSetup({
 function renderImportedRepositoryStatus({
   requestId,
   repositoryImport,
+  showProviderDiagnostics = false,
 }: {
   requestId: string;
   repositoryImport: {
@@ -438,6 +447,7 @@ function renderImportedRepositoryStatus({
     preparationPullRequestUrl?: string | null;
     preparationErrorSummary?: string | null;
   } | null;
+  showProviderDiagnostics?: boolean;
 }) {
   if (!repositoryImport) {
     return null;
@@ -477,7 +487,7 @@ function renderImportedRepositoryStatus({
         {repositoryImport.importStatus ? (
           <p>Copy status: {formatStatus(repositoryImport.importStatus)}</p>
         ) : null}
-        {repositoryImport.importErrorSummary ? (
+        {showProviderDiagnostics && repositoryImport.importErrorSummary ? (
           <p>Copy error: {repositoryImport.importErrorSummary}</p>
         ) : null}
         {repositoryImport.compatibilityStatus ? (
@@ -496,7 +506,7 @@ function renderImportedRepositoryStatus({
             </a>
           </p>
         ) : null}
-        {repositoryImport.preparationErrorSummary ? (
+        {showProviderDiagnostics && repositoryImport.preparationErrorSummary ? (
           <p>Setup error: {repositoryImport.preparationErrorSummary}</p>
         ) : null}
       </div>
@@ -601,11 +611,11 @@ function renderPublishAction({
   publishingSetupStatus,
 }: {
   requestId: string;
-  publishStatus: string;
-  repositoryStatus: string;
-  sourceOfTruth: string;
-  preparationStatus: string | null | undefined;
-  publishingSetupStatus: string | null | undefined;
+  publishStatus: PublishStatus;
+  repositoryStatus: RepositoryStatus;
+  sourceOfTruth: SourceOfTruth;
+  preparationStatus: RepositoryPreparationStatus | null | undefined;
+  publishingSetupStatus: PublishingSetupStatus | null | undefined;
 }) {
   if (repositoryStatus === "FAILED") {
     const retryAction = retryRepositoryBootstrapAction.bind(null, requestId);
@@ -854,6 +864,18 @@ function renderDeletePanel(request: {
   );
 }
 
+function renderSupportReference(supportReference: string) {
+  return (
+    <details className="card">
+      <summary>Support information</summary>
+      <p>
+        If you need help, share this support reference: {" "}
+        <code>{supportReference}</code>
+      </p>
+    </details>
+  );
+}
+
 export default async function DownloadPage({
   params,
 }: {
@@ -925,6 +947,13 @@ export default async function DownloadPage({
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },
     select: { githubUsername: true },
+  });
+  const actorRepositoryAccess = await resolveRepositoryAccessForActor({
+    requestId: appRequest.id,
+    actorUserId: userId,
+    githubUsername: currentUser?.githubUsername ?? null,
+    legacyStatus: appRequest.repositoryAccessStatus,
+    legacyNote: appRequest.repositoryAccessNote,
   });
 
   const displayPublishUrl = getDisplayPublishUrl(
@@ -1035,7 +1064,7 @@ export default async function DownloadPage({
         {appRequest.repositoryStatus === "READY" ? (
           <div className="card card--gold-border">
             <p className="section-title">Connect Codex to Your Repository</p>
-            {appRequest.repositoryAccessStatus === "GRANTED" ? (
+            {actorRepositoryAccess.status === "GRANTED" ? (
               <div className="success-box">
                 Repository access has been granted for this app.
               </div>
@@ -1045,7 +1074,7 @@ export default async function DownloadPage({
                 fontSize: "0.9375rem",
                 marginBottom: "0.875rem",
                 marginTop:
-                  appRequest.repositoryAccessStatus === "GRANTED"
+                  actorRepositoryAccess.status === "GRANTED"
                     ? "0.875rem"
                     : undefined,
               }}
@@ -1060,12 +1089,12 @@ export default async function DownloadPage({
               </a>
               , then enter your username below. The portal will send you an invite to the repository.
             </p>
-            {appRequest.repositoryAccessNote ? (
+            {actorRepositoryAccess.note ? (
               <div
                 className="warning-box"
                 style={{ marginBottom: "0.875rem" }}
               >
-                {appRequest.repositoryAccessNote}
+                {actorRepositoryAccess.note}
               </div>
             ) : null}
             <form
@@ -1092,9 +1121,9 @@ export default async function DownloadPage({
                 type="submit"
                 className="btn btn--secondary-solid"
               >
-                {appRequest.repositoryAccessStatus === "INVITED"
+                {actorRepositoryAccess.status === "INVITED"
                   ? "Resend Repo Access Invite"
-                  : appRequest.repositoryAccessStatus === "GRANTED"
+                  : actorRepositoryAccess.status === "GRANTED"
                     ? "Request Repository Access"
                     : "Send Repository Invite"}
               </button>
@@ -1114,6 +1143,7 @@ export default async function DownloadPage({
           ? renderImportedRepositoryStatus({
               requestId,
               repositoryImport: appRequest.repositoryImport,
+              showProviderDiagnostics: isAdmin,
             })
           : null}
 
@@ -1190,7 +1220,7 @@ export default async function DownloadPage({
             </div>
           )}
 
-          {appRequest.publishErrorSummary &&
+          {isAdmin && appRequest.publishErrorSummary &&
           appRequest.repositoryStatus === "FAILED" ? (
             <div className="warning-box" style={{ marginTop: "0.75rem" }}>
               Repo setup note: {appRequest.publishErrorSummary}
@@ -1250,7 +1280,7 @@ export default async function DownloadPage({
             ) : null}
           </div>
 
-          {appRequest.publishErrorSummary &&
+          {isAdmin && appRequest.publishErrorSummary &&
           appRequest.repositoryStatus !== "FAILED" ? (
             <div
               className="warning-box"
@@ -1260,16 +1290,20 @@ export default async function DownloadPage({
             </div>
           ) : null}
 
-          {renderPublishingSetupStatus({
-            id: appRequest.id,
-            repositoryStatus: appRequest.repositoryStatus,
-            sourceOfTruth: appRequest.sourceOfTruth,
-            preparationStatus: appRequest.repositoryImport?.preparationStatus,
-            publishStatus: appRequest.publishStatus,
-            publishingSetupStatus: effectivePublishingSetupStatus,
-            publishingSetupErrorSummary: appRequest.publishingSetupErrorSummary,
-            publishSetupChecks: appRequest.publishSetupChecks,
-          })}
+          {renderPublishingSetupStatus(
+            {
+              id: appRequest.id,
+              repositoryStatus: appRequest.repositoryStatus,
+              sourceOfTruth: appRequest.sourceOfTruth,
+              preparationStatus: appRequest.repositoryImport?.preparationStatus,
+              publishStatus: appRequest.publishStatus,
+              publishingSetupStatus: effectivePublishingSetupStatus,
+              publishingSetupErrorSummary:
+                appRequest.publishingSetupErrorSummary,
+              publishSetupChecks: appRequest.publishSetupChecks,
+            },
+            isAdmin,
+          )}
 
           {renderPublishAction({
             requestId,
@@ -1312,6 +1346,7 @@ export default async function DownloadPage({
             })
           : null}
 
+        {renderSupportReference(appRequest.supportReference)}
       </div>
 
       <div

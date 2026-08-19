@@ -26,16 +26,6 @@ export function parseGitHubUsername(value: unknown) {
   return githubUsernameSchema.parse(value);
 }
 
-export function buildRepositoryAccessFailureNote(
-  githubUsername: string,
-  error: unknown,
-) {
-  const actorUsername = parseGitHubUsername(githubUsername);
-  const errorMessage = error instanceof Error ? error.message : "unknown";
-
-  return `GitHub access failed for @${actorUsername}: ${errorMessage}`;
-}
-
 export function parseRepositoryAccessActorUsername(note: string | null) {
   return (
     note?.match(

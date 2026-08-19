@@ -360,6 +360,37 @@ describe("persistPublishingSetupChecks", () => {
     );
   });
 
+  it("redacts hostile provider values from persisted messages and allowlisted metadata", async () => {
+    await persistPublishingSetupChecks({
+      appRequestId: "request-123",
+      checkedAt: new Date("2026-05-14T16:09:00.000Z"),
+      checks: [
+        {
+          checkKey: "azure_resource_access",
+          status: "FAIL",
+          message:
+            "Azure response https://management.azure.com/op?token=raw-token secret=provider-detail Authorization: Bearer bearer-token",
+          metadata: {
+            requestId: "provider-request-123?sig=raw-signature",
+            redirectUri:
+              "https://campus-dashboard.example.test/callback?client_secret=raw-client-secret",
+            subject: ["secret=subject-detail", "repo:cedarville-it/app:main"],
+            resourceGroup: "rg-cu-apps-published",
+          },
+        },
+      ],
+    });
+
+    const persisted = JSON.stringify(
+      vi.mocked(prisma.publishSetupCheck.upsert).mock.calls,
+    );
+    expect(persisted).not.toMatch(
+      /raw-token|provider-detail|bearer-token|raw-signature|raw-client-secret|subject-detail/i,
+    );
+    expect(persisted).toContain("[redacted]");
+    expect(persisted).toContain("rg-cu-apps-published");
+  });
+
   it("persists a non-null metadata object when metadata is not an object", async () => {
     await persistPublishingSetupChecks({
       appRequestId: "request-123",

@@ -824,6 +824,23 @@ describe("publishing setup service", () => {
     });
   });
 
+  it("does not rewrite the repairing state after the action already claimed it", async () => {
+    const deps = createDeps();
+
+    await repairPublishingSetup("req_123", deps, {
+      statusAlreadyClaimed: true,
+    });
+
+    expect(prisma.appRequest.update).not.toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: {
+        publishingSetupStatus: "REPAIRING",
+        publishingSetupErrorSummary: null,
+      },
+    });
+    expect(deps.arm.putWebApp).toHaveBeenCalledTimes(1);
+  });
+
   it("replaces a legacy credential with the immutable repository subject", async () => {
     const baseDeps = createDeps();
     const deps = createDeps({

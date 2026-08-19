@@ -6,11 +6,12 @@ import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
 import { buildSourceSnapshot } from "@/features/generation/build-source-snapshot";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
-import {
-  buildRepositoryAccessFailureNote,
-  grantManagedRepositoryAccess,
-} from "@/features/repositories/access";
 import { bootstrapManagedRepository } from "@/features/repositories/bootstrap-managed-repository";
+import { getE2EManagedRepositoryBootstrap } from "@/features/repositories/e2e-bootstrap";
+import {
+  REPOSITORY_SETUP_FAILURE_SUMMARY,
+  SOURCE_GENERATION_FAILURE_SUMMARY,
+} from "@/features/repositories/failure-feedback";
 import {
   getActiveTemplateBySlug,
   serializeTemplateForStorage,
@@ -67,10 +68,6 @@ export async function createAppAction(formData: FormData) {
     create: serializeTemplateForStorage(template),
   });
   const userId = await resolveCurrentUserId();
-  const currentUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { githubUsername: true },
-  });
   const supportReference = createSupportReference();
   const request = await prisma.appRequest.create({
     data: {
@@ -96,11 +93,16 @@ export async function createAppAction(formData: FormData) {
     });
 
     try {
-      const repository = await bootstrapManagedRepository({
-        appRequestId: request.id,
-        input,
-        files,
-      });
+      const repository =
+        getE2EManagedRepositoryBootstrap({
+          appRequestId: request.id,
+          input,
+        }) ??
+        (await bootstrapManagedRepository({
+          appRequestId: request.id,
+          input,
+          files,
+        }));
 
       await prisma.appRequest.update({
         where: { id: request.id },
@@ -127,65 +129,6 @@ export async function createAppAction(formData: FormData) {
         actorUserId: userId,
         directRecipientUserIds: [userId],
       });
-
-      if (currentUser?.githubUsername) {
-        await recordAuditEvent("REPOSITORY_ACCESS_REQUESTED", {
-          requestId: request.id,
-          supportReference,
-          githubUsername: currentUser.githubUsername,
-        });
-
-        try {
-          const accessResult = await grantManagedRepositoryAccess({
-            owner: repository.owner,
-            repositoryName: repository.name,
-            githubUsername: currentUser.githubUsername,
-          });
-
-          await prisma.appRequest.update({
-            where: { id: request.id },
-            data: {
-              repositoryAccessStatus: accessResult.status,
-              repositoryAccessNote:
-                accessResult.status === "INVITED"
-                  ? `GitHub invited @${currentUser.githubUsername} to this repository.`
-                  : `GitHub access is ready for @${currentUser.githubUsername}.`,
-            },
-          });
-
-          await recordAuditEvent("REPOSITORY_ACCESS_SUCCEEDED", {
-            requestId: request.id,
-            supportReference,
-            githubUsername: currentUser.githubUsername,
-            accessStatus: accessResult.status,
-          });
-        } catch (error) {
-          console.error("Managed repository access grant failed", {
-            requestId: request.id,
-            supportReference,
-            githubUsername: currentUser.githubUsername,
-            error,
-          });
-
-          await prisma.appRequest.update({
-            where: { id: request.id },
-            data: {
-              repositoryAccessStatus: "FAILED",
-              repositoryAccessNote: buildRepositoryAccessFailureNote(
-                currentUser.githubUsername,
-                error,
-              ),
-            },
-          });
-
-          await recordAuditEvent("REPOSITORY_ACCESS_FAILED", {
-            requestId: request.id,
-            supportReference,
-            githubUsername: currentUser.githubUsername,
-            error: error instanceof Error ? error.message : "unknown",
-          });
-        }
-      }
     } catch (error) {
       console.error("Managed repository bootstrap failed", {
         requestId: request.id,
@@ -197,15 +140,15 @@ export async function createAppAction(formData: FormData) {
         where: { id: request.id },
         data: {
           repositoryStatus: "FAILED",
-          publishErrorSummary:
-            error instanceof Error ? error.message : "unknown",
+          publishErrorSummary: REPOSITORY_SETUP_FAILURE_SUMMARY,
         },
       });
 
       await recordAuditEvent("REPOSITORY_BOOTSTRAP_FAILED", {
         requestId: request.id,
         supportReference,
-        error: error instanceof Error ? error.message : "unknown",
+        failureStage: "repository-bootstrap",
+        safeSummary: REPOSITORY_SETUP_FAILURE_SUMMARY,
       });
       await safeNotifyAppEvent({
         appRequestId: request.id,
@@ -230,20 +173,33 @@ export async function createAppAction(formData: FormData) {
       actorUserId: userId,
       directRecipientUserIds: [userId],
     });
-
   } catch (error) {
+    console.error("Generated app source build failed", {
+      requestId: request.id,
+      supportReference,
+      error,
+    });
     await prisma.appRequest.update({
       where: { id: request.id },
-      data: { generationStatus: "FAILED" },
+      data: {
+        generationStatus: "FAILED",
+        repositoryStatus: "FAILED",
+        publishErrorSummary: SOURCE_GENERATION_FAILURE_SUMMARY,
+      },
     });
 
     await recordAuditEvent("APP_REQUEST_FAILED", {
       requestId: request.id,
       supportReference,
-      error: error instanceof Error ? error.message : "unknown",
+      failureStage: "source-generation",
+      safeSummary: SOURCE_GENERATION_FAILURE_SUMMARY,
     });
-
-    throw error;
+    await safeNotifyAppEvent({
+      appRequestId: request.id,
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: userId,
+      directRecipientUserIds: [userId],
+    });
   }
 
   redirect(`/onboarding/${request.id}`);

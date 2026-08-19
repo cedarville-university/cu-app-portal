@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import {
   buildDeploymentManifest,
@@ -34,7 +35,66 @@ function resolveInstallationId(config: GitHubAppConfig, owner: string) {
   return installationId;
 }
 
+const GITHUB_REPOSITORY_NAME_LIMIT = 100;
+const REQUEST_SEGMENT_LIMIT = 40;
+export const MANAGED_REPOSITORY_OWNERSHIP_PATH =
+  "app-portal/managed-request.json";
+
+function requestNameSegment(appRequestId: string) {
+  const normalized = appRequestId
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9-]+/g, "-")
+    .replaceAll(/^-+|-+$/g, "");
+
+  if (!normalized) {
+    throw new Error("App request id cannot produce a managed repository name.");
+  }
+
+  if (normalized.length <= REQUEST_SEGMENT_LIMIT) {
+    return normalized;
+  }
+
+  const digest = createHash("sha256")
+    .update(appRequestId)
+    .digest("hex")
+    .slice(0, 16);
+  const prefixLength = REQUEST_SEGMENT_LIMIT - digest.length - 1;
+
+  return `${normalized.slice(0, prefixLength)}-${digest}`;
+}
+
+export function buildManagedRepositoryName(
+  baseName: string,
+  appRequestId: string,
+) {
+  const requestSegment = requestNameSegment(appRequestId);
+  const availableBaseLength =
+    GITHUB_REPOSITORY_NAME_LIMIT - requestSegment.length - 1;
+  const boundedBase = baseName
+    .slice(0, availableBaseLength)
+    .replaceAll(/-+$/g, "");
+
+  return `${boundedBase || "app"}-${requestSegment}`;
+}
+
+export function buildManagedRepositoryOwnership(appRequestId: string) {
+  return {
+    description: `Cedarville App Portal request:${appRequestId}`,
+    path: MANAGED_REPOSITORY_OWNERSHIP_PATH,
+    content: `${JSON.stringify(
+      {
+        schemaVersion: "1.0.0",
+        appRequestId,
+      },
+      null,
+      2,
+    )}\n`,
+  };
+}
+
 export async function bootstrapManagedRepository({
+  appRequestId,
   input,
   files,
   reuseExistingRepository = false,
@@ -53,6 +113,10 @@ export async function bootstrapManagedRepository({
   }
 
   const manifest = buildDeploymentManifest(input as DeploymentManifestInput);
+  const repositoryName = buildManagedRepositoryName(
+    manifest.defaults.githubRepository,
+    appRequestId,
+  );
   const client = createGitHubAppClient({
     appId: config.appId,
     privateKey: config.privateKey,
@@ -61,10 +125,11 @@ export async function bootstrapManagedRepository({
 
   const repository = await client.createRepository({
     owner,
-    name: manifest.defaults.githubRepository,
+    name: repositoryName,
     visibility: config.defaultRepoVisibility,
     files,
     defaultBranch: "main",
+    ownershipMarker: buildManagedRepositoryOwnership(appRequestId),
     ...(reuseExistingRepository ? { reuseIfAlreadyExists: true } : {}),
   });
 
