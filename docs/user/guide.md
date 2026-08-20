@@ -1,7 +1,7 @@
 ---
 title: User Guide
 description: Detailed instructions for creating, managing, and publishing apps with the Cedarville App Portal.
-lastReviewed: 2026-08-18
+lastReviewed: 2026-08-20
 owner: Cedarville IT
 ---
 
@@ -64,16 +64,25 @@ When **Your starter app is ready** appears, choose **Publish the starter now** o
 
 GitHub is the managed online location for the app's code. It records changes and lets Cedarville's publishing workflow use a reviewed source.
 
+Git is the tool that keeps change history in the app folder on your computer. Before opening a Codex handoff:
+
+1. On Windows, open **Company Portal**, search for **Git**, and select Install. On macOS, open **CedarNet 2.0**, search for **Git**, and select Install.
+2. When installation finishes, completely quit and reopen Codex.
+3. Make a new empty folder named for a generated app. For an app already on your computer, keep using the folder that already contains it.
+4. In Codex, open Projects and create a **local Codex project** using that folder. Make it the primary folder, which tells Codex where the app's files belong.
+5. Open that project and start the task inside it. Do not use Quick chat or start a standalone task outside the project.
+6. Paste the portal's complete prompt into that project task. Codex checks the folder and Git before changing anything.
+
 If you choose customization, the wizard asks whether you already have a GitHub account. A GitHub account is a login for the website where the app's private code home is stored. To continue:
 
 1. Create an account from the supplied GitHub link if needed, then return to the same portal tab.
 2. Enter the GitHub username for that account and select **Send repository invite**.
 3. Accept the private repository invitation on GitHub.
 4. Return and select **I've accepted the invitation**.
-5. Copy the complete prompt into Codex. Let Codex inspect, change, test, commit, and push the app.
+5. Follow the **Before opening Codex** checklist, then copy the complete prompt into the task inside the app's local Codex project. Let Codex inspect, change, test, commit, and push the app.
 6. Return only after Codex reports that the push succeeded.
 
-Portal collaboration and GitHub access are separate. Confirm that finished changes are committed and pushed to the managed repository; the portal cannot publish local files that were never pushed.
+Portal collaboration and GitHub access are separate. Confirm that finished changes are committed and pushed to the managed repository; the portal cannot publish local files that were never pushed. Codex uses an HTTPS repository address and may open a secure browser or operating-system GitHub sign-in. Complete that sign-in yourself. Never provide a GitHub password, personal access token, SSH key, or other secret. Codex should stop and direct you to Cedarville IT if secure sign-in does not work; it should not use the GitHub plugin or GitHub CLI as a fallback.
 
 ## 6. Add code that already exists
 
@@ -85,7 +94,7 @@ Select **Prepare my app for publishing** when offered. The portal adds only the 
 
 ### Only on my computer
 
-Enter the local app name and select **Create online home**. Follow the GitHub account or invitation steps if shown, copy the local-upload prompt into Codex, and open the app folder in Codex. Codex owns the technical upload: it checks for secrets, preserves existing Git history and remotes, tests the app, and pushes it to the managed repository. Select **My code has been uploaded** only after Codex reports success.
+Enter the local app name and select **Create online home**. Follow the GitHub account or invitation steps if shown. Create a local Codex project from the folder that already contains the app, make that folder primary, and start the task inside the project, not Quick chat. Copy the local-upload prompt into that task. Codex owns the technical upload: it checks for secrets, preserves existing Git history and remotes, tests the app, and pushes it to the managed repository. Select **My code has been uploaded** only after Codex reports success.
 
 The portal then scans and prepares the uploaded code. If the runtime is unsupported, it returns a repair prompt to Codex. After Codex repairs, tests, and uploads the app, select **I've repaired and uploaded my code**. Do not use either confirmation before the upload succeeds.
 

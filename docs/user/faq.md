@@ -1,7 +1,7 @@
 ---
 title: Frequently Asked Questions
 description: Answers to common questions about apps, GitHub, Azure, access, and publishing.
-lastReviewed: 2026-08-18
+lastReviewed: 2026-08-20
 owner: Cedarville IT
 ---
 
@@ -38,6 +38,10 @@ No. **Create App** makes the starter and its managed repository, then stops. **P
 ## Do I need a GitHub account?
 
 Not to publish an unchanged generated starter. You need one when Codex or a person must access the private repository. The wizard can open GitHub account creation, save your username, send the repository invitation, and confirm access.
+
+## What do I need before using Codex?
+
+Install Git from **Company Portal** on Windows or **CedarNet 2.0** on macOS, then completely quit and reopen Codex. For a generated app, make a new empty folder. For an app already on your computer, use its existing folder. In Codex, create a **local Codex project** from that folder and make it primary. Start the task inside the project; do not use Quick chat or a standalone task. The portal prompt handles Git commands and uses secure browser sign-in for GitHub. Never provide a password, personal access token, or SSH key.
 
 ## What is the difference between Continue Setup and Manage App?
 

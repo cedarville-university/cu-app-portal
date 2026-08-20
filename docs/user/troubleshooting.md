@@ -1,13 +1,15 @@
 ---
 title: Troubleshooting
 description: Plain-language solutions to common portal and publishing problems.
-lastReviewed: 2026-08-18
+lastReviewed: 2026-08-20
 owner: Cedarville IT
 ---
 
 # Troubleshooting
 
 Start with the row that most closely matches what you see. Read the full on-screen message before retrying. Avoid repeatedly selecting an action while it is still running.
+
+For every Codex handoff, first open a **local Codex project** whose primary folder is the app folder. Do not use Quick chat or a standalone task. Git comes from **Company Portal** on Windows or **CedarNet 2.0** on macOS.
 
 | What you see | What it usually means | What to do |
 | --- | --- | --- |
@@ -17,6 +19,9 @@ Start with the row that most closely matches what you see. Read the full on-scre
 | Repository setup failed | GitHub could not create or import the managed repository. | Follow the offered restart or retry once. Confirm the repository address is correct and accessible. Then provide the displayed support reference to support. |
 | A GitHub invitation is pending | GitHub access was requested but has not been accepted. | Sign in to the correct GitHub account, check notifications and email, and accept the repository invitation. |
 | The portal does not know your GitHub username | Your portal profile is missing the account name used on GitHub. | Open Settings, enter the username only, save it, and return to the app. |
+| Codex says Git is not available | Git is not installed, or Codex was open during installation and cannot see it yet. | Do not let Codex install anything. Install Git from **Company Portal** on Windows or **CedarNet 2.0** on macOS. Completely quit and reopen Codex, reopen the local project, and return to the same task. |
+| Codex is in Quick chat or the wrong folder | The handoff was started outside the app's local project. | Stop without changing files. Create or open the **local Codex project**, make the app folder primary, and start the task inside it. For a generated app, use a new empty folder; for an existing local app, use its current folder. |
+| GitHub sign-in does not open or fails | Git could not complete its secure browser or operating-system sign-in. | Stop and contact Cedarville IT. Do not give Codex a password, personal access token, or SSH key, and do not switch to the GitHub plugin or GitHub CLI. |
 | **My code has been uploaded** is shown | The portal is waiting for Codex to finish the local upload. | Do not select it early. Wait for Codex to report a successful push, then select it so the portal can inspect the uploaded code. |
 | The local app cannot be prepared | The uploaded runtime is not supported yet. | Copy the repair prompt into Codex. After Codex repairs, tests, and pushes it, select **I've repaired and uploaded my code**. |
 | Preparation needs another try | The portal could not finish the saved preparation method. | Select **Try preparation again** once. The portal reuses the same safe direct-update or review method. |

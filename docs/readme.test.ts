@@ -52,6 +52,35 @@ describe("README", () => {
       "Select **Publish to Azure** when you are ready. This is the explicit confirmation",
     );
   });
+
+  it("keeps every novice handoff guide aligned with managed Git and local Codex projects", () => {
+    const sources = [
+      "docs/user/quick-start.md",
+      "docs/user/guide.md",
+      "docs/user/troubleshooting.md",
+      "docs/user/faq.md",
+      "docs/portal/setup.md",
+    ].map((path) => readFileSync(path, "utf8"));
+
+    for (const source of sources) {
+      expect(source).toContain("Company Portal");
+      expect(source).toContain("CedarNet 2.0");
+      expect(source).toContain("local Codex project");
+      expect(source).toContain("Quick chat");
+    }
+
+    const readme = readFileSync("README.md", "utf8");
+    expect(readme).toContain("Company Portal");
+    expect(readme).toContain("CedarNet 2.0");
+    expect(readme).toContain("local Codex project");
+    expect(readme).toContain("Quick chat");
+
+    const glossary = readFileSync("docs/user/glossary.md", "utf8");
+    expect(glossary).toContain("\n## Git\n");
+    expect(glossary).toContain("\n## Local Codex project\n");
+    expect(glossary).toContain("\n## Primary folder\n");
+    expect(glossary).toContain("\n## Quick chat\n");
+  });
 });
 
 describe("portal setup docs", () => {

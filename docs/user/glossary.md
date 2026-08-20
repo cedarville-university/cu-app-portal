@@ -1,7 +1,7 @@
 ---
 title: Glossary
 description: Plain-language definitions for portal, GitHub, and Azure terms.
-lastReviewed: 2026-08-18
+lastReviewed: 2026-08-20
 owner: Cedarville IT
 ---
 
@@ -39,9 +39,17 @@ A particular attempt to build and send the app to Azure. Publishing starts a dep
 
 A named runtime setting supplied outside the app's code. It may contain a normal configuration value or a secret.
 
+## Git
+
+The software that records a history of changes in the app folder on your computer. For portal work, install it from Company Portal on Windows or CedarNet 2.0 on macOS. Codex runs the Git commands for you.
+
 ## GitHub
 
 The service Cedarville uses to store app code, record changes, collaborate, and run publishing workflows.
+
+## Local Codex project
+
+A Codex project connected to a folder on your computer. Open or create this project before starting an app task so Codex works with the correct files.
 
 ## Managed repository
 
@@ -55,6 +63,10 @@ A GitHub review page that shows proposed file changes before they are merged int
 
 Cedarville sign-in used to identify users and control who may enter an app.
 
+## Primary folder
+
+The main folder attached to a local Codex project. Codex uses it as the starting location for files and Git work. It should be the new empty app folder for a generated app or the existing app folder for a local app.
+
 ## Publish
 
 Build and send the current managed GitHub version to Azure so it can run in a web browser.
@@ -62,6 +74,10 @@ Build and send the current managed GitHub version to Azure so it can run in a we
 ## Publishing setup
 
 The GitHub workflow, Azure resources, secrets, and credentials that allow the portal to publish an app safely.
+
+## Quick chat
+
+A conversation that is not attached to the app's local Codex project. Do not use Quick chat for a portal Git handoff; open the local project and start the task inside it.
 
 ## Source of truth
 

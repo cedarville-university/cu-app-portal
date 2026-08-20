@@ -552,8 +552,34 @@ describe("AppOnboardingPage generated apps", () => {
     await renderPage({ path: "customize" });
 
     expect(
-      screen.getByText(/open this app's managed repository in codex/i),
+      screen.getByText(/create a local codex project first/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Before opening Codex" }),
+    ).toBeInTheDocument();
+    const checklist = screen.getByRole("region", {
+      name: "Before opening Codex",
+    });
+    expect(within(checklist).getByText(/company portal/i)).toBeInTheDocument();
+    expect(within(checklist).getByText(/cedarnet 2\.0/i)).toBeInTheDocument();
+    expect(
+      within(checklist).getByText(
+        (_, element) =>
+          element?.tagName === "LI" &&
+          /new, empty folder named.*campus dashboard/i.test(
+            element.textContent ?? "",
+          ),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(checklist).getByText(/make it the primary folder/i),
+    ).toBeInTheDocument();
+    expect(
+      within(checklist).getByText(/do not use quick chat/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /how to add a local codex project/i }),
+    ).toHaveAttribute("href", "https://learn.chatgpt.com/docs/projects");
     expect(
       screen.getByRole("button", { name: /copy codex handoff prompt/i }),
     ).toBeInTheDocument();
@@ -745,6 +771,32 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(
       screen.getByText(/connect the local "campus dashboard" project/i),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Before opening Codex" }),
+    ).toBeInTheDocument();
+    const checklist = screen.getByRole("region", {
+      name: "Before opening Codex",
+    });
+    expect(within(checklist).getByText(/company portal/i)).toBeInTheDocument();
+    expect(within(checklist).getByText(/cedarnet 2\.0/i)).toBeInTheDocument();
+    expect(
+      within(checklist).getByText(/folder that already contains your app/i),
+    ).toBeInTheDocument();
+    expect(
+      within(checklist).getByText(/make it the primary folder/i),
+    ).toBeInTheDocument();
+    expect(
+      within(checklist).getByText(/do not use quick chat/i),
+    ).toBeInTheDocument();
+    expect(
+      within(checklist).queryByText(
+        (_, element) =>
+          element?.tagName === "LI" &&
+          /new, empty folder named.*campus dashboard/i.test(
+            element.textContent ?? "",
+          ),
+      ),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "My code has been uploaded" }),
     ).toBeInTheDocument();

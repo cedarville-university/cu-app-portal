@@ -46,6 +46,7 @@ import {
   buildLocalCodexGitSetupPrompt,
 } from "@/features/repositories/codex-handoff";
 import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-handoff-button";
+import { CodexPreparationChecklist } from "@/features/repositories/codex-preparation-checklist";
 import { prisma } from "@/lib/db";
 
 function formatStatus(status: string) {
@@ -381,51 +382,35 @@ function isLocalCodexSource(submittedConfig: unknown) {
   );
 }
 
-function localCodexGitCommands(repositoryUrl: string, defaultBranch = "main") {
-  return [
-    "git init",
-    `git branch -M ${defaultBranch}`,
-    "git add .",
-    'git commit -m "Initial app source"',
-    `git remote add portal ${repositoryUrl}`,
-    `git push -u portal HEAD:${defaultBranch}`,
-  ];
-}
-
 function renderLocalCodexSetup({
   repositoryUrl,
-  defaultBranch,
 }: {
   repositoryUrl: string | null;
-  defaultBranch?: string | null;
 }) {
   if (!repositoryUrl) {
     return null;
   }
 
-  const branch = defaultBranch ?? "main";
-
   return (
     <div className="card">
       <h2 style={{ fontSize: "1.15rem", marginBottom: "0.5rem" }}>
-        Push Your Local App Code
+        Use your existing app folder
       </h2>
       <p>
-        Copy the Codex handoff prompt above, then let Codex run these steps in
-        your local app folder. The portal has already created the managed
-        GitHub repository; Codex only needs to initialize git when needed, add
-        the managed remote, and push your code.
+        Create a local Codex project using the folder that already contains
+        your app, make it the primary folder, and paste the complete prompt
+        under Your Code Repository into a task inside that project. Codex will
+        inspect the folder, protect existing version history, and safely send
+        the app to the managed repository at{" "}
+        <a href={repositoryUrl} target="_blank" rel="noreferrer">
+          GitHub
+        </a>
+        .
       </p>
-      <ol className="step-list">
-        {localCodexGitCommands(repositoryUrl, branch).map((command) => (
-          <li key={command}>
-            <code>{command}</code>
-          </li>
-        ))}
-      </ol>
       <p>
-        After the push succeeds, use the publishing setup controls below so the
-        portal can add or review the Azure publishing files.
+        Let Codex handle the Git commands. Complete only a secure browser or
+        operating-system sign-in if Codex asks. Never paste a password, access
+        token, or SSH key into Codex.
       </p>
     </div>
   );
@@ -985,9 +970,14 @@ export default async function DownloadPage({
             appRequest.appName,
             requestId,
             {
-              defaultBranch: importedRepositoryRemoteWorkflow?.defaultBranch,
+              defaultBranch:
+                importedRepositoryRemoteWorkflow?.defaultBranch ??
+                appRequest.repositoryDefaultBranch,
               sourceRepositoryUrl:
                 importedRepositoryRemoteWorkflow?.sourceRepositoryUrl,
+              localFolderMode: isImportedApp
+                ? undefined
+                : "new-or-existing",
             },
           )
         : null;
@@ -1042,23 +1032,17 @@ export default async function DownloadPage({
         ) : null}
 
         {/* Codex workflow steps */}
-        {!isImportedApp ? (
-          <div className="card">
-            <p className="section-title">Codex Workflow</p>
-            <ol className="step-list">
-              <li>Open your code repository in Codex on your computer.</li>
-              <li>
-                Let Codex download the code, make your customizations, and save the changes.
-              </li>
-              <li>
-                Return here when you&rsquo;re ready to publish your app to Azure.
-              </li>
-              <li>
-                Use the Publish button on this page — no extra software needed on your computer.
-              </li>
-            </ol>
-          </div>
-        ) : null}
+        <div className="card">
+          <p className="section-title">Codex Workflow</p>
+          <CodexPreparationChecklist
+            appName={appRequest.appName}
+            folderKind={
+              isLocalCodexApp || isImportedApp
+                ? "existing"
+                : "new-or-existing"
+            }
+          />
+        </div>
 
         {/* GitHub access section */}
         {appRequest.repositoryStatus === "READY" ? (
@@ -1134,7 +1118,6 @@ export default async function DownloadPage({
         {isLocalCodexApp
           ? renderLocalCodexSetup({
               repositoryUrl: appRequest.repositoryUrl,
-              defaultBranch: appRequest.repositoryDefaultBranch,
             })
           : null}
 
@@ -1149,39 +1132,19 @@ export default async function DownloadPage({
 
         {importedRepositoryRemoteWorkflow ? (
           <div className="card">
-            <p className="section-title">Syncing Your Local Code</p>
+            <p className="section-title">Use Codex to sync your imported app</p>
             <p>
-              If you have a copy of this code on your computer, it is likely
-              still connected to the original source. Keep that connection and
-              also add the portal&rsquo;s repository as a second destination
-              for publishing. The commands below do this — run them in your
-              terminal inside the project folder.
+              Keep the app connected to its original GitHub home and let Codex
+              add the portal-managed repository as a separate publishing
+              destination. Create the local Codex project described above,
+              then copy the complete prompt under Your Code Repository into a
+              task inside that project.
             </p>
-            <ol className="step-list">
-              <li>
-                Connect to the portal repository:{" "}
-                <code>
-                  git remote add portal{" "}
-                  {importedRepositoryRemoteWorkflow.portalRepositoryUrl}
-                </code>
-              </li>
-              <li>
-                Download the portal&rsquo;s latest files: <code>git fetch portal</code>
-              </li>
-              <li>
-                Sync portal changes into your local copy:{" "}
-                <code>
-                  git pull portal {importedRepositoryRemoteWorkflow.defaultBranch}
-                </code>
-              </li>
-              <li>
-                Send your completed work to the portal for publishing:{" "}
-                <code>
-                  git push portal HEAD:
-                  {importedRepositoryRemoteWorkflow.defaultBranch}
-                </code>
-              </li>
-            </ol>
+            <p>
+              Codex will inspect both connections, protect your existing
+              history and unfinished work, and run the technical Git commands.
+              Do not run terminal commands yourself.
+            </p>
           </div>
         ) : null}
 

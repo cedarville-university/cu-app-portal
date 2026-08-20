@@ -37,6 +37,7 @@ import {
   LOCAL_UPLOAD_CONFIRMATION_LABEL,
 } from "@/features/repositories/codex-handoff";
 import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-handoff-button";
+import { CodexPreparationChecklist } from "@/features/repositories/codex-preparation-checklist";
 import { prisma } from "@/lib/db";
 
 function isLocalSource(config: unknown) {
@@ -628,12 +629,16 @@ export default async function AppOnboardingPage({
           appName={app.appName}
           currentStage="Code"
           title="Customize your app with Codex"
-          explanation="Codex is an assistant that can make and verify app changes for you. Open this app's managed repository in Codex, paste the prompt below, and let Codex handle the technical work."
+          explanation="Codex is an assistant that can make and verify app changes for you. Create a local Codex project first, then use the prompt below from inside that project so Codex works in the correct folder."
           next="After Codex says the finished changes were pushed successfully, return here and publish the app to Azure."
           supportReference={app.supportReference}
           details={repositoryDetails}
         >
           <div className="wizard-actions">
+            <CodexPreparationChecklist
+              appName={app.appName}
+              folderKind="new"
+            />
             <pre className="wizard-prompt">
               <code>{prompt}</code>
             </pre>
@@ -680,7 +685,7 @@ export default async function AppOnboardingPage({
           explanation={
             isRepair
               ? "The portal found that this app's current runtime cannot be prepared for publishing. Repair the app before confirming another upload. Paste the instructions into Codex so it can explain the portal feedback, update the app safely, test it, and upload the repaired code."
-              : "Codex is an assistant that can connect the app folder on your computer to its private GitHub code home. Paste this prompt into Codex and let it handle the technical Git steps."
+              : "Codex is an assistant that can connect the app folder on your computer to its private GitHub code home. Create a local Codex project from the existing app folder first, then use this prompt inside that project."
           }
           next={
             isRepair
@@ -698,6 +703,10 @@ export default async function AppOnboardingPage({
                   : "The uploaded app needs repair before publishing. Use the Codex instructions below, then upload the repaired code."}
               </p>
             ) : null}
+            <CodexPreparationChecklist
+              appName={app.appName}
+              folderKind="existing"
+            />
             <pre className="wizard-prompt">
               <code>{prompt}</code>
             </pre>

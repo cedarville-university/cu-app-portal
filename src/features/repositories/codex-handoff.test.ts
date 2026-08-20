@@ -19,7 +19,80 @@ function expectOrderedSections(prompt: string) {
   });
 }
 
+function expectManagedGitReadiness(prompt: string) {
+  expect(prompt).toContain("local Codex project");
+  expect(prompt).toContain("primary folder");
+  expect(prompt).toContain("Quick chat");
+  expect(prompt).toContain("standalone task");
+  expect(prompt).toContain("git --version");
+  expect(prompt).toContain("Company Portal");
+  expect(prompt).toContain("CedarNet 2.0");
+  expect(prompt).toContain("Completely quit and reopen Codex");
+  expect(prompt).toContain("Do not attempt to install Git");
+  expect(prompt).toContain("stop and wait");
+  expect(prompt).toContain("HTTPS");
+  expect(prompt).toContain("secure browser or operating-system sign-in");
+  expect(prompt).toContain("Do not use the GitHub plugin or GitHub CLI");
+  expect(prompt).toContain(
+    "Never ask for a GitHub password, personal access token, or SSH key",
+  );
+  expect(prompt).not.toContain("help me install Git");
+  expect(prompt).not.toContain("https://git-scm.com/downloads/");
+  expect(prompt).not.toContain("package manager");
+}
+
 describe("buildCodexHandoffPrompt", () => {
+  it("prepares an empty local Codex project before cloning a generated app", () => {
+    const prompt = buildCodexHandoffPrompt(
+      "https://github.com/cedarville-it/campus-dashboard",
+      "Campus Dashboard",
+      "req_generated",
+      { defaultBranch: "main" },
+    );
+
+    expectManagedGitReadiness(prompt);
+    expect(prompt).toContain(
+      'Confirm that the primary folder is the new empty folder intended for "Campus Dashboard".',
+    );
+    expect(prompt).toContain("must contain no files or subfolders");
+    expect(prompt).not.toContain("harmless Codex project metadata");
+    expect(prompt).toContain(
+      "Do not delete, move, or overwrite unexpected files to make the folder appear empty",
+    );
+    expect(prompt).toContain(
+      "git clone https://github.com/cedarville-it/campus-dashboard .",
+    );
+    expect(prompt).toContain("git remote get-url origin");
+    expect(prompt.indexOf("git --version")).toBeLessThan(
+      prompt.indexOf(
+        "git clone https://github.com/cedarville-it/campus-dashboard .",
+      ),
+    );
+  });
+
+  it("safely reuses a verified generated-app checkout after publication", () => {
+    const prompt = buildCodexHandoffPrompt(
+      "https://github.com/cedarville-it/campus-dashboard",
+      "Campus Dashboard",
+      "req_published",
+      { defaultBranch: "main", localFolderMode: "new-or-existing" },
+    );
+
+    expectManagedGitReadiness(prompt);
+    expect(prompt).toContain("either empty or the existing local checkout");
+    expect(prompt).toContain("If the primary folder is empty");
+    expect(prompt).toContain("If the primary folder already contains the app");
+    expect(prompt).toContain("git remote get-url origin");
+    expect(prompt).toContain("git status --short");
+    expect(prompt).toContain("git pull --ff-only origin main");
+    expect(prompt).toContain(
+      "If there are uncommitted changes, stop and explain them",
+    );
+    expect(prompt).toContain(
+      "git clone https://github.com/cedarville-it/campus-dashboard .",
+    );
+  });
+
   it("includes portal remote instructions for successfully imported repos", () => {
     const prompt = buildCodexHandoffPrompt(
       "https://github.com/cedarville-it/campus-dashboard",
@@ -37,14 +110,22 @@ describe("buildCodexHandoffPrompt", () => {
     expect(prompt).toContain(
       "Keep the existing origin remote pointed at the source repository.",
     );
+    expect(prompt).toContain("git remote get-url portal");
     expect(prompt).toContain(
-      "git remote add portal https://github.com/cedarville-it/campus-dashboard",
+      "Verify that the selected portal remote URL exactly matches https://github.com/cedarville-it/campus-dashboard",
     );
-    expect(prompt).toContain("git fetch portal");
-    expect(prompt).toContain("git pull portal trunk");
-    expect(prompt).toContain("git push portal HEAD:trunk");
+    expect(prompt).toContain("preserve it and choose an unused name");
+    expect(prompt).toContain("git status --short");
+    expect(prompt).toContain("git fetch <verified-portal-remote>");
     expect(prompt).toContain(
-      "Use the portal remote when preparing work for Cedarville App Portal publishing.",
+      "git pull --ff-only <verified-portal-remote> trunk",
+    );
+    expect(prompt).toContain(
+      "git push <verified-portal-remote> HEAD:trunk",
+    );
+    expect(prompt).not.toContain("git pull portal trunk");
+    expect(prompt).toContain(
+      "Use the verified portal remote when preparing work for Cedarville App Portal publishing.",
     );
     expect(prompt).toContain(
       "Use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
@@ -57,15 +138,19 @@ describe("buildCodexHandoffPrompt", () => {
     expect(prompt).toContain("commit and push");
     expect(prompt).toContain("return to the Cedarville App Portal");
     expect(prompt).toContain("Return to the portal and select Publish to Azure");
+    expectManagedGitReadiness(prompt);
+    expect(prompt).toContain(
+      'Confirm that the primary folder contains the existing local checkout for "Campus Dashboard".',
+    );
     expectOrderedSections(prompt);
     expect(prompt.indexOf("Safety rules")).toBeLessThan(
-      prompt.indexOf("Open the managed GitHub repository"),
+      prompt.indexOf("Confirm that the primary folder contains"),
     );
   });
 });
 
 describe("buildLocalCodexGitSetupPrompt", () => {
-  it("tells Codex to help install Git before local repository setup when needed", () => {
+  it("stops for managed Git installation before local repository setup when needed", () => {
     const prompt = buildLocalCodexGitSetupPrompt({
       repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
       appName: "Campus Dashboard",
@@ -73,10 +158,13 @@ describe("buildLocalCodexGitSetupPrompt", () => {
       defaultBranch: "main",
     });
 
-    expect(prompt).toContain("Do not require the GitHub CLI.");
-    expect(prompt).toContain("If git is not installed");
-    expect(prompt).toContain("help me install Git first");
-    expect(prompt).toContain("https://git-scm.com/downloads/");
+    expectManagedGitReadiness(prompt);
+    expect(prompt).toContain(
+      'Confirm that the local Codex project primary folder is the existing app folder for "Campus Dashboard".',
+    );
+    expect(prompt).toContain(
+      "Do not initialize Git, change remotes, stage files, or edit the app until both checks pass",
+    );
     expect(prompt).toContain("git remote get-url portal");
     expect(prompt).toContain(
       "Verify that its URL exactly matches https://github.com/cedarville-it/campus-dashboard",

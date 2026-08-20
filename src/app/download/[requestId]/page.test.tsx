@@ -166,6 +166,56 @@ describe("DownloadPage navigation", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps published customization inside a local Codex project", async () => {
+    await renderPage({ publishStatus: "SUCCEEDED" });
+
+    expect(
+      screen.getByRole("heading", { name: "Before opening Codex" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/company portal/i)).toBeInTheDocument();
+    expect(screen.getByText(/cedarnet 2\.0/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/local codex project/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/make it the primary folder/i)).toBeInTheDocument();
+    expect(screen.getByText(/do not use quick chat/i)).toBeInTheDocument();
+  });
+
+  it("keeps broad Git staging commands off published local-app details", async () => {
+    await renderPage({
+      publishStatus: "SUCCEEDED",
+      submittedConfig: { localOnlySource: true },
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "Use your existing app folder" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/local codex project/i).length).toBeGreaterThan(0);
+    expect(document.body).not.toHaveTextContent("git add .");
+    expect(document.body).not.toHaveTextContent("git init");
+  });
+
+  it("keeps published imported-app syncing inside a local Codex project", async () => {
+    await renderPage({
+      publishStatus: "SUCCEEDED",
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      repositoryImport: {
+        importStatus: "SUCCEEDED",
+        sourceRepositoryUrl: "https://github.com/example/source",
+        preparationStatus: "SUCCEEDED",
+        preparationMode: "DIRECT_COMMIT",
+      },
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "Before opening Codex" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/use codex to sync your imported app/i),
+    ).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("git remote add portal");
+    expect(document.body).not.toHaveTextContent("git pull portal");
+    expect(document.body).not.toHaveTextContent("git push portal");
+  });
+
   it("renders unpublished app details for an admin", async () => {
     vi.mocked(prisma.userRole.findFirst).mockResolvedValue({
       id: "role-123",
