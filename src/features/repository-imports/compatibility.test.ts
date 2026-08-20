@@ -4,6 +4,7 @@ import {
   IMPORTED_NEXT_RUNTIME,
   scanRepositoryCompatibility,
 } from "./compatibility";
+import { buildManagedAppPortalSkill } from "@/features/generation/portal-skill";
 
 const UNSUPPORTED_RUNTIME_MESSAGE =
   "Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.";
@@ -496,6 +497,22 @@ describe("scanRepositoryCompatibility", () => {
         ".codex/skills/publish-to-azure/SKILL.md already exists and will not be overwritten.",
       path: ".codex/skills/publish-to-azure/SKILL.md",
     });
+  });
+
+  it("treats the unchanged portal-seeded skill as managed content", () => {
+    const files = {
+      "package.json": JSON.stringify({
+        scripts: { build: "next build", start: "next start" },
+        dependencies: { next: "15.5.15" },
+        engines: { node: ">=24" },
+      }),
+      ".codex/skills/cu-app-portal/SKILL.md": buildManagedAppPortalSkill(),
+    };
+
+    expect(scanRepositoryCompatibility(files).status).toBe("COMPATIBLE");
+
+    files[".codex/skills/cu-app-portal/SKILL.md"] += "\nCustomized locally.\n";
+    expect(scanRepositoryCompatibility(files).status).toBe("CONFLICTED");
   });
 
   it("rejects repositories without a supported runtime", () => {

@@ -9,6 +9,10 @@ import {
   userHasAdminRole,
 } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
+import {
+  PORTAL_SKILL_PATH,
+  buildManagedAppPortalSkill,
+} from "@/features/generation/portal-skill";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { preflightPublishingSetup } from "@/features/publishing/setup/service";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
@@ -642,7 +646,9 @@ export async function createManagedRepositoryForLocalAppAction(
     owner,
     name: repositoryName,
     visibility: githubConfig.defaultRepoVisibility,
-    files: {},
+    files: {
+      [PORTAL_SKILL_PATH]: buildManagedAppPortalSkill(),
+    },
     defaultBranch: "main",
     autoInit: false,
   });

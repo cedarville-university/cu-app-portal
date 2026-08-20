@@ -23,7 +23,7 @@ Git keeps change history in the app folder on your computer. GitHub keeps Cedarv
 1. Install Git from **Company Portal** on Windows or **CedarNet 2.0** on macOS. After installation, completely quit and reopen Codex.
 2. In Codex, create a **local Codex project**. For a new starter, use a new empty folder named for the app. For an app already on your computer, use the folder that already contains it. Make that folder primary.
 3. Start the task inside that project. Do not use Quick chat or a standalone task outside the project.
-4. Paste the portal's prompt. Codex checks Git and handles the commands. Complete a secure browser sign-in if GitHub opens one; never give Codex a password, token, or SSH key.
+4. Paste the portal's prompt. Codex checks Git and handles the commands. For a local app, it first pulls the portal guidance, checks whether the app can be hosted, and safely migrates it only when needed. Complete a secure browser sign-in if GitHub opens one; never give Codex a password, token, or SSH key.
 
 ## Create a starter
 

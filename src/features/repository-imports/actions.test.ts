@@ -298,7 +298,7 @@ describe("repository import actions", () => {
     expect(importRepositoryWithHistory).not.toHaveBeenCalled();
   });
 
-  it("creates an empty managed repository for a local Codex app", async () => {
+  it("creates a managed repository with the app-local portal skill for a local Codex app", async () => {
     const createRepository = vi.fn().mockResolvedValue({
       owner: "cedarville-it",
       name: "campus-dashboard",
@@ -334,7 +334,11 @@ describe("repository import actions", () => {
       owner: "cedarville-it",
       name: "campus-dashboard",
       visibility: "private",
-      files: {},
+      files: {
+        ".codex/skills/cu-app-portal/SKILL.md": expect.stringContaining(
+          "name: cu-app-portal",
+        ),
+      },
       defaultBranch: "main",
       autoInit: false,
     });

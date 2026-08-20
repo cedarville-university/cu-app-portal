@@ -208,12 +208,25 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     expect(prompt).toContain(
       "git push -u <verified-managed-remote> HEAD:main",
     );
+    expect(prompt).toContain(
+      "git pull --no-rebase <verified-managed-remote> main",
+    );
+    expect(prompt).toContain(
+      "If the local repository already has commits that do not share history with the managed repository",
+    );
+    expect(prompt).toContain("--allow-unrelated-histories");
     expect(prompt).not.toContain("git push -u portal HEAD:main");
+    expect(prompt.indexOf("git pull --no-rebase <verified-managed-remote> main")).toBeLessThan(
+      prompt.indexOf("Read `.codex/skills/cu-app-portal/SKILL.md`"),
+    );
+    expect(prompt.indexOf("Read `.codex/skills/cu-app-portal/SKILL.md`")).toBeLessThan(
+      prompt.indexOf("Inspect the local app using the compatibility and safe-migration workflow"),
+    );
     expect(prompt.indexOf("git remote get-url portal")).toBeLessThan(
       prompt.indexOf("git push -u <verified-managed-remote> HEAD:main"),
     );
-    expect(prompt).toContain(
-      "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
+    expect(prompt).not.toContain(
+      "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md`",
     );
     expect(prompt).toContain("The person I am helping is a beginner");
     expect(prompt).toContain("Do not ask me to type terminal or Git commands");

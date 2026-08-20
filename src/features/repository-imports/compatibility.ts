@@ -1,6 +1,7 @@
 import {
   LEGACY_PUBLISH_SKILL_PATH,
   PORTAL_SKILL_PATH,
+  isCanonicalManagedAppPortalSkill,
 } from "@/features/generation/portal-skill";
 
 export type RepositoryFileMap = Record<string, string>;
@@ -470,6 +471,13 @@ export function scanRepositoryCompatibility(
 
   for (const path of publishingBundlePathsForRuntime(runtime)) {
     if (hasFile(files, path)) {
+      if (
+        path === PORTAL_SKILL_PATH &&
+        isCanonicalManagedAppPortalSkill(files[path])
+      ) {
+        continue;
+      }
+
       findings.push({
         code: "FILE_CONFLICT",
         severity: "error",

@@ -75,8 +75,8 @@ Git is the tool that keeps change history in the app folder on your computer. Be
 
 If you choose customization, the wizard asks whether you already have a GitHub account. A GitHub account is a login for the website where the app's private code home is stored. To continue:
 
-1. Create an account from the supplied GitHub link if needed, then return to the same portal tab.
-2. Enter the GitHub username for that account and select **Send repository invite**.
+1. If you need an account, open the supplied GitHub signup link. Choose a GitHub username during signup, complete GitHub's verification, sign in, and return to the same portal tab.
+2. Enter the username you chose and select **Send repository invite**. The username is not your email address or display name. You can find it after `github.com/` in your GitHub profile address.
 3. Accept the private repository invitation on GitHub.
 4. Return and select **I've accepted the invitation**.
 5. Follow the **Before opening Codex** checklist, then copy the complete prompt into the task inside the app's local Codex project. Let Codex inspect, change, test, commit, and push the app.
@@ -94,7 +94,7 @@ Select **Prepare my app for publishing** when offered. The portal adds only the 
 
 ### Only on my computer
 
-Enter the local app name and select **Create online home**. Follow the GitHub account or invitation steps if shown. Create a local Codex project from the folder that already contains the app, make that folder primary, and start the task inside the project, not Quick chat. Copy the local-upload prompt into that task. Codex owns the technical upload: it checks for secrets, preserves existing Git history and remotes, tests the app, and pushes it to the managed repository. Select **My code has been uploaded** only after Codex reports success.
+Enter the local app name and select **Create online home**. Follow the GitHub account or invitation steps if shown. Create a local Codex project from the folder that already contains the app, make that folder primary, and start the task inside the project, not Quick chat. Copy the local-upload prompt into that task. Codex preserves your history, connects the managed repository, and pulls the portal's app guidance before changing anything. It then checks whether the app already uses a supported type. If not, it explains and performs the smallest safe migration to Next.js, Express, FastAPI, or a plain static app while preserving the app's behavior. Codex tests the result before pushing it. Select **My code has been uploaded** only after Codex reports success.
 
 The portal then scans and prepares the uploaded code. If the runtime is unsupported, it returns a repair prompt to Codex. After Codex repairs, tests, and uploads the app, select **I've repaired and uploaded my code**. Do not use either confirmation before the upload succeeds.
 

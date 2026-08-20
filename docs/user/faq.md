@@ -37,7 +37,7 @@ No. **Create App** makes the starter and its managed repository, then stops. **P
 
 ## Do I need a GitHub account?
 
-Not to publish an unchanged generated starter. You need one when Codex or a person must access the private repository. The wizard can open GitHub account creation, save your username, send the repository invitation, and confirm access.
+Not to publish an unchanged generated starter. You need one when Codex or a person must access the private repository. If you do not have one, the wizard opens GitHub signup and explains how to choose a username. After signup, enter that username - not your email address or display name. It appears after `github.com/` in your profile address. The portal then sends and confirms the repository invitation.
 
 ## What do I need before using Codex?
 

@@ -483,7 +483,7 @@ describe("AppOnboardingPage generated apps", () => {
       screen.getByRole("link", { name: /create a github account/i }),
     ).toHaveAttribute("href", "https://github.com/signup");
     expect(
-      screen.getByText(/return to this browser tab after github confirms/i),
+      screen.getByText(/return to this portal tab/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "I created my account" }),
@@ -593,6 +593,83 @@ describe("AppOnboardingPage generated apps", () => {
 });
 
 describe("AppOnboardingPage imported and local preparation", () => {
+  it("asks a local-app user about GitHub before showing the username field", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        submittedConfig: { localOnlySource: true },
+        repositoryAccessStatus: "NOT_REQUESTED",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /give codex access to your app code/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "I already have a GitHub account" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "I need to create one" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("GitHub username")).not.toBeInTheDocument();
+  });
+
+  it("walks a new local-app user through choosing and finding a GitHub username", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        submittedConfig: { localOnlySource: true },
+        repositoryAccessStatus: "NOT_REQUESTED",
+      }),
+    );
+
+    await renderPage({ account: "new" });
+
+    expect(
+      screen.getByRole("link", { name: /create a github account/i }),
+    ).toHaveAttribute("href", "https://github.com/signup");
+    expect(screen.getByText(/choose a github username/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete github's verification/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/return to this portal tab/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "I created my account" }),
+    ).toHaveAttribute(
+      "href",
+      "/onboarding/req_123?account=existing",
+    );
+    expect(screen.queryByLabelText("GitHub username")).not.toBeInTheDocument();
+  });
+
+  it("explains exactly which GitHub account name belongs in the username field", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: null,
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        submittedConfig: { localOnlySource: true },
+        repositoryAccessStatus: "NOT_REQUESTED",
+      }),
+    );
+
+    await renderPage({ account: "existing" });
+
+    expect(screen.getByLabelText("GitHub username")).toBeInTheDocument();
+    expect(
+      screen.getByText(/not your email address or display name/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/appears after github\.com\/ in your profile address/i),
+    ).toBeInTheDocument();
+  });
+
   it("offers only direct preparation while an imported app awaits a choice", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(importedApp());
 

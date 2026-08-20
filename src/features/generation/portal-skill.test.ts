@@ -19,6 +19,9 @@ describe("portal skill generation", () => {
 
     expect(skill).toContain("name: cu-app-portal");
     expect(skill).toContain("app-portal/deployment-manifest.json");
+    expect(skill).toContain(
+      "may not exist yet during the first upload of a local app",
+    );
     expect(skill).toContain("portal-managed GitHub repository");
     expect(skill).toContain("Prefer the Cedarville App Portal");
     expect(skill).toContain("Repair Publishing Setup");
@@ -27,6 +30,15 @@ describe("portal skill generation", () => {
     expect(skill).toContain("direct Azure CLI publishing as a recovery path");
     expect(skill).toContain("load_workspace_dependencies");
     expect(skill).toContain("bundled workspace runtimes");
+    expect(skill).toContain("## App Compatibility and Safe Migration");
+    expect(skill).toContain("root Next.js");
+    expect(skill).toContain("Express");
+    expect(skill).toContain("FastAPI");
+    expect(skill).toContain("root `index.html`");
+    expect(skill).toContain("smallest safe migration");
+    expect(skill).toContain("preserve the app's user-visible behavior");
+    expect(skill).toContain("ask exactly one plain-language question");
+    expect(skill).toContain("Do not upload a migration whose relevant tests fail");
     expect(skill).toContain(
       "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate the Cedarville App Portal",
     );

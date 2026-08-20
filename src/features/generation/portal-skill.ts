@@ -14,7 +14,7 @@ Use this skill when Codex is working inside a Cedarville App Portal-managed app 
 
 ## Required Context
 
-1. Read \`app-portal/deployment-manifest.json\` before making publishing, repository, migration, or Azure decisions.
+1. Read \`app-portal/deployment-manifest.json\` before making publishing or Azure decisions when it exists. It may not exist yet during the first upload of a local app; in that case, use the compatibility and safe-migration workflow below until the portal adds the manifest.
 2. Treat the portal-managed GitHub repository as the supported source of truth.
 3. Read \`docs/publishing/azure-app-service.md\` and \`docs/publishing/lessons-learned.md\` when publishing context matters.
 4. Preserve local app code unless the user explicitly asks for app changes.
@@ -22,9 +22,22 @@ Use this skill when Codex is working inside a Cedarville App Portal-managed app 
 ## Portal-First Workflows
 
 - Prefer the Cedarville App Portal for publishing setup, first publish, Repair Publishing Setup, collaborator access, GitHub access requests, push-to-deploy enablement, and scoped deletion.
-- Use local \`git\` to connect this checkout to the portal-managed GitHub repository when the portal created an empty managed repo.
+- Use local \`git\` to connect this checkout to the portal-managed GitHub repository. Pull the portal's initial guidance commit before changing or uploading the local app.
 - Use \`gh\` and \`az\` for verification, diagnostics, or documented recovery after the portal path is unavailable or blocked.
 - Treat direct Azure CLI publishing as a recovery path, not the default path.
+
+## App Compatibility and Safe Migration
+
+Before uploading a local app to its portal-managed repository:
+
+1. Inspect the app's files, dependency definitions, build commands, start commands, and tests. Explain the app type you recognize in everyday language.
+2. Determine whether it is already one of the portal-supported root app types: root Next.js, Express, Python FastAPI, or a plain static app with a root \`index.html\` that can run with Python \`http.server\`.
+3. If it is already supported, preserve its framework and behavior. Do not migrate it merely to make it resemble a portal starter.
+4. If it is unsupported, evaluate the smallest safe migration to one supported app type. Choose the option most likely to preserve the app's user-visible behavior, data, routes, integrations, and existing tests with the fewest structural changes.
+5. Explain the proposed migration and its visible impact in plain language before making it. If two reasonable migrations would change what the app can do, ask exactly one plain-language question and wait for the user's choice.
+6. Keep a recoverable Git history. Do not delete the original implementation or discard existing commits to simplify a migration.
+7. Use compatible system or bundled workspace runtimes to install dependencies and run the relevant build and tests. Do not upload a migration whose relevant tests fail.
+8. After a successful migration and verification, commit and push the changed app to the portal-managed repository. The user performs the next portal confirmation.
 
 ## Human-Only Portal Boundary
 
@@ -44,13 +57,15 @@ Use this skill when Codex is working inside a Cedarville App Portal-managed app 
 
 When the app exists locally but is not yet portal-managed:
 
-1. Ask the user to create or register the app through the portal.
+1. Confirm that the user already created or registered the app through the portal.
 2. Use the managed repository URL and git instructions shown by the portal.
 3. Run \`git status\` before changing remotes.
 4. Initialize Git only when the project is not already a Git repository.
 5. Add the portal-managed repository as a new remote without removing existing remotes.
-6. Push the current branch to the managed repository.
-7. Tell the user that they can return to the portal themselves for scan, publishing setup, repair, or publish actions. Do not open or operate the portal.
+6. Pull the managed repository's initial guidance commit and read this skill before changing the app. Preserve both histories when the local project already has commits.
+7. Complete the compatibility check and any approved safe migration above, then run the relevant tests.
+8. Push the verified current branch to the managed repository.
+9. Tell the user that they can return to the portal themselves for scan, publishing setup, repair, or publish actions. Do not open or operate the portal.
 
 ## Existing GitHub App Migration
 
@@ -67,6 +82,12 @@ When the app is already on GitHub:
 - Do not weaken Cedarville Entra login, database, or App Service settings that the manifest marks as portal-managed.
 - Record manual fixes, blockers, and recovery steps in \`docs/publishing/lessons-learned.md\`.
 `;
+}
+
+export function isCanonicalManagedAppPortalSkill(
+  content: string | undefined,
+) {
+  return content === buildManagedAppPortalSkill();
 }
 
 export function buildLegacyPublishToAzureStub() {

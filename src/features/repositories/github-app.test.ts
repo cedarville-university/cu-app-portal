@@ -93,6 +93,96 @@ describe("createGitHubAppClient", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it("creates a first commit from supplied files without adding a GitHub README", async () => {
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          html_url: "https://github.com/cedarville-it/campus-dashboard",
+          default_branch: "main",
+          name: "campus-dashboard",
+          owner: { login: "cedarville-it" },
+        }),
+      )
+      .mockResolvedValueOnce(createJsonResponse({ sha: "skill-blob" }))
+      .mockResolvedValueOnce(createJsonResponse({ sha: "initial-tree" }))
+      .mockResolvedValueOnce(
+        createJsonResponse({ sha: "initial-commit", tree: { sha: "initial-tree" } }),
+      )
+      .mockResolvedValueOnce(createJsonResponse({ ref: "refs/heads/main" }));
+    const client = createGitHubAppClient({
+      appId: "12345",
+      privateKey: TEST_PRIVATE_KEY,
+      installationId: "111",
+      fetchImpl,
+    });
+
+    await client.createRepository({
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      visibility: "private",
+      files: {
+        ".codex/skills/cu-app-portal/SKILL.md": "# CU App Portal\n",
+      },
+      defaultBranch: "main",
+      autoInit: false,
+    });
+
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/orgs/cedarville-it/repos",
+      expect.objectContaining({
+        body: JSON.stringify({
+          name: "campus-dashboard",
+          visibility: "private",
+          auto_init: false,
+        }),
+      }),
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      4,
+      "https://api.github.com/repos/cedarville-it/campus-dashboard/git/trees",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          tree: [
+            {
+              path: ".codex/skills/cu-app-portal/SKILL.md",
+              mode: "100644",
+              type: "blob",
+              sha: "skill-blob",
+            },
+          ],
+        }),
+      }),
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      5,
+      "https://api.github.com/repos/cedarville-it/campus-dashboard/git/commits",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          message: "Initialize portal guidance",
+          tree: "initial-tree",
+          parents: [],
+        }),
+      }),
+    );
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      6,
+      "https://api.github.com/repos/cedarville-it/campus-dashboard/git/refs",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          ref: "refs/heads/main",
+          sha: "initial-commit",
+        }),
+      }),
+    );
+    expect(fetchImpl).toHaveBeenCalledTimes(6);
+  });
+
   it("preserves safe GitHub validation error details", async () => {
     const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
     const validationErrors = [

@@ -492,6 +492,78 @@ async function createCommitFromFiles({
   return { commitSha: commit.sha };
 }
 
+async function createInitialCommitFromFiles({
+  fetchImpl,
+  headers,
+  owner,
+  name,
+  branch,
+  files,
+}: {
+  fetchImpl: FetchLike;
+  headers: Record<string, string>;
+  owner: string;
+  name: string;
+  branch: string;
+  files: Record<string, string>;
+}) {
+  const encodedOwner = githubPathSegment(owner);
+  const encodedName = githubPathSegment(name);
+  const tree = [];
+
+  for (const [filePath, content] of Object.entries(files)) {
+    const blob = await readJson<GitHubBlobResponse>(
+      await fetchImpl(
+        `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/blobs`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ content, encoding: "utf-8" }),
+        },
+      ),
+    );
+    tree.push({ path: filePath, mode: "100644", type: "blob", sha: blob.sha });
+  }
+
+  const createdTree = await readJson<GitHubTreeResponse>(
+    await fetchImpl(
+      `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/trees`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ tree }),
+      },
+    ),
+  );
+  const commit = await readJson<GitHubCommitResponse>(
+    await fetchImpl(
+      `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/commits`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          message: "Initialize portal guidance",
+          tree: createdTree.sha,
+          parents: [],
+        }),
+      },
+    ),
+  );
+  await readJson<{ ref: string }>(
+    await fetchImpl(
+      `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/refs`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          ref: `refs/heads/${branch}`,
+          sha: commit.sha,
+        }),
+      },
+    ),
+  );
+}
+
 export function createGitHubAppClient({
   appId,
   privateKey,
@@ -778,6 +850,29 @@ export function createGitHubAppClient({
       }
 
       if (!autoInit) {
+        const sourceFiles = ownershipMarker
+          ? {
+              ...files,
+              [ownershipMarker.path]: ownershipMarker.content,
+            }
+          : files;
+
+        if (Object.keys(sourceFiles).length > 0) {
+          await createInitialCommitFromFiles({
+            owner,
+            name,
+            branch: defaultBranch,
+            files: sourceFiles,
+            fetchImpl,
+            headers,
+          });
+
+          return {
+            ...toRepositoryMetadata(repository),
+            defaultBranch,
+          };
+        }
+
         return toRepositoryMetadata(repository);
       }
 

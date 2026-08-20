@@ -253,6 +253,11 @@ function GitHubUsernameForm({
           defaultValue={githubUsername ?? ""}
         />
       </label>
+      <p className="form-help">
+        Enter the username you chose for GitHub, not your email address or
+        display name. You can find it by opening your GitHub profile: it
+        appears after github.com/ in your profile address.
+      </p>
       <PendingSubmitButton
         idleLabel={label}
         pendingLabel="Sending invite..."
@@ -526,6 +531,15 @@ export default async function AppOnboardingPage({
     } else if (accountChoice === "new") {
       accountAction = (
         <div className="wizard-actions">
+          <ol>
+            <li>Open GitHub account creation using the button below.</li>
+            <li>
+              Follow GitHub&apos;s prompts and choose a GitHub username. Save
+              that username—you will enter it in the portal next.
+            </li>
+            <li>Complete GitHub&apos;s verification and sign in to the new account.</li>
+            <li>Return to this portal tab and select I created my account.</li>
+          </ol>
           <a
             className="btn btn--primary-solid"
             href="https://github.com/signup"
@@ -534,10 +548,6 @@ export default async function AppOnboardingPage({
           >
             Create a GitHub account
           </a>
-          <p>
-            Return to this browser tab after GitHub confirms your new account.
-            Then continue below.
-          </p>
           <Link
             className="btn btn--secondary"
             href={accountChoiceHref(app.id, pathChoice, "existing")}

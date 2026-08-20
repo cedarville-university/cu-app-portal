@@ -4,6 +4,7 @@ import {
   PORTAL_SKILL_PATH,
   buildLegacyPublishToAzureStub,
   buildManagedAppPortalSkill,
+  isCanonicalManagedAppPortalSkill,
 } from "@/features/generation/portal-skill";
 import {
   HTTP_SERVER_START_PATH,
@@ -394,6 +395,13 @@ function assertNoPublishingPathConflicts(
 ) {
   for (const path of publishingBundlePathsForRuntime(runtime)) {
     if (Object.prototype.hasOwnProperty.call(files, path)) {
+      if (
+        path === PORTAL_SKILL_PATH &&
+        isCanonicalManagedAppPortalSkill(files[path])
+      ) {
+        continue;
+      }
+
       throw new Error(`${path} already exists and will not be overwritten.`);
     }
   }
@@ -425,7 +433,9 @@ export function planPublishingBundle({
   if (runtime.framework === "http-server") {
     filesToWrite[HTTP_SERVER_START_PATH] = HTTP_SERVER_START;
   }
-  filesToWrite[PORTAL_SKILL_PATH] = buildManagedAppPortalSkill();
+  if (!isCanonicalManagedAppPortalSkill(files[PORTAL_SKILL_PATH])) {
+    filesToWrite[PORTAL_SKILL_PATH] = buildManagedAppPortalSkill();
+  }
   filesToWrite[LEGACY_PUBLISH_SKILL_PATH] = buildLegacyPublishToAzureStub();
   filesToWrite["docs/publishing/azure-app-service.md"] =
     `# Publish to Azure App Service\n\nThis imported ${runtime.displayName} app is prepared for Cedarville App Portal-managed Azure publishing.\n`;
