@@ -169,6 +169,12 @@ type GitHubContentResponse = {
   encoding?: string;
 };
 
+type GitHubCreateContentResponse = {
+  commit: {
+    sha: string;
+  };
+};
+
 type GitHubPullRequestResponse = {
   html_url: string;
 };
@@ -509,59 +515,39 @@ async function createInitialCommitFromFiles({
 }) {
   const encodedOwner = githubPathSegment(owner);
   const encodedName = githubPathSegment(name);
-  const tree = [];
+  const [[firstPath, firstContent], ...remainingFiles] = Object.entries(files);
 
-  for (const [filePath, content] of Object.entries(files)) {
-    const blob = await readJson<GitHubBlobResponse>(
-      await fetchImpl(
-        `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/blobs`,
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ content, encoding: "utf-8" }),
-        },
-      ),
-    );
-    tree.push({ path: filePath, mode: "100644", type: "blob", sha: blob.sha });
+  if (!firstPath) {
+    throw new Error("At least one file is required to initialize a repository.");
   }
 
-  const createdTree = await readJson<GitHubTreeResponse>(
+  const initialContent = await readJson<GitHubCreateContentResponse>(
     await fetchImpl(
-      `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/trees`,
+      `https://api.github.com/repos/${encodedOwner}/${encodedName}/contents/${firstPath.split("/").map(githubPathSegment).join("/")}`,
       {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ tree }),
-      },
-    ),
-  );
-  const commit = await readJson<GitHubCommitResponse>(
-    await fetchImpl(
-      `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/commits`,
-      {
-        method: "POST",
+        method: "PUT",
         headers,
         body: JSON.stringify({
           message: "Initialize portal guidance",
-          tree: createdTree.sha,
-          parents: [],
+          content: Buffer.from(firstContent).toString("base64"),
+          branch,
         }),
       },
     ),
   );
-  await readJson<{ ref: string }>(
-    await fetchImpl(
-      `https://api.github.com/repos/${encodedOwner}/${encodedName}/git/refs`,
-      {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          ref: `refs/heads/${branch}`,
-          sha: commit.sha,
-        }),
-      },
-    ),
-  );
+
+  if (remainingFiles.length > 0) {
+    await createCommitFromFiles({
+      fetchImpl,
+      headers,
+      owner,
+      name,
+      branch,
+      message: "Complete managed repository initialization",
+      parentSha: initialContent.commit.sha,
+      files: Object.fromEntries(remainingFiles),
+    });
+  }
 }
 
 export function createGitHubAppClient({

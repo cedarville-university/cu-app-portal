@@ -93,7 +93,7 @@ describe("createGitHubAppClient", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it("creates a first commit from supplied files without adding a GitHub README", async () => {
+  it("initializes an empty repository through the contents API without adding a GitHub README", async () => {
     const fetchImpl = vi
       .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
       .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
@@ -105,7 +105,12 @@ describe("createGitHubAppClient", () => {
           owner: { login: "cedarville-it" },
         }),
       )
-      .mockResolvedValueOnce(createJsonResponse({ sha: "skill-blob" }))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          sha: "skill-blob",
+          commit: { sha: "initial-commit" },
+        }),
+      )
       .mockResolvedValueOnce(createJsonResponse({ sha: "initial-tree" }))
       .mockResolvedValueOnce(
         createJsonResponse({ sha: "initial-commit", tree: { sha: "initial-tree" } }),
@@ -118,7 +123,7 @@ describe("createGitHubAppClient", () => {
       fetchImpl,
     });
 
-    await client.createRepository({
+    await expect(client.createRepository({
       owner: "cedarville-it",
       name: "campus-dashboard",
       visibility: "private",
@@ -127,6 +132,11 @@ describe("createGitHubAppClient", () => {
       },
       defaultBranch: "main",
       autoInit: false,
+    })).resolves.toEqual({
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      url: "https://github.com/cedarville-it/campus-dashboard",
+      defaultBranch: "main",
     });
 
     expect(fetchImpl).toHaveBeenNthCalledWith(
@@ -141,46 +151,18 @@ describe("createGitHubAppClient", () => {
       }),
     );
     expect(fetchImpl).toHaveBeenNthCalledWith(
-      4,
-      "https://api.github.com/repos/cedarville-it/campus-dashboard/git/trees",
+      3,
+      "https://api.github.com/repos/cedarville-it/campus-dashboard/contents/.codex/skills/cu-app-portal/SKILL.md",
       expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({
-          tree: [
-            {
-              path: ".codex/skills/cu-app-portal/SKILL.md",
-              mode: "100644",
-              type: "blob",
-              sha: "skill-blob",
-            },
-          ],
-        }),
-      }),
-    );
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      5,
-      "https://api.github.com/repos/cedarville-it/campus-dashboard/git/commits",
-      expect.objectContaining({
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify({
           message: "Initialize portal guidance",
-          tree: "initial-tree",
-          parents: [],
+          content: "IyBDVSBBcHAgUG9ydGFsCg==",
+          branch: "main",
         }),
       }),
     );
-    expect(fetchImpl).toHaveBeenNthCalledWith(
-      6,
-      "https://api.github.com/repos/cedarville-it/campus-dashboard/git/refs",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({
-          ref: "refs/heads/main",
-          sha: "initial-commit",
-        }),
-      }),
-    );
-    expect(fetchImpl).toHaveBeenCalledTimes(6);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
   it("preserves safe GitHub validation error details", async () => {
