@@ -25,6 +25,22 @@ function managedGitReadinessInstructions(appName: string) {
   ];
 }
 
+function codexRuntimeAndPortalBoundaryInstructions() {
+  return [
+    "Codex runtime readiness",
+    "Before concluding that Node.js, npm, pnpm, Python, or another development or test runtime is unavailable, call load_workspace_dependencies when that capability is available.",
+    "Prefer compatible bundled workspace runtimes and use the absolute executable paths returned by that capability when a system command is missing.",
+    "Do not report that tests cannot run until you have checked both the system commands and the bundled workspace dependencies.",
+    "Do not attempt to install or download Node.js, Python, npm, pnpm, or another development runtime merely because a system command is missing.",
+    "The bundled-runtime fallback does not replace the managed Git installation process above. Git must still be available through Company Portal on Windows or CedarNet 2.0 on macOS.",
+    "Cedarville App Portal boundary",
+    "Do not use Browser, Computer Use, Chrome, plugins, or connectors to access the Cedarville App Portal.",
+    "Never open, sign into, navigate, click, publish, or otherwise operate the Cedarville App Portal for me. Portal navigation and button clicks are my job.",
+    "You may tell me in plain language what I can do in the portal, but then stop and let me do it myself.",
+    "This portal boundary does not prevent a secure GitHub sign-in window opened by Git when repository authentication is required.",
+  ];
+}
+
 export function buildCodexHandoffPrompt(
   repositoryUrl: string,
   appName: string,
@@ -41,8 +57,8 @@ export function buildCodexHandoffPrompt(
     "Explain what you are doing in everyday language.",
     "",
     "Your goal",
-    `Make safe changes to "${appName}" for Cedarville App Portal request ${requestId}.`,
-    "You own the technical workflow: inspect the app, make the changes, and verify the result.",
+    `Prepare the local project for "${appName}" for Cedarville App Portal request ${requestId}, then help me make the changes I request.`,
+    "First own the repository setup and verification. Do not invent an app-change request or assume publishing is next.",
     "",
     "Safety rules",
     "Do not ask me to type terminal or Git commands. Run the technical commands yourself.",
@@ -50,6 +66,7 @@ export function buildCodexHandoffPrompt(
     "Never ask for my passwords or secret values. Do not expose, copy, commit, or paste credentials, tokens, or other secrets.",
     "Do not ask for portal credentials.",
     ...managedGitReadinessInstructions(appName),
+    ...codexRuntimeAndPortalBoundaryInstructions(),
     "",
     "Work to perform",
   ];
@@ -118,17 +135,24 @@ export function buildCodexHandoffPrompt(
   }
 
   prompt.push(
-    "Use the managed repository as the source of truth, inspect the existing files, and make only safe, relevant changes.",
+    "Use the managed repository as the source of truth and inspect only enough files to confirm that the project is ready.",
     "Use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
+    "",
+    "Repository ready — ask for project work",
+    "After the repository setup and verification succeed, do not modify app files yet.",
+    'Ask exactly one question: "The project is ready. What would you like me to change or build in this project?"',
+    "Stop and wait for my answer before modifying app files, running change-specific tests, committing changes, or pushing new work.",
+    "Do not assume that publishing is the next task. The next task is the modification or feature I describe.",
+    "After I answer, restate my requested outcome in plain language, make only the requested changes, and verify them.",
   );
 
   prompt.push(
     "",
     "Before you finish",
-    "Before you finish, run the relevant tests, explain the result plainly, then commit and push the completed work through the portal-supported workflow.",
+    "After completing the project work I requested, run the relevant tests using compatible system or bundled workspace runtimes, explain the result plainly, then commit and push the completed work through the portal-supported workflow.",
     "Verify that the push succeeded and give me a simple status summary.",
-    "When the code is ready, return to the Cedarville App Portal.",
-    "Return to the portal and select Publish to Azure.",
+    "Tell me that the requested changes are ready in GitHub. If I want to publish them, tell me that I can return to the Cedarville App Portal myself.",
+    "Do not open or operate the portal, and do not make publishing the next step unless I ask about publishing.",
   );
 
   return prompt.join("\n");
@@ -163,6 +187,7 @@ export function buildLocalCodexGitSetupPrompt({
     "Ask only one question at a time, and only when a true human choice is needed.",
     "Never ask for my passwords or secret values. Do not expose, copy, commit, or paste credentials, tokens, or other secrets.",
     ...managedGitReadinessInstructions(appName),
+    ...codexRuntimeAndPortalBoundaryInstructions(),
     "",
     "Work to perform",
     `Managed repository: ${repositoryUrl}`,
@@ -193,13 +218,12 @@ export function buildLocalCodexGitSetupPrompt({
     "After the push succeeds, use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
     "",
     "Before you finish",
-    "Before you finish, run the relevant tests, explain the result plainly, then commit and push the completed work through the portal-supported workflow.",
+    "Before you finish, run the relevant tests using compatible system or bundled workspace runtimes, explain the result plainly, then commit and push the completed work through the portal-supported workflow.",
     `Verify that the push succeeded, and report the repository and branch that received the push: ${repositoryUrl} (${branch}).`,
     "Give me a simple status summary.",
-    "When the code is ready, return to the Cedarville App Portal.",
     preparationErrorSummary
-      ? `Return to the portal and select "${LOCAL_REPAIR_CONFIRMATION_LABEL}".`
-      : `Return to the portal and select ${LOCAL_UPLOAD_CONFIRMATION_LABEL}.`,
+      ? `After the push succeeds, tell me that I can return to the Cedarville App Portal myself and tell me to select "${LOCAL_REPAIR_CONFIRMATION_LABEL}" myself. Do not open or operate the portal.`
+      : `After the push succeeds, tell me that I can return to the Cedarville App Portal myself and tell me to select "${LOCAL_UPLOAD_CONFIRMATION_LABEL}" myself. Do not open or operate the portal.`,
   ];
 
   if (preparationErrorSummary) {

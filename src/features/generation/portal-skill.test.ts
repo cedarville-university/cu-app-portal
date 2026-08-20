@@ -25,6 +25,15 @@ describe("portal skill generation", () => {
     expect(skill).toContain("Add Existing App");
     expect(skill).toContain("Do not create unrelated Azure resources");
     expect(skill).toContain("direct Azure CLI publishing as a recovery path");
+    expect(skill).toContain("load_workspace_dependencies");
+    expect(skill).toContain("bundled workspace runtimes");
+    expect(skill).toContain(
+      "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate the Cedarville App Portal",
+    );
+    expect(skill).toContain("Portal navigation and button clicks belong to the user");
+    expect(skill).not.toContain(
+      "Return to the portal for scan, publishing setup, repair, and publish actions",
+    );
   });
 
   it("builds a legacy publish-to-azure stub that redirects to the portal skill", () => {
@@ -34,5 +43,8 @@ describe("portal skill generation", () => {
     expect(stub).toContain("Use the `cu-app-portal` skill");
     expect(stub).toContain("portal-managed app");
     expect(stub).toContain("not the default path");
+    expect(stub).toContain(
+      "Do not open or operate the Cedarville App Portal",
+    );
   });
 });

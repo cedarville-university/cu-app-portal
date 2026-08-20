@@ -840,9 +840,12 @@ describe("AppOnboardingPage imported and local preparation", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Return to the portal and select "I've repaired and uploaded my code"\./,
+        /tell me that I can return to the Cedarville App Portal myself and tell me to select "I've repaired and uploaded my code" myself/i,
       ),
     ).toBeInTheDocument();
+    expect(document.body).toHaveTextContent(
+      /Do not use Browser, Computer Use, Chrome, plugins, or connectors to access the Cedarville App Portal/i,
+    );
     expect(
       screen.queryByRole("button", { name: "Try preparation again" }),
     ).not.toBeInTheDocument();

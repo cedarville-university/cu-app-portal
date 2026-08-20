@@ -26,6 +26,20 @@ Use this skill when Codex is working inside a Cedarville App Portal-managed app 
 - Use \`gh\` and \`az\` for verification, diagnostics, or documented recovery after the portal path is unavailable or blocked.
 - Treat direct Azure CLI publishing as a recovery path, not the default path.
 
+## Human-Only Portal Boundary
+
+- Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate the Cedarville App Portal.
+- Never sign in, navigate, click a portal button, publish, repair, or confirm an upload for the user. Portal navigation and button clicks belong to the user.
+- Tell the user the next portal action in plain language, then stop and let the user perform it.
+- A secure GitHub sign-in window opened by Git is allowed and is not the Cedarville App Portal.
+
+## Development and Test Runtimes
+
+- Before reporting that Node.js, npm, pnpm, Python, or another required development or test runtime is unavailable, call \`load_workspace_dependencies\` when that capability is available.
+- Prefer compatible bundled workspace runtimes and use the absolute executable paths it returns when system commands are missing.
+- Check both system commands and bundled dependencies before saying tests cannot run.
+- Do not install or download development runtimes merely because a system command is missing. This fallback does not replace the Cedarville-managed Git installation workflow.
+
 ## Local App Migration
 
 When the app exists locally but is not yet portal-managed:
@@ -36,7 +50,7 @@ When the app exists locally but is not yet portal-managed:
 4. Initialize Git only when the project is not already a Git repository.
 5. Add the portal-managed repository as a new remote without removing existing remotes.
 6. Push the current branch to the managed repository.
-7. Return to the portal for scan, publishing setup, repair, and publish actions.
+7. Tell the user that they can return to the portal themselves for scan, publishing setup, repair, or publish actions. Do not open or operate the portal.
 
 ## Existing GitHub App Migration
 
@@ -66,5 +80,7 @@ description: Use when an older portal-managed Cedarville app or prompt asks Code
 Use the \`cu-app-portal\` skill for this portal-managed app.
 
 Direct Azure-first publishing is now a recovery path, not the default path for Cedarville App Portal-managed apps. Read \`app-portal/deployment-manifest.json\`, then prefer the Cedarville App Portal for publishing setup, Repair Publishing Setup, first publish, push-to-deploy enablement, GitHub access, collaborator workflows, and scoped deletion.
+
+Do not open or operate the Cedarville App Portal through Browser, Computer Use, Chrome, plugins, or connectors. Tell the user what portal action is available, then stop and let the user perform it.
 `;
 }

@@ -27,9 +27,13 @@ Every Git handoff prompt must assume the user is a beginner and must:
 - use HTTPS Git operations and the operating system/browser credential flow for GitHub sign-in;
 - never ask for a GitHub password, personal access token, SSH key, portal credential, or other secret;
 - never use the GitHub plugin or require GitHub CLI as a fallback;
+- never use Browser, Computer Use, Chrome, plugins, or connectors to open, sign into, navigate, or operate the Cedarville App Portal; portal actions always belong to the user;
+- check Codex's bundled workspace dependencies before reporting that Node.js, Python, npm, pnpm, or another development or test runtime is unavailable, while keeping Git on the Cedarville-managed installation path;
 - perform the Git work for the user and explain checkpoints and failures in everyday language.
 
 Generated-app prompts may clone into the current primary folder only after confirming it is the intended empty folder. Local-app prompts preserve existing files, Git history, and remotes.
+
+After the generated or imported repository is ready, Codex asks, **“The project is ready. What would you like me to change or build in this project?”** It then stops and waits. It does not assume publishing is next. After it completes and pushes the user's requested changes, it may explain that the user can return to the portal, but it never opens or operates the portal itself.
 
 ## Portal copy
 
@@ -40,4 +44,3 @@ The instruction is phrased accurately for the Codex interface: **Do not use Quic
 ## Documentation and verification
 
 README, portal setup documentation, user Quick Start, full guide, troubleshooting, and FAQ remain aligned with the UI. Downloadable PDFs are regenerated from the user Markdown sources and checked for valid structure and readable layout.
-

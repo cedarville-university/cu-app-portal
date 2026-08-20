@@ -157,7 +157,7 @@ test.describe("novice onboarding", () => {
 
     await page.goto("/onboarding?start=existing");
     await page.getByRole("link", { name: "Only on my computer" }).click();
-    await expect(page).toHaveURL(/\/apps\/add\?source=local#local-app$/);
+    await expect(page).toHaveURL(/\/apps\/add\?source=local$/);
     await expect(page.getByRole("heading", { name: "Only on my computer" })).toBeVisible();
     await expect(page.getByLabel("Local App Name")).toBeVisible();
   });

@@ -60,7 +60,7 @@ describe("OnboardingStartPage", () => {
     );
     expect(screen.getByRole("link", { name: /only on my computer/i })).toHaveAttribute(
       "href",
-      "/apps/add?source=local#local-app",
+      "/apps/add?source=local",
     );
     expect(
       screen.getByText(/share its web address so we can check it/i),

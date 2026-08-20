@@ -17,6 +17,9 @@
 - Codex must never try to install Git or ask a novice to run terminal or Git commands.
 - Users create or open a local Codex project before starting the task; Quick chat and standalone tasks are not supported for this handoff.
 - GitHub authentication uses HTTPS and a secure browser or operating-system credential flow, never passwords, personal access tokens, SSH keys, GitHub CLI, or the GitHub plugin.
+- Codex never opens or operates the Cedarville App Portal; it tells the user when a portal action is available and lets the user perform it.
+- Codex checks compatible bundled workspace runtimes before declaring Node.js, Python, npm, pnpm, or tests unavailable. Git continues to use the Cedarville-managed installation path.
+- A ready generated or imported repository leads to a question about what the user wants to change or build, not an assumed publishing step.
 - Existing managed-repository, publishing, access-control, and recovery behavior must remain unchanged.
 
 ---

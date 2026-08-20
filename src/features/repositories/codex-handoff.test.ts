@@ -41,6 +41,23 @@ function expectManagedGitReadiness(prompt: string) {
   expect(prompt).not.toContain("package manager");
 }
 
+function expectCodexRuntimeAndPortalBoundaries(prompt: string) {
+  expect(prompt).toContain("load_workspace_dependencies");
+  expect(prompt).toContain("bundled workspace runtimes");
+  expect(prompt).toContain("Node.js");
+  expect(prompt).toContain("Python");
+  expect(prompt).toContain(
+    "Do not report that tests cannot run until you have checked both the system commands and the bundled workspace dependencies",
+  );
+  expect(prompt).toContain(
+    "Do not use Browser, Computer Use, Chrome, plugins, or connectors to access the Cedarville App Portal",
+  );
+  expect(prompt).toContain("Portal navigation and button clicks are my job");
+  expect(prompt).not.toContain(
+    "Return to the portal and select Publish to Azure",
+  );
+}
+
 describe("buildCodexHandoffPrompt", () => {
   it("prepares an empty local Codex project before cloning a generated app", () => {
     const prompt = buildCodexHandoffPrompt(
@@ -67,6 +84,19 @@ describe("buildCodexHandoffPrompt", () => {
       prompt.indexOf(
         "git clone https://github.com/cedarville-it/campus-dashboard .",
       ),
+    );
+    expectCodexRuntimeAndPortalBoundaries(prompt);
+    expect(prompt).toContain(
+      'Ask exactly one question: "The project is ready. What would you like me to change or build in this project?"',
+    );
+    expect(prompt).toContain(
+      "Stop and wait for my answer before modifying app files",
+    );
+    expect(prompt).toContain(
+      "Do not assume that publishing is the next task",
+    );
+    expect(prompt.indexOf("git remote get-url origin")).toBeLessThan(
+      prompt.indexOf("The project is ready. What would you like me to change"),
     );
   });
 
@@ -136,9 +166,8 @@ describe("buildCodexHandoffPrompt", () => {
     expect(prompt).toContain("Never ask for my passwords or secret values");
     expect(prompt).toContain("run the relevant tests");
     expect(prompt).toContain("commit and push");
-    expect(prompt).toContain("return to the Cedarville App Portal");
-    expect(prompt).toContain("Return to the portal and select Publish to Azure");
     expectManagedGitReadiness(prompt);
+    expectCodexRuntimeAndPortalBoundaries(prompt);
     expect(prompt).toContain(
       'Confirm that the primary folder contains the existing local checkout for "Campus Dashboard".',
     );
@@ -159,6 +188,7 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     });
 
     expectManagedGitReadiness(prompt);
+    expectCodexRuntimeAndPortalBoundaries(prompt);
     expect(prompt).toContain(
       'Confirm that the local Codex project primary folder is the existing app folder for "Campus Dashboard".',
     );
@@ -191,10 +221,14 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     expect(prompt).toContain("Never ask for my passwords or secret values");
     expect(prompt).toContain("run the relevant tests");
     expect(prompt).toContain("commit and push");
-    expect(prompt).toContain("return to the Cedarville App Portal");
+    expect(prompt).toContain(
+      "tell me that I can return to the Cedarville App Portal",
+    );
     expect(prompt).toContain("preserve any existing Git history");
     expect(prompt).toContain("report the repository and branch that received the push");
-    expect(prompt).toContain("Return to the portal and select My code has been uploaded");
+    expect(prompt).toContain(
+      'tell me to select "My code has been uploaded" myself',
+    );
     expect(prompt).not.toContain("git add .");
     expect(prompt).toContain("Inspect candidate files with git status");
     expect(prompt).toContain("stage only intentional source, configuration, and documentation files by explicit path");

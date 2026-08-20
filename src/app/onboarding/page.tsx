@@ -90,7 +90,7 @@ export default async function OnboardingStartPage({
               <span className="card__title">Already on GitHub</span>
               <span className="card__desc">Share its web address so we can check it and guide you through the next step.</span>
             </Link>
-            <Link className="card card--interactive card--gold-border wizard-choice" href="/apps/add?source=local#local-app">
+            <Link className="card card--interactive card--gold-border wizard-choice" href="/apps/add?source=local">
               <span className="card__title">Only on my computer</span>
               <span className="card__desc">Create an online home for your app, then follow the steps to add your files.</span>
             </Link>
@@ -103,7 +103,7 @@ export default async function OnboardingStartPage({
             The portal will create a private online space for your app. Next,
             it will give you simple steps to add the app from your computer.
           </p>
-          <div><Link href="/apps/add?source=local#local-app" className="btn btn--primary-solid">Create an online home for my app</Link></div>
+          <div><Link href="/apps/add?source=local" className="btn btn--primary-solid">Create an online home for my app</Link></div>
         </section>
       )}
 
