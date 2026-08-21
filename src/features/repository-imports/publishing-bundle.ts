@@ -5,6 +5,7 @@ import {
   buildLegacyPublishToAzureStub,
   buildManagedAppPortalSkill,
   isCanonicalManagedAppPortalSkill,
+  isCurrentManagedAppPortalSkill,
 } from "@/features/generation/portal-skill";
 import {
   HTTP_SERVER_START_PATH,
@@ -433,7 +434,7 @@ export function planPublishingBundle({
   if (runtime.framework === "http-server") {
     filesToWrite[HTTP_SERVER_START_PATH] = HTTP_SERVER_START;
   }
-  if (!isCanonicalManagedAppPortalSkill(files[PORTAL_SKILL_PATH])) {
+  if (!isCurrentManagedAppPortalSkill(files[PORTAL_SKILL_PATH])) {
     filesToWrite[PORTAL_SKILL_PATH] = buildManagedAppPortalSkill();
   }
   filesToWrite[LEGACY_PUBLISH_SKILL_PATH] = buildLegacyPublishToAzureStub();

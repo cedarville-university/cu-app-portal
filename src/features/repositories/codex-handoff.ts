@@ -240,6 +240,9 @@ export function buildLocalCodexGitSetupPrompt({
       "Repair needed before uploading again",
       "The portal inspected the previous upload and found a deterministic compatibility problem. Repair the app itself before pushing and confirming another upload; repeating the same portal action without code changes will not help.",
       `Portal feedback: ${preparationErrorSummary}`,
+      "For plain static apps, use the portal's exact rule: A root index.html alone is not enough.",
+      "A plain static app must not contain package.json, requirements.txt, or pyproject.toml. If package.json exists, determine whether it is truly unused or whether the app must be migrated to supported Next.js or Express.",
+      "Do not add app-portal/http_server_start.py before uploading the repair. The portal adds that Python runner after compatibility succeeds.",
       "Inspect that feedback, make the smallest safe source-code or runtime change that resolves it, and run the relevant tests before continuing with the upload steps below.",
       "",
     );

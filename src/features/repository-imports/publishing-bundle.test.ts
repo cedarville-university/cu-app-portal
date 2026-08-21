@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { IMPORTED_EXPRESS_RUNTIME, IMPORTED_NEXT_RUNTIME } from "./compatibility";
 import { planPublishingBundle } from "./publishing-bundle";
 import { buildManagedAppPortalSkill } from "@/features/generation/portal-skill";
+import { buildPreviousManagedAppPortalSkillForTest } from "@/features/generation/portal-skill.test-fixtures";
 
 const FASTAPI_RUNTIME = {
   family: "python",
@@ -110,6 +111,28 @@ describe("planPublishingBundle", () => {
 
     expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toBeUndefined();
     expect(plan.filesToWrite["app-portal/deployment-manifest.json"]).toBeDefined();
+  });
+
+  it("upgrades the previous portal-generated skill during preparation", () => {
+    const plan = planPublishingBundle({
+      appName: "Campus Dashboard",
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      runtime: IMPORTED_NEXT_RUNTIME,
+      files: {
+        "package.json": JSON.stringify({
+          scripts: { build: "next build", start: "next start" },
+          dependencies: { next: "15.5.15" },
+          engines: { node: ">=24" },
+        }),
+        ".codex/skills/cu-app-portal/SKILL.md":
+          buildPreviousManagedAppPortalSkillForTest(),
+      },
+    });
+
+    expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toBe(
+      buildManagedAppPortalSkill(),
+    );
   });
 
   it("adds Express publishing files and only fills missing node engine defaults", () => {

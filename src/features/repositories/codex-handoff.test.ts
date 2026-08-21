@@ -255,4 +255,23 @@ describe("buildLocalCodexGitSetupPrompt", () => {
       prompt.indexOf("Managed repository:"),
     );
   });
+
+  it("makes static package.json repair guidance self-contained", () => {
+    const prompt = buildLocalCodexGitSetupPrompt({
+      repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+      appName: "Campus Dashboard",
+      requestId: "req_local",
+      defaultBranch: "main",
+      preparationErrorSummary:
+        "Repository must be a root Next.js, Express, FastAPI, or Python static app.",
+    });
+
+    expect(prompt).toContain("A root index.html alone is not enough");
+    expect(prompt).toContain(
+      "A plain static app must not contain package.json, requirements.txt, or pyproject.toml",
+    );
+    expect(prompt).toContain(
+      "Do not add app-portal/http_server_start.py before uploading the repair",
+    );
+  });
 });

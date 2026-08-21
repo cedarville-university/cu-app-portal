@@ -1,6 +1,12 @@
+import { createHash } from "node:crypto";
+
 export const PORTAL_SKILL_PATH = ".codex/skills/cu-app-portal/SKILL.md";
 export const LEGACY_PUBLISH_SKILL_PATH =
   ".codex/skills/publish-to-azure/SKILL.md";
+
+const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
+  "5ce4c7a302c86ecbdabda0ea68ed4dd763a741030ca7413686afa35e15998c28",
+]);
 
 export function buildManagedAppPortalSkill() {
   return `---
@@ -31,13 +37,17 @@ Use this skill when Codex is working inside a Cedarville App Portal-managed app 
 Before uploading a local app to its portal-managed repository:
 
 1. Inspect the app's files, dependency definitions, build commands, start commands, and tests. Explain the app type you recognize in everyday language.
-2. Determine whether it is already one of the portal-supported root app types: root Next.js, Express, Python FastAPI, or a plain static app with a root \`index.html\` that can run with Python \`http.server\`.
-3. If it is already supported, preserve its framework and behavior. Do not migrate it merely to make it resemble a portal starter.
-4. If it is unsupported, evaluate the smallest safe migration to one supported app type. Choose the option most likely to preserve the app's user-visible behavior, data, routes, integrations, and existing tests with the fewest structural changes.
-5. Explain the proposed migration and its visible impact in plain language before making it. If two reasonable migrations would change what the app can do, ask exactly one plain-language question and wait for the user's choice.
-6. Keep a recoverable Git history. Do not delete the original implementation or discard existing commits to simplify a migration.
-7. Use compatible system or bundled workspace runtimes to install dependencies and run the relevant build and tests. Do not upload a migration whose relevant tests fail.
-8. After a successful migration and verification, commit and push the changed app to the portal-managed repository. The user performs the next portal confirmation.
+2. Match the portal's exact static-app rule. A root \`index.html\` alone is not enough. A plain static app is eligible only when it has a root \`index.html\` and no \`package.json\`, \`requirements.txt\`, or \`pyproject.toml\`.
+3. If \`package.json\` exists but declares neither Next.js nor Express, and the repository is not a valid FastAPI app, treat the app as unsupported even when a root \`index.html\` exists. Vite, React build tooling, TypeScript compilation, and other frontend build systems do not qualify as plain static apps.
+4. For an unsupported packaged frontend, inspect its scripts, dependencies, source files, and checked-in browser assets. If \`package.json\` is genuinely unused and the root HTML, JavaScript, and CSS run directly in a browser without building or generating files, explain the evidence and safely remove only the obsolete package tooling. If the package tooling is required, migrate the app to a supported root Next.js or Express app instead.
+5. Do not create \`app-portal/http_server_start.py\` before the portal prepares the repository. The portal adds that Python runner after a plain static app passes compatibility; the runner's absence during the first upload is expected, and an existing copy can cause a publishing-file conflict.
+6. For the other supported types, require a root Next.js app with a build script, an Express app with a start script, or Python FastAPI with a root \`main.py\` or \`app.py\` plus FastAPI, Gunicorn, and Uvicorn dependencies. Do not classify workspace roots as supported. Next.js and Express imports use npm; pnpm, Yarn, and Bun lockfiles are unsupported for those Node app types.
+7. If it is already supported, preserve its framework and behavior. Do not migrate it merely to make it resemble a portal starter.
+8. If it is unsupported, evaluate the smallest safe migration to one supported app type. Choose the option most likely to preserve the app's user-visible behavior, data, routes, integrations, and existing tests with the fewest structural changes.
+9. Explain the proposed migration and its visible impact in plain language before making it. If two reasonable migrations would change what the app can do, ask exactly one plain-language question and wait for the user's choice.
+10. Keep a recoverable Git history. Do not delete the original implementation or discard existing commits to simplify a migration.
+11. Use compatible system or bundled workspace runtimes to install dependencies and run the relevant build and tests. Do not upload a migration whose relevant tests fail.
+12. After a successful migration and verification, commit and push the changed app to the portal-managed repository. The user performs the next portal confirmation.
 
 ## Human-Only Portal Boundary
 
@@ -87,6 +97,19 @@ When the app is already on GitHub:
 export function isCanonicalManagedAppPortalSkill(
   content: string | undefined,
 ) {
+  if (!content) {
+    return false;
+  }
+
+  return (
+    isCurrentManagedAppPortalSkill(content) ||
+    PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES.has(
+      createHash("sha256").update(content).digest("hex"),
+    )
+  );
+}
+
+export function isCurrentManagedAppPortalSkill(content: string | undefined) {
   return content === buildManagedAppPortalSkill();
 }
 

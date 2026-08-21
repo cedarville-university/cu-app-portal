@@ -4,7 +4,9 @@ import {
   PORTAL_SKILL_PATH,
   buildLegacyPublishToAzureStub,
   buildManagedAppPortalSkill,
+  isCanonicalManagedAppPortalSkill,
 } from "./portal-skill";
+import { buildPreviousManagedAppPortalSkillForTest } from "./portal-skill.test-fixtures";
 
 describe("portal skill generation", () => {
   it("uses stable generated skill paths", () => {
@@ -35,6 +37,16 @@ describe("portal skill generation", () => {
     expect(skill).toContain("Express");
     expect(skill).toContain("FastAPI");
     expect(skill).toContain("root `index.html`");
+    expect(skill).toContain("A root `index.html` alone is not enough");
+    expect(skill).toContain(
+      "no `package.json`, `requirements.txt`, or `pyproject.toml`",
+    );
+    expect(skill).toContain(
+      "If `package.json` exists but declares neither Next.js nor Express",
+    );
+    expect(skill).toContain(
+      "Do not create `app-portal/http_server_start.py` before the portal prepares the repository",
+    );
     expect(skill).toContain("smallest safe migration");
     expect(skill).toContain("preserve the app's user-visible behavior");
     expect(skill).toContain("ask exactly one plain-language question");
@@ -58,5 +70,14 @@ describe("portal skill generation", () => {
     expect(stub).toContain(
       "Do not open or operate the Cedarville App Portal",
     );
+  });
+
+  it("recognizes the immediately previous generated skill but not a customized copy", () => {
+    const previousSkill = buildPreviousManagedAppPortalSkillForTest();
+
+    expect(isCanonicalManagedAppPortalSkill(previousSkill)).toBe(true);
+    expect(
+      isCanonicalManagedAppPortalSkill(`${previousSkill}\nCustomized locally.\n`),
+    ).toBe(false);
   });
 });

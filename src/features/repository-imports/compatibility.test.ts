@@ -5,6 +5,7 @@ import {
   scanRepositoryCompatibility,
 } from "./compatibility";
 import { buildManagedAppPortalSkill } from "@/features/generation/portal-skill";
+import { buildPreviousManagedAppPortalSkillForTest } from "@/features/generation/portal-skill.test-fixtures";
 
 const UNSUPPORTED_RUNTIME_MESSAGE =
   "Repository must be a root Next.js, Express, FastAPI, or Python static app for portal-managed Azure publishing.";
@@ -513,6 +514,21 @@ describe("scanRepositoryCompatibility", () => {
 
     files[".codex/skills/cu-app-portal/SKILL.md"] += "\nCustomized locally.\n";
     expect(scanRepositoryCompatibility(files).status).toBe("CONFLICTED");
+  });
+
+  it("does not report the previous portal-generated skill as a conflict", () => {
+    const result = scanRepositoryCompatibility({
+      "package.json": JSON.stringify({
+        scripts: { build: "next build", start: "next start" },
+        dependencies: { next: "15.5.15" },
+        engines: { node: ">=24" },
+      }),
+      ".codex/skills/cu-app-portal/SKILL.md":
+        buildPreviousManagedAppPortalSkillForTest(),
+    });
+
+    expect(result.status).toBe("COMPATIBLE");
+    expect(result.findings).toEqual([]);
   });
 
   it("rejects repositories without a supported runtime", () => {
