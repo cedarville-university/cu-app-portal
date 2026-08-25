@@ -78,12 +78,12 @@ describe("TemplatePage", () => {
         /choose this when you need pages, forms, server-side logic/i,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Node.js 24 / Next.js")).toBeInTheDocument();
+    expect(screen.queryByText("Node.js 24 / Next.js")).not.toBeInTheDocument();
     expect(screen.getByText("Staff-facing web apps")).toBeInTheDocument();
     expect(screen.getByText(/database: optional/i)).toBeInTheDocument();
-    expect(screen.getByText(/login: entra available/i)).toBeInTheDocument();
+    expect(screen.getByText(/access: choose sign-in or public/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/no github account yet/i),
+      screen.getByText(/create the starter now/i),
     ).toBeInTheDocument();
   });
 

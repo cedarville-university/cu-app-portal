@@ -1,6 +1,6 @@
 import React, { type ReactNode } from "react";
 
-const stages = ["Start", "Code", "Prepare", "Publish"] as const;
+const stages = ["Start", "Develop", "Prepare", "Publish"] as const;
 
 type OnboardingStage = (typeof stages)[number];
 

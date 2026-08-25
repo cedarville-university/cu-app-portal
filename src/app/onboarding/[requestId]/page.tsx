@@ -407,7 +407,7 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title="The portal is creating your app's code home"
           explanation="The portal is creating a private online home for your app's code. This usually finishes within a few minutes, and no action is needed while it runs."
           next="This page will move to the next safe code step automatically when the code home is ready."
@@ -424,7 +424,7 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title="The app's code home needs another try"
           explanation="The portal could not finish the protected code-home setup. Try again to have the portal create or reconnect that private code home using the saved starter."
           next="When the code home is ready, this page moves to the next safe code step automatically. If the same message returns, share the support reference with the portal support team."
@@ -459,7 +459,7 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title="We couldn't copy your app yet"
           explanation="The portal did not finish making a managed Cedarville copy. It left this request unchanged so it will not overwrite or delete any repository files."
           next="Start a new import from the original GitHub repository. The portal will choose a fresh managed repository name instead of reusing the partial copy."
@@ -487,21 +487,27 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title="Your starter app is ready"
-          explanation="You can publish the starter exactly as it is, or customize it first with Codex, an assistant that can make app changes for you. Publishing the starter does not require a GitHub account."
-          next="Publishing puts the app online in Azure. Customizing first will guide you through access to its private code home."
+          explanation="You can publish the starter exactly as it is, or customize it first with Codex, an assistant that can make app changes for you. Publishing the starter does not require an account for the private code home."
+          next="Choose whether to put this starter online as-is or make changes before publishing."
           supportReference={app.supportReference}
           details={repositoryDetails}
         >
           <div className="wizard-actions">
-            <PublishForm requestId={app.id} label="Publish the starter now" />
-            <Link
-              className="btn btn--secondary"
-              href={`/onboarding/${app.id}?path=customize`}
-            >
-              Customize it with Codex first
-            </Link>
+            <div>
+              <p>I want to publish my app online without changing this starter.</p>
+              <PublishForm requestId={app.id} label="Publish the starter now" />
+            </div>
+            <div>
+              <p>I want to customize my app with Codex before publishing it.</p>
+              <Link
+                className="btn btn--secondary"
+                href={`/onboarding/${app.id}?path=customize`}
+              >
+                Customize it with Codex first
+              </Link>
+            </div>
           </div>
         </OnboardingStepShell>
       </main>
@@ -560,13 +566,13 @@ export default async function AppOnboardingPage({
       accountAction = (
         <div className="wizard-actions">
           <Link
-            className="btn btn--primary-solid"
+            className="btn btn--secondary"
             href={accountChoiceHref(app.id, pathChoice, "existing")}
           >
             I already have a GitHub account
           </Link>
           <Link
-            className="btn btn--secondary"
+            className="btn btn--primary-solid"
             href={accountChoiceHref(app.id, pathChoice, "new")}
           >
             I need to create one
@@ -579,7 +585,7 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title="Give Codex access to your app code"
           explanation="GitHub is the private online home for your app's code. The portal needs your GitHub username so it can invite your signed-in account to that private home."
           next="After access is ready, the portal will give you one prompt to paste into Codex."
@@ -597,7 +603,7 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title="Accept your invitation to the app code"
           explanation="GitHub sent your signed-in account an invitation to this app's private online code home. Open GitHub, accept the invitation, and then ask the portal to check again."
           next="When GitHub confirms access, the portal will give you the Codex customization prompt."
@@ -637,7 +643,7 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title="Customize your app with Codex"
           explanation="Codex is an assistant that can make and verify app changes for you. Create a local Codex project first, then use the prompt below from inside that project so Codex works in the correct folder."
           next="After Codex says the finished changes were pushed successfully, return here and publish the app to Azure."
@@ -686,7 +692,7 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title={
             isRepair
               ? "Repair and upload your local app with Codex"
@@ -1039,7 +1045,7 @@ export default async function AppOnboardingPage({
           <main>
             <OnboardingStepShell
               appName={app.appName}
-              currentStage="Code"
+              currentStage="Develop"
               title="Your app's code home is still being prepared"
               explanation="The portal is still creating the protected code home needed before publishing can be tried again. Your app code and saved work are safe, and no repair or publish will start while this finishes."
               next="This page checks repository progress automatically. Preparation often finishes within a few minutes, and the next safe action will appear here."
@@ -1055,7 +1061,7 @@ export default async function AppOnboardingPage({
         <main>
           <OnboardingStepShell
             appName={app.appName}
-            currentStage="Code"
+            currentStage="Develop"
             title="Your app's code home needs support"
             explanation="The portal could not confirm the protected code home required for publishing. Your saved request is safe, and no repair or publish will start from this page."
             next="Return to My Apps and share the support reference with the portal support team. They can check the code home without asking you to repeat publishing setup."
@@ -1197,7 +1203,7 @@ export default async function AppOnboardingPage({
       <main>
         <OnboardingStepShell
           appName={app.appName}
-          currentStage="Code"
+          currentStage="Develop"
           title="This code step needs support"
           explanation="The portal could not load the saved repository details required for this step. Your saved request is safe, and no repository, setup, or publishing action will start from this page."
           next="Return to My Apps and share the support reference with the portal support team so they can restore the missing code-home details."

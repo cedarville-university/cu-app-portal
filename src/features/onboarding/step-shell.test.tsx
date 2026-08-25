@@ -10,7 +10,7 @@ describe("OnboardingStepShell", () => {
     render(
       <OnboardingStepShell
         appName="Campus Dashboard"
-        currentStage="Code"
+        currentStage="Develop"
         title="Your code has a safe home"
         explanation="The portal created a private GitHub repository for your app."
         next="Next, choose whether to publish the starter or customize it first."

@@ -7,9 +7,8 @@ export default function HomePage() {
       <div className="hero">
         <h1>Cedarville App Portal</h1>
         <p>
-          Create Cedarville-approved apps, store your code on GitHub (an online
-          platform for managing and sharing code), and publish directly to Azure
-          (Microsoft&rsquo;s cloud hosting service) — all from one place.
+          Create an app, keep its code in a private online home, and publish it
+          online — all from one place.
         </p>
         <div className="hero__actions">
           <Link href="/onboarding?start=new" className="btn btn--secondary-solid btn--lg">
@@ -50,21 +49,19 @@ export default function HomePage() {
         </div>
         <div className="card card--gold-border">
           <p style={{ fontSize: "1.75rem", margin: "0 0 0.5rem" }}>📦</p>
-          <div className="card__title">Track</div>
+          <div className="card__title">Keep your work safe</div>
           <p className="card__desc">
-            The portal sets up a private GitHub repository — an online space
-            where your app&rsquo;s code is stored. Add your GitHub username and
-            Codex (an AI coding assistant) can open the code, make your
-            customizations, and save the changes.
+            The portal sets up a private online home for your app&rsquo;s code.
+            When you are ready, Codex can help you customize the app and save
+            your changes there.
           </p>
         </div>
         <div className="card card--navy-border">
           <p style={{ fontSize: "1.75rem", margin: "0 0 0.5rem" }}>🚀</p>
           <div className="card__title">Publish</div>
           <p className="card__desc">
-            Deploy your app to Azure directly from this portal — no extra
-            software needed on your computer. Return here to trigger and
-            monitor your app going live.
+            Put your app online directly from this portal. Return here to
+            start and monitor publishing.
           </p>
         </div>
       </div>

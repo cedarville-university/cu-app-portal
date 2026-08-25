@@ -142,7 +142,7 @@ afterEach(() => {
 });
 
 describe("AppOnboardingPage generated apps", () => {
-  it("shows automatic Code-stage progress while the repository is pending", async () => {
+  it("shows automatic Develop-stage progress while the repository is pending", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       generatedApp({
         repositoryStatus: "PENDING",
@@ -153,7 +153,7 @@ describe("AppOnboardingPage generated apps", () => {
     await renderPage();
 
     const progress = screen.getByRole("list", { name: /app setup progress/i });
-    expect(within(progress).getByText("Code")).toHaveAttribute(
+    expect(within(progress).getByText("Develop")).toHaveAttribute(
       "aria-current",
       "step",
     );
@@ -188,7 +188,7 @@ describe("AppOnboardingPage generated apps", () => {
     await renderPage();
 
     const progress = screen.getByRole("list", { name: /app setup progress/i });
-    expect(within(progress).getByText("Code")).toHaveAttribute(
+    expect(within(progress).getByText("Develop")).toHaveAttribute(
       "aria-current",
       "step",
     );
@@ -469,6 +469,12 @@ describe("AppOnboardingPage generated apps", () => {
       "href",
       "/onboarding/req_123?path=customize&account=new",
     );
+    expect(
+      screen.getByRole("link", { name: "I need to create one" }),
+    ).toHaveClass("btn--primary-solid");
+    expect(
+      screen.getByRole("link", { name: "I already have a GitHub account" }),
+    ).toHaveClass("btn--secondary");
     expect(screen.queryByLabelText("GitHub username")).not.toBeInTheDocument();
   });
 

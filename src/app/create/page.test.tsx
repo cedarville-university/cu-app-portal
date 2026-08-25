@@ -70,23 +70,23 @@ describe("CreatePage", () => {
       form.getByText(/structured request form with reviewer approval/i),
     ).toBeInTheDocument();
     expect(form.getByText(/database: required/i)).toBeInTheDocument();
-    expect(form.getByText(/login: entra available/i)).toBeInTheDocument();
+    expect(form.getByText(/access: choose sign-in or public/i)).toBeInTheDocument();
 
     expect(
       publicPage.getByText(/polished web page or small site/i),
     ).toBeInTheDocument();
     expect(publicPage.getByText(/database: unsupported/i)).toBeInTheDocument();
-    expect(publicPage.getByText(/login: no entra/i)).toBeInTheDocument();
+    expect(publicPage.getByText(/access: choose sign-in or public/i)).toBeInTheDocument();
 
     expect(
       webApp.getByText(
         /start from a blank cedarville-styled web app/i,
       ),
     ).toBeInTheDocument();
-    expect(webApp.getByText("Node.js 24 / Next.js")).toBeInTheDocument();
+    expect(webApp.queryByText("Node.js 24 / Next.js")).not.toBeInTheDocument();
     expect(webApp.getByText("Staff-facing web apps")).toBeInTheDocument();
     expect(webApp.getByText(/database: optional/i)).toBeInTheDocument();
-    expect(webApp.getByText(/login: entra available/i)).toBeInTheDocument();
+    expect(webApp.getByText(/access: choose sign-in or public/i)).toBeInTheDocument();
 
     expect(
       fastApi.getByText(
@@ -94,12 +94,12 @@ describe("CreatePage", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      fastApi.getByText(/database and entra login can be enabled/i),
+      fastApi.getByText(/database and cedarville sign-in can be enabled/i),
     ).toBeInTheDocument();
-    expect(fastApi.getByText("Python 3.14 / FastAPI")).toBeInTheDocument();
+    expect(fastApi.queryByText("Python 3.14 / FastAPI")).not.toBeInTheDocument();
     expect(fastApi.getByText("Python APIs")).toBeInTheDocument();
     expect(fastApi.getByText(/database: optional/i)).toBeInTheDocument();
-    expect(fastApi.getByText(/login: entra available/i)).toBeInTheDocument();
+    expect(fastApi.getByText(/access: choose sign-in or public/i)).toBeInTheDocument();
   });
 
   it("keeps introductory Codex and GitHub guidance in Help", async () => {

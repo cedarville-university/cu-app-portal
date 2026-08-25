@@ -171,7 +171,7 @@ const templates: PortalTemplate[] = [
     description:
       "A compact Python API starter for Azure App Service with FastAPI health and sample routes.",
     decisionSummary:
-      "Use this when the app's main job is processing data, receiving requests, connecting systems, or using Python libraries. Database and Entra login can be enabled when needed.",
+      "Use this when the app's main job is processing data, receiving requests, connecting systems, or using Python libraries. Database and Cedarville sign-in can be enabled when needed.",
     bestFor: [
       "Python APIs",
       "Automation endpoints",

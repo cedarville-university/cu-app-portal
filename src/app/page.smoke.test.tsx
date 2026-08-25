@@ -15,5 +15,8 @@ describe("HomePage", () => {
     expect(
       screen.getByRole("link", { name: /add existing app/i }),
     ).toHaveAttribute("href", "/onboarding?start=existing");
+    expect(screen.getByText(/create an app, keep its code in a private online home/i)).toBeInTheDocument();
+    expect(screen.queryByText(/github \(an online platform/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/microsoft’s cloud hosting service/i)).not.toBeInTheDocument();
   });
 });

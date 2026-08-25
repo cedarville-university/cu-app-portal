@@ -1,13 +1,6 @@
 import React from "react";
 import Link from "next/link";
 import { getActiveTemplateGroups } from "@/features/templates/catalog";
-import type { PortalTemplate } from "@/features/templates/types";
-
-function getLoginLabel(template: PortalTemplate) {
-  return template.features.entraLogin.mode === "unsupported"
-    ? "No Entra"
-    : "Entra available";
-}
 
 export default async function CreatePage() {
   const templateGroups = getActiveTemplateGroups();
@@ -34,7 +27,6 @@ export default async function CreatePage() {
                 <div key={template.id} className="card card--interactive card--navy-border">
                   <div className="card__title">{template.name}</div>
                   <p className="card__desc">{template.decisionSummary}</p>
-                  <p className="muted">{template.appServiceRuntime.displayName}</p>
                   <ul className="template-best-for">
                     {template.bestFor.map((item) => (
                       <li key={item}>{item}</li>
@@ -42,7 +34,7 @@ export default async function CreatePage() {
                   </ul>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
                     <span className="badge badge--default">Database: {template.features.database.mode}</span>
-                    <span className="badge badge--default">Login: {getLoginLabel(template)}</span>
+                    <span className="badge badge--default">Access: Choose sign-in or public</span>
                   </div>
                   <Link href={`/create/${template.slug}`} className="btn btn--primary-solid btn--sm">
                     Use {template.name}
