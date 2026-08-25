@@ -1,7 +1,7 @@
 ---
 title: Glossary
 description: Plain-language definitions for portal, GitHub, and Azure terms.
-lastReviewed: 2026-08-20
+lastReviewed: 2026-08-25
 owner: Cedarville IT
 ---
 
@@ -14,6 +14,10 @@ A website or service created, tracked, and published through the portal.
 ## App owner
 
 The primary person responsible for an app. Owners can manage collaborators and delete scoped resources.
+
+## App audience
+
+The people who can use a published app. A new app can require Cedarville sign-in or be openly public on the internet.
 
 ## Azure
 
@@ -70,6 +74,10 @@ The main folder attached to a local Codex project. Codex uses it as the starting
 ## Publish
 
 Build and send the current managed GitHub version to Azure so it can run in a web browser.
+
+## Share in Portal
+
+An optional directory listing visible to people signed in to the Cedarville App Portal. It helps them discover an app but does not change the app audience.
 
 ## Publishing setup
 

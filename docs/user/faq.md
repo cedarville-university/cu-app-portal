@@ -1,7 +1,7 @@
 ---
 title: Frequently Asked Questions
 description: Answers to common questions about apps, GitHub, Azure, access, and publishing.
-lastReviewed: 2026-08-20
+lastReviewed: 2026-08-25
 owner: Cedarville IT
 ---
 
@@ -29,7 +29,11 @@ Not as a simple switch. A template shapes the starter code and available feature
 
 ## Does publishing make my app public?
 
-Not necessarily. Publishing makes the app run in Azure. Who can enter depends on the app's Microsoft Entra login and authorization rules. Confirm the intended audience before sharing its URL.
+No. Publishing makes the app run in Azure. At creation, choose either **Cedarville sign-in required** or **Openly public on the internet**. An openly public app can be used by anyone who knows or discovers its address. Cedarville sign-in limits entry to people who can sign in with their Cedarville account.
+
+## Is Share in Portal the same as making my app public?
+
+No. **Share in Portal** lets signed-in Cedarville portal users see the app's name, description, and link. It does not change who can open the published app.
 
 ## Does creating a starter publish it?
 
@@ -42,6 +46,10 @@ Not to publish an unchanged generated starter. You need one when Codex or a pers
 ## What do I need before using Codex?
 
 Install Git from **Company Portal** on Windows or **CedarNet 2.0** on macOS, then completely quit and reopen Codex. For a generated app, make a new empty folder. For an app already on your computer, use its existing folder. In Codex, create a **local Codex project** from that folder and make it primary. Start the task inside the project; do not use Quick chat or a standalone task. The portal prompt handles Git commands and uses secure browser sign-in for GitHub. Never provide a password, personal access token, or SSH key.
+
+## What should I do when Codex asks for permission?
+
+Read the request and allow only what the current app task needs. It is normal to allow the selected app folder, normal development commands, and secure browser sign-in that you complete yourself. Choose **Allow once** when it is available, unless Cedarville IT has approved a broader established workflow. Do not approve unrelated folders or applications, and never provide passwords, tokens, private keys, or portal credentials.
 
 ## What is the difference between Continue Setup and Manage App?
 

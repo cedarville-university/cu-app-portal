@@ -29,21 +29,21 @@ afterEach(() => {
 });
 
 describe("PublicListingPanel", () => {
-  it("offers to list an unlisted app publicly", () => {
+  it("offers to share an unlisted app in the portal", () => {
     render(<PublicListingPanel appRequestId="req-1" isPubliclyListed={false} />);
 
-    expect(screen.getByText(/not listed/i)).toBeInTheDocument();
+    expect(screen.getByText(/not shared/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /list on public apps/i }),
+      screen.getByRole("button", { name: /share in portal/i }),
     ).toBeInTheDocument();
   });
 
-  it("offers to remove a listed app from the public list", () => {
+  it("offers to remove a shared app from the portal", () => {
     render(<PublicListingPanel appRequestId="req-1" isPubliclyListed={true} />);
 
-    expect(screen.getByText(/listed publicly/i)).toBeInTheDocument();
+    expect(screen.getByText(/shared in portal/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /remove from public apps/i }),
+      screen.getByRole("button", { name: /remove from portal sharing/i }),
     ).toBeInTheDocument();
   });
 });

@@ -1323,7 +1323,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
-  it("hands a successfully published app to its full details page", async () => {
+  it("links directly to the live app and its full details after publishing", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       preparedImportedApp({
         publishingSetupStatus: "READY",
@@ -1340,6 +1340,10 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(
       screen.getByRole("link", { name: "Open app details" }),
     ).toHaveAttribute("href", "/download/req_123");
+    expect(screen.getByRole("link", { name: "Open your app" })).toHaveAttribute(
+      "href",
+      "https://campus-dashboard.azurewebsites.net",
+    );
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 

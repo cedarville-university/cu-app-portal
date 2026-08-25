@@ -10,12 +10,12 @@ export function PublicListingPanel({
   isPubliclyListed: boolean;
 }) {
   return (
-    <section aria-label="Public listing" className="card">
-      <p className="section-title">Public Listing</p>
+    <section aria-label="Share in Portal" className="card">
+      <p className="section-title">Share in Portal</p>
       <p style={{ color: "var(--text-secondary)", marginTop: 0 }}>
-        Publicly listed apps appear on the Public Apps page, where any
-        signed-in portal user can see the app&apos;s name, description, and
-        link.
+        Sharing in the portal lets Cedarville people who sign in to the portal
+        see this app&apos;s name, description, and link. It does not change who can
+        open your published app.
       </p>
       <div
         className="status-table"
@@ -24,9 +24,9 @@ export function PublicListingPanel({
         <div className="status-row">
           <span className="status-row__label">Status</span>
           {isPubliclyListed ? (
-            <span className="badge badge--success">Listed publicly</span>
+            <span className="badge badge--success">Shared in portal</span>
           ) : (
-            <span className="badge badge--default">Not listed</span>
+            <span className="badge badge--default">Not shared</span>
           )}
         </div>
       </div>
@@ -39,17 +39,17 @@ export function PublicListingPanel({
       >
         {isPubliclyListed ? (
           <PendingSubmitButton
-            idleLabel="Remove from Public Apps"
+            idleLabel="Remove from Portal sharing"
             pendingLabel="Removing..."
-            statusText="Removing the app from the public list."
+            statusText="Removing the app from Portal sharing."
             variant="ghost"
             size="sm"
           />
         ) : (
           <PendingSubmitButton
-            idleLabel="List on Public Apps"
-            pendingLabel="Listing..."
-            statusText="Listing the app publicly."
+            idleLabel="Share in Portal"
+            pendingLabel="Sharing..."
+            statusText="Sharing the app in the portal."
             variant="primary-solid"
             size="sm"
           />

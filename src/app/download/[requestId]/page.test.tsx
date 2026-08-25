@@ -159,11 +159,24 @@ describe("DownloadPage navigation", () => {
   });
 
   it("renders published app details for a non-admin", async () => {
-    await renderPage({ publishStatus: "SUCCEEDED" });
+    await renderPage({
+      publishStatus: "SUCCEEDED",
+      submittedConfig: { entraLogin: true },
+      primaryPublishUrl: "https://campus-dashboard.azurewebsites.net",
+    });
 
     expect(
       screen.getByRole("heading", { name: /your app is ready/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "App readiness" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Cedarville sign-in is required.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open your app" })).toHaveAttribute(
+      "href",
+      "https://campus-dashboard.azurewebsites.net",
+    );
+    expect(screen.getByText("Advanced options")).toBeInTheDocument();
   });
 
   it("keeps published customization inside a local Codex project", async () => {

@@ -179,7 +179,7 @@ describe("getActiveTemplates", () => {
       },
     });
     expect(template?.decisionSummary).toMatch(/database/i);
-    expect(template?.decisionSummary).toMatch(/Entra/i);
+    expect(template?.decisionSummary).toMatch(/Cedarville sign-in/i);
     expect(template?.bestFor).toContain(
       "Apps that may need PostgreSQL or Cedarville login",
     );

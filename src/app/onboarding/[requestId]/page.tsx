@@ -1163,12 +1163,21 @@ export default async function AppOnboardingPage({
           next="Open app details now. You can return there later from My Apps whenever you need to manage this app."
           details={publishingTechnicalDetails}
         >
-          <Link
-            className="btn btn--primary-solid"
-            href={`/download/${app.id}`}
-          >
-            Open app details
-          </Link>
+          <div className="wizard-actions">
+            {app.publishUrl ?? app.primaryPublishUrl ? (
+              <a
+                className="btn btn--primary-solid"
+                href={app.publishUrl ?? app.primaryPublishUrl ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open your app
+              </a>
+            ) : null}
+            <Link className="btn btn--secondary" href={`/download/${app.id}`}>
+              Open app details
+            </Link>
+          </div>
         </OnboardingStepShell>
       </main>
     );

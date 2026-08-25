@@ -39,6 +39,7 @@ import {
 import { removeAppCollaboratorAction } from "@/features/collaboration-invites/actions";
 import { CollaborationInvitePanel } from "@/features/collaboration-invites/invite-panel";
 import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
+import { AppReadinessChecklist } from "@/features/app-details/app-readiness-checklist";
 import { PublicListingPanel } from "@/features/public-apps/public-listing-panel";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import {
@@ -380,6 +381,18 @@ function isLocalCodexSource(submittedConfig: unknown) {
     "localOnlySource" in submittedConfig &&
     submittedConfig.localOnlySource === true
   );
+}
+
+function getAppAudience(submittedConfig: unknown) {
+  if (!submittedConfig || typeof submittedConfig !== "object") {
+    return "not-recorded" as const;
+  }
+
+  if ("entraLogin" in submittedConfig) {
+    return submittedConfig.entraLogin === true ? "cedarville" : "public";
+  }
+
+  return "not-recorded" as const;
 }
 
 function renderLocalCodexSetup({
@@ -956,6 +969,7 @@ export default async function DownloadPage({
     repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
   });
   const isLocalCodexApp = isLocalCodexSource(appRequest.submittedConfig);
+  const appAudience = getAppAudience(appRequest.submittedConfig);
   const codexHandoffPrompt =
     isLocalCodexApp && appRequest.repositoryUrl
       ? buildLocalCodexGitSetupPrompt({
@@ -1017,6 +1031,30 @@ export default async function DownloadPage({
       </div>
 
       <div style={{ display: "grid", gap: "1.25rem" }}>
+        <AppReadinessChecklist
+          repositoryReady={appRequest.repositoryStatus === "READY"}
+          publishingReady={effectivePublishingSetupStatus === "READY"}
+          publishStatus={appRequest.publishStatus}
+          audience={appAudience}
+        />
+
+        {appRequest.publishStatus === "SUCCEEDED" && displayPublishUrl ? (
+          <a
+            className="btn btn--primary-solid"
+            href={displayPublishUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{ justifySelf: "start" }}
+          >
+            Open your app
+          </a>
+        ) : null}
+
+        <PublicListingPanel
+          appRequestId={appRequest.id}
+          isPubliclyListed={appRequest.isPubliclyListed}
+        />
+
         {renderAppAccessSummary({
           owner: appRequest.user,
           collaborators: appRequest.collaborators,
@@ -1031,6 +1069,9 @@ export default async function DownloadPage({
           />
         ) : null}
 
+        <details className="card">
+          <summary className="section-title">Advanced options</summary>
+          <div style={{ display: "grid", gap: "1.25rem", marginTop: "1.25rem" }}>
         {/* Codex workflow steps */}
         <div className="card">
           <p className="section-title">Codex Workflow</p>
@@ -1291,11 +1332,8 @@ export default async function DownloadPage({
           envVars={appRequest.environmentVariables ?? []}
           isPublished={Boolean(appRequest.azureWebAppName)}
         />
-
-        <PublicListingPanel
-          appRequestId={appRequest.id}
-          isPubliclyListed={appRequest.isPubliclyListed}
-        />
+          </div>
+        </details>
 
         {canDeleteAppRequest
           ? renderDeletePanel({

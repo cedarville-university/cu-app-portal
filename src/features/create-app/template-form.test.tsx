@@ -101,13 +101,18 @@ describe("TemplateForm", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("includes template feature choices in submitted form values", () => {
+  it("requires the user to choose the app audience", () => {
     render(<TemplateForm template={template} />);
 
     expect(screen.getByRole("group", { name: /database/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/postgresql/i)).toBeChecked();
-    expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/microsoft entra login/i)).toBeChecked();
+    expect(
+      screen.getByRole("group", { name: /who can use this app/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Cedarville sign-in required")).not.toBeChecked();
+    expect(
+      screen.getByLabelText("Openly public on the internet"),
+    ).not.toBeChecked();
   });
 
   it("submits explicit values when optional features are turned off", () => {
@@ -117,7 +122,10 @@ describe("TemplateForm", () => {
     expect(form).not.toBeNull();
 
     fireEvent.click(screen.getByLabelText(/no database/i));
-    fireEvent.click(screen.getByLabelText(/no login/i));
+    fireEvent.click(screen.getByLabelText("Openly public on the internet"));
+    fireEvent.click(
+      screen.getByLabelText(/I understand that anyone who knows or discovers/i),
+    );
 
     const formData = new FormData(form!);
 

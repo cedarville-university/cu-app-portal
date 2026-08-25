@@ -31,6 +31,16 @@ describe("README", () => {
     expect(quickStart).not.toContain("Create and Publish");
   });
 
+  it("documents app audience and permission choices in plain language", () => {
+    const guide = readFileSync("docs/user/guide.md", "utf8");
+    const faq = readFileSync("docs/user/faq.md", "utf8");
+
+    expect(guide).toContain("Cedarville sign-in required");
+    expect(guide).toContain("Openly public on the internet");
+    expect(guide).toContain("Allow once");
+    expect(faq).toContain("Share in Portal");
+  });
+
   it("documents generated starter publication as one button, not a second confirmation", () => {
     const sources = [
       readFileSync("docs/user/quick-start.md", "utf8"),

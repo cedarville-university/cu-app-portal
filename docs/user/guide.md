@@ -1,7 +1,7 @@
 ---
 title: User Guide
 description: Detailed instructions for creating, managing, and publishing apps with the Cedarville App Portal.
-lastReviewed: 2026-08-20
+lastReviewed: 2026-08-25
 owner: Cedarville IT
 ---
 
@@ -29,14 +29,14 @@ The portal does not design every screen or write every business rule for you. Af
 
 Choose **Create New App** when you are starting a new project and want Cedarville-approved defaults. The entry page first explains that choosing a template is the next step. Recommended Templates are written for common, non-technical use cases. Developer Starters expose lower-level choices and are better when a developer already knows the intended architecture.
 
-Common template capabilities include:
+Common template choices include:
 
 - A PostgreSQL database for information the app must save.
-- Microsoft Entra login when only authorized Cedarville users should enter the app.
+- An audience choice: require Cedarville sign-in or make the app openly public.
 - A web interface for forms, trackers, and information pages.
 - An API or automation service for a system-to-system process without a normal web page.
 
-Selecting a database or login adds infrastructure and configuration. Choose it because the app needs it, not because it sounds useful.
+Choose only the options your app needs. The portal no longer asks you to choose a runtime; it prepares that technical detail for you.
 
 ### Add Existing App
 
@@ -53,8 +53,11 @@ Imported apps currently support root Next.js, Express, Python FastAPI, and plain
 2. Read the template summaries and select the closest match.
 3. Enter a short, recognizable app name. Avoid department abbreviations that coworkers may not understand.
 4. Describe the app's purpose and intended users.
-5. Review optional database and login choices.
-6. Select **Create App**. Creation stops before publishing.
+5. Choose who can use the app:
+   - **Cedarville sign-in required** means users must sign in with a Cedarville account.
+   - **Openly public on the internet** means anyone who knows or discovers the app address can use it. Read and confirm the warning before choosing this option.
+6. Review the optional database choice.
+7. Select **Create App**. Creation stops before publishing.
 
 When **Your starter app is ready** appears, choose **Publish the starter now** or **Customize it with Codex first**.
 
@@ -84,6 +87,12 @@ If you choose customization, the wizard asks whether you already have a GitHub a
 
 Portal collaboration and GitHub access are separate. Confirm that finished changes are committed and pushed to the managed repository; the portal cannot publish local files that were never pushed. Codex uses an HTTPS repository address and may open a secure browser or operating-system GitHub sign-in. Complete that sign-in yourself. Never provide a GitHub password, personal access token, SSH key, or other secret. Codex should stop and direct you to Cedarville IT if secure sign-in does not work; it should not use the GitHub plugin or GitHub CLI as a fallback.
 
+### Permission prompts
+
+Codex may ask to use the app folder, run a normal development command, or open secure GitHub sign-in. Read each request and allow only what is needed for the current app task. If a prompt offers **Allow once**, choose that option unless Cedarville IT has approved an established workflow that needs broader access.
+
+It is normally appropriate to allow access to the app folder you selected and to complete secure browser sign-in yourself. Do not approve access to unrelated folders or applications, and never paste passwords, tokens, private keys, or portal credentials into Codex.
+
 ## 6. Add code that already exists
 
 ### Already on GitHub
@@ -111,7 +120,9 @@ Before publishing, confirm:
 
 For a customized generated app or an imported or local app, select **Publish to Azure** from the focused wizard after preparation and setup are ready. This separate button is the explicit confirmation for those paths; setup and repair never publish on their own. An unchanged generated starter does not show a second confirmation because **Publish the starter now** already starts publishing. Publishing may take several minutes. Preparation, setup checks, repairs, and publishing pages refresh automatically, so leave the page open and do not repeat an action while it is running.
 
-When publishing succeeds, the wizard shows **Your app is online** and **Open app details**. The full app details page is intentionally withheld until this first success. If you leave earlier, My Apps shows **Continue Setup** and resumes the exact safe step. After success, My Apps shows **Manage App**.
+When publishing succeeds, the wizard shows **Your app is online**, **Open your app**, and **Open app details**. Open the app first to check its main task. The details page includes a plain-language readiness summary; technical management controls are under **Advanced options**. If you leave earlier, My Apps shows **Continue Setup** and resumes the exact safe step. After success, My Apps shows **Manage App**.
+
+**Share in Portal** is separate from app access. It lets signed-in Cedarville portal users discover the app's name, description, and link. It does not make an app public or change the audience you chose at creation.
 
 After publishing, open the app and test its most important task. A successful deployment only proves that Azure started the app; it does not prove every form, permission, integration, or data rule behaves correctly.
 

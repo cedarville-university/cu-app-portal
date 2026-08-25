@@ -170,6 +170,10 @@ test.describe("novice onboarding", () => {
     await page
       .getByLabel("Short Description")
       .fill("Created through the browser without live provider calls.");
+    await page.getByLabel("Openly public on the internet").check();
+    await page
+      .getByLabel(/I understand that anyone who knows or discovers/i)
+      .check();
     await page.getByRole("button", { name: "Create App" }).click();
 
     await expect(page).toHaveURL(/\/onboarding\/[^/?#]+$/);
@@ -191,6 +195,7 @@ test.describe("novice onboarding", () => {
       where: { id: requestId! },
       select: {
         appName: true,
+        submittedConfig: true,
         repositoryStatus: true,
         repositoryAccessStatus: true,
         publishStatus: true,
@@ -198,6 +203,7 @@ test.describe("novice onboarding", () => {
     });
     expect(request).toEqual({
       appName: createdAppName,
+      submittedConfig: expect.objectContaining({ entraLogin: false }),
       repositoryStatus: "READY",
       repositoryAccessStatus: "NOT_REQUESTED",
       publishStatus: "NOT_STARTED",
