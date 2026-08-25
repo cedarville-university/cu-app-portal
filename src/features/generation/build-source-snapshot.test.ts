@@ -79,6 +79,7 @@ describe("buildSourceSnapshot", () => {
       "handlers",
     );
     expect(files["src/auth.ts"]).toContain("MicrosoftEntraID");
+    expect(files["src/middleware.ts"]).toContain("export { auth as middleware }");
     expect(files["app-portal/deployment-manifest.json"]).toContain(
       "DATABASE_URL",
     );
@@ -109,6 +110,7 @@ describe("buildSourceSnapshot", () => {
     ).toBeUndefined();
     expect(files["src/app/api/auth/[...nextauth]/route.ts"]).toBeUndefined();
     expect(files["src/auth.ts"]).toBeUndefined();
+    expect(files["src/middleware.ts"]).toBeUndefined();
     expect(files["app-portal/deployment-manifest.json"]).not.toContain(
       "DATABASE_URL",
     );

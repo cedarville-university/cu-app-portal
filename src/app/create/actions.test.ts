@@ -60,6 +60,7 @@ function generatedForm() {
   formData.set("hostingTarget", "Azure App Service");
   formData.set("databaseProvider", "none");
   formData.set("entraLogin", "false");
+  formData.set("publicAcknowledgement", "on");
   return formData;
 }
 

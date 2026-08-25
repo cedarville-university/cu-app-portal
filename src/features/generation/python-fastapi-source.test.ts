@@ -56,5 +56,7 @@ describe("buildPythonFastApiGeneratedFiles", () => {
     expect(files["main.py"]).toContain('@app.get("/auth/callback")');
     expect(files["main.py"]).toContain('@app.get("/logout")');
     expect(files["main.py"]).toContain('@app.get("/protected")');
+    expect(files["main.py"]).toContain('@app.middleware("http")');
+    expect(files["main.py"]).toContain("return RedirectResponse(url=\"/login\")");
   });
 });

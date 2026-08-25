@@ -56,7 +56,7 @@ function buildTemplate(overrides: Partial<PortalTemplate> = {}): PortalTemplate 
 }
 
 describe("TemplateFormFields", () => {
-  it("shows optional database and login choices for the web app template", () => {
+  it("shows optional database and an explicit audience choice for the web app template", () => {
     render(<TemplateFormFields template={buildTemplate()} />);
 
     expect(
@@ -64,11 +64,12 @@ describe("TemplateFormFields", () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/postgresql/i)).toBeChecked();
     expect(screen.getByLabelText(/no database/i)).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/microsoft entra login/i)).toBeChecked();
+    expect(screen.getByRole("group", { name: /who can use this app/i })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /cedarville sign-in required/i })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: /openly public on the internet/i })).not.toBeChecked();
   });
 
-  it("renders optional database and login controls for FastAPI with no-feature defaults", () => {
+  it("renders an explicit audience choice for FastAPI", () => {
     const template = getTemplateBySlug("python-fastapi");
 
     if (!template) {
@@ -84,14 +85,10 @@ describe("TemplateFormFields", () => {
       screen.getByRole("radio", { name: /postgresql/i }),
     ).not.toBeChecked();
     expect(screen.getByRole("radio", { name: /no database/i })).toBeChecked();
-    expect(screen.getByRole("group", { name: /login/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole("radio", { name: /microsoft entra login/i }),
-    ).not.toBeChecked();
-    expect(screen.getByRole("radio", { name: /no login/i })).toBeChecked();
+    expect(screen.getByRole("group", { name: /who can use this app/i })).toBeInTheDocument();
   });
 
-  it("submits required database and login values for workflow presets", () => {
+  it("lets workflow presets choose an audience", () => {
     const template = getTemplateBySlug("department-form-approval");
 
     if (!template) {
@@ -104,12 +101,12 @@ describe("TemplateFormFields", () => {
       container.querySelector('input[name="databaseProvider"]'),
     ).toHaveAttribute("value", "postgresql");
     expect(container.querySelector('input[name="entraLogin"]')).toHaveAttribute(
-      "value",
-      "true",
+      "type",
+      "radio",
     );
   });
 
-  it("submits no database and no login values for public information pages", () => {
+  it("lets public information pages choose an audience", () => {
     const template = getTemplateBySlug("public-information-page");
 
     if (!template) {
@@ -122,12 +119,12 @@ describe("TemplateFormFields", () => {
       container.querySelector('input[name="databaseProvider"]'),
     ).toHaveAttribute("value", "none");
     expect(container.querySelector('input[name="entraLogin"]')).toHaveAttribute(
-      "value",
-      "false",
+      "type",
+      "radio",
     );
   });
 
-  it("submits explicit hidden values when features are unsupported", () => {
+  it("still shows the audience choice when legacy template metadata marks login unsupported", () => {
     const { container } = render(
       <TemplateFormFields
         template={buildTemplate({
@@ -152,8 +149,7 @@ describe("TemplateFormFields", () => {
 
     expect(databaseInput).toHaveAttribute("type", "hidden");
     expect(databaseInput).toHaveAttribute("value", "none");
-    expect(entraInput).toHaveAttribute("type", "hidden");
-    expect(entraInput).toHaveAttribute("value", "false");
+    expect(entraInput).toHaveAttribute("type", "radio");
   });
 
   it("submits a single select option without showing a visible choice", () => {

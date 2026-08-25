@@ -39,6 +39,7 @@ describe("createAppSchema", () => {
       appName: "Campus Dashboard",
       description: "Shows campus metrics.",
       hostingTarget: "Azure App Service",
+      entraLogin: "true",
     });
 
     expect(result.success).toBe(true);
@@ -48,6 +49,7 @@ describe("createAppSchema", () => {
     const result = createAppSchema({
       hostingTarget: "Azure App Service",
       features: optionalFeatures,
+      requirePublicAcknowledgement: true,
     }).safeParse({
       appName: "",
       description: "Shows campus metrics.",
@@ -117,6 +119,46 @@ describe("createAppSchema", () => {
     });
   });
 
+  it("requires an explicit audience choice", () => {
+    const result = createAppSchema({
+      hostingTarget: "Azure App Service",
+      features: optionalFeatures,
+    }).safeParse({
+      appName: "Campus Dashboard",
+      description: "Shows campus metrics.",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: ["entraLogin"] }),
+      ]),
+    );
+  });
+
+  it("requires acknowledgement before creating an openly public app", () => {
+    const result = createAppSchema({
+      hostingTarget: "Azure App Service",
+      features: optionalFeatures,
+      requirePublicAcknowledgement: true,
+    }).safeParse({
+      appName: "Campus Dashboard",
+      description: "Shows campus metrics.",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "postgresql",
+      entraLogin: "false",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: ["publicAcknowledgement"] }),
+      ]),
+    );
+  });
+
   it("accepts FastAPI with PostgreSQL and Entra login", () => {
     const template = getTemplateBySlug("python-fastapi");
 
@@ -161,7 +203,7 @@ describe("createAppSchema", () => {
     expect(parsed.entraLogin).toBe(true);
   });
 
-  it("rejects database and login for public information pages", () => {
+  it("rejects a database for public information pages while allowing either audience", () => {
     const template = getTemplateBySlug("public-information-page");
 
     if (!template) {
@@ -186,10 +228,6 @@ describe("createAppSchema", () => {
           path: ["databaseProvider"],
           message: "This template does not support a database.",
         }),
-        expect.objectContaining({
-          path: ["entraLogin"],
-          message: "This template does not support Entra login.",
-        }),
       ]),
     );
   });
@@ -209,7 +247,7 @@ describe("createAppSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects Entra login when the template does not support it", () => {
+  it("allows Cedarville sign-in even when legacy template metadata marks it unsupported", () => {
     const result = createAppSchema({
       hostingTarget: "Azure App Service",
       features: unsupportedFeatures,
@@ -221,7 +259,7 @@ describe("createAppSchema", () => {
       entraLogin: "true",
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it("rejects no database when the template requires one", () => {
@@ -239,7 +277,7 @@ describe("createAppSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects disabled Entra login when the template requires it", () => {
+  it("allows an openly public choice even when legacy template metadata requires login", () => {
     const result = createAppSchema({
       hostingTarget: "Azure App Service",
       features: requiredFeatures,
@@ -251,6 +289,6 @@ describe("createAppSchema", () => {
       entraLogin: "false",
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });

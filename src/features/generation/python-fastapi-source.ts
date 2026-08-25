@@ -96,7 +96,7 @@ function buildMainPy(
       ? [
           "from authlib.integrations.starlette_client import OAuth",
           "from fastapi import Depends, FastAPI, HTTPException, Request",
-          "from fastapi.responses import RedirectResponse",
+          "from fastapi.responses import JSONResponse, RedirectResponse",
           "from starlette.middleware.sessions import SessionMiddleware",
         ]
       : ["from fastapi import FastAPI"]),
@@ -123,6 +123,16 @@ def current_user(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="Sign in required.")
     return user
+
+
+@app.middleware("http")
+async def require_sign_in(request: Request, call_next):
+    public_paths = {"/login", "/auth/callback", "/api/health", "/docs", "/openapi.json"}
+    if request.url.path in public_paths or request.session.get("user"):
+        return await call_next(request)
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(status_code=401, content={"detail": "Sign in required."})
+    return RedirectResponse(url="/login")
 `
     : "";
   const dataRoute = hasDatabase

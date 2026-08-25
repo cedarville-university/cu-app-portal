@@ -1,5 +1,6 @@
 import React from "react";
 import type { PortalTemplate } from "@/features/templates/types";
+import { AudienceField } from "./audience-field";
 
 function renderDatabaseField(template: PortalTemplate) {
   if (template.features.database.mode === "unsupported") {
@@ -44,44 +45,6 @@ function renderDatabaseField(template: PortalTemplate) {
           defaultChecked={template.features.database.defaultProvider === "none"}
         />
         <span>No database</span>
-      </label>
-    </fieldset>
-  );
-}
-
-function renderEntraField(template: PortalTemplate) {
-  if (template.features.entraLogin.mode === "unsupported") {
-    return (
-      <input key="entraLogin" name="entraLogin" type="hidden" value="false" />
-    );
-  }
-
-  if (template.features.entraLogin.mode === "required") {
-    return (
-      <input key="entraLogin" name="entraLogin" type="hidden" value="true" />
-    );
-  }
-
-  return (
-    <fieldset key="entraLogin" className="form-group">
-      <legend className="form-label">Login</legend>
-      <label className="choice-row">
-        <input
-          type="radio"
-          name="entraLogin"
-          value="true"
-          defaultChecked={template.features.entraLogin.defaultEnabled}
-        />
-        <span>Microsoft Entra login</span>
-      </label>
-      <label className="choice-row">
-        <input
-          type="radio"
-          name="entraLogin"
-          value="false"
-          defaultChecked={!template.features.entraLogin.defaultEnabled}
-        />
-        <span>No login</span>
       </label>
     </fieldset>
   );
@@ -158,7 +121,7 @@ export function TemplateFormFields({ template }: { template: PortalTemplate }) {
         }
       })}
       {renderDatabaseField(template)}
-      {renderEntraField(template)}
+      <AudienceField />
     </>
   );
 }

@@ -25,7 +25,8 @@
     ],
     "entraLogin": [
       "src/app/api/auth/[...nextauth]/route.ts.template",
-      "src/auth.ts.template"
+      "src/auth.ts.template",
+      "src/middleware.ts.template"
     ]
   },
   "generatedFiles": [

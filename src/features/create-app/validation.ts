@@ -4,6 +4,7 @@ import type { TemplateFeatures } from "@/features/templates/types";
 export type CreateAppSchemaOptions = {
   hostingTarget: "Azure App Service";
   features: TemplateFeatures;
+  requirePublicAcknowledgement?: boolean;
 };
 
 function toAzureAppSlug(value: string) {
@@ -18,9 +19,6 @@ export function createAppSchema(options: CreateAppSchemaOptions) {
   const { features } = options;
   const databaseProviderOptions: readonly string[] =
     features.database.providerOptions;
-  const defaultEntraLogin = String(
-    options.features.entraLogin.defaultEnabled,
-  ) as "true" | "false";
 
   return z.object({
     appName: z
@@ -56,8 +54,10 @@ export function createAppSchema(options: CreateAppSchemaOptions) {
       .default(options.features.database.defaultProvider),
     entraLogin: z
       .union([z.boolean(), z.enum(["true", "false"])])
-      .default(defaultEntraLogin)
       .transform((value) => value === true || value === "true"),
+    publicAcknowledgement: z
+      .union([z.literal("on"), z.literal(true)])
+      .optional(),
   }).superRefine((value, ctx) => {
     if (
       features.database.mode === "unsupported" &&
@@ -92,19 +92,15 @@ export function createAppSchema(options: CreateAppSchemaOptions) {
       });
     }
 
-    if (features.entraLogin.mode === "unsupported" && value.entraLogin) {
+    if (
+      options.requirePublicAcknowledgement &&
+      !value.entraLogin &&
+      !value.publicAcknowledgement
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["entraLogin"],
-        message: "This template does not support Entra login.",
-      });
-    }
-
-    if (features.entraLogin.mode === "required" && !value.entraLogin) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["entraLogin"],
-        message: "Entra login is required for this template.",
+        path: ["publicAcknowledgement"],
+        message: "Confirm that the app will be openly public before continuing.",
       });
     }
   });

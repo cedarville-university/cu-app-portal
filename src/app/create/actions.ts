@@ -42,16 +42,19 @@ export async function extractCreateAppInput(
         template.features.database.defaultProvider,
     ),
     entraLogin: String(
-      formData.get("entraLogin") ?? template.features.entraLogin.defaultEnabled,
+      formData.get("entraLogin") ?? "",
     ),
+    publicAcknowledgement: formData.get("publicAcknowledgement") ?? undefined,
   };
 
   const parsed = createAppSchema({
     hostingTarget: template.hostingTarget,
     features: template.features,
+    requirePublicAcknowledgement: true,
   }).parse(payload);
 
-  return { ...parsed, templateSlug: payload.templateSlug };
+  const { publicAcknowledgement: _publicAcknowledgement, ...input } = parsed;
+  return { ...input, templateSlug: payload.templateSlug };
 }
 
 export async function createAppAction(formData: FormData) {
