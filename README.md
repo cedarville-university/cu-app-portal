@@ -27,7 +27,7 @@ The current generated templates reuse shared Next.js and Python FastAPI engines.
 - a GitHub Actions deployment workflow
 - a generated-app Codex publishing skill
 
-Portal-managed Azure publishing for generated apps uses one shared resource group, one shared App Service Plan, and one shared PostgreSQL flexible server. Each published app gets its own Azure Web App. When PostgreSQL is selected, it also gets its own database on the shared server.
+Portal-managed Azure publishing for generated apps uses one shared resource group, one shared App Service Plan, and one shared PostgreSQL flexible server. Each published app gets its own Azure Web App. When PostgreSQL is selected, it also gets its own database on the shared server. Node and static apps deploy ready-to-run packages, while FastAPI apps use Azure App Service Oryx build automation to install their declared Python dependencies during deployment.
 
 For generated and imported apps, the portal tracks whether publishing setup is ready. If Azure, Entra, or GitHub credentials drift or rotate, the app offers Repair Publishing Setup to refresh portal-managed setup. Failed deployments present both Retry Publish and Repair Publishing Setup so the user can choose whether to rerun deployment or repair prerequisites first.
 

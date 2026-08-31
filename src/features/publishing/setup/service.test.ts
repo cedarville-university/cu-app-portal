@@ -416,9 +416,8 @@ describe("publishing setup service", () => {
           exists: true,
           settings: {
             NODE_ENV: "production",
-            SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
-            ENABLE_ORYX_BUILD: "false",
-            WEBSITE_RUN_FROM_PACKAGE: "1",
+            SCM_DO_BUILD_DURING_DEPLOYMENT: "true",
+            ENABLE_ORYX_BUILD: "true",
           },
         }),
       },
@@ -462,7 +461,6 @@ describe("publishing setup service", () => {
               "NODE_ENV",
               "SCM_DO_BUILD_DURING_DEPLOYMENT",
               "ENABLE_ORYX_BUILD",
-              "WEBSITE_RUN_FROM_PACKAGE",
             ],
           }),
         }),
@@ -480,6 +478,50 @@ describe("publishing setup service", () => {
       data: expect.objectContaining({
         publishingSetupStatus: "READY",
         publishingSetupErrorSummary: null,
+      }),
+    });
+  });
+
+  it("requires repair when a FastAPI app still runs from a package", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            NODE_ENV: "production",
+            SCM_DO_BUILD_DURING_DEPLOYMENT: "true",
+            ENABLE_ORYX_BUILD: "true",
+            WEBSITE_RUN_FROM_PACKAGE: "1",
+          },
+        }),
+      },
+    });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      importedFastApiAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "azure_app_settings",
+          status: "FAIL",
+          metadata: expect.objectContaining({
+            mismatchedSettingNames: ["WEBSITE_RUN_FROM_PACKAGE"],
+            repairable: true,
+          }),
+        }),
+      }),
+    );
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "NEEDS_REPAIR",
       }),
     });
   });
@@ -566,7 +608,28 @@ describe("publishing setup service", () => {
         ReturnType<typeof prisma.appRequest.findUnique>
       >,
     );
-    const deps = createDeps();
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getAppSettings: vi.fn().mockResolvedValue({
+          exists: true,
+          settings: {
+            DATABASE_URL: "postgresql://example",
+            AUTH_URL: "https://app-campus-dashboard.azurewebsites.net",
+            NEXTAUTH_URL: "https://app-campus-dashboard.azurewebsites.net",
+            AUTH_SECRET: "auth-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
+            AUTH_MICROSOFT_ENTRA_ID_SECRET: "entra-client-secret",
+            AUTH_MICROSOFT_ENTRA_ID_ISSUER:
+              "https://login.microsoftonline.com/tenant/v2.0",
+            NODE_ENV: "production",
+            SCM_DO_BUILD_DURING_DEPLOYMENT: "true",
+            ENABLE_ORYX_BUILD: "true",
+          },
+        }),
+      },
+    });
 
     await preflightPublishingSetup("req_123", deps);
 
@@ -1018,6 +1081,9 @@ describe("publishing setup service", () => {
             AUTH_MICROSOFT_ENTRA_ID_SECRET: "custom-client-secret",
             AUTH_MICROSOFT_ENTRA_ID_ISSUER:
               "https://login.microsoftonline.com/custom/v2.0",
+            SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
+            ENABLE_ORYX_BUILD: "false",
+            WEBSITE_RUN_FROM_PACKAGE: "1",
             EXISTING_CUSTOM_SETTING: "keep-me",
           },
         }),
@@ -1046,9 +1112,8 @@ describe("publishing setup service", () => {
       settings: {
         EXISTING_CUSTOM_SETTING: "keep-me",
         NODE_ENV: "production",
-        SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
-        ENABLE_ORYX_BUILD: "false",
-        WEBSITE_RUN_FROM_PACKAGE: "1",
+        SCM_DO_BUILD_DURING_DEPLOYMENT: "true",
+        ENABLE_ORYX_BUILD: "true",
       },
     });
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
@@ -1301,9 +1366,8 @@ describe("publishing setup service", () => {
               AUTH_MICROSOFT_ENTRA_ID_ISSUER:
                 "https://login.microsoftonline.com/tenant/v2.0",
               NODE_ENV: "production",
-              SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
-              ENABLE_ORYX_BUILD: "false",
-              WEBSITE_RUN_FROM_PACKAGE: "1",
+              SCM_DO_BUILD_DURING_DEPLOYMENT: "true",
+              ENABLE_ORYX_BUILD: "true",
               EXISTING_CUSTOM_SETTING: "keep-me",
             },
           }),

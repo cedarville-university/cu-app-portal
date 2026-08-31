@@ -95,6 +95,7 @@ Current v1 design decisions:
 - Each published app gets its own Azure Web App. When PostgreSQL is selected for that app, it also gets its own PostgreSQL database on the shared server.
 - `AZURE_PUBLISH_RUNTIME_STACK=NODE|24-lts` remains the current default for the legacy/imported Node publishing path.
 - Runtime-specific generated templates and prepared imported apps carry their App Service runtime stack in the deployment manifest. The portal-managed publisher uses that runtime when creating the Web App.
+- FastAPI Web Apps use Azure App Service build automation: `SCM_DO_BUILD_DURING_DEPLOYMENT=true` and `ENABLE_ORYX_BUILD=true`. The portal removes `WEBSITE_RUN_FROM_PACKAGE` for FastAPI because Python App Service does not support that mode. Generated and prepared FastAPI workflows deploy source, and Oryx installs dependencies from the root `requirements.txt` or supported `pyproject.toml` configuration.
 - Database and auth publishing are conditional based on the selected template or imported app features. Apps that do not select PostgreSQL skip per-app database setup, and apps that do not select Microsoft Entra login skip auth settings and redirect URI setup.
 - The create flow groups catalog choices into Recommended Templates for common non-technical app shapes and Developer Starters for lower-level runtime-oriented starts. Some recommended presets reuse the shared Next.js source while applying stricter database defaults; every active generated template still requires an explicit Cedarville-sign-in or openly-public audience choice.
 
@@ -164,6 +165,8 @@ GitHub repositories can use either the legacy name-based OIDC subject or the imm
 If the correct subject already exists under another federated credential name, repair reuses it and removes the stale portal-named credential instead of attempting a duplicate create. Provider failures are recorded with an allow-listed safe summary and support reference. Owners and collaborators see only the safe status and support reference; raw provider diagnostics remain server-side or admin-only.
 
 Repair does not delete repositories, dispatch deployment workflows, or delete Azure resources.
+
+For an existing FastAPI app created before Oryx build automation was enabled, deploy the updated portal, run **Repair Publishing Setup**, and then publish or retry separately. Repair changes the Web App settings but intentionally does not dispatch the GitHub Actions workflow that causes Azure to build the Python environment.
 
 After a failed deployment, the app details page offers both Retry Publish and Repair Publishing Setup. Retry starts a new deployment attempt and reconciles the portal-managed federated credential before dispatch. Repair refreshes setup without dispatching a workflow; publish or retry separately afterward.
 

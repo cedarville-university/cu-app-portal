@@ -319,6 +319,12 @@ describe("buildSourceSnapshot", () => {
     expect(files["requirements.txt"]).toContain("authlib");
     expect(files["requirements.txt"]).toContain("itsdangerous");
     expect(files["package.json"]).toBeUndefined();
+    expect(
+      files[".github/workflows/deploy-azure-app-service.yml"],
+    ).not.toContain(".python_packages");
+    expect(
+      files[".github/workflows/deploy-azure-app-service.yml"],
+    ).not.toContain("pip install");
   });
 
   it("generates recommended presets from the shared web app source", async () => {

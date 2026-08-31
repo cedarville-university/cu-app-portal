@@ -351,6 +351,22 @@ describe("createAzurePublishRuntime", () => {
     );
   });
 
+  it("enables Azure dependency builds when provisioning FastAPI apps", async () => {
+    const { deps, arm } = createDeps({
+      appRequest: readyImportedFastApiAppRequest,
+    });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz");
+
+    const settings = vi.mocked(arm.putAppSettings).mock.calls[0]?.[0].settings;
+    expect(settings).toMatchObject({
+      SCM_DO_BUILD_DURING_DEPLOYMENT: "true",
+      ENABLE_ORYX_BUILD: "true",
+    });
+    expect(settings).not.toHaveProperty("WEBSITE_RUN_FROM_PACKAGE");
+  });
+
   it("registers the FastAPI auth callback path for generated FastAPI apps", async () => {
     const { deps, graph } = createDeps({
       appRequest: readyGeneratedFastApiWithEntraRequest,

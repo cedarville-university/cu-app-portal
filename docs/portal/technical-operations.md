@@ -234,6 +234,8 @@ The `docs/portal/setup.md` file contains the approved role-assignment shape and 
 
 **Repair Publishing Setup** refreshes only portal-managed GitHub Actions secrets and OIDC/federated credentials, plus necessary portal-managed Azure/Entra setup. It does not delete repositories or Azure resources and does not dispatch a deployment. Use **Retry Publish** when setup is already healthy and the goal is to rerun the workflow.
 
+FastAPI apps are runtime-built by Azure App Service. Their expected settings are `SCM_DO_BUILD_DURING_DEPLOYMENT=true` and `ENABLE_ORYX_BUILD=true`, with `WEBSITE_RUN_FROM_PACKAGE` absent. If a FastAPI container reports `ModuleNotFoundError` for a dependency declared in `requirements.txt` or a supported `pyproject.toml` configuration, run **Repair Publishing Setup** to restore those settings, then use **Retry Publish** to dispatch a fresh deployment. Node and static apps retain the portal's ready-to-run package settings.
+
 ### Per-app publishing triage
 
 1. Verify that the app record has a managed repository in `READY` state and a default branch.

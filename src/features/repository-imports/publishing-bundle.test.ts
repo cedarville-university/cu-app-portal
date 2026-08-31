@@ -240,10 +240,10 @@ describe("planPublishingBundle", () => {
     ).toContain("Setup Python");
     expect(
       plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"],
-    ).toContain(".python_packages/lib/site-packages");
+    ).not.toContain(".python_packages/lib/site-packages");
     expect(
       plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"],
-    ).toContain("pyproject.toml");
+    ).not.toContain("pip install");
     const manifest = JSON.parse(
       plan.filesToWrite["app-portal/deployment-manifest.json"],
     );
@@ -341,7 +341,7 @@ describe("planPublishingBundle", () => {
     ).toContain("Use the `cu-app-portal` skill");
   });
 
-  it("extracts FastAPI dependencies from project pyproject dependencies", () => {
+  it("leaves project pyproject dependencies for Azure build automation", () => {
     const plan = planPublishingBundle({
       appName: "Reports API",
       repositoryOwner: "cedarville-it",
@@ -365,16 +365,12 @@ describe("planPublishingBundle", () => {
       plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"];
 
     expect(plan.filesToWrite["package.json"]).toBeUndefined();
-    expect(workflow).toContain("tomllib");
-    expect(workflow).toContain("project\", {}).get(\"dependencies\"");
-    expect(workflow).toContain("pyproject-requirements.txt");
-    expect(workflow).toContain(
-      "python -m pip install -r pyproject-requirements.txt",
-    );
-    expect(workflow).not.toContain("python -m pip install . --target");
+    expect(plan.filesToWrite["pyproject.toml"]).toBeUndefined();
+    expect(workflow).not.toContain("tomllib");
+    expect(workflow).not.toContain("pip install");
   });
 
-  it("extracts FastAPI dependencies from Poetry pyproject tables", () => {
+  it("leaves Poetry dependencies for Azure build automation", () => {
     const plan = planPublishingBundle({
       appName: "Reports API",
       repositoryOwner: "cedarville-it",
@@ -396,9 +392,8 @@ describe("planPublishingBundle", () => {
     const workflow =
       plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"];
 
-    expect(workflow).toContain("poetry_dependencies");
-    expect(workflow).toContain("normalized_name.lower() == \"python\"");
-    expect(workflow).toContain("pyproject-requirements.txt");
-    expect(workflow).not.toContain("python -m pip install . --target");
+    expect(plan.filesToWrite["pyproject.toml"]).toBeUndefined();
+    expect(workflow).not.toContain("poetry_dependencies");
+    expect(workflow).not.toContain("pip install");
   });
 });

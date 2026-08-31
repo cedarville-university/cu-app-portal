@@ -21,6 +21,7 @@ import {
   buildGitHubFederatedCredentialSubject,
   type GitHubOidcRepositoryIdentity,
 } from "../github-oidc";
+import { appServiceDeploymentSettings } from "./app-settings";
 
 type RuntimeDeps = {
   config: AzurePublishConfig;
@@ -564,9 +565,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const settings: Record<string, string> = {
         ...buildUserAppSettings(environmentVariables, keyVaultUri),
         NODE_ENV: "production",
-        SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
-        ENABLE_ORYX_BUILD: "false",
-        WEBSITE_RUN_FROM_PACKAGE: "1",
+        ...appServiceDeploymentSettings(appServiceRuntime),
       };
 
       if (databaseProvider === "postgresql") {

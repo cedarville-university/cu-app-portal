@@ -11,6 +11,11 @@ import { getTemplateBySlug } from "@/features/templates/catalog";
 import type { DatabaseProvider, PortalTemplate } from "@/features/templates/types";
 import { createAzureArmClient } from "@/features/publishing/azure/arm-client";
 import {
+  applyAppServiceDeploymentSettings,
+  appServiceDeploymentSettings,
+  forbiddenAppServiceDeploymentSettingNames,
+} from "@/features/publishing/azure/app-settings";
+import {
   type AzurePublishConfig,
   loadAzurePublishConfig,
 } from "@/features/publishing/azure/config";
@@ -51,9 +56,6 @@ const REQUIRED_PORTAL_MANAGED_APP_SETTINGS = [
   "AUTH_MICROSOFT_ENTRA_ID_SECRET",
   "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
   "NODE_ENV",
-  "SCM_DO_BUILD_DURING_DEPLOYMENT",
-  "ENABLE_ORYX_BUILD",
-  "WEBSITE_RUN_FROM_PACKAGE",
 ] as const;
 const SECRET_PORTAL_MANAGED_APP_SETTINGS: ReadonlySet<string> = new Set([
   "DATABASE_URL",
@@ -465,6 +467,7 @@ function buildRepairAppSettings({
   databaseProvider,
   publishUrl,
   entraLogin,
+  runtime,
 }: {
   existingSettings: Record<string, string>;
   config: AzurePublishConfig;
@@ -472,8 +475,12 @@ function buildRepairAppSettings({
   databaseProvider: DatabaseProvider;
   publishUrl: string;
   entraLogin: boolean;
+  runtime: SelectedAppServiceRuntime;
 }) {
-  const settings = { ...existingSettings };
+  const settings = applyAppServiceDeploymentSettings(
+    existingSettings,
+    runtime,
+  );
 
   if (databaseProvider !== "postgresql") {
     for (const settingName of DATABASE_APP_SETTINGS) {
@@ -501,9 +508,6 @@ function buildRepairAppSettings({
   }
 
   settings.NODE_ENV = "production";
-  settings.SCM_DO_BUILD_DURING_DEPLOYMENT = "false";
-  settings.ENABLE_ORYX_BUILD = "false";
-  settings.WEBSITE_RUN_FROM_PACKAGE = "1";
 
   return settings;
 }
@@ -726,41 +730,52 @@ async function checkActionsSecrets({
 function requiredAppSettings({
   databaseProvider,
   entraLogin,
+  runtime,
 }: {
   databaseProvider: DatabaseProvider;
   entraLogin: boolean;
+  runtime: SelectedAppServiceRuntime;
 }) {
-  return REQUIRED_PORTAL_MANAGED_APP_SETTINGS.filter((settingName) => {
-    if (databaseProvider !== "postgresql" && settingName === "DATABASE_URL") {
-      return false;
-    }
+  const featureSettingNames = REQUIRED_PORTAL_MANAGED_APP_SETTINGS.filter(
+    (settingName) => {
+      if (databaseProvider !== "postgresql" && settingName === "DATABASE_URL") {
+        return false;
+      }
 
-    if (
-      !entraLogin &&
-      [
-        "AUTH_URL",
-        "NEXTAUTH_URL",
-        "AUTH_SECRET",
-        "AUTH_MICROSOFT_ENTRA_ID_ID",
-        "AUTH_MICROSOFT_ENTRA_ID_SECRET",
-        "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
-      ].includes(settingName)
-    ) {
-      return false;
-    }
+      if (
+        !entraLogin &&
+        [
+          "AUTH_URL",
+          "NEXTAUTH_URL",
+          "AUTH_SECRET",
+          "AUTH_MICROSOFT_ENTRA_ID_ID",
+          "AUTH_MICROSOFT_ENTRA_ID_SECRET",
+          "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
+        ].includes(settingName)
+      ) {
+        return false;
+      }
 
-    return true;
-  });
+      return true;
+    },
+  );
+
+  return [
+    ...featureSettingNames,
+    ...Object.keys(appServiceDeploymentSettings(runtime)),
+  ];
 }
 
 function expectedPublicAppSettings({
   config,
   publishUrl,
   entraLogin,
+  runtime,
 }: {
   config: AzurePublishConfig;
   publishUrl: string;
   entraLogin: boolean;
+  runtime: SelectedAppServiceRuntime;
 }) {
   return {
     ...(entraLogin
@@ -772,9 +787,7 @@ function expectedPublicAppSettings({
         }
       : {}),
     NODE_ENV: "production",
-    SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
-    ENABLE_ORYX_BUILD: "false",
-    WEBSITE_RUN_FROM_PACKAGE: "1",
+    ...appServiceDeploymentSettings(runtime),
   };
 }
 
@@ -808,12 +821,14 @@ async function checkAzureAppSettings({
   publishUrl,
   databaseProvider,
   entraLogin,
+  runtime,
 }: {
   deps: PublishingSetupServiceDeps;
   webAppName: string;
   publishUrl: string;
   databaseProvider: DatabaseProvider;
   entraLogin: boolean;
+  runtime: SelectedAppServiceRuntime;
 }) {
   try {
     const appSettings = await deps.arm.getAppSettings({
@@ -831,6 +846,7 @@ async function checkAzureAppSettings({
     const requiredSettingNames = requiredAppSettings({
       databaseProvider,
       entraLogin,
+      runtime,
     });
     const missingSettingNames = requiredSettingNames.filter(
       (settingName) => !(settingName in appSettings.settings),
@@ -850,8 +866,15 @@ async function checkAzureAppSettings({
         config: deps.config,
         publishUrl,
         entraLogin,
+        runtime,
       }),
     });
+
+    mismatchedSettingNames.push(
+      ...forbiddenAppServiceDeploymentSettingNames(runtime).filter(
+        (name) => name in appSettings.settings,
+      ),
+    );
 
     if (mismatchedSettingNames.length > 0) {
       return fail(
@@ -1032,6 +1055,7 @@ async function runPreflightChecks(
   const names = targetNames(appRequest);
   const databaseProvider = selectedDatabaseProvider(appRequest);
   const entraLogin = selectedEntraLogin(appRequest);
+  const appServiceRuntime = selectedAppServiceRuntime(appRequest, deps.config);
   const redirectUri = `${publishUrlFor(appRequest)}${selectedEntraCallbackPath(
     appRequest,
     deps.config,
@@ -1116,6 +1140,7 @@ async function runPreflightChecks(
       publishUrl: publishUrlFor(appRequest),
       databaseProvider,
       entraLogin,
+      runtime: appServiceRuntime,
     }),
   );
   checks.push(
@@ -1233,6 +1258,7 @@ export async function repairPublishingSetup(
         databaseProvider,
         publishUrl: effectivePublishUrl,
         entraLogin,
+        runtime: appServiceRuntime,
       }),
     });
 
