@@ -50,13 +50,13 @@ Each template entry defines:
 - `appServiceRuntime`, including the App Service runtime family, framework, Azure runtime stack, startup command, and workflow filename
 - `features`, including database support and Microsoft Entra login support
 
-Current active starter templates are grouped into Recommended Templates and Developer Starters. Recommended Templates are non-technical presets such as Department Form + Approval, Simple Data Tracker, and Public Information Page. They can reuse the shared Next.js source through `sourceTemplateSlug: "web-app"` while keeping their own names, descriptions, and database/login defaults.
+Current active starter templates are grouped into Recommended Templates and Developer Starters. Recommended Templates are non-technical presets such as Department Form + Approval, Simple Data Tracker, and Public Information Page. They can reuse the shared Next.js source through `sourceTemplateSlug: "web-app"` while keeping their own names, descriptions, and database defaults.
 
-Developer Starters expose the lower-level Custom Web App and API / Automation Service choices. Both target Azure App Service, but each carries its own runtime stack and feature support in catalog metadata. API / Automation Service defaults to no database and no login, with optional PostgreSQL and Microsoft Entra login controls in the create flow.
+Developer Starters expose the lower-level Custom Web App and API / Automation Service choices. Both target Azure App Service, but each carries its own runtime stack and feature support in catalog metadata. API / Automation Service defaults to no database, while the create flow still requires the user to explicitly choose Cedarville sign-in or openly public access.
 
 Python `http.server` support is import-only for plain static repositories. Do not add it to the generated template catalog unless the product scope changes; imported static apps get runtime metadata during repository compatibility scanning and keep PostgreSQL and Microsoft Entra disabled.
 
-`features.database` declares whether PostgreSQL is unsupported, optional, or required, plus the default provider. `features.entraLogin` declares whether generated Microsoft Entra login is unsupported, optional, or required, plus the default enabled state.
+`features.database` declares whether PostgreSQL is unsupported, optional, or required, plus the default provider. `features.entraLogin` is retained as legacy compatibility metadata for older saved requests and publishing paths that do not contain an explicit audience choice. For every current active generated template, the create form ignores the legacy mode and default, requires the user to choose either Cedarville sign-in or openly public access, and stores that choice on the request. Any new generated source engine must implement both choices before its templates are activated.
 
 The seed script stores the user-facing decision metadata, runtime metadata, and feature metadata in `inputSchema` alongside the form fields so database rows stay aligned with the catalog.
 

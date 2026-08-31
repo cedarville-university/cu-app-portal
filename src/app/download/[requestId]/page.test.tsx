@@ -286,6 +286,14 @@ describe("DownloadPage admin publishing recovery", () => {
       expect(
         screen.getByRole("button", { name: "Repair Publishing Setup" }),
       ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Retry Publish" }).closest("details"),
+      ).toBeNull();
+      expect(
+        screen
+          .getByRole("button", { name: "Repair Publishing Setup" })
+          .closest("details"),
+      ).toBeNull();
     },
   );
 
@@ -312,6 +320,28 @@ describe("DownloadPage admin publishing recovery", () => {
     expect(
       screen.queryByRole("button", { name: /repair publishing setup/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps auto-deploy visible while leaving deployment diagnostics advanced", async () => {
+    await renderPage({
+      publishStatus: "SUCCEEDED",
+      azureWebAppName: "campus-dashboard",
+      deploymentTarget: "Azure App Service",
+      primaryPublishUrl: "https://campus-dashboard.azurewebsites.net",
+      publishAttempts: [
+        {
+          githubWorkflowRunUrl:
+            "https://github.com/cedarville-it/campus-dashboard/actions/runs/123",
+        },
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Enable Auto-Deploy" }).closest("details"),
+    ).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Deployment log" }).closest("details"),
+    ).not.toBeNull();
   });
 
   it("keeps publish and repair mutations absent before imported preparation", async () => {

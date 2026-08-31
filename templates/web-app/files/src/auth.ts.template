@@ -3,6 +3,9 @@ import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  callbacks: {
+    authorized: ({ auth }) => Boolean(auth?.user),
+  },
   providers: [
     MicrosoftEntraID({
       clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,

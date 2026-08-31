@@ -278,13 +278,7 @@ function renderPublishingSetupStatus(request: {
   preparationStatus?: RepositoryPreparationStatus | null;
   publishStatus?: PublishStatus | null;
   publishingSetupStatus?: PublishingSetupStatus | null;
-  publishingSetupErrorSummary?: string | null;
-  publishSetupChecks?: Array<{
-    checkKey: string;
-    status: string;
-    message: string;
-  }>;
-}, showProviderDiagnostics = false) {
+}) {
   const status = getEffectivePublishingSetupStatus({
     publishStatus: request.publishStatus,
     publishingSetupStatus: request.publishingSetupStatus,
@@ -302,21 +296,6 @@ function renderPublishingSetupStatus(request: {
     <section aria-label="Publishing setup status" className="setup-status">
       <h3 className="setup-status__title">Publishing setup</h3>
       <p>Status: {formatStatus(status)}</p>
-      {showProviderDiagnostics && request.publishingSetupErrorSummary ? (
-        <p className="setup-status__summary">
-          {request.publishingSetupErrorSummary}
-        </p>
-      ) : null}
-      {request.publishSetupChecks?.length ? (
-        <ul className="setup-status__checks">
-          {request.publishSetupChecks.map((check) => (
-            <li key={check.checkKey}>
-              {formatCheckKey(check.checkKey)}: {formatStatus(check.status)}
-              {showProviderDiagnostics ? <> — {check.message}</> : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
       {setupActionEligibility.eligible && request.publishStatus !== "FAILED" ? (
         <form action={repairAction}>
           <PendingSubmitButton
@@ -1069,6 +1048,54 @@ export default async function DownloadPage({
           />
         ) : null}
 
+        <div className="card card--navy-border">
+          <p className="section-title">Azure Publishing</p>
+          <div className="status-table" style={{ marginBottom: "1rem" }}>
+            <div className="status-row">
+              <span className="status-row__label">Status</span>
+              <span className={`badge badge--${pub.variant}`}>
+                {pub.label}
+              </span>
+            </div>
+          </div>
+
+          {isAdmin && appRequest.publishErrorSummary &&
+          appRequest.repositoryStatus !== "FAILED" ? (
+            <div
+              className="warning-box"
+              style={{ marginBottom: "0.875rem" }}
+            >
+              Last publish note: {appRequest.publishErrorSummary}
+            </div>
+          ) : null}
+
+          {renderPublishingSetupStatus({
+            id: appRequest.id,
+            repositoryStatus: appRequest.repositoryStatus,
+            sourceOfTruth: appRequest.sourceOfTruth,
+            preparationStatus: appRequest.repositoryImport?.preparationStatus,
+            publishStatus: appRequest.publishStatus,
+            publishingSetupStatus: effectivePublishingSetupStatus,
+          })}
+
+          {renderPublishAction({
+            requestId,
+            publishStatus: appRequest.publishStatus,
+            repositoryStatus: appRequest.repositoryStatus,
+            sourceOfTruth: appRequest.sourceOfTruth,
+            preparationStatus: appRequest.repositoryImport?.preparationStatus,
+            publishingSetupStatus: effectivePublishingSetupStatus,
+          })}
+          {renderPushToDeployButton({
+            id: appRequest.id,
+            sourceOfTruth: appRequest.sourceOfTruth,
+            repositoryStatus: appRequest.repositoryStatus,
+            publishStatus: appRequest.publishStatus,
+            deploymentTarget: appRequest.deploymentTarget,
+            deploymentTriggerMode: appRequest.deploymentTriggerMode,
+          })}
+        </div>
+
         <details className="card">
           <summary className="section-title">Advanced options</summary>
           <div style={{ display: "grid", gap: "1.25rem", marginTop: "1.25rem" }}>
@@ -1232,16 +1259,10 @@ export default async function DownloadPage({
           ) : null}
         </div>
 
-        {/* Publish section */}
+        {/* Publishing diagnostics */}
         <div className="card card--navy-border">
-          <p className="section-title">Azure Publishing</p>
+          <p className="section-title">Azure Publishing Details</p>
           <div className="status-table" style={{ marginBottom: "1rem" }}>
-            <div className="status-row">
-              <span className="status-row__label">Status</span>
-              <span className={`badge badge--${pub.variant}`}>
-                {pub.label}
-              </span>
-            </div>
             {appRequest.azureWebAppName ? (
               <div className="status-row">
                 Azure app: {appRequest.azureWebAppName}
@@ -1284,47 +1305,21 @@ export default async function DownloadPage({
             ) : null}
           </div>
 
-          {isAdmin && appRequest.publishErrorSummary &&
-          appRequest.repositoryStatus !== "FAILED" ? (
-            <div
-              className="warning-box"
-              style={{ marginBottom: "0.875rem" }}
-            >
-              Last publish note: {appRequest.publishErrorSummary}
+          {isAdmin && appRequest.publishingSetupErrorSummary ? (
+            <div className="warning-box" style={{ marginBottom: "0.875rem" }}>
+              Publishing setup note: {appRequest.publishingSetupErrorSummary}
             </div>
           ) : null}
-
-          {renderPublishingSetupStatus(
-            {
-              id: appRequest.id,
-              repositoryStatus: appRequest.repositoryStatus,
-              sourceOfTruth: appRequest.sourceOfTruth,
-              preparationStatus: appRequest.repositoryImport?.preparationStatus,
-              publishStatus: appRequest.publishStatus,
-              publishingSetupStatus: effectivePublishingSetupStatus,
-              publishingSetupErrorSummary:
-                appRequest.publishingSetupErrorSummary,
-              publishSetupChecks: appRequest.publishSetupChecks,
-            },
-            isAdmin,
-          )}
-
-          {renderPublishAction({
-            requestId,
-            publishStatus: appRequest.publishStatus,
-            repositoryStatus: appRequest.repositoryStatus,
-            sourceOfTruth: appRequest.sourceOfTruth,
-            preparationStatus: appRequest.repositoryImport?.preparationStatus,
-            publishingSetupStatus: effectivePublishingSetupStatus,
-          })}
-          {renderPushToDeployButton({
-            id: appRequest.id,
-            sourceOfTruth: appRequest.sourceOfTruth,
-            repositoryStatus: appRequest.repositoryStatus,
-            publishStatus: appRequest.publishStatus,
-            deploymentTarget: appRequest.deploymentTarget,
-            deploymentTriggerMode: appRequest.deploymentTriggerMode,
-          })}
+          {appRequest.publishSetupChecks?.length ? (
+            <ul className="setup-status__checks">
+              {appRequest.publishSetupChecks.map((check) => (
+                <li key={check.checkKey}>
+                  {formatCheckKey(check.checkKey)}: {formatStatus(check.status)}
+                  {isAdmin ? <> — {check.message}</> : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
         <EnvVarsPanel

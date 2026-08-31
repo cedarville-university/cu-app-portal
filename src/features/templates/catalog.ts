@@ -43,9 +43,9 @@ const templates: PortalTemplate[] = [
     sourceTemplateSlug: "web-app",
     name: "Department Form + Approval",
     description:
-      "A guided request form starter with reviewer approval and Cedarville sign-in.",
+      "A guided request form starter with reviewer approval; you choose Cedarville sign-in or openly public access.",
     decisionSummary:
-      "Use this when a department needs a structured request form with reviewer approval and a searchable record of submissions.",
+      "Use this when a department needs a structured request form with reviewer approval and a searchable record of submissions. You will explicitly choose Cedarville sign-in or openly public access.",
     bestFor: [
       "Department intake forms",
       "Approval workflows",
@@ -77,7 +77,7 @@ const templates: PortalTemplate[] = [
     description:
       "A shared internal tracker starter for replacing small spreadsheet-driven workflows.",
     decisionSummary:
-      "Use this when your team currently tracks something in a spreadsheet and needs shared editing, filtering, and history.",
+      "Use this when your team currently tracks something in a spreadsheet and needs shared editing, filtering, and history. You will explicitly choose Cedarville sign-in or openly public access.",
     bestFor: [
       "Equipment or room lists",
       "Program rosters",
@@ -107,9 +107,9 @@ const templates: PortalTemplate[] = [
     sourceTemplateSlug: "web-app",
     name: "Public Information Page",
     description:
-      "A simple Cedarville-styled page or small site starter without login or stored data.",
+      "A simple Cedarville-styled page or small site starter without stored data.",
     decisionSummary:
-      "Use this when you need a polished web page or small site, but do not need logins, workflows, or stored data.",
+      "Use this when you need a polished web page or small site without workflows or stored data; you will still choose Cedarville sign-in or openly public access.",
     bestFor: [
       "Program information pages",
       "Resource pages",
@@ -140,7 +140,7 @@ const templates: PortalTemplate[] = [
     description:
       "A Cedarville-styled full-stack web application starter for Azure App Service.",
     decisionSummary:
-      "Use this when you want to start from a blank Cedarville-styled web app with flexible pages, forms, and server-side logic.",
+      "Use this when you want to start from a blank Cedarville-styled web app with flexible pages, forms, and server-side logic. You will explicitly choose Cedarville sign-in or openly public access.",
     bestFor: [
       "Staff-facing web apps",
       "Forms and dashboards",
@@ -171,7 +171,7 @@ const templates: PortalTemplate[] = [
     description:
       "A compact Python API starter for Azure App Service with FastAPI health and sample routes.",
     decisionSummary:
-      "Use this when the app's main job is processing data, receiving requests, connecting systems, or using Python libraries. Database and Cedarville sign-in can be enabled when needed.",
+      "Use this when the app's main job is processing data, receiving requests, connecting systems, or using Python libraries. You can add a database and will explicitly choose Cedarville sign-in or openly public access.",
     bestFor: [
       "Python APIs",
       "Automation endpoints",

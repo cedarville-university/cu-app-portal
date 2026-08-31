@@ -94,7 +94,9 @@ describe("CreatePage", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      fastApi.getByText(/database and cedarville sign-in can be enabled/i),
+      fastApi.getByText(
+        /add a database and will explicitly choose cedarville sign-in or openly public access/i,
+      ),
     ).toBeInTheDocument();
     expect(fastApi.queryByText("Python 3.14 / FastAPI")).not.toBeInTheDocument();
     expect(fastApi.getByText("Python APIs")).toBeInTheDocument();

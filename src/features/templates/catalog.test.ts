@@ -45,6 +45,8 @@ describe("getActiveTemplates", () => {
     ]);
     for (const template of templates) {
       expect(template.decisionSummary.length).toBeGreaterThan(20);
+      expect(template.decisionSummary).toMatch(/Cedarville sign-in/i);
+      expect(template.decisionSummary).toMatch(/openly public/i);
       expect(template.bestFor.length).toBeGreaterThan(0);
       expect(template.appServiceRuntime.azureRuntimeStack).toMatch(/\|/);
       expect(template.features.database.mode).toMatch(

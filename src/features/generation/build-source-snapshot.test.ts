@@ -1,5 +1,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
+import ts from "typescript";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/features/templates/catalog", async (importOriginal) => {
@@ -50,10 +52,40 @@ vi.mock("@/features/templates/catalog", async (importOriginal) => {
 
 afterEach(() => {
   vi.resetModules();
+  vi.unstubAllEnvs();
 });
 
 async function loadBuildSourceSnapshot() {
   return (await import("./build-source-snapshot")).buildSourceSnapshot;
+}
+
+function executeGeneratedModule(
+  source: string,
+  modules: Record<string, unknown>,
+) {
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  const generatedModule = { exports: {} as Record<string, unknown> };
+  const generatedRequire = (moduleName: string) => {
+    if (!(moduleName in modules)) {
+      throw new Error(`Unexpected generated module import: ${moduleName}`);
+    }
+
+    return modules[moduleName];
+  };
+
+  new Function("require", "module", "exports", output)(
+    generatedRequire,
+    generatedModule,
+    generatedModule.exports,
+  );
+
+  return generatedModule.exports;
 }
 
 describe("buildSourceSnapshot", () => {
@@ -91,6 +123,147 @@ describe("buildSourceSnapshot", () => {
     );
     expect(files["src/app/page.tsx"]).toContain("getAppDataStatus");
     expect(files["src/lib/app-data.ts"]).toContain("PrismaClient");
+  });
+
+  it("denies anonymous generated-app requests and allows signed-in users", async () => {
+    const buildSourceSnapshot = await loadBuildSourceSnapshot();
+    const files = await buildSourceSnapshot({
+      templateSlug: "web-app",
+      appName: "Campus Hub",
+      description: "Student services portal",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: true,
+    });
+    let capturedConfig:
+      | {
+          callbacks?: {
+            authorized?: (input: {
+              auth: { user?: { email?: string } } | null;
+              request: Request;
+            }) => boolean | Promise<boolean>;
+          };
+        }
+      | undefined;
+    const nextAuth = (config: typeof capturedConfig) => {
+      capturedConfig = config;
+      return {
+        handlers: {},
+        auth: () => undefined,
+        signIn: () => undefined,
+        signOut: () => undefined,
+      };
+    };
+
+    executeGeneratedModule(files["src/auth.ts"]!, {
+      "next-auth": { __esModule: true, default: nextAuth },
+      "next-auth/providers/microsoft-entra-id": {
+        __esModule: true,
+        default: (options: unknown) => options,
+      },
+    });
+
+    const authorize = capturedConfig?.callbacks?.authorized;
+    expect(authorize).toBeTypeOf("function");
+    expect(
+      await authorize!({
+        auth: null,
+        request: new Request("https://campus-hub.example.test/"),
+      }),
+    ).toBe(false);
+    vi.stubEnv("E2E_AUTH_BYPASS", "true");
+    expect(
+      await authorize!({
+        auth: null,
+        request: new Request("https://campus-hub.example.test/"),
+      }),
+    ).toBe(false);
+    expect(
+      await authorize!({
+        auth: { user: { email: "person@cedarville.edu" } },
+        request: new Request("https://campus-hub.example.test/"),
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps the generated health check public while protecting app routes", async () => {
+    const buildSourceSnapshot = await loadBuildSourceSnapshot();
+    const files = await buildSourceSnapshot({
+      templateSlug: "web-app",
+      appName: "Campus Hub",
+      description: "Student services portal",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: true,
+    });
+    const middlewareModule = executeGeneratedModule(
+      files["src/middleware.ts"]!,
+      { "@/auth": { auth: () => undefined } },
+    );
+    const config = middlewareModule.config as { matcher: string[] };
+
+    expect(
+      unstable_doesMiddlewareMatch({
+        config,
+        url: "https://campus-hub.example.test/",
+      }),
+    ).toBe(true);
+    expect(
+      unstable_doesMiddlewareMatch({
+        config,
+        url: "https://campus-hub.example.test/api/health",
+      }),
+    ).toBe(false);
+    expect(
+      unstable_doesMiddlewareMatch({
+        config,
+        url: "https://campus-hub.example.test/api/healthcheck",
+      }),
+    ).toBe(true);
+    expect(
+      unstable_doesMiddlewareMatch({
+        config,
+        url: "https://campus-hub.example.test/api/health/private",
+      }),
+    ).toBe(true);
+    expect(
+      unstable_doesMiddlewareMatch({
+        config,
+        url: "https://campus-hub.example.test/api/auth/signin",
+      }),
+    ).toBe(false);
+    expect(
+      unstable_doesMiddlewareMatch({
+        config,
+        url: "https://campus-hub.example.test/api/authorize",
+      }),
+    ).toBe(true);
+    for (const protectedPath of [
+      "/api/authentication",
+      "/_next/staticity/secret",
+      "/_next/imagery/secret",
+      "/favicon.icomalicious",
+    ]) {
+      expect(
+        unstable_doesMiddlewareMatch({
+          config,
+          url: `https://campus-hub.example.test${protectedPath}`,
+        }),
+      ).toBe(true);
+    }
+    for (const publicPath of [
+      "/api/auth",
+      "/_next/static/chunks/app.js",
+      "/_next/image?url=%2Flogo.png&w=256&q=75",
+      "/favicon.ico",
+    ]) {
+      expect(
+        unstable_doesMiddlewareMatch({
+          config,
+          url: `https://campus-hub.example.test${publicPath}`,
+        }),
+      ).toBe(false);
+    }
   });
 
   it("omits web-app database and auth files when features are disabled", async () => {

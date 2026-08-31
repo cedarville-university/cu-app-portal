@@ -103,11 +103,6 @@ function buildMainPy(
   ];
   const authSetup = hasEntraLogin
     ? `
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.environ.get("AUTH_SECRET", "replace-me-for-local-dev"),
-)
-
 oauth = OAuth()
 oauth.register(
     name="microsoft",
@@ -127,12 +122,19 @@ def current_user(request: Request):
 
 @app.middleware("http")
 async def require_sign_in(request: Request, call_next):
-    public_paths = {"/login", "/auth/callback", "/api/health", "/docs", "/openapi.json"}
+    public_paths = {"/login", "/auth/callback", "/api/health"}
     if request.url.path in public_paths or request.session.get("user"):
         return await call_next(request)
     if request.url.path.startswith("/api/"):
         return JSONResponse(status_code=401, content={"detail": "Sign in required."})
     return RedirectResponse(url="/login")
+
+
+# Register sessions last so SessionMiddleware wraps the authorization middleware.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.environ.get("AUTH_SECRET", "replace-me-for-local-dev"),
+)
 `
     : "";
   const dataRoute = hasDatabase
@@ -197,8 +199,6 @@ def health():
     return {
         "status": "ok",
         "app": ${JSON.stringify(input.appName)},
-        "database": os.environ.get("DATABASE_URL") is not None,
-        "entraLogin": ${hasEntraLogin ? "True" : "False"},
     }
 
 

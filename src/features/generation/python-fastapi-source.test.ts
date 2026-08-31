@@ -58,5 +58,15 @@ describe("buildPythonFastApiGeneratedFiles", () => {
     expect(files["main.py"]).toContain('@app.get("/protected")');
     expect(files["main.py"]).toContain('@app.middleware("http")');
     expect(files["main.py"]).toContain("return RedirectResponse(url=\"/login\")");
+    expect(files["main.py"]).toContain(
+      'public_paths = {"/login", "/auth/callback", "/api/health"}',
+    );
+    expect(files["main.py"]).not.toContain('"/docs"');
+    expect(files["main.py"]).not.toContain('"/openapi.json"');
+    expect(files["main.py"].indexOf("app.add_middleware(")).toBeGreaterThan(
+      files["main.py"].indexOf('@app.middleware("http")'),
+    );
+    expect(files["main.py"]).not.toContain('"database": os.environ.get');
+    expect(files["main.py"]).not.toContain('"entraLogin":');
   });
 });
