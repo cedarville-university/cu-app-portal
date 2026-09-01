@@ -50,6 +50,12 @@ There is no delete, import, collaborator-management, environment-variable, or
 push-to-deploy tool. Creation never publishes. Publish, repair, and retry each
 need a separate explicit request and a caller-provided idempotency UUID.
 
+Existing/local app imports, collaborator management, environment-variable
+management, push-to-deploy, deletion, and other excluded workflows must be
+completed in the Cedarville App Portal UI. The plugin must not substitute
+template creation for an excluded workflow or perform direct provider
+operations against GitHub, Azure, Entra, or other external services.
+
 ## Configuration and delegated identity gate
 
 Leave the following configuration disabled in local development and in the
@@ -92,6 +98,12 @@ expiry/not-before values, delegated scope, Entra object ID, and a
 `@cedarville.edu` identity. It rejects app-only role tokens. Auth.js browser
 credentials do not automatically configure the delegated MCP resource and do
 not authorize MCP calls.
+
+Auth.js browser session cookies never authorize `/api/mcp`.
+`E2E_AUTH_BYPASS=true` is test-only browser infrastructure; it is never an MCP
+authorization path and must never be enabled in production. When MCP is
+enabled, a validated delegated bearer token is always required for every MCP
+request.
 
 ## Sequential rollout
 

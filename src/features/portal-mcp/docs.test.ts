@@ -42,6 +42,22 @@ describe("Codex workspace plugin operator documentation", () => {
     expect(docs).toMatch(/Auth\.js browser credentials[\s\S]{0,160}do not automatically configure[\s\S]{0,160}delegated MCP resource/i);
   });
 
+  it("keeps browser-only test authentication out of the MCP authorization boundary", () => {
+    const docs = allOperatorDocs();
+
+    expect(docs).toMatch(/Auth\.js[\s\S]{0,120}browser session cookies[\s\S]{0,120}never authorize[\s\S]{0,120}\/api\/mcp/i);
+    expect(docs).toMatch(/E2E_AUTH_BYPASS=true[\s\S]{0,160}test-only browser infrastructure/i);
+    expect(docs).toMatch(/delegated bearer token[\s\S]{0,120}always required[\s\S]{0,120}enabled/i);
+  });
+
+  it("routes excluded workflows to the portal UI without provider shortcuts", () => {
+    const docs = allOperatorDocs();
+
+    expect(docs).toMatch(/existing[\s/]+local app imports[\s\S]{0,220}Cedarville App Portal UI/i);
+    expect(docs).toMatch(/collaborator management[\s\S]{0,220}environment-variable\s+management[\s\S]{0,220}push-to-deploy[\s\S]{0,220}deletion/i);
+    expect(docs).toMatch(/must not substitute\s+template creation[\s\S]{0,160}direct provider\s+operations/i);
+  });
+
   it("gives operators the exact MCP contract and production security gates", () => {
     const docs = allOperatorDocs();
     const tools = [
