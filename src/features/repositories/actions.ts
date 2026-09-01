@@ -13,16 +13,12 @@ import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { getTemplateBySlug } from "@/features/templates/catalog";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-import { grantManagedRepositoryAccess, parseGitHubUsername } from "./access";
-import {
-  buildSafeRepositoryAccessNote,
-  persistRepositoryAccessOutcome,
-} from "./actor-access";
 import { bootstrapManagedRepository } from "./bootstrap-managed-repository";
 import {
   REPOSITORY_SETUP_FAILURE_SUMMARY,
   SOURCE_GENERATION_FAILURE_SUMMARY,
 } from "./failure-feedback";
+import { grantRepositoryAccessForActor } from "./grant-repository-access";
 
 async function loadAccessibleAppRequestForActor(requestId: string) {
   const actorUserId = await resolveCurrentUserId();
@@ -245,92 +241,13 @@ export async function saveGitHubUsernameAndGrantAccessAction(
   requestId: string,
   formData: FormData,
 ) {
-  const { appRequest, actorUserId } =
-    await loadAccessibleAppRequestForActor(requestId);
-
-  if (
-    appRequest.repositoryStatus !== "READY" ||
-    !appRequest.repositoryOwner ||
-    !appRequest.repositoryName
-  ) {
-    throw new Error("Managed repository is not ready for GitHub access grants.");
-  }
-
-  const githubUsername = parseGitHubUsername(formData.get("githubUsername"));
-
-  await prisma.user.update({
-    where: { id: actorUserId },
-    data: { githubUsername },
-  });
-
-  await recordAuditEvent("REPOSITORY_ACCESS_REQUESTED", {
+  const actorUserId = await resolveCurrentUserId();
+  await grantRepositoryAccessForActor({
     requestId,
     actorUserId,
-    supportReference: appRequest.supportReference,
-    githubUsername,
-    source: "portal-form",
+    githubUsername: String(formData.get("githubUsername") ?? ""),
+    source: "portal-ui",
   });
-
-  let accessStatus: "INVITED" | "GRANTED" | "FAILED";
-
-  try {
-    const accessResult = await grantManagedRepositoryAccess({
-      owner: appRequest.repositoryOwner,
-      repositoryName: appRequest.repositoryName,
-      githubUsername,
-    });
-    accessStatus = accessResult.status;
-  } catch (error) {
-    console.error("Managed repository access grant failed", {
-      requestId,
-      supportReference: appRequest.supportReference,
-      githubUsername,
-      error,
-    });
-
-    accessStatus = "FAILED";
-  }
-
-  const safeNote = buildSafeRepositoryAccessNote(accessStatus, githubUsername);
-
-  try {
-    await persistRepositoryAccessOutcome({
-      requestId,
-      actorUserId,
-      githubUsername,
-      status: accessStatus,
-      supportReference: appRequest.supportReference,
-      source: "portal-form",
-    });
-  } catch (error) {
-    console.error("Repository access outcome persistence failed", {
-      requestId,
-      actorUserId,
-      supportReference: appRequest.supportReference,
-      error,
-    });
-
-    throw new Error(
-      "The GitHub access result could not be saved. Please try again.",
-    );
-  }
-
-  try {
-    await prisma.appRequest.update({
-      where: { id: requestId },
-      data: {
-        repositoryAccessStatus: accessStatus,
-        repositoryAccessNote: safeNote,
-      },
-    });
-  } catch (error) {
-    console.error("Shared repository access status update failed", {
-      requestId,
-      actorUserId,
-      supportReference: appRequest.supportReference,
-      error,
-    });
-  }
 
   revalidatePath(`/download/${requestId}`);
   revalidatePath(`/onboarding/${requestId}`);

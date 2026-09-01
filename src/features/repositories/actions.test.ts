@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   buildSourceSnapshot: vi.fn(),
   bootstrapManagedRepository: vi.fn(),
   grantManagedRepositoryAccess: vi.fn(),
+  grantRepositoryAccessForActor: vi.fn(),
   recordAuditEvent: vi.fn(),
   safeNotifyAppEvent: vi.fn(),
 }));
@@ -76,6 +77,10 @@ vi.mock("./access", async (importOriginal) => {
   };
 });
 
+vi.mock("./grant-repository-access", () => ({
+  grantRepositoryAccessForActor: mocks.grantRepositoryAccessForActor,
+}));
+
 import {
   retryRepositoryBootstrapAction,
   saveGitHubUsernameAndGrantAccessAction,
@@ -107,111 +112,28 @@ describe("repository access actions", () => {
     mocks.auditLogFindFirst.mockResolvedValue(null);
     mocks.recordAuditEvent.mockResolvedValue(undefined);
     mocks.safeNotifyAppEvent.mockResolvedValue(undefined);
+    mocks.grantRepositoryAccessForActor.mockResolvedValue({
+      status: "INVITED",
+      note: "GitHub invited @collaborator-name to this repository.",
+      githubUsername: "collaborator-name",
+    });
   });
 
-  it("persists a failed access result for the signed-in actor without provider details", async () => {
-    mocks.grantManagedRepositoryAccess.mockRejectedValue(
-      new Error("GitHub could not find that account: secret=provider-detail"),
-    );
+  it("adapts the browser form to the shared actor access service", async () => {
     const formData = new FormData();
     formData.set("githubUsername", "collaborator-name");
 
     await saveGitHubUsernameAndGrantAccessAction("req_123", formData);
 
-    expect(mocks.appRequestUpdate).toHaveBeenCalledWith({
-      where: { id: "req_123" },
-      data: {
-        repositoryAccessStatus: "FAILED",
-        repositoryAccessNote:
-          "GitHub could not confirm repository access for @collaborator-name. Check the username and try again.",
-      },
+    expect(mocks.grantRepositoryAccessForActor).toHaveBeenCalledWith({
+      requestId: "req_123",
+      actorUserId: "collaborator-123",
+      githubUsername: "collaborator-name",
+      source: "portal-ui",
     });
-    expect(mocks.auditLogCreate).toHaveBeenCalledWith({
-      data: {
-        event: "REPOSITORY_ACCESS_FAILED",
-        details: expect.objectContaining({
-          requestId: "req_123",
-          actorUserId: "collaborator-123",
-          githubUsername: "collaborator-name",
-          accessStatus: "FAILED",
-          safeSummary:
-            "GitHub could not confirm repository access for @collaborator-name. Check the username and try again.",
-        }),
-      },
-    });
-    expect(JSON.stringify(mocks.auditLogCreate.mock.calls)).not.toContain(
-      "provider-detail",
-    );
-    expect(JSON.stringify(mocks.recordAuditEvent.mock.calls)).not.toContain(
-      "provider-detail",
-    );
-  });
-
-  it.each(["INVITED", "GRANTED"] as const)(
-    "persists a %s result for the signed-in actor",
-    async (status) => {
-      mocks.grantManagedRepositoryAccess.mockResolvedValue({ status });
-      const formData = new FormData();
-      formData.set("githubUsername", "collaborator-name");
-
-      await saveGitHubUsernameAndGrantAccessAction("req_123", formData);
-
-      expect(mocks.auditLogCreate).toHaveBeenCalledWith({
-        data: {
-          event: "REPOSITORY_ACCESS_SUCCEEDED",
-          details: expect.objectContaining({
-            requestId: "req_123",
-            actorUserId: "collaborator-123",
-            githubUsername: "collaborator-name",
-            accessStatus: status,
-          }),
-        },
-      });
-    },
-  );
-
-  it("records the actor on the request event before remote work", async () => {
-    mocks.grantManagedRepositoryAccess.mockResolvedValue({ status: "INVITED" });
-    const formData = new FormData();
-    formData.set("githubUsername", "collaborator-name");
-
-    await saveGitHubUsernameAndGrantAccessAction("req_123", formData);
-
-    expect(mocks.recordAuditEvent).toHaveBeenCalledWith(
-      "REPOSITORY_ACCESS_REQUESTED",
-      expect.objectContaining({ actorUserId: "collaborator-123" }),
-    );
-  });
-
-  it("does not turn a successful GitHub grant into a failed actor outcome when durable persistence fails", async () => {
-    mocks.grantManagedRepositoryAccess.mockResolvedValue({ status: "GRANTED" });
-    mocks.auditLogCreate.mockRejectedValueOnce(
-      new Error("database unavailable: secret=provider-detail"),
-    );
-    const formData = new FormData();
-    formData.set("githubUsername", "collaborator-name");
-
-    await expect(
-      saveGitHubUsernameAndGrantAccessAction("req_123", formData),
-    ).rejects.toThrow(
-      "The GitHub access result could not be saved. Please try again.",
-    );
-
-    expect(mocks.grantManagedRepositoryAccess).toHaveBeenCalledTimes(1);
-    expect(mocks.auditLogCreate).toHaveBeenCalledTimes(1);
-    expect(mocks.auditLogCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          event: "REPOSITORY_ACCESS_SUCCEEDED",
-          details: expect.objectContaining({ accessStatus: "GRANTED" }),
-        }),
-      }),
-    );
-    expect(mocks.appRequestUpdate).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ repositoryAccessStatus: "FAILED" }),
-      }),
-    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/download/req_123");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/onboarding/req_123");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/apps");
   });
 });
 
