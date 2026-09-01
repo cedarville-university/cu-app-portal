@@ -55,6 +55,7 @@ const config: EnabledPortalApiConfig = {
 
 const enabledEnvironment = {
   PORTAL_MCP_ENABLED: "true",
+  PORTAL_APP_URL: "https://portal.example.edu",
   PORTAL_MCP_RESOURCE_URL: config.resourceUrl,
   PORTAL_MCP_ENTRA_TENANT_ID: config.tenantId,
   PORTAL_MCP_ENTRA_ISSUER: config.issuer,
@@ -70,6 +71,7 @@ describe("portal MCP route authentication", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it.each(["missing", "invalid"])(
@@ -188,6 +190,53 @@ describe("portal MCP route authentication", () => {
     expect(response.status).toBe(500);
     expect(response.headers.get("WWW-Authenticate")).toBeNull();
     expect(await response.text()).not.toContain("attacker.example");
+    expect(mocks.createPortalMcpHandler).not.toHaveBeenCalled();
+  });
+
+  it("never echoes a resource URL on a non-portal origin", async () => {
+    const actualConfig = await vi.importActual<
+      typeof import("@/features/portal-api/config")
+    >("@/features/portal-api/config");
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnLog = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => {});
+    const ordinaryLog = vi.spyOn(console, "log").mockImplementation(() => {});
+    mocks.loadPortalApiConfig.mockImplementation(() =>
+      actualConfig.loadPortalApiConfig(
+        {
+          ...enabledEnvironment,
+          PORTAL_MCP_RESOURCE_URL: "https://attacker.example/api/mcp",
+        },
+        "production",
+      ),
+    );
+    mocks.authenticatePortalApiRequest.mockRejectedValue(
+      new PortalApiError(
+        "AUTHENTICATION_REQUIRED",
+        "A valid Cedarville sign-in is required.",
+      ),
+    );
+
+    const response = await POST(
+      new Request("https://portal.example.edu/api/mcp", { method: "POST" }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("WWW-Authenticate")).toBeNull();
+    expect(body).not.toContain("attacker.example");
+    expect(JSON.stringify(errorLog.mock.calls)).not.toContain(
+      "attacker.example",
+    );
+    expect(JSON.stringify(warnLog.mock.calls)).not.toContain(
+      "attacker.example",
+    );
+    expect(JSON.stringify(infoLog.mock.calls)).not.toContain(
+      "attacker.example",
+    );
+    expect(JSON.stringify(ordinaryLog.mock.calls)).not.toContain(
+      "attacker.example",
+    );
     expect(mocks.createPortalMcpHandler).not.toHaveBeenCalled();
   });
 

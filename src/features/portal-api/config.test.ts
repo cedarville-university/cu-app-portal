@@ -3,6 +3,7 @@ import { loadPortalApiConfig } from "./config";
 
 const enabledEnvironment = {
   PORTAL_MCP_ENABLED: "true",
+  PORTAL_APP_URL: "https://portal.example.edu",
   PORTAL_MCP_RESOURCE_URL: "https://portal.example.edu/api/mcp",
   PORTAL_MCP_ENTRA_TENANT_ID: "tenant-1",
   PORTAL_MCP_ENTRA_ISSUER: "https://login.microsoftonline.com/tenant-1/v2.0",
@@ -39,6 +40,7 @@ describe("loadPortalApiConfig", () => {
   });
 
   it.each([
+    "PORTAL_APP_URL",
     "PORTAL_MCP_RESOURCE_URL",
     "PORTAL_MCP_ENTRA_TENANT_ID",
     "PORTAL_MCP_ENTRA_ISSUER",
@@ -86,6 +88,39 @@ describe("loadPortalApiConfig", () => {
   });
 
   it.each([
+    "http://portal.example.edu",
+    "https://user:secret@portal.example.edu",
+    "https://portal.example.edu:8443",
+    "https://portal.example.edu?query=value",
+    "https://portal.example.edu#fragment",
+    "https://portal.example.edu/portal",
+    "not-a-url",
+  ])("rejects an ambiguous canonical portal origin: %s", (portalAppUrl) => {
+    expect(() =>
+      loadPortalApiConfig(
+        { ...enabledEnvironment, PORTAL_APP_URL: portalAppUrl },
+        "production",
+      ),
+    ).toThrow(
+      "PORTAL_APP_URL must be the canonical HTTPS portal origin.",
+    );
+  });
+
+  it("rejects an MCP resource hosted on a different origin from the portal", () => {
+    expect(() =>
+      loadPortalApiConfig(
+        {
+          ...enabledEnvironment,
+          PORTAL_MCP_RESOURCE_URL: "https://attacker.example/api/mcp",
+        },
+        "production",
+      ),
+    ).toThrow(
+      "PORTAL_MCP_RESOURCE_URL must use the canonical portal origin and exact /api/mcp path.",
+    );
+  });
+
+  it.each([
     "http://login.microsoftonline.com/tenant-1/v2.0",
     "https://user:secret@login.microsoftonline.com/tenant-1/v2.0",
     "https://login.microsoftonline.com:8443/tenant-1/v2.0",
@@ -103,6 +138,21 @@ describe("loadPortalApiConfig", () => {
       ),
     ).toThrow(
       "PORTAL_MCP_ENTRA_ISSUER must use the exact Entra v2 issuer form.",
+    );
+  });
+
+  it("rejects a tenant-shaped issuer on a non-Microsoft origin", () => {
+    expect(() =>
+      loadPortalApiConfig(
+        {
+          ...enabledEnvironment,
+          PORTAL_MCP_ENTRA_ISSUER:
+            "https://attacker.example/tenant-1/v2.0",
+        },
+        "production",
+      ),
+    ).toThrow(
+      "PORTAL_MCP_ENTRA_ISSUER must use the exact public Microsoft Entra v2 issuer form.",
     );
   });
 

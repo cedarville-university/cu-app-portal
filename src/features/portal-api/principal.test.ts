@@ -22,6 +22,7 @@ type StoredUser = {
 
 const enabledEnvironment = {
   PORTAL_MCP_ENABLED: "true",
+  PORTAL_APP_URL: "https://portal.example.edu",
   PORTAL_MCP_RESOURCE_URL: "https://portal.example.edu/api/mcp",
   PORTAL_MCP_ENTRA_TENANT_ID: "tenant-1",
   PORTAL_MCP_ENTRA_ISSUER:

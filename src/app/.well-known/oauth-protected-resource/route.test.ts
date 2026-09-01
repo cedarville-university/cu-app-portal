@@ -3,6 +3,7 @@ import { GET, OPTIONS } from "./route";
 
 const enabledEnvironment = {
   PORTAL_MCP_ENABLED: "true",
+  PORTAL_APP_URL: "https://portal.example.edu",
   PORTAL_MCP_RESOURCE_URL: "https://portal.example.edu/api/mcp",
   PORTAL_MCP_ENTRA_TENANT_ID: "tenant-1",
   PORTAL_MCP_ENTRA_ISSUER:
@@ -20,6 +21,7 @@ describe("OAuth protected-resource metadata", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.restoreAllMocks();
   });
 
   it("serves the exact resource, issuer, and delegated scope without caching", async () => {
@@ -106,4 +108,50 @@ describe("OAuth protected-resource metadata", () => {
     expect(body).not.toContain("other-tenant");
     expect(body).not.toContain("authorization_servers");
   });
+
+  it.each([
+    {
+      name: "resource",
+      setting: "PORTAL_MCP_RESOURCE_URL",
+      value: "https://attacker.example/api/mcp",
+    },
+    {
+      name: "issuer",
+      setting: "PORTAL_MCP_ENTRA_ISSUER",
+      value: "https://attacker.example/tenant-1/v2.0",
+    },
+  ])(
+    "never advertises or logs an attacker $name origin",
+    async ({ setting, value }) => {
+      const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+      const warnLog = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const infoLog = vi.spyOn(console, "info").mockImplementation(() => {});
+      const ordinaryLog = vi.spyOn(console, "log").mockImplementation(() => {});
+      vi.stubEnv(setting, value);
+
+      const response = await GET(
+        new Request(
+          "https://portal.example.edu/.well-known/oauth-protected-resource",
+        ),
+      );
+      const body = await response.text();
+
+      expect(response.status).toBe(500);
+      expect(response.headers.get("WWW-Authenticate")).toBeNull();
+      expect(body).not.toContain("attacker.example");
+      expect(body).not.toContain("authorization_servers");
+      expect(JSON.stringify(errorLog.mock.calls)).not.toContain(
+        "attacker.example",
+      );
+      expect(JSON.stringify(warnLog.mock.calls)).not.toContain(
+        "attacker.example",
+      );
+      expect(JSON.stringify(infoLog.mock.calls)).not.toContain(
+        "attacker.example",
+      );
+      expect(JSON.stringify(ordinaryLog.mock.calls)).not.toContain(
+        "attacker.example",
+      );
+    },
+  );
 });
