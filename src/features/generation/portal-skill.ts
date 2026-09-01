@@ -6,6 +6,7 @@ export const LEGACY_PUBLISH_SKILL_PATH =
 
 const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
   "5ce4c7a302c86ecbdabda0ea68ed4dd763a741030ca7413686afa35e15998c28",
+  "79e98100ee0299dcd3c68ca9efcce2fa80de774e41fc524645b01fd84dcdb926",
 ]);
 
 export function buildManagedAppPortalSkill() {
@@ -90,6 +91,7 @@ When the app is already on GitHub:
 
 - Do not create unrelated Azure resources, GitHub repositories, GitHub Actions secrets, app registrations, or federated credentials outside the portal-managed model unless the user explicitly asks for an unsupported recovery path.
 - Do not weaken Cedarville Entra login, database, or App Service settings that the manifest marks as portal-managed.
+- Keep the exact \`GET /api/health\` endpoint public and returning HTTP 200 when the app process is healthy. Never protect, remove, rename, or make that endpoint depend on an allow list, session, database, or external service; the portal uses it to verify deployments.
 - Record manual fixes, blockers, and recovery steps in \`docs/publishing/lessons-learned.md\`.
 `;
 }

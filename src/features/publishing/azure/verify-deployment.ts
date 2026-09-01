@@ -84,6 +84,11 @@ export async function verifyPublishedUrl(
     return { verifiedAt: new Date() };
   }
 
+  if (response.status >= 400) {
+    await verifyPublicHealthEndpoint(publishUrl, fetchImpl);
+    return { verifiedAt: new Date() };
+  }
+
   throw new Error(
     `Published URL ${publishUrl} did not return a healthy response. Status: ${response.status}.`,
   );

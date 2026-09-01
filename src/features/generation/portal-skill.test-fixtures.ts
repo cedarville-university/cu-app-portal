@@ -8,6 +8,12 @@ const PREVIOUS_COMPATIBILITY_GUIDANCE = `2. Determine whether it is already one 
 7. Use compatible system or bundled workspace runtimes to install dependencies and run the relevant build and tests. Do not upload a migration whose relevant tests fail.
 8. After a successful migration and verification, commit and push the changed app to the portal-managed repository. The user performs the next portal confirmation.`;
 
+const PREVIOUS_HEALTH_GUIDANCE = "- Keep the exact `GET /api/health` endpoint public and returning HTTP 200 when the app process is healthy. Never protect, remove, rename, or make that endpoint depend on an allow list, session, database, or external service; the portal uses it to verify deployments.\n";
+
+export function buildImmediatelyPreviousManagedAppPortalSkillForTest() {
+  return buildManagedAppPortalSkill().replace(PREVIOUS_HEALTH_GUIDANCE, "");
+}
+
 export function buildPreviousManagedAppPortalSkillForTest() {
   const currentSkill = buildManagedAppPortalSkill();
   const currentStart = currentSkill.indexOf("2. Match the portal's exact static-app rule.");
@@ -19,5 +25,8 @@ export function buildPreviousManagedAppPortalSkillForTest() {
     throw new Error("Current compatibility guidance could not be located.");
   }
 
-  return `${currentSkill.slice(0, currentStart)}${PREVIOUS_COMPATIBILITY_GUIDANCE}${currentSkill.slice(currentEnd + currentEndText.length)}`;
+  return `${currentSkill.slice(0, currentStart)}${PREVIOUS_COMPATIBILITY_GUIDANCE}${currentSkill.slice(currentEnd + currentEndText.length)}`.replace(
+    PREVIOUS_HEALTH_GUIDANCE,
+    "",
+  );
 }

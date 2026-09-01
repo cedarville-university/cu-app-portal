@@ -130,14 +130,20 @@ describe("verifyPublishedUrl", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects runtime error pages", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response("Application Error", { status: 500 }),
-    );
+  it("accepts a healthy deployment when the protected app returns 500", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("Application Error", { status: 500 }))
+      .mockResolvedValueOnce(new Response("ok", { status: 200 }));
 
     await expect(
       verifyPublishedUrl("https://app.example.test", { fetchImpl }),
-    ).rejects.toThrow(/did not return a healthy response/);
+    ).resolves.toEqual({ verifiedAt: expect.any(Date) });
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      "https://app.example.test/api/health",
+      { method: "GET", redirect: "manual" },
+    );
   });
 
   it("checks the published URL without following redirects", async () => {

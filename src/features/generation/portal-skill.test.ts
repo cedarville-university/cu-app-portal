@@ -6,7 +6,10 @@ import {
   buildManagedAppPortalSkill,
   isCanonicalManagedAppPortalSkill,
 } from "./portal-skill";
-import { buildPreviousManagedAppPortalSkillForTest } from "./portal-skill.test-fixtures";
+import {
+  buildImmediatelyPreviousManagedAppPortalSkillForTest,
+  buildPreviousManagedAppPortalSkillForTest,
+} from "./portal-skill.test-fixtures";
 
 describe("portal skill generation", () => {
   it("uses stable generated skill paths", () => {
@@ -51,6 +54,8 @@ describe("portal skill generation", () => {
     expect(skill).toContain("preserve the app's user-visible behavior");
     expect(skill).toContain("ask exactly one plain-language question");
     expect(skill).toContain("Do not upload a migration whose relevant tests fail");
+    expect(skill).toContain("Keep the exact `GET /api/health` endpoint public");
+    expect(skill).toContain("Never protect, remove, rename, or make that endpoint depend on an allow list");
     expect(skill).toContain(
       "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate the Cedarville App Portal",
     );
@@ -74,8 +79,13 @@ describe("portal skill generation", () => {
 
   it("recognizes the immediately previous generated skill but not a customized copy", () => {
     const previousSkill = buildPreviousManagedAppPortalSkillForTest();
+    const immediatelyPreviousSkill =
+      buildImmediatelyPreviousManagedAppPortalSkillForTest();
 
     expect(isCanonicalManagedAppPortalSkill(previousSkill)).toBe(true);
+    expect(isCanonicalManagedAppPortalSkill(immediatelyPreviousSkill)).toBe(
+      true,
+    );
     expect(
       isCanonicalManagedAppPortalSkill(`${previousSkill}\nCustomized locally.\n`),
     ).toBe(false);
