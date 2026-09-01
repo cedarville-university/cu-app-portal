@@ -25,6 +25,50 @@ stores such as Azure App Service application settings and GitHub Actions
 secrets. Do not paste real secret values into tracked docs, examples, tests,
 or templates.
 
+### Optional Codex workspace-plugin MCP API
+
+The portal's MCP API is disabled by default. Keep `PORTAL_MCP_ENABLED=false`
+locally unless an administrator is testing a real delegated Entra resource.
+The normal Auth.js settings above create browser sign-in sessions for the
+portal UI. Auth.js browser credentials do not automatically configure the
+delegated MCP resource, and they cannot authorize `/api/mcp`.
+
+When, and only when, the administrator-owned Entra registration is ready, add
+these application settings to the deployed portal. Do not put registration
+values, tokens, or client secrets in this repository.
+
+| Setting | Required enabled-state value |
+| --- | --- |
+| `PORTAL_MCP_ENABLED` | `true` only after the rollout gates in the plugin runbook pass; otherwise `false`. |
+| `PORTAL_MCP_RESOURCE_URL` | The canonical public portal origin followed by exactly `/api/mcp`; it must be HTTPS and match `PORTAL_APP_URL`'s origin. |
+| `PORTAL_MCP_ENTRA_TENANT_ID` | The Cedarville Entra tenant ID for the delegated resource. |
+| `PORTAL_MCP_ENTRA_ISSUER` | The exact public Entra v2 issuer for that tenant. |
+| `PORTAL_MCP_ENTRA_AUDIENCE` | The audience registered for this MCP resource. |
+| `PORTAL_MCP_ENTRA_SCOPE` | The delegated API scope granted to the Codex/OpenAI client. |
+
+When enabled, the route accepts only bearer tokens for the configured resource
+and checks the issuer, tenant ID, audience, expiry/not-before times, required
+delegated scope, Entra object ID, and a normalized `@cedarville.edu` identity.
+App-only role tokens and browser-session cookies do not satisfy this check.
+`/.well-known/oauth-protected-resource` publishes protected-resource metadata
+for the same resource; it is not a public substitute for the `/api/mcp` tools.
+
+The following optional values can lower a per-user limit but cannot raise it
+above the approved default. Their windows are fixed:
+
+| Setting | Approved maximum |
+| --- | --- |
+| `PORTAL_MCP_RATE_READ_MAX` | 120 requests / 10 minutes |
+| `PORTAL_MCP_RATE_CREATE_MAX` | 3 requests / hour |
+| `PORTAL_MCP_RATE_GITHUB_ACCESS_MAX` | 10 requests / hour |
+| `PORTAL_MCP_RATE_PUBLISH_MAX` | 6 requests / hour |
+| `PORTAL_MCP_RATE_REPAIR_MAX` | 3 requests / hour |
+| `PORTAL_MCP_RATE_RETRY_MAX` | 6 requests / hour |
+
+Use the full rollout, rollback, monitoring, and evidence guidance in
+[Codex workspace plugin operations](codex-workspace-plugin.md). Do not turn on
+the endpoint merely because portal UI sign-in works.
+
 Use `PORTAL_INITIAL_ADMIN_EMAILS` to bootstrap portal-managed admin access with comma-separated Cedarville email addresses. When the portal has no admins yet, a matching signed-in user receives the portal-managed `ADMIN` role. After the first admin exists, use `/admin` to add or remove admin access.
 
 To enable portal-managed GitHub repository creation during the create flow, also set:

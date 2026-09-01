@@ -48,6 +48,14 @@ The portal sends immediate SMTP email notifications for app lifecycle, collabora
 7. Run `npm run prisma:seed`.
 8. Run `npm run dev`.
 
+The optional Codex workspace-plugin MCP API is **disabled by default**. Leave
+`PORTAL_MCP_ENABLED=false` for ordinary local portal development. Enabling it
+requires a separately administered delegated Entra resource; the browser
+credentials used by Auth.js do not automatically configure the delegated MCP
+resource or authorize bearer-token calls to `/api/mcp`. See [Codex workspace
+plugin operations](docs/portal/codex-workspace-plugin.md) before changing that
+setting.
+
 ## Key Scripts
 
 - `npm run dev` starts the Next.js development server.
@@ -60,6 +68,7 @@ The portal sends immediate SMTP email notifications for app lifecycle, collabora
 
 - [Portal setup](docs/portal/setup.md)
 - [Technical operations and support](docs/portal/technical-operations.md)
+- [Codex workspace plugin operations](docs/portal/codex-workspace-plugin.md)
 - [Template authoring](docs/portal/template-authoring.md)
 - [User documentation maintenance](docs/user/README.md)
 - [Azure publishing](docs/publishing/azure-app-service.md)

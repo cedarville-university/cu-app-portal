@@ -64,6 +64,7 @@ Keep production values in Azure App Service application settings or the approved
 | Directory validation | `ENTRA_DIRECTORY_TENANT_ID`, `ENTRA_DIRECTORY_CLIENT_ID`, `ENTRA_DIRECTORY_CLIENT_SECRET`, `ENTRA_ALLOWED_EMAIL_DOMAIN` | Validates collaboration invitees through Microsoft Graph. |
 | GitHub App | `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_ALLOWED_ORGS`, `GITHUB_DEFAULT_ORG`, `GITHUB_DEFAULT_REPO_VISIBILITY`, plus `GITHUB_APP_INSTALLATION_ID` or `GITHUB_APP_INSTALLATIONS_JSON` | Repository creation/import, collaborators, Actions secrets, dispatch, and managed-repository deletion. |
 | Managed app publishing | all `AZURE_PUBLISH_*` variables in `.env.example` | Shared Azure target, portal runtime identity, generated-app authentication, and Microsoft Graph updates. |
+| Codex workspace-plugin MCP API | `PORTAL_MCP_ENABLED`, `PORTAL_MCP_RESOURCE_URL`, `PORTAL_MCP_ENTRA_TENANT_ID`, `PORTAL_MCP_ENTRA_ISSUER`, `PORTAL_MCP_ENTRA_AUDIENCE`, `PORTAL_MCP_ENTRA_SCOPE`, and optional `PORTAL_MCP_RATE_*_MAX` settings | A disabled-by-default delegated bearer-token API at `/api/mcp`. It is distinct from Auth.js browser sign-in and requires the separate Entra and workspace rollout described in [Codex workspace plugin operations](codex-workspace-plugin.md). |
 
 The complete variable list and expected defaults are maintained in [`.env.example`](../../.env.example). Validation logic is in `src/lib/env.ts`, `src/features/repositories/config.ts`, `src/features/notifications/config.ts`, `src/features/directory/config.ts`, and `src/features/publishing/azure/config.ts`.
 
@@ -156,6 +157,47 @@ After a deployment:
 6. Inspect App Service logs and GitHub deployment logs if the process starts but requests fail.
 
 If a migration fails, do not suppress it by changing the startup command. Read the migration error, compare deployed code to the database migration history, and escalate to engineering if a manual database repair is required.
+
+## Codex Workspace Plugin Operations
+
+The portal can expose a stateless MCP endpoint at `/api/mcp`, but it remains
+disabled until a separately administered production rollout is complete. The
+endpoint advertises protected-resource metadata at
+`/.well-known/oauth-protected-resource`; both routes should be treated as
+security-sensitive service endpoints rather than portal UI pages.
+
+The exact operator sequence, including deployment with MCP disabled, delegated
+OAuth 2.1 authorization-code flow with PKCE `S256`, registration of the exact
+OpenAI redirect URI, marketplace import, a restricted pilot role, and
+rollback is maintained in [Codex workspace plugin operations](codex-workspace-plugin.md).
+Auth.js browser credentials do not automatically configure or authorize the
+delegated MCP resource.
+
+### Support, audit, and monitoring boundary
+
+The nine MCP tools are `list_app_templates`, `list_my_apps`, `create_app`,
+`get_app`, `request_github_access`, `publish_app_to_azure`,
+`get_publish_status`, `repair_publishing_setup`, and `retry_publish`. There
+is no deletion tool. Creation never publishes; publishing, repair, and retry
+remain separately approved operations.
+
+MCP mutation and provider events must be investigated through the portal audit
+record, support reference, and administrator-visible logs. Capture the tool
+name, safe error code, actor, time, request or attempt ID, and support
+reference. Never copy bearer tokens, authorization headers, client secrets,
+raw provider exceptions, or full request bodies into tickets, screenshots, or
+application logs.
+
+Monitor disabled and enabled deployments separately: route availability,
+protected-metadata availability, 401/403 and safe `NOT_FOUND` responses,
+rate-limit events, idempotency conflicts, safe provider failures, and the
+latency/outcome of the disposable-app pilot. Alerting and retention periods
+are administrator-owned production controls and are not implemented by this
+documentation change. Rate-limit rows expire at the end of their fixed window;
+idempotent-operation records use a seven-day replay window. Before scheduling
+cleanup, preserve the approved audit and incident-retention period, restrict
+the job to expired MCP records, and verify that it cannot remove app, GitHub,
+Azure, or publishing-audit resources.
 
 ## Microsoft Entra Administration
 
