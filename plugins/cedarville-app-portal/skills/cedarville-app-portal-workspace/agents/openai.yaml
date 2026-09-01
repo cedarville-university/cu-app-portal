@@ -1,0 +1,6 @@
+interface:
+  display_name: "Cedarville App Portal"
+  short_description: "Create and publish Cedarville-managed apps from Codex."
+  default_prompt: "Create a new Cedarville app from an approved portal template."
+policy:
+  allow_implicit_invocation: true

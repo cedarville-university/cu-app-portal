@@ -1,0 +1,20 @@
+{
+  "name": "cedarville-university-plugins",
+  "interface": {
+    "displayName": "Cedarville University"
+  },
+  "plugins": [
+    {
+      "name": "cedarville-app-portal",
+      "source": {
+        "source": "local",
+        "path": "./plugins/cedarville-app-portal"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

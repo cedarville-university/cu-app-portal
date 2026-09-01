@@ -1,0 +1,22 @@
+{
+  "name": "cedarville-app-portal",
+  "version": "1.0.0",
+  "description": "Create and operate Cedarville-managed apps from approved portal templates.",
+  "author": {
+    "name": "Cedarville University"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Cedarville App Portal",
+    "shortDescription": "Create and publish Cedarville-managed apps from Codex.",
+    "longDescription": "Create a Cedarville-managed app from an approved template, optionally customize its managed GitHub repository, and explicitly publish it to Azure.",
+    "developerName": "Cedarville University",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": "Create a new Cedarville app from an approved portal template."
+  }
+}
