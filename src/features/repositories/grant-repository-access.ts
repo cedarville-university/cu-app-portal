@@ -21,7 +21,6 @@ type RepositoryAccessDb = {
     findFirst(
       args: Prisma.AppRequestFindFirstArgs,
     ): Promise<RepositoryAccessAppRequest | null>;
-    update(args: Prisma.AppRequestUpdateArgs): Promise<unknown>;
   };
   user: {
     update(args: Prisma.UserUpdateArgs): Promise<unknown>;
@@ -98,13 +97,13 @@ export async function grantRepositoryAccessForActor(
   },
   dependencies: GrantRepositoryAccessDependencies = defaultDependencies,
 ): Promise<RepositoryAccessResult> {
-  const githubUsername = dependencies.parseGitHubUsername(input.githubUsername);
   const appRequest = await loadAccessibleAppRequest(
     input.requestId,
     input.actorUserId,
     dependencies,
   );
   assertRepositoryReady(appRequest);
+  const githubUsername = dependencies.parseGitHubUsername(input.githubUsername);
 
   await dependencies.prisma.user.update({
     where: { id: input.actorUserId },
@@ -153,18 +152,6 @@ export async function grantRepositoryAccessForActor(
     throw new Error(
       "The GitHub access result could not be saved. Please try again.",
     );
-  }
-
-  try {
-    await dependencies.prisma.appRequest.update({
-      where: { id: input.requestId },
-      data: {
-        repositoryAccessStatus: status,
-        repositoryAccessNote: note,
-      },
-    });
-  } catch {
-    // Actor-specific audit persistence is authoritative for access status.
   }
 
   return { status, note, githubUsername };

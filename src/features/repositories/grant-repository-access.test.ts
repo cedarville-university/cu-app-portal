@@ -112,6 +112,35 @@ describe("grantRepositoryAccessForActor", () => {
     expect(deps.grantManagedRepositoryAccess).not.toHaveBeenCalled();
   });
 
+  it("hides invalid usernames behind the same quiet missing or foreign result", async () => {
+    vi.mocked(deps.prisma.appRequest.findFirst).mockResolvedValue(null);
+
+    const missing = await grantRepositoryAccessForActor(
+      {
+        requestId: "missing",
+        actorUserId: "actor-123",
+        githubUsername: "not valid!",
+        source: "codex-mcp",
+      },
+      deps,
+    ).catch((error: unknown) => error);
+    const foreign = await grantRepositoryAccessForActor(
+      {
+        requestId: "foreign",
+        actorUserId: "actor-123",
+        githubUsername: "not valid!",
+        source: "codex-mcp",
+      },
+      deps,
+    ).catch((error: unknown) => error);
+
+    expect(missing).toEqual(foreign);
+    expect(missing).toEqual(new Error("App request not found."));
+    expect(deps.parseGitHubUsername).not.toHaveBeenCalled();
+    expect(deps.prisma.user.update).not.toHaveBeenCalled();
+    expect(deps.grantManagedRepositoryAccess).not.toHaveBeenCalled();
+  });
+
   it("rejects access when the managed repository is not ready", async () => {
     vi.mocked(deps.prisma.appRequest.findFirst).mockResolvedValue({
       ...request,
@@ -183,6 +212,7 @@ describe("grantRepositoryAccessForActor", () => {
         supportReference: "SUP-123",
         source: "portal-ui",
       });
+      expect(deps.prisma.appRequest.update).not.toHaveBeenCalled();
     },
   );
 
