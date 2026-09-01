@@ -1,0 +1,91 @@
+import { describe, expect, it } from "vitest";
+import { loadPortalApiConfig } from "./config";
+
+const enabledEnvironment = {
+  PORTAL_MCP_ENABLED: "true",
+  PORTAL_MCP_RESOURCE_URL: "https://portal.example.edu/api/mcp",
+  PORTAL_MCP_ENTRA_TENANT_ID: "tenant-1",
+  PORTAL_MCP_ENTRA_ISSUER: "https://login.microsoftonline.com/tenant-1/v2.0",
+  PORTAL_MCP_ENTRA_AUDIENCE: "api://portal-mcp",
+  PORTAL_MCP_ENTRA_SCOPE: "Portal.Codex",
+};
+
+describe("loadPortalApiConfig", () => {
+  it("returns only disabled state without reading identity settings", () => {
+    const accessed: string[] = [];
+    const env = new Proxy<Record<string, string | undefined>>(
+      { PORTAL_MCP_ENABLED: "false" },
+      {
+        get(target, property) {
+          const name = String(property);
+          accessed.push(name);
+          if (name !== "PORTAL_MCP_ENABLED") {
+            throw new Error(`unexpected identity setting access: ${name}`);
+          }
+          return target[name];
+        },
+      },
+    );
+
+    expect(loadPortalApiConfig(env, "production")).toEqual({ enabled: false });
+    expect(accessed).toEqual(["PORTAL_MCP_ENABLED"]);
+  });
+
+  it("treats every value other than exact true as disabled", () => {
+    expect(
+      loadPortalApiConfig({ PORTAL_MCP_ENABLED: "TRUE" }, "production"),
+    ).toEqual({ enabled: false });
+    expect(loadPortalApiConfig({}, "production")).toEqual({ enabled: false });
+  });
+
+  it.each([
+    "PORTAL_MCP_RESOURCE_URL",
+    "PORTAL_MCP_ENTRA_TENANT_ID",
+    "PORTAL_MCP_ENTRA_ISSUER",
+    "PORTAL_MCP_ENTRA_AUDIENCE",
+    "PORTAL_MCP_ENTRA_SCOPE",
+  ])("fails closed when %s is missing or blank", (name) => {
+    const missing = { ...enabledEnvironment, [name]: undefined };
+    const blank = { ...enabledEnvironment, [name]: "   " };
+
+    expect(() => loadPortalApiConfig(missing, "production")).toThrow(name);
+    expect(() => loadPortalApiConfig(blank, "production")).toThrow(name);
+  });
+
+  it.each([
+    ["PORTAL_MCP_RESOURCE_URL", "http://portal.example.edu/api/mcp"],
+    [
+      "PORTAL_MCP_ENTRA_ISSUER",
+      "http://login.microsoftonline.com/tenant-1/v2.0",
+    ],
+  ])("requires HTTPS for %s outside test and development", (name, value) => {
+    const env = { ...enabledEnvironment, [name]: value };
+
+    expect(() => loadPortalApiConfig(env, "production")).toThrow(name);
+    expect(loadPortalApiConfig(env, "test")).toMatchObject({ enabled: true });
+    expect(loadPortalApiConfig(env, "development")).toMatchObject({
+      enabled: true,
+    });
+  });
+
+  it("returns normalized enabled configuration with the fixed Cedarville domain", () => {
+    expect(
+      loadPortalApiConfig(
+        {
+          ...enabledEnvironment,
+          PORTAL_MCP_RESOURCE_URL: ` ${enabledEnvironment.PORTAL_MCP_RESOURCE_URL} `,
+          PORTAL_MCP_ENTRA_SCOPE: " Portal.Codex ",
+        },
+        "production",
+      ),
+    ).toEqual({
+      enabled: true,
+      resourceUrl: "https://portal.example.edu/api/mcp",
+      tenantId: "tenant-1",
+      issuer: "https://login.microsoftonline.com/tenant-1/v2.0",
+      audience: "api://portal-mcp",
+      requiredScope: "Portal.Codex",
+      allowedEmailDomain: "cedarville.edu",
+    });
+  });
+});
