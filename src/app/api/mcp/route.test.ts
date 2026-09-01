@@ -33,7 +33,7 @@ vi.mock("@/features/portal-mcp/server", () => ({
   createPortalMcpHandler: mocks.createPortalMcpHandler,
 }));
 
-import { POST } from "./route";
+import { OPTIONS, POST } from "./route";
 
 const actor: PortalActor = {
   userId: "user-1",
@@ -97,6 +97,9 @@ describe("portal MCP route authentication", () => {
         'Bearer error="invalid_token", resource_metadata="https://portal.example.edu/.well-known/oauth-protected-resource"',
       );
       expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(response.headers.get("Access-Control-Expose-Headers")).toContain(
+        "WWW-Authenticate",
+      );
       await expect(response.json()).resolves.toEqual({
         error: {
           code: "AUTHENTICATION_REQUIRED",
@@ -108,6 +111,85 @@ describe("portal MCP route authentication", () => {
       expect(mcpHandler).not.toHaveBeenCalled();
     },
   );
+
+  it("serves enabled browser preflight without authentication or MCP initialization", async () => {
+    const response = await OPTIONS(
+      new Request("https://portal.example.edu/api/mcp", {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://chatgpt.com",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers":
+            "authorization, content-type, accept, mcp-method, mcp-name, mcp-session-id, mcp-protocol-version, last-event-id",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(response.headers.get("Access-Control-Allow-Methods")).toBe(
+      "GET, POST, DELETE, OPTIONS",
+    );
+    const allowedHeaders = response.headers
+      .get("Access-Control-Allow-Headers")
+      ?.toLowerCase();
+    for (const header of [
+      "authorization",
+      "content-type",
+      "accept",
+      "mcp-method",
+      "mcp-name",
+      "mcp-session-id",
+      "mcp-protocol-version",
+      "last-event-id",
+    ]) {
+      expect(allowedHeaders).toContain(header);
+    }
+    const exposedHeaders = response.headers
+      .get("Access-Control-Expose-Headers")
+      ?.toLowerCase();
+    for (const header of [
+      "www-authenticate",
+      "mcp-session-id",
+      "mcp-protocol-version",
+    ]) {
+      expect(exposedHeaders).toContain(header);
+    }
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(mocks.authenticatePortalApiRequest).not.toHaveBeenCalled();
+    expect(mocks.createPortalMcpHandler).not.toHaveBeenCalled();
+  });
+
+  it("does not advertise a challenge from an invalid configured resource URL", async () => {
+    const actualConfig = await vi.importActual<
+      typeof import("@/features/portal-api/config")
+    >("@/features/portal-api/config");
+    mocks.loadPortalApiConfig.mockImplementation(() =>
+      actualConfig.loadPortalApiConfig(
+        {
+          ...enabledEnvironment,
+          PORTAL_MCP_RESOURCE_URL:
+            "https://portal.example.edu/api/mcp?resource=https://attacker.example",
+        },
+        "production",
+      ),
+    );
+    mocks.authenticatePortalApiRequest.mockRejectedValue(
+      new PortalApiError(
+        "AUTHENTICATION_REQUIRED",
+        "A valid Cedarville sign-in is required.",
+      ),
+    );
+
+    const response = await POST(
+      new Request("https://portal.example.edu/api/mcp", { method: "POST" }),
+    );
+
+    expect(response.status).toBe(500);
+    expect(response.headers.get("WWW-Authenticate")).toBeNull();
+    expect(await response.text()).not.toContain("attacker.example");
+    expect(mocks.createPortalMcpHandler).not.toHaveBeenCalled();
+  });
 
   it("returns quiet 404 before MCP initialization when the API is disabled", async () => {
     mocks.authenticatePortalApiRequest.mockRejectedValue(
@@ -180,5 +262,63 @@ describe("portal MCP route authentication", () => {
 
     expect(response.status).toBe(401);
     expect(mocks.createPortalMcpHandler).not.toHaveBeenCalled();
+  });
+
+  it("serves an authenticated tools/list frame through the installed MCP handler", async () => {
+    vi.resetModules();
+    vi.doUnmock("@/features/portal-mcp/server");
+    const { POST: runtimePost } = await import("./route");
+    mocks.authenticatePortalApiRequest.mockResolvedValue({ actor, config });
+    const request = new Request("https://portal.example.edu/api/mcp", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer signed-token",
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "MCP-Protocol-Version": "2026-07-28",
+        "Mcp-Method": "tools/list",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": {},
+          },
+        },
+      }),
+    });
+
+    const response = await runtimePost(request);
+    const frame = (await response.json()) as {
+      result: {
+        tools: Array<{
+          name: string;
+          inputSchema: {
+            properties?: Record<string, { maxLength?: number }>;
+          };
+        }>;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(frame.result.tools.map(({ name }) => name)).toEqual([
+      "list_app_templates",
+      "list_my_apps",
+      "create_app",
+      "get_app",
+      "request_github_access",
+      "publish_app_to_azure",
+      "get_publish_status",
+      "repair_publishing_setup",
+      "retry_publish",
+    ]);
+    expect(
+      frame.result.tools.find(({ name }) => name === "get_app")?.inputSchema
+        .properties?.appId?.maxLength,
+    ).toBe(128);
+    expect(mocks.authenticatePortalApiRequest).toHaveBeenCalledWith(request);
   });
 });

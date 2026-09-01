@@ -13,9 +13,9 @@ const IDEMPOTENCY_TTL_SECONDS = 604800;
 export const createAppToolInputSchema = z
   .object({
     idempotencyKey: z.string().uuid(),
-    templateSlug: z.string().min(1),
-    appName: z.string(),
-    description: z.string(),
+    templateSlug: z.string().min(1).max(100),
+    appName: z.string().max(100),
+    description: z.string().max(2000),
     databaseProvider: z.enum(["none", "postgresql"]),
     entraLogin: z.boolean(),
     publicAcknowledgement: z.literal(true).optional(),

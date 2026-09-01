@@ -12,7 +12,7 @@ const IDEMPOTENCY_TTL_SECONDS = 604800;
 export const repairPublishingSetupToolInputSchema = z
   .object({
     idempotencyKey: z.string().uuid(),
-    appId: z.string().min(1),
+    appId: z.string().min(1).max(128),
   })
   .strict();
 

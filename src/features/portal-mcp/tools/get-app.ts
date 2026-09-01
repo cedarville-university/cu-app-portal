@@ -7,7 +7,7 @@ import {
 import type { PortalMcpServer, PortalMcpToolContext } from "../server";
 
 export const getAppToolInputSchema = z
-  .object({ appId: z.string().min(1) })
+  .object({ appId: z.string().min(1).max(128) })
   .strict();
 
 const getAppMcpInputSchema = portalMcpInputSchema(getAppToolInputSchema);

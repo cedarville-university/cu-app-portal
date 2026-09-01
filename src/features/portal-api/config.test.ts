@@ -58,14 +58,52 @@ describe("loadPortalApiConfig", () => {
       "PORTAL_MCP_ENTRA_ISSUER",
       "http://login.microsoftonline.com/tenant-1/v2.0",
     ],
-  ])("requires HTTPS for %s outside test and development", (name, value) => {
+  ])("requires HTTPS for %s in every environment", (name, value) => {
     const env = { ...enabledEnvironment, [name]: value };
 
     expect(() => loadPortalApiConfig(env, "production")).toThrow(name);
-    expect(loadPortalApiConfig(env, "test")).toMatchObject({ enabled: true });
-    expect(loadPortalApiConfig(env, "development")).toMatchObject({
-      enabled: true,
-    });
+    expect(() => loadPortalApiConfig(env, "test")).toThrow(name);
+    expect(() => loadPortalApiConfig(env, "development")).toThrow(name);
+  });
+
+  it.each([
+    "https://user:secret@portal.example.edu/api/mcp",
+    "https://portal.example.edu:8443/api/mcp",
+    "https://portal.example.edu/api/mcp?next=https://attacker.example",
+    "https://portal.example.edu/api/mcp#fragment",
+    "https://portal.example.edu/api/mcp/",
+    "https://portal.example.edu/other",
+    "not-a-url",
+  ])("rejects an ambiguous MCP resource URL shape: %s", (resourceUrl) => {
+    expect(() =>
+      loadPortalApiConfig(
+        { ...enabledEnvironment, PORTAL_MCP_RESOURCE_URL: resourceUrl },
+        "production",
+      ),
+    ).toThrow(
+      "PORTAL_MCP_RESOURCE_URL must be the exact HTTPS MCP endpoint.",
+    );
+  });
+
+  it.each([
+    "http://login.microsoftonline.com/tenant-1/v2.0",
+    "https://user:secret@login.microsoftonline.com/tenant-1/v2.0",
+    "https://login.microsoftonline.com:8443/tenant-1/v2.0",
+    "https://login.microsoftonline.com/tenant-1/v2.0?query=value",
+    "https://login.microsoftonline.com/tenant-1/v2.0#fragment",
+    "https://login.microsoftonline.com/tenant-1/v2.0/",
+    "https://login.microsoftonline.com/other-tenant/v2.0",
+    "https://login.microsoftonline.com/tenant-1/oauth2/v2.0",
+    "not-a-url",
+  ])("rejects an ambiguous or mismatched Entra issuer shape: %s", (issuer) => {
+    expect(() =>
+      loadPortalApiConfig(
+        { ...enabledEnvironment, PORTAL_MCP_ENTRA_ISSUER: issuer },
+        "production",
+      ),
+    ).toThrow(
+      "PORTAL_MCP_ENTRA_ISSUER must use the exact Entra v2 issuer form.",
+    );
   });
 
   it("returns normalized enabled configuration with the fixed Cedarville domain", () => {

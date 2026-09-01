@@ -7,7 +7,7 @@ import {
 import type { PortalMcpServer, PortalMcpToolContext } from "../server";
 
 export const getPublishStatusToolInputSchema = z
-  .object({ attemptId: z.string().min(1) })
+  .object({ attemptId: z.string().min(1).max(128) })
   .strict();
 
 const getPublishStatusMcpInputSchema = portalMcpInputSchema(

@@ -72,4 +72,38 @@ describe("OAuth protected-resource metadata", () => {
       },
     });
   });
+
+  it("returns the same quiet 404 for metadata preflight when disabled", async () => {
+    vi.stubEnv("PORTAL_MCP_ENABLED", "false");
+
+    const response = await OPTIONS();
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "NOT_FOUND",
+        message: "Not found.",
+        retryAfterSeconds: null,
+      },
+    });
+  });
+
+  it("never advertises a mismatched Entra issuer", async () => {
+    vi.stubEnv(
+      "PORTAL_MCP_ENTRA_ISSUER",
+      "https://login.microsoftonline.com/other-tenant/v2.0",
+    );
+
+    const response = await GET(
+      new Request(
+        "https://portal.example.edu/.well-known/oauth-protected-resource",
+      ),
+    );
+
+    expect(response.status).toBe(500);
+    const body = await response.text();
+    expect(body).not.toContain("other-tenant");
+    expect(body).not.toContain("authorization_servers");
+  });
 });

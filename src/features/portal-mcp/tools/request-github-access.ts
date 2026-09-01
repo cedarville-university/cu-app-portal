@@ -12,8 +12,8 @@ const IDEMPOTENCY_TTL_SECONDS = 604800;
 export const requestGitHubAccessToolInputSchema = z
   .object({
     idempotencyKey: z.string().uuid(),
-    appId: z.string().min(1),
-    githubUsername: z.string().min(1),
+    appId: z.string().min(1).max(128),
+    githubUsername: z.string().min(1).max(39),
   })
   .strict();
 

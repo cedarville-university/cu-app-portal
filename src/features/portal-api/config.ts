@@ -29,41 +29,74 @@ function requireSetting(
   return value;
 }
 
-function requireUrl(name: string, value: string, nodeEnv: string | undefined) {
+function parseUrl(value: string, message: string) {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    throw new Error(`${name} must be a valid URL.`);
+    throw new Error(message);
   }
+
+  return url;
+}
+
+function requireResourceUrl(value: string) {
+  const message =
+    "PORTAL_MCP_RESOURCE_URL must be the exact HTTPS MCP endpoint.";
+  const url = parseUrl(value, message);
 
   if (
-    nodeEnv !== "test" &&
-    nodeEnv !== "development" &&
-    url.protocol !== "https:"
+    url.protocol !== "https:" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.port !== "" ||
+    url.search !== "" ||
+    url.hash !== "" ||
+    url.pathname !== "/api/mcp"
   ) {
-    throw new Error(`${name} must use HTTPS outside test and development.`);
+    throw new Error(message);
   }
 
-  return value;
+  return url.href;
+}
+
+function requireIssuer(value: string, tenantId: string) {
+  const message =
+    "PORTAL_MCP_ENTRA_ISSUER must use the exact Entra v2 issuer form.";
+  const url = parseUrl(value, message);
+
+  if (
+    url.protocol !== "https:" ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.port !== "" ||
+    url.search !== "" ||
+    url.hash !== "" ||
+    url.pathname !== `/${tenantId}/v2.0`
+  ) {
+    throw new Error(message);
+  }
+
+  return url.href;
 }
 
 export function loadPortalApiConfig(
   env: Record<string, string | undefined> = process.env,
-  nodeEnv: string | undefined = process.env.NODE_ENV,
+  _nodeEnv: string | undefined = process.env.NODE_ENV,
 ): PortalApiConfig {
   if (env.PORTAL_MCP_ENABLED !== "true") {
     return { enabled: false };
   }
 
   const resourceUrl = requireSetting(env, "PORTAL_MCP_RESOURCE_URL");
+  const tenantId = requireSetting(env, "PORTAL_MCP_ENTRA_TENANT_ID");
   const issuer = requireSetting(env, "PORTAL_MCP_ENTRA_ISSUER");
 
   return {
     enabled: true,
-    resourceUrl: requireUrl("PORTAL_MCP_RESOURCE_URL", resourceUrl, nodeEnv),
-    tenantId: requireSetting(env, "PORTAL_MCP_ENTRA_TENANT_ID"),
-    issuer: requireUrl("PORTAL_MCP_ENTRA_ISSUER", issuer, nodeEnv),
+    resourceUrl: requireResourceUrl(resourceUrl),
+    tenantId,
+    issuer: requireIssuer(issuer, tenantId),
     audience: requireSetting(env, "PORTAL_MCP_ENTRA_AUDIENCE"),
     requiredScope: requireSetting(env, "PORTAL_MCP_ENTRA_SCOPE"),
     allowedEmailDomain: ALLOWED_EMAIL_DOMAIN,

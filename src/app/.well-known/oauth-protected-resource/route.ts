@@ -60,5 +60,17 @@ export async function GET(request: Request) {
 }
 
 export async function OPTIONS() {
-  return withNoStore(metadataCorsOptionsRequestHandler()());
+  try {
+    const config = loadPortalApiConfig();
+    if (!config.enabled) {
+      return quietError(
+        new PortalApiError("NOT_FOUND", "Not found."),
+        404,
+      );
+    }
+
+    return withNoStore(metadataCorsOptionsRequestHandler()());
+  } catch (error) {
+    return quietError(error, 500);
+  }
 }

@@ -13,6 +13,7 @@ import { repairPublishingSetupToolInputSchema } from "./tools/repair-publishing-
 import { requestGitHubAccessToolInputSchema } from "./tools/request-github-access";
 import { retryPublishToolInputSchema } from "./tools/retry-publish";
 import {
+  createPortalMcpHandler,
   registerPortalTools,
   type PortalMcpDependencies,
   type PortalMcpServer,
@@ -148,6 +149,34 @@ function tool(
   return registered;
 }
 
+function modernRequest(method: string, params: Record<string, unknown>) {
+  return new Request("https://portal.example.edu/api/mcp", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer signed-token",
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "MCP-Protocol-Version": "2026-07-28",
+      "Mcp-Method": method,
+      ...(method === "tools/call"
+        ? { "Mcp-Name": String(params.name) }
+        : {}),
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: crypto.randomUUID(),
+      method,
+      params: {
+        ...params,
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+      },
+    }),
+  });
+}
+
 describe("portal MCP server contract", () => {
   it("registers exactly the nine approved tools in workflow order", () => {
     const { tools } = registeredPortalTools();
@@ -231,8 +260,135 @@ describe("portal MCP server contract", () => {
       expect(schema.safeParse({ idempotencyKey, appId: "app-1" }).success).toBe(true);
       expect(schema.safeParse({ idempotencyKey: "not-a-uuid", appId: "app-1" }).success).toBe(false);
       expect(schema.safeParse({ idempotencyKey, appId: "app-1", extra: true }).success).toBe(false);
+      expect(
+        schema.safeParse({ idempotencyKey, appId: "a".repeat(129) }).success,
+      ).toBe(false);
     }
+
+    expect(createAppToolInputSchema.safeParse({
+      idempotencyKey,
+      templateSlug: "t".repeat(101),
+      appName: "Example app",
+      description: "Example description",
+      databaseProvider: "none",
+      entraLogin: true,
+    }).success).toBe(false);
+    expect(createAppToolInputSchema.safeParse({
+      idempotencyKey,
+      templateSlug: "web-app",
+      appName: "a".repeat(101),
+      description: "Example description",
+      databaseProvider: "none",
+      entraLogin: true,
+    }).success).toBe(false);
+    expect(createAppToolInputSchema.safeParse({
+      idempotencyKey,
+      templateSlug: "web-app",
+      appName: "Example app",
+      description: "d".repeat(2001),
+      databaseProvider: "none",
+      entraLogin: true,
+    }).success).toBe(false);
+    expect(
+      getAppToolInputSchema.safeParse({ appId: "a".repeat(129) }).success,
+    ).toBe(false);
+    expect(
+      getPublishStatusToolInputSchema.safeParse({
+        attemptId: "a".repeat(129),
+      }).success,
+    ).toBe(false);
+    expect(
+      requestGitHubAccessToolInputSchema.safeParse({
+        idempotencyKey,
+        appId: "app-1",
+        githubUsername: "g".repeat(40),
+      }).success,
+    ).toBe(false);
+    expect(
+      requestGitHubAccessToolInputSchema.safeParse({
+        idempotencyKey,
+        appId: "a".repeat(129),
+        githubUsername: "portal-user",
+      }).success,
+    ).toBe(false);
   });
+
+  it.each([
+    {
+      name: "create_app",
+      arguments: {
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
+        templateSlug: "t".repeat(101),
+        appName: "Example app",
+        description: "Example description",
+        databaseProvider: "none",
+        entraLogin: true,
+      },
+    },
+    {
+      name: "create_app",
+      arguments: {
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
+        templateSlug: "web-app",
+        appName: "a".repeat(101),
+        description: "Example description",
+        databaseProvider: "none",
+        entraLogin: true,
+      },
+    },
+    {
+      name: "create_app",
+      arguments: {
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
+        templateSlug: "web-app",
+        appName: "Example app",
+        description: "d".repeat(2001),
+        databaseProvider: "none",
+        entraLogin: true,
+      },
+    },
+    { name: "get_app", arguments: { appId: "a".repeat(129) } },
+    {
+      name: "get_publish_status",
+      arguments: { attemptId: "a".repeat(129) },
+    },
+    {
+      name: "request_github_access",
+      arguments: {
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
+        appId: "app-1",
+        githubUsername: "g".repeat(40),
+      },
+    },
+  ])(
+    "rejects oversized $name input in the installed runtime before adapter side effects",
+    async ({ name, arguments: toolArguments }) => {
+      const deps = dependencies();
+      const handler = createPortalMcpHandler(actor, deps);
+
+      const response = await handler(
+        modernRequest("tools/call", { name, arguments: toolArguments }),
+      );
+      const frame = (await response.json()) as {
+        result?: {
+          isError?: boolean;
+          content?: Array<{ type?: string; text?: string }>;
+        };
+      };
+
+      expect(response.status).toBe(200);
+      expect(frame.result?.isError).toBe(true);
+      expect(frame.result?.content?.[0]).toMatchObject({
+        type: "text",
+        text: expect.stringContaining("Input validation error"),
+      });
+      expect(deps.getActiveTemplateBySlug).not.toHaveBeenCalled();
+      expect(deps.getAccessibleAppSummary).not.toHaveBeenCalled();
+      expect(deps.getAccessiblePublishAttemptSummary).not.toHaveBeenCalled();
+      expect(deps.executeIdempotentMutation).not.toHaveBeenCalled();
+      expect(deps.claimPortalRateLimit).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("portal MCP read adapters", () => {

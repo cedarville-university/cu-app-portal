@@ -8,9 +8,11 @@ import { createPortalMcpHandler } from "@/features/portal-mcp/server";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, DELETE",
+  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Authorization, Content-Type, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID",
+    "Authorization, Content-Type, Accept, Mcp-Session-Id, MCP-Protocol-Version, Last-Event-ID, Mcp-Method, Mcp-Name",
+  "Access-Control-Expose-Headers":
+    "WWW-Authenticate, Mcp-Session-Id, MCP-Protocol-Version",
 };
 
 function withTransportHeaders(response: Response) {
@@ -83,6 +85,22 @@ async function handle(request: Request) {
       }
     }
 
+    return errorResponse(error, 500);
+  }
+}
+
+export async function OPTIONS() {
+  try {
+    const config = loadPortalApiConfig();
+    if (!config.enabled) {
+      return errorResponse(
+        new PortalApiError("NOT_FOUND", "Not found."),
+        404,
+      );
+    }
+
+    return withTransportHeaders(new Response(null, { status: 204 }));
+  } catch (error) {
     return errorResponse(error, 500);
   }
 }
