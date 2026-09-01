@@ -90,6 +90,33 @@ describe("Cedarville App Portal workspace plugin package", () => {
     expect(skill).toMatch(/Cedarville App Portal UI/i);
   });
 
+  it("closes the observed consent, invitation, and quiet-not-found loopholes", () => {
+    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
+
+    expect(skill).toContain(
+      "Codex may recommend a template, but must not select or infer one on the user's behalf.",
+    );
+    expect(skill).toContain(
+      "The user must explicitly select the template before the creation summary, approval, or `create_app` call.",
+    );
+    expect(skill).toContain(
+      "Only actor-specific `repositoryAccess.status === GRANTED` is clone, fetch, and push ready.",
+    );
+    expect(skill).toContain(
+      "`INVITED` is partial: ask the actor to accept the invitation, then refresh with `get_app`.",
+    );
+    expect(skill).toContain(
+      "Do not repeat `request_github_access` merely because the invitation remains pending.",
+    );
+    expect(skill).toContain("`FAILED` is blocked.");
+    expect(skill).toContain(
+      "After `NOT_FOUND`, say only that no accessible app was found and stop.",
+    );
+    expect(skill).toContain(
+      "Do not call `list_my_apps`, retry alternate IDs, or perform further discovery unless the user separately asks to list their accessible apps.",
+    );
+  });
+
   it("keeps implicit invocation and the approved skill interface metadata", () => {
     const metadata = readFileSync(resolve(skillRoot, "agents/openai.yaml"), "utf8");
 
