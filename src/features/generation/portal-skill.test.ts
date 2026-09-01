@@ -56,6 +56,9 @@ describe("portal skill generation", () => {
     expect(skill).toContain("Do not upload a migration whose relevant tests fail");
     expect(skill).toContain("Keep the exact `GET /api/health` endpoint public");
     expect(skill).toContain("Never protect, remove, rename, or make that endpoint depend on an allow list");
+    expect(skill).toContain("Treat a request to limit the app audience as an authentication change");
+    expect(skill).toContain("Cedarville Microsoft Entra login screen");
+    expect(skill).toContain("Do not rely on a standalone allow list or client-side-only check");
     expect(skill).toContain(
       "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate the Cedarville App Portal",
     );

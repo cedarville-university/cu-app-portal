@@ -9,9 +9,10 @@ const PREVIOUS_COMPATIBILITY_GUIDANCE = `2. Determine whether it is already one 
 8. After a successful migration and verification, commit and push the changed app to the portal-managed repository. The user performs the next portal confirmation.`;
 
 const PREVIOUS_HEALTH_GUIDANCE = "- Keep the exact `GET /api/health` endpoint public and returning HTTP 200 when the app process is healthy. Never protect, remove, rename, or make that endpoint depend on an allow list, session, database, or external service; the portal uses it to verify deployments.\n";
+const PREVIOUS_AUDIENCE_GUIDANCE = "- Treat a request to limit the app audience as an authentication change. Use the portal-managed Cedarville Microsoft Entra login screen and a verified Entra session before showing protected app content, then enforce the requested email, group, or role restriction server-side. Do not rely on a standalone allow list or client-side-only check. Keep only the exact public health endpoint plus the framework's required Entra sign-in and callback routes anonymous.\n";
 
 export function buildImmediatelyPreviousManagedAppPortalSkillForTest() {
-  return buildManagedAppPortalSkill().replace(PREVIOUS_HEALTH_GUIDANCE, "");
+  return buildManagedAppPortalSkill().replace(PREVIOUS_AUDIENCE_GUIDANCE, "");
 }
 
 export function buildPreviousManagedAppPortalSkillForTest() {
@@ -26,7 +27,7 @@ export function buildPreviousManagedAppPortalSkillForTest() {
   }
 
   return `${currentSkill.slice(0, currentStart)}${PREVIOUS_COMPATIBILITY_GUIDANCE}${currentSkill.slice(currentEnd + currentEndText.length)}`.replace(
-    PREVIOUS_HEALTH_GUIDANCE,
+    PREVIOUS_AUDIENCE_GUIDANCE,
     "",
-  );
+  ).replace(PREVIOUS_HEALTH_GUIDANCE, "");
 }
