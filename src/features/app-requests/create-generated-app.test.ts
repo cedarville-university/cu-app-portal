@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CreateAppRequestInput } from "./types";
 import {
   createGeneratedApp,
@@ -52,9 +52,15 @@ function createDependencies(): CreateGeneratedAppDependencies {
 
 describe("createGeneratedApp", () => {
   let dependencies: CreateGeneratedAppDependencies;
+  let consoleError: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     dependencies = createDependencies();
+    consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleError.mockRestore();
   });
 
   it("creates a managed repository for the explicit actor without publishing", async () => {
@@ -99,7 +105,7 @@ describe("createGeneratedApp", () => {
   it("records a safe repository failure after source generation succeeds", async () => {
     dependencies.bootstrapManagedRepository = vi
       .fn()
-      .mockRejectedValue(new Error("GitHub provider detail"));
+      .mockRejectedValue(new Error("GitHub provider secret=REPO_PROVIDER_SECRET"));
 
     const result = await createGeneratedApp(
       { actorUserId: "user-1", input: validInput, source: "portal-ui" },
@@ -127,12 +133,26 @@ describe("createGeneratedApp", () => {
       actorUserId: "user-1",
       directRecipientUserIds: ["user-1"],
     });
+    expect(consoleError).toHaveBeenCalledWith(
+      "Managed repository bootstrap failed",
+      {
+        requestId: "request-1",
+        supportReference: "SUP-20260901-ABC123",
+        source: "portal-ui",
+        failureStage: "repository-bootstrap",
+      },
+    );
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "REPO_PROVIDER_SECRET",
+    );
   });
 
   it("records a safe source-generation failure without bootstrapping a repository", async () => {
     dependencies.buildSourceSnapshot = vi
       .fn()
-      .mockRejectedValue(new Error("template source: secret=provider-detail"));
+      .mockRejectedValue(
+        new Error("template source: secret=SOURCE_PROVIDER_SECRET"),
+      );
 
     const result = await createGeneratedApp(
       { actorUserId: "user-1", input: validInput, source: "portal-ui" },
@@ -155,6 +175,18 @@ describe("createGeneratedApp", () => {
           publishErrorSummary: expect.not.stringContaining("provider-detail"),
         }),
       }),
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      "Generated app source build failed",
+      {
+        requestId: "request-1",
+        supportReference: "SUP-20260901-ABC123",
+        source: "portal-ui",
+        failureStage: "source-generation",
+      },
+    );
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "SOURCE_PROVIDER_SECRET",
     );
   });
 

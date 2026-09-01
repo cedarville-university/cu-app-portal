@@ -138,11 +138,12 @@ export async function createGeneratedApp(
       });
       repositoryStatus = "READY";
       repositoryUrl = repository.url;
-    } catch (error) {
+    } catch {
       console.error("Managed repository bootstrap failed", {
         requestId: appRequest.id,
         supportReference,
-        error,
+        source: request.source,
+        failureStage: "repository-bootstrap",
       });
       await dependencies.prisma.appRequest.update({
         where: { id: appRequest.id },
@@ -183,11 +184,12 @@ export async function createGeneratedApp(
       repositoryStatus,
       repositoryUrl,
     };
-  } catch (error) {
+  } catch {
     console.error("Generated app source build failed", {
       requestId: appRequest.id,
       supportReference,
-      error,
+      source: request.source,
+      failureStage: "source-generation",
     });
     await dependencies.prisma.appRequest.update({
       where: { id: appRequest.id },
