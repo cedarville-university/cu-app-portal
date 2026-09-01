@@ -14,6 +14,50 @@ export type ValidatedEntraPrincipal = {
 };
 
 const AUTHENTICATION_MESSAGE = "A valid Cedarville sign-in is required.";
+const INVALID_ISSUER_MESSAGE =
+  "PORTAL_MCP_ENTRA_ISSUER must use the exact Entra v2 issuer form.";
+type RemoteJwksFactory = (url: URL) => JWTVerifyGetKey;
+const remoteJwksByUrl = new Map<string, JWTVerifyGetKey>();
+
+export function resolvePortalApiJwksUrl(issuer: string, tenantId: string) {
+  let issuerUrl: URL;
+  try {
+    issuerUrl = new URL(issuer);
+  } catch {
+    throw new Error(INVALID_ISSUER_MESSAGE);
+  }
+
+  if (
+    issuerUrl.protocol !== "https:" ||
+    issuerUrl.username !== "" ||
+    issuerUrl.password !== "" ||
+    issuerUrl.port !== "" ||
+    issuerUrl.search !== "" ||
+    issuerUrl.hash !== "" ||
+    issuerUrl.pathname !== `/${tenantId}/v2.0`
+  ) {
+    throw new Error(INVALID_ISSUER_MESSAGE);
+  }
+
+  return new URL(
+    `/${tenantId}/discovery/v2.0/keys`,
+    issuerUrl.origin,
+  );
+}
+
+export function getPortalApiRemoteJwks(
+  config: EnabledPortalApiConfig,
+  factory: RemoteJwksFactory = createRemoteJWKSet,
+) {
+  const jwksUrl = resolvePortalApiJwksUrl(config.issuer, config.tenantId);
+  const cacheKey = jwksUrl.href;
+  const existing = remoteJwksByUrl.get(cacheKey);
+  if (existing) return existing;
+
+  const jwks = factory(jwksUrl);
+  remoteJwksByUrl.set(cacheKey, jwks);
+  return jwks;
+}
 
 function authenticationRequired() {
   return new PortalApiError("AUTHENTICATION_REQUIRED", AUTHENTICATION_MESSAGE);
@@ -65,18 +109,23 @@ function requirePrincipalClaims(
 export async function validatePortalApiBearerToken(
   authorization: string | null,
   config: EnabledPortalApiConfig,
-  dependencies: { jwks?: JWTVerifyGetKey } = {},
+  dependencies: {
+    jwks?: JWTVerifyGetKey;
+    remoteJwksFactory?: RemoteJwksFactory;
+  } = {},
 ): Promise<ValidatedEntraPrincipal> {
   try {
     const token = readBearerToken(authorization);
     const jwks =
       dependencies.jwks ??
-      createRemoteJWKSet(
-        new URL(`${config.issuer}/discovery/v2.0/keys`),
+      getPortalApiRemoteJwks(
+        config,
+        dependencies.remoteJwksFactory,
       );
     const { payload } = await jwtVerify(token, jwks, {
       issuer: config.issuer,
       audience: config.audience,
+      requiredClaims: ["exp"],
     });
 
     return requirePrincipalClaims(payload, config);
