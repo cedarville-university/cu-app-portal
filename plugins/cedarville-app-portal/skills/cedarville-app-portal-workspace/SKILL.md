@@ -12,7 +12,9 @@ Operate portal records with the Cedarville App Portal tools. This workspace skil
 1. Call `list_app_templates` before recommending a template. Codex may recommend a template, but must not select or infer one on the user's behalf. The user must explicitly select the template before the creation summary, approval, or `create_app` call. Ask one plain-language question at a time and only offer choices returned for that template.
 2. Preserve the audience exactly: Cedarville sign-in or openly public access. For public access, explain that anyone who knows or discovers the address can use the app and obtain the user's explicit public acknowledgement. Never infer acknowledgement.
 3. Summarize the selected template, app name, description, database choice, and audience. Ask for explicit approval to create.
-4. After approval, generate one UUID for this logical operation and call `create_app`. If the result is lost or uncertain, reuse the same idempotency key with identical input. A new UUID means a new user-approved logical operation and could create a duplicate.
+4. After approval, apply the shared mutation replay contract below and call `create_app`.
+
+For every mutating tool (`create_app`, `request_github_access`, `publish_app_to_azure`, `repair_publishing_setup`, and `retry_publish`), generate one UUID for each approved logical operation. If that same operation times out or returns an uncertain response, reuse the same idempotency key: replay it with the same UUID and identical input. A new key means a deliberately new operation; renew the user's intent before a consequential new operation. Publish and republish both use `publish_app_to_azure`.
 
 **Creation never publishes.** Creation stops at the private managed GitHub repository boundary. After creation, ask whether the user wants to keep the starter unchanged, publish it later, or customize it first. Publishing always requires a separate explicit request.
 
@@ -26,7 +28,7 @@ Once actor access is ready, use ordinary local Git over HTTPS. Authentication mu
 
 ## Publish and Recover
 
-Before any publish, republish, repair, or retry, use `get_app` and follow `allowedNextActions`. Each mutation requires its own separate explicit request and a new stable UUID for that user-approved logical operation.
+Before any publish, republish, repair, or retry, use `get_app` and follow `allowedNextActions`. Each newly approved logical operation receives its own stable UUID under the shared mutation replay contract.
 
 - After an explicit publish or republish request, call `publish_app_to_azure`, then use `get_publish_status` for its attempt.
 - If setup needs repair, explain the diagnosis and the fact that repair dispatches no deployment. Ask separately before `repair_publishing_setup`.

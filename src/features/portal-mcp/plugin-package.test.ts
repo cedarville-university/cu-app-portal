@@ -117,6 +117,37 @@ describe("Cedarville App Portal workspace plugin package", () => {
     );
   });
 
+  it("uses one stable replay contract for every mutating tool", () => {
+    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
+    const replayContract = skill.match(
+      /For every mutating tool[\s\S]*?(?=\n\n)/,
+    )?.[0];
+    const mutatingTools = [
+      "create_app",
+      "request_github_access",
+      "publish_app_to_azure",
+      "repair_publishing_setup",
+      "retry_publish",
+    ];
+
+    expect(replayContract).toBeDefined();
+    for (const tool of mutatingTools) {
+      expect(replayContract).toContain(`\`${tool}\``);
+    }
+    expect(replayContract).toContain(
+      "Publish and republish both use `publish_app_to_azure`.",
+    );
+    expect(replayContract).toContain(
+      "replay it with the same UUID and identical input",
+    );
+    expect(replayContract).toContain(
+      "A new key means a deliberately new operation",
+    );
+    expect(replayContract).toContain(
+      "renew the user's intent before a consequential new operation",
+    );
+  });
+
   it("keeps implicit invocation and the approved skill interface metadata", () => {
     const metadata = readFileSync(resolve(skillRoot, "agents/openai.yaml"), "utf8");
 
