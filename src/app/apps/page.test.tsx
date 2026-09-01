@@ -56,6 +56,9 @@ vi.mock("@/lib/db", () => ({
     appRequest: {
       findMany: vi.fn(),
     },
+    auditLog: {
+      findFirst: vi.fn(),
+    },
   },
 }));
 
@@ -65,6 +68,8 @@ import { prisma } from "@/lib/db";
 beforeEach(() => {
   mockUseFormStatus.mockReturnValue({ pending: false });
   vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
+  vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+  vi.mocked(prisma.auditLog.findFirst).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -207,7 +212,57 @@ describe("MyAppsPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("does not fetch detail-only data for the list view", async () => {
+  it("shows actor-specific GitHub access instead of the stale request status", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "portalstaff",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({
+      event: "REPOSITORY_ACCESS_SUCCEEDED",
+      details: {
+        requestId: "req_actor_access",
+        actorUserId: "user-123",
+        githubUsername: "portalstaff",
+        accessStatus: "GRANTED",
+      },
+    } as Awaited<ReturnType<typeof prisma.auditLog.findFirst>>);
+    vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
+      {
+        id: "req_actor_access",
+        appName: "Actor Access App",
+        generationStatus: "SUCCEEDED",
+        sourceOfTruth: "PORTAL_MANAGED_REPO",
+        repositoryStatus: "READY",
+        repositoryAccessStatus: "NOT_REQUESTED",
+        repositoryAccessNote: null,
+        publishStatus: "NOT_STARTED",
+        publishingSetupStatus: "NOT_CHECKED",
+        repositoryUrl:
+          "https://github.com/cedarville-it/actor-access-app",
+        publishUrl: null,
+        primaryPublishUrl: null,
+        repositoryImport: null,
+      },
+    ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
+
+    render(await MyAppsPage());
+
+    const appCard = screen
+      .getByRole("heading", { name: "Actor Access App" })
+      .closest("li");
+
+    expect(appCard).not.toBeNull();
+    expect(
+      within(appCard as HTMLElement).getByText(/code access:\s*granted/i),
+    ).toBeInTheDocument();
+    expect(
+      within(appCard as HTMLElement).queryByText(
+        /code access:\s*not requested/i,
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it("fetches only list data and the actor username needed for access status", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue(
       [] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>,
@@ -235,7 +290,10 @@ describe("MyAppsPage", () => {
         },
       }),
     );
-    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: "user-123" },
+      select: { githubUsername: true },
+    });
   });
 
   it("does not widen my apps results just because the user is an admin", async () => {

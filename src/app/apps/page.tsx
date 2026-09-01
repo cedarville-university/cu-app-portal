@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { appListWhereForUser } from "@/features/app-requests/access";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/status";
+import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
 import { prisma } from "@/lib/db";
 
 type BadgeVariant = "success" | "error" | "warning" | "info" | "default";
@@ -71,13 +72,31 @@ export default async function MyAppsPage() {
     redirect("/");
   }
 
-  const appRequests = await prisma.appRequest.findMany({
-    where: appListWhereForUser(userId),
-    orderBy: { createdAt: "desc" },
-    include: {
-      repositoryImport: true,
-    },
-  });
+  const [appRequests, actorUser] = await Promise.all([
+    prisma.appRequest.findMany({
+      where: appListWhereForUser(userId),
+      orderBy: { createdAt: "desc" },
+      include: {
+        repositoryImport: true,
+      },
+    }),
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { githubUsername: true },
+    }),
+  ]);
+
+  const actorRepositoryAccess = await Promise.all(
+    appRequests.map((request) =>
+      resolveRepositoryAccessForActor({
+        requestId: request.id,
+        actorUserId: userId,
+        githubUsername: actorUser?.githubUsername ?? null,
+        legacyStatus: request.repositoryAccessStatus,
+        legacyNote: request.repositoryAccessNote,
+      }),
+    ),
+  );
 
   return (
     <main>
@@ -128,7 +147,7 @@ export default async function MyAppsPage() {
           className="grid grid--2"
           style={{ gap: "1.25rem", listStyle: "none", padding: 0, margin: 0 }}
         >
-          {appRequests.map((request) => {
+          {appRequests.map((request, index) => {
             const displayPublishUrl = getDisplayPublishUrl(
               request.primaryPublishUrl,
               request.publishUrl,
@@ -172,7 +191,7 @@ export default async function MyAppsPage() {
                     />
                     <StatusBadge
                       label="Code access"
-                      status={request.repositoryAccessStatus}
+                      status={actorRepositoryAccess[index]?.status}
                       title="Whether Codex has been invited to your code repository"
                     />
                     <StatusBadge
