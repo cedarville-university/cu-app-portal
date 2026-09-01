@@ -66,6 +66,12 @@ function managedApp(overrides: Record<string, unknown> = {}) {
     publishingSetupErrorSummary: "secret=provider-detail",
     azureKeyVaultUri: "https://secret-vault.vault.azure.net/",
     submittedConfig: { password: "not-for-callers" },
+    publishSetupChecks: [
+      {
+        checkKey: "github_actions_secrets",
+        metadata: { rawProviderDetail: "secret=setup-check-metadata" },
+      },
+    ],
     template: { slug: "web-app", name: "Custom Web App" },
     repositoryImport: null,
     publishAttempts: [
@@ -101,7 +107,9 @@ describe("getAccessibleAppSummary", () => {
   it("returns an authorized collaborator view with actor-specific repository access and safe actions", async () => {
     mocks.appRequestFindFirst.mockResolvedValue(managedApp());
 
-    await expect(getAccessibleAppSummary(collaborator, "app-1")).resolves.toMatchObject({
+    const summary = await getAccessibleAppSummary(collaborator, "app-1");
+
+    expect(summary).toMatchObject({
       id: "app-1",
       appName: "Campus Forms",
       template: { slug: "web-app", name: "Custom Web App" },
@@ -126,6 +134,30 @@ describe("getAccessibleAppSummary", () => {
         "open_portal_for_advanced_management",
       ],
     });
+    expect(Object.keys(summary).sort()).toEqual([
+      "allowedNextActions",
+      "appName",
+      "generationStatus",
+      "id",
+      "latestAttempt",
+      "liveUrl",
+      "publishStatus",
+      "publishingSetupStatus",
+      "repository",
+      "repositoryAccess",
+      "repositoryStatus",
+      "sourceOfTruth",
+      "supportReference",
+      "template",
+    ]);
+    expect(summary).not.toHaveProperty("publishingSetupErrorSummary");
+    expect(summary).not.toHaveProperty("azureKeyVaultUri");
+    expect(summary).not.toHaveProperty("submittedConfig");
+    expect(summary).not.toHaveProperty("publishSetupChecks");
+    expect(JSON.stringify(summary)).not.toContain("secret=provider-detail");
+    expect(JSON.stringify(summary)).not.toContain("secret-vault.vault.azure.net");
+    expect(JSON.stringify(summary)).not.toContain("not-for-callers");
+    expect(JSON.stringify(summary)).not.toContain("secret=setup-check-metadata");
     expect(mocks.appAccessWhere).toHaveBeenCalledWith(
       "app-1",
       "collaborator-1",
@@ -177,5 +209,56 @@ describe("getAccessibleAppSummary", () => {
       status: "FAILED",
       workflowUrl: "https://github.com/cedarville-it/campus-forms/actions/runs/1",
     });
+  });
+
+  it("returns the same quiet not-found result for missing and inaccessible publish attempts", async () => {
+    mocks.publishAttemptFindFirst.mockResolvedValue(null);
+
+    const missing = await getAccessiblePublishAttemptSummary(
+      collaborator,
+      "missing-attempt",
+    ).catch((error: unknown) => error);
+    const inaccessible = await getAccessiblePublishAttemptSummary(
+      collaborator,
+      "foreign-attempt",
+    ).catch((error: unknown) => error);
+
+    const safeError = (error: unknown) => ({
+      code: error instanceof PortalApiError ? error.code : undefined,
+      message: error instanceof Error ? error.message : undefined,
+    });
+
+    expect(safeError(missing)).toEqual({
+      code: "NOT_FOUND",
+      message: "App not found.",
+    });
+    expect(safeError(inaccessible)).toEqual(safeError(missing));
+    expect(mocks.appListWhereForUser).toHaveBeenCalledTimes(2);
+    expect(mocks.appListWhereForUser).toHaveBeenNthCalledWith(
+      1,
+      "collaborator-1",
+    );
+    expect(mocks.appListWhereForUser).toHaveBeenNthCalledWith(
+      2,
+      "collaborator-1",
+    );
+    expect(mocks.publishAttemptFindFirst).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: {
+          id: "missing-attempt",
+          appRequest: { is: { OR: [{ userId: "collaborator-1" }] } },
+        },
+      }),
+    );
+    expect(mocks.publishAttemptFindFirst).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: {
+          id: "foreign-attempt",
+          appRequest: { is: { OR: [{ userId: "collaborator-1" }] } },
+        },
+      }),
+    );
   });
 });
