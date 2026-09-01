@@ -1208,7 +1208,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(screen.getAllByRole("button")).toHaveLength(2);
   });
 
-  it("offers only publish retry when failed publishing setup is already ready", async () => {
+  it("offers publish retry and setup repair when failed setup was previously ready", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       preparedImportedApp({
         publishingSetupStatus: "READY",
@@ -1222,9 +1222,9 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       screen.getByRole("button", { name: "Try publishing again" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Fix publishing setup" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+      screen.getByRole("button", { name: "Fix publishing setup" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
   });
 
   it("does not offer an invalid retry while setup repair is still running", async () => {

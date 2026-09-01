@@ -297,15 +297,15 @@ describe("DownloadPage admin publishing recovery", () => {
     },
   );
 
-  it("keeps setup repair absent when setup is already ready", async () => {
+  it("offers setup repair after a failed publish whose saved setup is ready", async () => {
     await renderPage({ publishingSetupStatus: "READY" });
 
     expect(
       screen.getByRole("button", { name: "Retry Publish" }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Repair Publishing Setup" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: "Repair Publishing Setup" }),
+    ).toBeInTheDocument();
   });
 
   it("keeps setup repair absent for a deleted publish", async () => {

@@ -111,8 +111,14 @@ export function getPublishingSetupRepairEligibility(
     return { eligible: false, reason: "PUBLISHING_SETUP_IN_PROGRESS" };
   }
 
-  return ["NOT_CHECKED", "NEEDS_REPAIR", "BLOCKED"].includes(
-    input.publishingSetupStatus,
+  const canRepairFailedReadySetup =
+    input.publishStatus === "FAILED" && input.publishingSetupStatus === "READY";
+
+  return (
+    canRepairFailedReadySetup ||
+    ["NOT_CHECKED", "NEEDS_REPAIR", "BLOCKED"].includes(
+      input.publishingSetupStatus,
+    )
   )
     ? { eligible: true }
     : { eligible: false, reason: "PUBLISHING_SETUP_ACTION_NOT_ALLOWED" };

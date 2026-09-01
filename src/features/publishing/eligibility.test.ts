@@ -163,6 +163,16 @@ describe("canQueuePublish", () => {
     },
   );
 
+  it("allows an explicit repair after a failed publish whose saved setup is ready", () => {
+    expect(
+      publishingEligibility.getPublishingSetupRepairEligibility({
+        ...generatedPublish,
+        publishStatus: "FAILED",
+        publishingSetupStatus: "READY",
+      }),
+    ).toEqual({ eligible: true });
+  });
+
   it.each(["NOT_STARTED", "FAILED", "SUCCEEDED"] as const)(
     "allows setup work in the relevant %s publish relationship",
     (publishStatus) => {
