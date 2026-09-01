@@ -36,7 +36,7 @@ function normalizeStableJson(value: unknown, ancestors = new Set<object>()): unk
     }
 
     const objectValue = value as Record<string, unknown>;
-    const result: Record<string, unknown> = {};
+    const result = Object.create(null) as Record<string, unknown>;
     for (const key of Object.keys(objectValue).sort()) {
       result[key] = normalizeStableJson(objectValue[key], ancestors);
     }

@@ -32,6 +32,32 @@ export interface PortalRateLimitDatabase {
   ): Promise<TResult>;
 }
 
+type PrismaRateLimitTransaction = {
+  $executeRaw(query: TemplateStringsArray, ...values: unknown[]): Promise<unknown>;
+  portalApiRateLimitEvent: {
+    deleteMany(args: {
+      where: { actorUserId: string; action: string; expiresAt: { lte: Date } };
+    }): Promise<unknown>;
+    count(args: {
+      where: { actorUserId: string; action: string; createdAt: { gte: Date } };
+    }): Promise<number>;
+    findFirst(args: {
+      where: { actorUserId: string; action: string; createdAt: { gte: Date } };
+      select: { createdAt: true };
+      orderBy: { createdAt: "asc" };
+    }): Promise<{ createdAt: Date } | null>;
+    create(args: {
+      data: { actorUserId: string; action: string; createdAt: Date; expiresAt: Date };
+    }): Promise<unknown>;
+  };
+};
+
+type PrismaRateLimitClient = {
+  $transaction<TResult>(
+    callback: (transaction: PrismaRateLimitTransaction) => Promise<TResult>,
+  ): Promise<TResult>;
+};
+
 const rateLimitOverrideNames: Record<PortalRateLimitAction, string> = {
   read: "PORTAL_MCP_RATE_READ_MAX",
   create_app: "PORTAL_MCP_RATE_CREATE_MAX",
@@ -61,9 +87,12 @@ export function loadPortalApiRateLimits(
   ) as PortalApiRateLimits;
 }
 
-const defaultDatabase: PortalRateLimitDatabase = {
-  $transaction(callback) {
-    return prisma.$transaction(async (transaction) =>
+export function createPrismaPortalRateLimitDatabase(
+  client: PrismaRateLimitClient,
+): PortalRateLimitDatabase {
+  return {
+    $transaction(callback) {
+      return client.$transaction(async (transaction) =>
       callback({
         async advisoryLock(actorUserId, action) {
           await transaction.$executeRaw`
@@ -91,9 +120,14 @@ const defaultDatabase: PortalRateLimitDatabase = {
           await transaction.portalApiRateLimitEvent.create({ data: event });
         },
       }),
-    );
-  },
-};
+      );
+    },
+  };
+}
+
+const defaultDatabase = createPrismaPortalRateLimitDatabase(
+  prisma as unknown as PrismaRateLimitClient,
+);
 
 export async function claimPortalRateLimit(
   actorUserId: string,

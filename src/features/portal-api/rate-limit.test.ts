@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PortalApiError } from "./errors";
 import {
   claimPortalRateLimit,
+  createPrismaPortalRateLimitDatabase,
   loadPortalApiRateLimits,
   PORTAL_API_RATE_LIMITS,
   type PortalRateLimitDatabase,
@@ -64,22 +65,72 @@ describe("portal API rate-limit policies", () => {
     });
   });
 
-  it("permits only the configured rolling-window allowance and returns a retry duration", async () => {
-    const db = new InMemoryRateLimitDatabase();
+  it("enforces the N+1 rolling-window limit for every policy", async () => {
     const now = new Date("2026-09-01T16:00:00.000Z");
 
-    for (let index = 0; index < PORTAL_API_RATE_LIMITS.create_app.limit; index += 1) {
-      await claimPortalRateLimit("user-1", "create_app", now, db);
-    }
+    for (const [action, policy] of Object.entries(PORTAL_API_RATE_LIMITS) as Array<
+      [keyof typeof PORTAL_API_RATE_LIMITS, (typeof PORTAL_API_RATE_LIMITS)[keyof typeof PORTAL_API_RATE_LIMITS]]
+    >) {
+      const db = new InMemoryRateLimitDatabase();
+      for (let index = 0; index < policy.limit; index += 1) {
+        await claimPortalRateLimit("user-1", action, now, db);
+      }
 
-    await expect(claimPortalRateLimit("user-1", "create_app", now, db)).rejects.toSatisfy(
-      (error: unknown) =>
-        error instanceof PortalApiError &&
-        error.code === "RATE_LIMITED" &&
-        error.retryAfterSeconds !== null &&
-        error.retryAfterSeconds > 0,
+      await expect(claimPortalRateLimit("user-1", action, now, db)).rejects.toSatisfy(
+        (error: unknown) =>
+          error instanceof PortalApiError &&
+          error.code === "RATE_LIMITED" &&
+          error.retryAfterSeconds !== null &&
+          error.retryAfterSeconds > 0,
+      );
+      expect(db.advisoryLocks).toHaveLength(policy.limit + 1);
+    }
+  });
+
+  it("issues the PostgreSQL advisory lock inside the default Prisma transaction", async () => {
+    const order: string[] = [];
+    const rawQueries: Array<{ sql: string; values: unknown[] }> = [];
+    const client = {
+      async $transaction<TResult>(callback: (transaction: unknown) => Promise<TResult>) {
+        order.push("transaction:start");
+        const result = await callback({
+          async $executeRaw(strings: TemplateStringsArray, ...values: unknown[]) {
+            order.push("advisory-lock");
+            rawQueries.push({ sql: strings.join("?"), values });
+          },
+          portalApiRateLimitEvent: {
+            async deleteMany() { order.push("delete-expired"); },
+            async count() { order.push("count"); return 0; },
+            async findFirst() { order.push("oldest"); return null; },
+            async create() { order.push("create"); },
+          },
+        });
+        order.push("transaction:commit");
+        return result;
+      },
+    };
+
+    await claimPortalRateLimit(
+      "user-1",
+      "create_app",
+      new Date("2026-09-01T16:00:00.000Z"),
+      createPrismaPortalRateLimitDatabase(client),
     );
-    expect(db.advisoryLocks).toHaveLength(PORTAL_API_RATE_LIMITS.create_app.limit + 1);
+
+    expect(order).toEqual([
+      "transaction:start",
+      "advisory-lock",
+      "delete-expired",
+      "count",
+      "create",
+      "transaction:commit",
+    ]);
+    expect(rawQueries).toEqual([
+      {
+        sql: expect.stringContaining("SELECT pg_advisory_xact_lock(hashtextextended(?"),
+        values: ["user-1:create_app"],
+      },
+    ]);
   });
 
   it("cleans expired rows before counting a new event", async () => {

@@ -52,6 +52,40 @@ class InMemoryOperationStore implements PortalApiOperationStore {
   }
 }
 
+class SimultaneousCreateStore extends InMemoryOperationStore {
+  createCalls = 0;
+  uniqueViolations = 0;
+  private secondCreateArrived: (() => void) | undefined;
+  private firstCreateStored: (() => void) | undefined;
+  private readonly secondCreateArrivedPromise = new Promise<void>((resolve) => {
+    this.secondCreateArrived = resolve;
+  });
+  private readonly firstCreateStoredPromise = new Promise<void>((resolve) => {
+    this.firstCreateStored = resolve;
+  });
+
+  override async create(record: Omit<PortalApiOperationRecord, "id" | "createdAt" | "updatedAt">) {
+    this.createCalls += 1;
+    if (this.createCalls === 1) {
+      await this.secondCreateArrivedPromise;
+      const created = await super.create(record);
+      this.firstCreateStored?.();
+      return created;
+    }
+
+    this.secondCreateArrived?.();
+    await this.firstCreateStoredPromise;
+    try {
+      return await super.create(record);
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
+        this.uniqueViolations += 1;
+      }
+      throw error;
+    }
+  }
+}
+
 function mutationOptions(store: PortalApiOperationStore, overrides: Record<string, unknown> = {}) {
   return {
     actorUserId: "user-1",
@@ -71,6 +105,12 @@ describe("stable portal API input JSON", () => {
     await expect(sha256StableJson({ b: ["first", "second"], a: 1 })).resolves.toBe(
       await sha256StableJson({ a: 1, b: ["first", "second"] }),
     );
+  });
+
+  it("keeps JSON __proto__ keys as own input fields", async () => {
+    const protoInput = JSON.parse('{"__proto__":{"changed":true}}');
+
+    await expect(sha256StableJson(protoInput)).resolves.not.toBe(await sha256StableJson({}));
   });
 
   it("rejects values JSON cannot safely represent", async () => {
@@ -123,6 +163,22 @@ describe("executeIdempotentMutation", () => {
 
     releaseFirst?.({ requestId: "req-1" });
     await expect(firstRun).resolves.toEqual({ requestId: "req-1" });
+  });
+
+  it("executes only once when simultaneous claims race at the unique pending insert", async () => {
+    const store = new SimultaneousCreateStore();
+    const execute = vi.fn().mockResolvedValue({ requestId: "req-1" });
+    const first = mutationOptions(store, { execute });
+    const second = mutationOptions(store, { execute });
+
+    await expect(Promise.all([executeIdempotentMutation(first), executeIdempotentMutation(second)]))
+      .resolves.toEqual([{ requestId: "req-1" }, { requestId: "req-1" }]);
+
+    expect(store.createCalls).toBe(2);
+    expect(store.uniqueViolations).toBe(1);
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(first.claimRateLimit).toHaveBeenCalledTimes(1);
+    expect(second.claimRateLimit).toHaveBeenCalledTimes(1);
   });
 
   it("persists and safely replays a failure", async () => {
