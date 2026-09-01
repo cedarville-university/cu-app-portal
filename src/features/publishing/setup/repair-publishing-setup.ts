@@ -77,15 +77,20 @@ async function loadAccessibleAppRequest(
   input: RepairPublishingSetupInput,
   dependencies: RepairPublishingSetupDependencies,
 ) {
-  const actorIsAdmin = await dependencies.userHasAdminRole(input.actorUserId);
-  const appRequest = await dependencies.prisma.appRequest.findFirst({
-    where: dependencies.appAccessWhere(
-      input.requestId,
-      input.actorUserId,
-      actorIsAdmin,
-    ),
-    include: { repositoryImport: true },
-  });
+  let appRequest: RepairableAppRequest | null;
+  try {
+    const actorIsAdmin = await dependencies.userHasAdminRole(input.actorUserId);
+    appRequest = await dependencies.prisma.appRequest.findFirst({
+      where: dependencies.appAccessWhere(
+        input.requestId,
+        input.actorUserId,
+        actorIsAdmin,
+      ),
+      include: { repositoryImport: true },
+    });
+  } catch {
+    throw new Error("App request access could not be confirmed.");
+  }
 
   if (!appRequest) {
     throw new Error("App request not found.");
@@ -180,7 +185,17 @@ export async function repairPublishingSetupForActor(
   const claimed = await dependencies.prisma.appRequest.updateMany({
     where: {
       id: input.requestId,
+      sourceOfTruth: appRequest.sourceOfTruth,
+      repositoryStatus: "READY",
+      publishStatus: appRequest.publishStatus,
       publishingSetupStatus: appRequest.publishingSetupStatus,
+      ...(appRequest.sourceOfTruth === "IMPORTED_REPOSITORY"
+        ? {
+            repositoryImport: {
+              is: { preparationStatus: "COMMITTED" },
+            },
+          }
+        : {}),
     },
     data: {
       publishingSetupStatus: "REPAIRING",
@@ -211,6 +226,9 @@ export async function repairPublishingSetupForActor(
     await dependencies.repairPublishingSetup(input.requestId, undefined, {
       statusAlreadyClaimed: true,
       attemptClaimedAt,
+      authorizeProviderMutation: async () => {
+        await loadAccessibleAppRequest(input, dependencies);
+      },
     });
 
     const status = await readRepairStatus(
@@ -259,12 +277,16 @@ export async function repairPublishingSetupForActor(
       failureStage: "provider-setup",
     });
     if (failed.count !== 1) {
+      const status = await readRepairStatus(
+        input.requestId,
+        appRequest.publishingSetupStatus,
+        dependencies,
+      );
+      if (status === "BLOCKED") {
+        await notifyBlockedActor(input, dependencies);
+      }
       return {
-        status: await readRepairStatus(
-          input.requestId,
-          appRequest.publishingSetupStatus,
-          dependencies,
-        ),
+        status,
       };
     }
     if (failureStatus === "BLOCKED") {

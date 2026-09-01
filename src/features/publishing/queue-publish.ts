@@ -30,6 +30,7 @@ type PublishAppRequest = {
   sourceOfTruth: SourceOfTruth;
   repositoryStatus: RepositoryStatus;
   publishStatus: PublishStatus;
+  publishErrorSummary: string | null;
   publishingSetupStatus: PublishingSetupStatus | null;
   repositoryImport: {
     preparationStatus: RepositoryPreparationStatus;
@@ -42,6 +43,7 @@ type QueuePublishTransaction = {
   };
   publishAttempt: {
     create(args: Prisma.PublishAttemptCreateArgs): Promise<{ id: string }>;
+    updateMany(args: Prisma.PublishAttemptUpdateManyArgs): Promise<{ count: number }>;
   };
 };
 
@@ -113,11 +115,12 @@ export function startPublishWorker(
   attemptId: string,
   dependencies: Pick<QueuePublishDependencies, "runPublishAttempt"> =
     defaultQueuePublishDependencies,
+  authorizeProviderMutation?: () => Promise<void>,
 ) {
   logPublishWorker("started", { publishAttemptId: attemptId });
 
   void dependencies
-    .runPublishAttempt(attemptId)
+    .runPublishAttempt(attemptId, undefined, authorizeProviderMutation)
     .then(() => {
       logPublishWorker("completed", { publishAttemptId: attemptId });
     })
@@ -132,15 +135,20 @@ async function loadAccessibleAppRequest(
   input: PublishActorInput,
   dependencies: QueuePublishDependencies,
 ) {
-  const actorIsAdmin = await dependencies.userHasAdminRole(input.actorUserId);
-  const appRequest = await dependencies.prisma.appRequest.findFirst({
-    where: dependencies.appAccessWhere(
-      input.requestId,
-      input.actorUserId,
-      actorIsAdmin,
-    ),
-    include: { repositoryImport: true },
-  });
+  let appRequest: PublishAppRequest | null;
+  try {
+    const actorIsAdmin = await dependencies.userHasAdminRole(input.actorUserId);
+    appRequest = await dependencies.prisma.appRequest.findFirst({
+      where: dependencies.appAccessWhere(
+        input.requestId,
+        input.actorUserId,
+        actorIsAdmin,
+      ),
+      include: { repositoryImport: true },
+    });
+  } catch {
+    throw new Error("App request access could not be confirmed.");
+  }
 
   if (!appRequest) {
     throw new Error("App request not found.");
@@ -213,6 +221,41 @@ async function recordPublishRequested(
   }
 }
 
+async function settleQueuedClaimAfterAuthorizationLoss(
+  input: PublishActorInput,
+  attemptId: string,
+  previousRequest: PublishAppRequest,
+  dependencies: QueuePublishDependencies,
+) {
+  await dependencies.prisma.$transaction(async (tx) => {
+    const settledAttempt = await tx.publishAttempt.updateMany({
+      where: {
+        id: attemptId,
+        appRequestId: input.requestId,
+        status: "QUEUED",
+        stage: "QUEUED",
+      },
+      data: {
+        status: "FAILED",
+        stage: "FAILED",
+        errorSummary:
+          "Publishing stopped because app access could not be confirmed.",
+        finishedAt: new Date(),
+      },
+    });
+
+    if (settledAttempt.count === 1) {
+      await tx.appRequest.updateMany({
+        where: { id: input.requestId, publishStatus: "QUEUED" },
+        data: {
+          publishStatus: previousRequest.publishStatus,
+          publishErrorSummary: previousRequest.publishErrorSummary,
+        },
+      });
+    }
+  });
+}
+
 export async function queuePublishAttemptForActor(
   input: PublishActorInput,
   policy: QueuePublishPolicy,
@@ -233,7 +276,15 @@ export async function queuePublishAttemptForActor(
     const queuedRequest = await tx.appRequest.updateMany({
       where: {
         id: input.requestId,
+        sourceOfTruth: authorizedAppRequest.sourceOfTruth,
         repositoryStatus: "READY",
+        ...(authorizedAppRequest.sourceOfTruth === "IMPORTED_REPOSITORY"
+          ? {
+              repositoryImport: {
+                is: { preparationStatus: "COMMITTED" },
+              },
+            }
+          : {}),
         publishingSetupStatus: publishingSetupStatusPredicate(
           authorizedAppRequest,
           policy.allowFailedSetupRetry,
@@ -265,13 +316,29 @@ export async function queuePublishAttemptForActor(
 
   // The queued claim proves the caller was allowed to request work; re-read
   // access once more immediately before entering the provider orchestrator.
-  await loadAccessibleAppRequest(input, dependencies);
+  try {
+    await loadAccessibleAppRequest(input, dependencies);
+  } catch (error) {
+    await settleQueuedClaimAfterAuthorizationLoss(
+      input,
+      attemptId,
+      authorizedAppRequest,
+      dependencies,
+    );
+    throw error;
+  }
 
   logPublishWorker("queued", {
     requestId: input.requestId,
     publishAttemptId: attemptId,
   });
-  startPublishWorker(attemptId, dependencies);
+  startPublishWorker(
+    attemptId,
+    dependencies,
+    async () => {
+      await loadAccessibleAppRequest(input, dependencies);
+    },
+  );
 
   return { attemptId, status: "QUEUED" };
 }

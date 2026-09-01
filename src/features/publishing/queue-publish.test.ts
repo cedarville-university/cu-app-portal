@@ -15,6 +15,7 @@ const generatedRequest = {
   sourceOfTruth: "PORTAL_MANAGED_REPO" as const,
   repositoryStatus: "READY" as const,
   publishStatus: "NOT_STARTED" as const,
+  publishErrorSummary: null,
   publishingSetupStatus: "READY" as const,
   repositoryImport: null,
 };
@@ -26,6 +27,7 @@ function createDependencies(): QueuePublishDependencies {
     },
     publishAttempt: {
       create: vi.fn().mockResolvedValue({ id: "attempt-123" }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
   };
 
@@ -121,6 +123,7 @@ describe("queuePublishForActor", () => {
     expect(transactionClient.appRequest.updateMany).toHaveBeenCalledWith({
       where: {
         id: "request-123",
+        sourceOfTruth: "PORTAL_MANAGED_REPO",
         repositoryStatus: "READY",
         publishingSetupStatus: { in: ["NOT_CHECKED", "READY"] },
         publishStatus: { in: ["NOT_STARTED", "SUCCEEDED"] },
@@ -170,7 +173,11 @@ describe("queuePublishForActor", () => {
     expect(transactionClient.appRequest.updateMany).toHaveBeenCalledWith({
       where: {
         id: "request-123",
+        sourceOfTruth: "IMPORTED_REPOSITORY",
         repositoryStatus: "READY",
+        repositoryImport: {
+          is: { preparationStatus: "COMMITTED" },
+        },
         publishingSetupStatus: "READY",
         publishStatus: { in: ["NOT_STARTED", "SUCCEEDED"] },
       },
@@ -295,7 +302,77 @@ describe("queuePublishForActor", () => {
     await vi.waitFor(() => {
       expect(dependencies.prisma.appRequest.findFirst).toHaveBeenCalledTimes(3);
     });
+    const transactionClient = await firstTransactionClient(dependencies);
+    expect(transactionClient.publishAttempt.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "attempt-123",
+        appRequestId: "request-123",
+        status: "QUEUED",
+        stage: "QUEUED",
+      },
+      data: expect.objectContaining({
+        status: "FAILED",
+        stage: "FAILED",
+        errorSummary: expect.any(String),
+      }),
+    });
+    expect(transactionClient.appRequest.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "request-123", publishStatus: "QUEUED" },
+      data: {
+        publishStatus: "NOT_STARTED",
+        publishErrorSummary: null,
+      },
+    });
     expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+  });
+
+  it("settles the queued claim when the final access read fails", async () => {
+    vi.mocked(dependencies.prisma.appRequest.findFirst)
+      .mockResolvedValueOnce(generatedRequest)
+      .mockResolvedValueOnce(generatedRequest)
+      .mockRejectedValueOnce(new Error("database read sentinel"));
+
+    const result = await queuePublishForActor(
+      {
+        requestId: "request-123",
+        actorUserId: "collaborator-123",
+        source: "portal-ui",
+      },
+      dependencies,
+    ).catch((error: unknown) => error);
+
+    expect(result).toEqual(
+      new Error("App request access could not be confirmed."),
+    );
+
+    const transactionClient = await firstTransactionClient(dependencies);
+    expect(transactionClient.publishAttempt.updateMany).toHaveBeenCalledTimes(1);
+    expect(transactionClient.appRequest.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "request-123", publishStatus: "QUEUED" },
+      data: {
+        publishStatus: "NOT_STARTED",
+        publishErrorSummary: null,
+      },
+    });
+    expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+    expect((result as Error).message).not.toContain("database read sentinel");
+  });
+
+  it("passes an actor-aware authorization guard into the publish worker", async () => {
+    await queuePublishForActor(
+      {
+        requestId: "request-123",
+        actorUserId: "collaborator-123",
+        source: "codex-mcp",
+      },
+      dependencies,
+    );
+
+    expect(dependencies.runPublishAttempt).toHaveBeenCalledWith(
+      "attempt-123",
+      undefined,
+      expect.any(Function),
+    );
   });
 });
 

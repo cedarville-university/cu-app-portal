@@ -11,6 +11,7 @@ const failedRequest = {
   sourceOfTruth: "PORTAL_MANAGED_REPO" as const,
   repositoryStatus: "READY" as const,
   publishStatus: "FAILED" as const,
+  publishErrorSummary: "Previous safe failure.",
   publishingSetupStatus: "READY" as const,
   repositoryImport: null,
 };
@@ -61,7 +62,11 @@ describe("retryPublishForActor", () => {
 
     const transactionClient = await captureTransactionClient(dependencies);
     expect(transactionClient.publishAttempt.create).toHaveBeenCalledTimes(1);
-    expect(dependencies.runPublishAttempt).toHaveBeenCalledWith("attempt-456");
+    expect(dependencies.runPublishAttempt).toHaveBeenCalledWith(
+      "attempt-456",
+      undefined,
+      expect.any(Function),
+    );
   });
 
   it("rejects retry when the current publish is no longer failed", async () => {
@@ -106,6 +111,7 @@ describe("retryPublishForActor", () => {
       expect(transactionClient.appRequest.updateMany).toHaveBeenCalledWith({
         where: {
           id: "request-123",
+          sourceOfTruth: "PORTAL_MANAGED_REPO",
           repositoryStatus: "READY",
           publishingSetupStatus: {
             in: ["NOT_CHECKED", "READY", "NEEDS_REPAIR", "BLOCKED"],

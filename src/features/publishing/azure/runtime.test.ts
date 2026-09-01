@@ -201,6 +201,27 @@ function createDeps({
 }
 
 describe("createAzurePublishRuntime", () => {
+  it("stops before the next provider mutation when actor access is revoked", async () => {
+    const { deps, arm } = createDeps({
+      appRequest: readyGeneratedFastApiWithDatabaseAndEntraRequest,
+    });
+    const authorizeProviderMutation = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("App request not found."));
+    const runtime = createAzurePublishRuntime(deps);
+
+    await expect(
+      runtime.provisionInfrastructure("clx9abc123zzzzzzzzzz", {
+        authorizeProviderMutation,
+      }),
+    ).rejects.toThrow("App request not found.");
+
+    expect(arm.putPostgresDatabase).toHaveBeenCalledTimes(1);
+    expect(arm.putWebApp).not.toHaveBeenCalled();
+    expect(arm.putAppSettings).not.toHaveBeenCalled();
+  });
+
   it("provisions shared-target app resources and configures github deployment", async () => {
     const { deps, arm, graph, github } = createDeps();
 

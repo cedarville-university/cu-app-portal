@@ -31,7 +31,14 @@ export type DeploymentRun = {
   githubWorkflowRunUrl: string;
 };
 
+export type AuthorizeProviderMutation = () => Promise<void>;
+
+export type ProvisionInfrastructureOptions = {
+  authorizeProviderMutation?: AuthorizeProviderMutation;
+};
+
 export type DeployRepositoryOptions = {
+  authorizeProviderMutation?: AuthorizeProviderMutation;
   onSetupStep?: (step: PublishingSetupCheckKey) => void;
   onWorkflowDispatched?: () => void;
 };
@@ -43,6 +50,7 @@ export type VerificationResult = {
 export type PublishRuntime = {
   provisionInfrastructure: (
     appRequestId: string,
+    options?: ProvisionInfrastructureOptions,
   ) => Promise<ProvisionedPublishTarget>;
   deployRepository: (
     appRequestId: string,
@@ -103,9 +111,38 @@ function logPublishWorker(event: string, details: Record<string, unknown>) {
   console.info("[publish-worker]", event, details);
 }
 
+const PUBLISH_AUTHORIZATION_FAILURE_SUMMARY =
+  "Publishing stopped because app access could not be confirmed.";
+const POST_DISPATCH_FAILURE_SUMMARY =
+  "Publishing failed after deployment started. Try again or share the support reference with the portal support team.";
+
+class PublishAuthorizationError extends Error {
+  constructor() {
+    super(PUBLISH_AUTHORIZATION_FAILURE_SUMMARY);
+    this.name = "PublishAuthorizationError";
+  }
+}
+
+function guardedAuthorization(
+  authorizeProviderMutation?: AuthorizeProviderMutation,
+): AuthorizeProviderMutation | undefined {
+  if (!authorizeProviderMutation) {
+    return undefined;
+  }
+
+  return async () => {
+    try {
+      await authorizeProviderMutation();
+    } catch {
+      throw new PublishAuthorizationError();
+    }
+  };
+}
+
 export async function runPublishAttempt(
   attemptId: string,
   runtime?: PublishRuntime,
+  authorizeProviderMutation?: AuthorizeProviderMutation,
 ) {
   const attempt = await prisma.publishAttempt.findUnique({
     where: { id: attemptId },
@@ -142,6 +179,7 @@ export async function runPublishAttempt(
 
   let deploymentDispatchMayHaveStarted = false;
   let currentSetupStep: PublishingSetupCheckKey = "azure_resource_access";
+  const authorizeMutation = guardedAuthorization(authorizeProviderMutation);
 
   try {
     const effectiveRuntime = runtime ?? createDefaultRuntime();
@@ -151,8 +189,10 @@ export async function runPublishAttempt(
       requestId: attempt.appRequestId,
     });
 
+    await authorizeMutation?.();
     const publishTarget = await effectiveRuntime.provisionInfrastructure(
       attempt.appRequestId,
+      { authorizeProviderMutation: authorizeMutation },
     );
 
     logPublishWorker("provisioning completed", {
@@ -187,9 +227,11 @@ export async function runPublishAttempt(
       requestId: attempt.appRequestId,
     });
 
+    await authorizeMutation?.();
     const deployment = await effectiveRuntime.deployRepository(
       attempt.appRequestId,
       {
+        authorizeProviderMutation: authorizeMutation,
         onSetupStep: (step) => {
           currentSetupStep = step;
         },
@@ -279,32 +321,35 @@ export async function runPublishAttempt(
       eventKey: "PUBLISH_SUCCEEDED",
     });
   } catch (error) {
-    const errorSummary =
-      error instanceof Error ? error.message : "Unknown publish error";
-    const setupFailure = deploymentDispatchMayHaveStarted
+    const authorizationFailed = error instanceof PublishAuthorizationError;
+    const setupFailure = deploymentDispatchMayHaveStarted || authorizationFailed
       ? null
       : classifyPublishingSetupError({
           step: currentSetupStep,
           error,
         });
+    const safeErrorSummary = authorizationFailed
+      ? PUBLISH_AUTHORIZATION_FAILURE_SUMMARY
+      : setupFailure
+        ? `Publishing setup failed: ${setupFailure.summary}`
+        : POST_DISPATCH_FAILURE_SUMMARY;
     const appRequestFailureData = setupFailure
       ? {
           publishStatus: "FAILED" as const,
-          publishErrorSummary: `Publishing setup failed: ${setupFailure.summary}`,
+          publishErrorSummary: safeErrorSummary,
           publishingSetupStatus: setupFailure.setupStatus,
           publishingSetupErrorSummary: setupFailure.summary,
         }
       : {
           publishStatus: "FAILED" as const,
-          publishErrorSummary: errorSummary,
+          publishErrorSummary: safeErrorSummary,
         };
     const finishedAt = new Date();
 
     console.error("[publish-worker]", "failed", {
       publishAttemptId: attemptId,
       requestId: attempt.appRequestId,
-      errorSummary,
-      error,
+      errorSummary: safeErrorSummary,
     });
 
     await prisma.publishAttempt.update({
@@ -312,7 +357,7 @@ export async function runPublishAttempt(
       data: {
         status: "FAILED",
         stage: "FAILED",
-        errorSummary,
+        errorSummary: safeErrorSummary,
         finishedAt,
       },
     });
@@ -325,7 +370,7 @@ export async function runPublishAttempt(
     await recordAuditEvent("PUBLISH_FAILED", {
       requestId: attempt.appRequestId,
       publishAttemptId: attemptId,
-      error: errorSummary,
+      error: safeErrorSummary,
     });
     await safeNotifyAppEvent({
       appRequestId: attempt.appRequestId,
@@ -346,6 +391,6 @@ export async function runPublishAttempt(
       });
     }
 
-    throw error;
+    throw new Error(safeErrorSummary);
   }
 }

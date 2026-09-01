@@ -227,6 +227,36 @@ describe("publishing setup service", () => {
     );
   });
 
+  it("stops before the next repair mutation when actor access is revoked", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
+      fastApiWithDatabaseAndEntraAppRequest as Awaited<
+        ReturnType<typeof prisma.appRequest.findUnique>
+      >,
+    );
+    const deps = createDeps();
+    const authorizeProviderMutation = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("App request not found."));
+
+    await expect(
+      repairPublishingSetup("req_123", deps, {
+        authorizeProviderMutation,
+      }),
+    ).rejects.toThrow("App request not found.");
+
+    expect(deps.arm.putPostgresDatabase).toHaveBeenCalledTimes(1);
+    expect(deps.arm.putWebApp).not.toHaveBeenCalled();
+    expect(deps.arm.putAppSettings).not.toHaveBeenCalled();
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "NEEDS_REPAIR",
+        publishingSetupErrorSummary: expect.any(String),
+      }),
+    });
+  });
+
   it("marks setup ready when preflight checks pass", async () => {
     const deps = createDeps();
 

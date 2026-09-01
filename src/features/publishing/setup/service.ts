@@ -73,14 +73,16 @@ type ClaimedRepairAttempt = {
 };
 
 type RepairPublishingSetupOptions =
-  | {
+  ({
       statusAlreadyClaimed?: false;
       attemptClaimedAt?: never;
     }
   | {
       statusAlreadyClaimed: true;
       attemptClaimedAt: Date;
-    };
+    }) & {
+    authorizeProviderMutation?: () => Promise<void>;
+  };
 
 export class StalePublishingSetupRepairAttemptError extends Error {
   constructor() {
@@ -1215,6 +1217,7 @@ export async function repairPublishingSetup(
   try {
     repairStep = "azure_resource_access";
     if (databaseProvider === "postgresql") {
+      await options.authorizeProviderMutation?.();
       await deps.arm.putPostgresDatabase({
         resourceGroup: deps.config.resourceGroup,
         serverName: deps.config.postgresServer,
@@ -1224,6 +1227,7 @@ export async function repairPublishingSetup(
     }
 
     repairStep = "azure_resource_access";
+    await options.authorizeProviderMutation?.();
     const webApp = await deps.arm.putWebApp({
       resourceGroup: deps.config.resourceGroup,
       name: names.webAppName,
@@ -1246,6 +1250,7 @@ export async function repairPublishingSetup(
       resourceGroup: deps.config.resourceGroup,
       name: names.webAppName,
     });
+    await options.authorizeProviderMutation?.();
     await deps.arm.putAppSettings({
       resourceGroup: deps.config.resourceGroup,
       name: names.webAppName,
@@ -1264,6 +1269,7 @@ export async function repairPublishingSetup(
 
     if (entraLogin) {
       repairStep = "entra_redirect_uri";
+      await options.authorizeProviderMutation?.();
       await deps.graph.ensureRedirectUri({
         applicationObjectId: deps.config.entraAppObjectId,
         redirectUri: `${effectivePublishUrl}${selectedEntraCallbackPath(
@@ -1277,6 +1283,7 @@ export async function repairPublishingSetup(
       owner: repo.owner,
       name: repo.name,
     });
+    await options.authorizeProviderMutation?.();
     await deps.graph.replaceFederatedCredential({
       applicationAppId: deps.config.azureClientId,
       name: federatedCredentialName(appRequest),
@@ -1290,11 +1297,13 @@ export async function repairPublishingSetup(
 
     repairStep = "github_actions_secrets";
     for (const secretName of REQUIRED_PORTAL_MANAGED_SECRETS) {
+      await options.authorizeProviderMutation?.();
       await deps.github.deleteActionsSecret({
         owner: repo.owner,
         name: repo.name,
         secretName,
       });
+      await options.authorizeProviderMutation?.();
       await deps.github.setActionsSecret({
         owner: repo.owner,
         name: repo.name,

@@ -289,7 +289,9 @@ describe("runPublishAttempt", () => {
         deployRepository,
         verifyDeployment: vi.fn(),
       }),
-    ).rejects.toThrow("azure permission denied");
+    ).rejects.toThrow(
+      "Publishing setup failed: Publishing setup needs to be repaired.",
+    );
 
     expect(deployRepository).not.toHaveBeenCalled();
     expect(prisma.publishAttempt.update).toHaveBeenCalledWith({
@@ -297,7 +299,8 @@ describe("runPublishAttempt", () => {
       data: expect.objectContaining({
         status: "FAILED",
         stage: "FAILED",
-        errorSummary: "azure permission denied",
+        errorSummary:
+          "Publishing setup failed: Publishing setup needs to be repaired.",
       }),
     });
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
@@ -321,8 +324,8 @@ describe("runPublishAttempt", () => {
     expect(consoleError).toHaveBeenCalledWith("[publish-worker]", "failed", {
       publishAttemptId: "attempt-456",
       requestId: "request-456",
-      errorSummary: "azure permission denied",
-      error: expect.any(Error),
+      errorSummary:
+        "Publishing setup failed: Publishing setup needs to be repaired.",
     });
   });
 
@@ -344,7 +347,9 @@ describe("runPublishAttempt", () => {
         deployRepository: vi.fn(),
         verifyDeployment: vi.fn(),
       }),
-    ).rejects.toThrow("Microsoft Graph request failed: 403");
+    ).rejects.toThrow(
+      "Publishing setup failed: Microsoft Graph permission is missing for Entra publishing setup.",
+    );
 
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
       where: { id: "request-blocked" },
@@ -396,7 +401,9 @@ describe("runPublishAttempt", () => {
         ),
         verifyDeployment: vi.fn(),
       }),
-    ).rejects.toThrow("github secret write denied");
+    ).rejects.toThrow(
+      "Publishing setup failed: Publishing setup needs to be repaired.",
+    );
 
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
       where: { id: "request-654" },
@@ -445,7 +452,9 @@ describe("runPublishAttempt", () => {
           }),
         verifyDeployment: vi.fn(),
       }),
-    ).rejects.toThrow("Microsoft Graph request failed: 403");
+    ).rejects.toThrow(
+      "Publishing setup failed: Publishing credentials are out of date and need to be refreshed.",
+    );
 
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
       where: { id: "request-655" },
@@ -501,13 +510,16 @@ describe("runPublishAttempt", () => {
           new Error("deployment unhealthy"),
         ),
       }),
-    ).rejects.toThrow("deployment unhealthy");
+    ).rejects.toThrow(
+      "Publishing failed after deployment started. Try again or share the support reference with the portal support team.",
+    );
 
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
       where: { id: "request-789" },
       data: {
         publishStatus: "FAILED",
-        publishErrorSummary: "deployment unhealthy",
+        publishErrorSummary:
+          "Publishing failed after deployment started. Try again or share the support reference with the portal support team.",
       },
     });
   });
@@ -544,13 +556,16 @@ describe("runPublishAttempt", () => {
           }),
         verifyDeployment: vi.fn(),
       }),
-    ).rejects.toThrow("workflow run was not detected");
+    ).rejects.toThrow(
+      "Publishing failed after deployment started. Try again or share the support reference with the portal support team.",
+    );
 
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
       where: { id: "request-987" },
       data: {
         publishStatus: "FAILED",
-        publishErrorSummary: "workflow run was not detected",
+        publishErrorSummary:
+          "Publishing failed after deployment started. Try again or share the support reference with the portal support team.",
       },
     });
   });
@@ -568,7 +583,7 @@ describe("runPublishAttempt", () => {
     });
 
     await expect(runPublishAttempt("attempt-123")).rejects.toThrow(
-      "missing azure config",
+      "Publishing setup failed: Publishing setup needs to be repaired.",
     );
 
     expect(prisma.publishAttempt.update).toHaveBeenCalledWith({
@@ -590,7 +605,8 @@ describe("runPublishAttempt", () => {
       data: expect.objectContaining({
         status: "FAILED",
         stage: "FAILED",
-        errorSummary: "missing azure config",
+        errorSummary:
+          "Publishing setup failed: Publishing setup needs to be repaired.",
       }),
     });
     expect(prisma.appRequest.update).toHaveBeenCalledWith({
@@ -606,7 +622,83 @@ describe("runPublishAttempt", () => {
     expect(recordAuditEvent).toHaveBeenCalledWith("PUBLISH_FAILED", {
       requestId: "request-123",
       publishAttemptId: "attempt-123",
-      error: "missing azure config",
+      error: "Publishing setup failed: Publishing setup needs to be repaired.",
     });
+  });
+
+  it.each([
+    ["access denial", new Error("App request not found.")],
+    ["access read error", new Error("database access sentinel")],
+  ])("settles a queued attempt when final %s prevents provider work", async (_label, accessError) => {
+    vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({
+      id: "attempt-auth",
+      appRequestId: "request-auth",
+      appRequest: { id: "request-auth" },
+    } as Awaited<ReturnType<typeof prisma.publishAttempt.findUnique>>);
+    const provisionInfrastructure = vi.fn();
+
+    const result = await runPublishAttempt(
+      "attempt-auth",
+      {
+        provisionInfrastructure,
+        deployRepository: vi.fn(),
+        verifyDeployment: vi.fn(),
+      },
+      vi.fn().mockRejectedValue(accessError),
+    ).catch((error: unknown) => error);
+
+    expect(provisionInfrastructure).not.toHaveBeenCalled();
+    expect(prisma.publishAttempt.update).toHaveBeenCalledWith({
+      where: { id: "attempt-auth" },
+      data: expect.objectContaining({
+        status: "FAILED",
+        stage: "FAILED",
+        errorSummary:
+          "Publishing stopped because app access could not be confirmed.",
+      }),
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "request-auth" },
+      data: {
+        publishStatus: "FAILED",
+        publishErrorSummary:
+          "Publishing stopped because app access could not be confirmed.",
+      },
+    });
+    expect(result).toEqual(
+      new Error("Publishing stopped because app access could not be confirmed."),
+    );
+    expect(JSON.stringify(result)).not.toContain("sentinel");
+  });
+
+  it("never exposes raw provider details in logs, persistence, audit, or returned errors", async () => {
+    const sentinel = "SENTINEL_PROVIDER_SECRET";
+    vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({
+      id: "attempt-safe",
+      appRequestId: "request-safe",
+      appRequest: { id: "request-safe" },
+    } as Awaited<ReturnType<typeof prisma.publishAttempt.findUnique>>);
+
+    const result = await runPublishAttempt("attempt-safe", {
+      provisionInfrastructure: vi
+        .fn()
+        .mockRejectedValue(new Error(`provider token=${sentinel}`)),
+      deployRepository: vi.fn(),
+      verifyDeployment: vi.fn(),
+    }).catch((error: unknown) => error);
+
+    const observableData = JSON.stringify({
+      logs: consoleError.mock.calls,
+      attemptWrites: vi.mocked(prisma.publishAttempt.update).mock.calls,
+      appWrites: vi.mocked(prisma.appRequest.update).mock.calls,
+      audits: vi.mocked(recordAuditEvent).mock.calls,
+      result,
+    });
+    expect(observableData).not.toContain(sentinel);
+    expect(result).toEqual(
+      new Error(
+        "Publishing setup failed: Publishing setup needs to be repaired.",
+      ),
+    );
   });
 });

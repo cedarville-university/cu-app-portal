@@ -4,6 +4,7 @@ import type {
   DeployRepositoryOptions,
   DeploymentRun,
   ProvisionedPublishTarget,
+  ProvisionInfrastructureOptions,
   PublishRuntime,
   VerificationResult,
 } from "../run-publish-attempt";
@@ -475,6 +476,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
   return {
     async provisionInfrastructure(
       appRequestId: string,
+      options?: ProvisionInfrastructureOptions,
     ): Promise<ProvisionedPublishTarget> {
       const appRequest = await loadPublishableRequest(deps, appRequestId);
       const appServiceRuntime = selectedAppServiceRuntime(
@@ -499,6 +501,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const databaseProvider = selectedDatabaseProvider(appRequest);
 
       if (databaseProvider === "postgresql") {
+        await options?.authorizeProviderMutation?.();
         await deps.arm.putPostgresDatabase({
           resourceGroup: deps.config.resourceGroup,
           serverName: deps.config.postgresServer,
@@ -519,6 +522,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
 
       if (hasSecretVariables) {
         keyVaultName = keyVaultName ?? names.keyVaultName;
+        await options?.authorizeProviderMutation?.();
         const vault = await deps.arm.putKeyVault({
           resourceGroup: deps.config.resourceGroup,
           name: keyVaultName,
@@ -529,6 +533,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         keyVaultUri = vault.vaultUri;
       }
 
+      await options?.authorizeProviderMutation?.();
       const webApp = await deps.arm.putWebApp({
         resourceGroup: deps.config.resourceGroup,
         name: names.webAppName,
@@ -546,15 +551,18 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const primaryPublishUrl = `https://${azureDefaultHostName}`;
 
       if (keyVaultName && keyVaultUri) {
-        const principalId =
-          webApp.identity?.principalId ??
-          (
+        let principalId = webApp.identity?.principalId;
+        if (!principalId) {
+          await options?.authorizeProviderMutation?.();
+          principalId = (
             await deps.arm.ensureSystemAssignedIdentity({
               resourceGroup: deps.config.resourceGroup,
               name: names.webAppName,
             })
           ).principalId;
+        }
 
+        await options?.authorizeProviderMutation?.();
         await deps.arm.putRoleAssignment({
           scope: deps.arm.keyVaultId(deps.config.resourceGroup, keyVaultName),
           roleDefinitionId: KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID,
@@ -581,6 +589,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         settings.AUTH_MICROSOFT_ENTRA_ID_ISSUER = deps.config.entraIssuer;
       }
 
+      await options?.authorizeProviderMutation?.();
       await deps.arm.putAppSettings({
         resourceGroup: deps.config.resourceGroup,
         name: names.webAppName,
@@ -588,6 +597,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       });
 
       if (selectedEntraLogin(appRequest)) {
+        await options?.authorizeProviderMutation?.();
         await deps.graph.ensureRedirectUri({
           applicationObjectId: deps.config.entraAppObjectId,
           redirectUri: `${primaryPublishUrl}${selectedEntraCallbackPath(
@@ -628,6 +638,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         owner,
         name,
       });
+      await options?.authorizeProviderMutation?.();
       await deps.graph.ensureFederatedCredential({
         applicationAppId: deps.config.azureClientId,
         name: names.federatedCredentialName,
@@ -638,24 +649,28 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       });
 
       options?.onSetupStep?.("github_actions_secrets");
+      await options?.authorizeProviderMutation?.();
       await deps.github.setActionsSecret({
         owner,
         name,
         secretName: "AZURE_CLIENT_ID",
         secretValue: deps.config.azureClientId,
       });
+      await options?.authorizeProviderMutation?.();
       await deps.github.setActionsSecret({
         owner,
         name,
         secretName: "AZURE_TENANT_ID",
         secretValue: deps.config.azureTenantId,
       });
+      await options?.authorizeProviderMutation?.();
       await deps.github.setActionsSecret({
         owner,
         name,
         secretName: "AZURE_SUBSCRIPTION_ID",
         secretValue: deps.config.azureSubscriptionId,
       });
+      await options?.authorizeProviderMutation?.();
       await deps.github.setActionsSecret({
         owner,
         name,
@@ -670,6 +685,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         branch,
       };
       const previousRun = await getLatestWorkflowRunOrNull(workflowRunInput);
+      await options?.authorizeProviderMutation?.();
       await deps.github.dispatchWorkflow({
         owner,
         name,

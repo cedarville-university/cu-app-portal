@@ -2,7 +2,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appAccessWhere } from "@/features/app-requests/access";
-import { getPublishingSetupRepairEligibility } from "@/features/publishing/eligibility";
+import {
+  getPublishEligibility,
+  getPublishingSetupRepairEligibility,
+} from "@/features/publishing/eligibility";
+import type { QueuePublishDependencies } from "../queue-publish";
+import { retryPublishForActor } from "../retry-publish";
 import {
   repairPublishingSetupForActor,
   type RepairPublishingSetupDependencies,
@@ -119,6 +124,9 @@ describe("repairPublishingSetupForActor", () => {
       {
         where: {
           id: "request-123",
+          sourceOfTruth: "PORTAL_MANAGED_REPO",
+          repositoryStatus: "READY",
+          publishStatus: "FAILED",
           publishingSetupStatus: "NEEDS_REPAIR",
         },
         data: {
@@ -134,7 +142,11 @@ describe("repairPublishingSetupForActor", () => {
     expect(dependencies.repairPublishingSetup).toHaveBeenCalledWith(
       "request-123",
       undefined,
-      { statusAlreadyClaimed: true, attemptClaimedAt },
+      {
+        statusAlreadyClaimed: true,
+        attemptClaimedAt,
+        authorizeProviderMutation: expect.any(Function),
+      },
     );
   });
 
@@ -205,6 +217,37 @@ describe("repairPublishingSetupForActor", () => {
       ),
     ).resolves.toEqual({ status: "BLOCKED" });
 
+    expect(dependencies.safeNotifyAppEvent).toHaveBeenCalledWith({
+      appRequestId: "request-123",
+      eventKey: "PUBLISHING_SETUP_BLOCKED",
+      actorUserId: "collaborator-123",
+      directRecipientUserIds: ["collaborator-123"],
+    });
+  });
+
+  it("notifies the explicit actor once when the provider persists BLOCKED before throwing", async () => {
+    vi.mocked(dependencies.repairPublishingSetup).mockRejectedValue(
+      new Error("provider detail"),
+    );
+    vi.mocked(dependencies.prisma.appRequest.updateMany)
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+    vi.mocked(dependencies.prisma.appRequest.findUnique).mockResolvedValue({
+      publishingSetupStatus: "BLOCKED",
+    });
+
+    await expect(
+      repairPublishingSetupForActor(
+        {
+          requestId: "request-123",
+          actorUserId: "collaborator-123",
+          source: "codex-mcp",
+        },
+        dependencies,
+      ),
+    ).resolves.toEqual({ status: "BLOCKED" });
+
+    expect(dependencies.safeNotifyAppEvent).toHaveBeenCalledTimes(1);
     expect(dependencies.safeNotifyAppEvent).toHaveBeenCalledWith({
       appRequestId: "request-123",
       eventKey: "PUBLISHING_SETUP_BLOCKED",
@@ -316,5 +359,115 @@ describe("repairPublishingSetupForActor", () => {
 
     expect(dependencies.prisma.appRequest.updateMany).not.toHaveBeenCalled();
     expect(dependencies.repairPublishingSetup).not.toHaveBeenCalled();
+  });
+
+  it("allows exactly one provider operation when retry and repair race", async () => {
+    const state: {
+      publishStatus: "FAILED" | "QUEUED";
+      publishingSetupStatus: "NEEDS_REPAIR" | "REPAIRING";
+    } = {
+      publishStatus: "FAILED",
+      publishingSetupStatus: "NEEDS_REPAIR",
+    };
+    let releaseQueueClaim!: () => void;
+    const queueClaimed = new Promise<void>((resolve) => {
+      releaseQueueClaim = resolve;
+    });
+    const publishAttemptCreate = vi
+      .fn()
+      .mockResolvedValue({ id: "attempt-race" });
+    const runPublishAttempt = vi.fn().mockResolvedValue(undefined);
+    const repairProvider = vi.fn().mockResolvedValue(undefined);
+    const request = () => ({
+      ...repairableRequest,
+      publishStatus: state.publishStatus,
+      publishingSetupStatus: state.publishingSetupStatus,
+    });
+    const queueDependencies = {
+      prisma: {
+        appRequest: { findFirst: vi.fn(async () => request()) },
+        $transaction: vi.fn(async (callback) =>
+          callback({
+            appRequest: {
+              updateMany: vi.fn(async (args) => {
+                const matches =
+                  state.publishStatus === "FAILED" &&
+                  state.publishingSetupStatus === "NEEDS_REPAIR";
+                if (matches) {
+                  state.publishStatus = "QUEUED";
+                  releaseQueueClaim();
+                  return { count: 1 };
+                }
+                return { count: 0 };
+              }),
+            },
+            publishAttempt: { create: publishAttemptCreate },
+          }),
+        ),
+      },
+      appAccessWhere: vi.fn(appAccessWhere),
+      userHasAdminRole: vi.fn().mockResolvedValue(false),
+      getPublishEligibility,
+      recordAuditEvent: vi.fn().mockResolvedValue(undefined),
+      runPublishAttempt,
+    } as unknown as QueuePublishDependencies;
+    const repairDependencies = {
+      prisma: {
+        appRequest: {
+          findFirst: vi.fn(async () => request()),
+          findUnique: vi.fn(async () => ({
+            publishingSetupStatus: state.publishingSetupStatus,
+          })),
+          updateMany: vi.fn(async (args) => {
+            await queueClaimed;
+            const where = args.where as {
+              publishStatus?: string;
+              publishingSetupStatus?: string;
+            };
+            const matches =
+              (!where.publishStatus ||
+                where.publishStatus === state.publishStatus) &&
+              (!where.publishingSetupStatus ||
+                where.publishingSetupStatus === state.publishingSetupStatus);
+            if (matches) {
+              state.publishingSetupStatus = "REPAIRING";
+              return { count: 1 };
+            }
+            return { count: 0 };
+          }),
+        },
+      },
+      appAccessWhere: vi.fn(appAccessWhere),
+      userHasAdminRole: vi.fn().mockResolvedValue(false),
+      getPublishingSetupRepairEligibility,
+      repairPublishingSetup: repairProvider,
+      safeNotifyAppEvent: vi.fn().mockResolvedValue(undefined),
+    } as unknown as RepairPublishingSetupDependencies;
+
+    const outcomes = await Promise.allSettled([
+      retryPublishForActor(
+        {
+          requestId: "request-123",
+          actorUserId: "owner-123",
+          source: "portal-ui",
+        },
+        queueDependencies,
+      ),
+      repairPublishingSetupForActor(
+        {
+          requestId: "request-123",
+          actorUserId: "owner-123",
+          source: "portal-ui",
+        },
+        repairDependencies,
+      ),
+    ]);
+
+    expect(outcomes.filter(({ status }) => status === "fulfilled")).toHaveLength(
+      1,
+    );
+    expect(runPublishAttempt.mock.calls.length + repairProvider.mock.calls.length).toBe(
+      1,
+    );
   });
 });
