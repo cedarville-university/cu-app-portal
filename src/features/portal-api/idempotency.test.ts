@@ -86,6 +86,21 @@ class SimultaneousCreateStore extends InMemoryOperationStore {
   }
 }
 
+class SuccessFinalizationFailureStore extends InMemoryOperationStore {
+  readonly updateStates: PortalApiOperationRecord["state"][] = [];
+
+  override async update(
+    id: string,
+    update: Pick<PortalApiOperationRecord, "state" | "safeResult" | "errorCode">,
+  ) {
+    this.updateStates.push(update.state);
+    if (update.state === "SUCCEEDED") {
+      throw new Error("success persistence unavailable");
+    }
+    return super.update(id, update);
+  }
+}
+
 function mutationOptions(store: PortalApiOperationStore, overrides: Record<string, unknown> = {}) {
   return {
     actorUserId: "user-1",
@@ -206,6 +221,23 @@ describe("executeIdempotentMutation", () => {
       message: "Complete setup before publishing.",
     });
     expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a completed mutation pending when persisting its success result fails", async () => {
+    const store = new SuccessFinalizationFailureStore();
+    const execute = vi.fn().mockResolvedValue({ requestId: "req-1" });
+
+    await expect(
+      executeIdempotentMutation(mutationOptions(store, { execute })),
+    ).rejects.toThrow("success persistence unavailable");
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(store.updateStates).toEqual(["SUCCEEDED"]);
+    expect(store.all()[0]).toMatchObject({
+      state: "PENDING",
+      safeResult: null,
+      errorCode: null,
+    });
   });
 
   it("allows a key to be reused after its stored operation expires", async () => {

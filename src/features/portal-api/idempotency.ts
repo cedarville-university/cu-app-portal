@@ -147,11 +147,9 @@ export async function executeIdempotentMutation<TInput, TResult>(options: {
     return resolveExisting(racedRecord, inputDigest, options.claimRateLimit, true);
   }
 
+  let result: TResult;
   try {
-    const result = await options.execute();
-    const safeResult = stableJsonValue(result) as Prisma.JsonValue;
-    await store.update(record.id, { state: "SUCCEEDED", safeResult, errorCode: null });
-    return result;
+    result = await options.execute();
   } catch (error) {
     const safeError = toSafePortalApiError(error);
     await store.update(record.id, {
@@ -163,4 +161,8 @@ export async function executeIdempotentMutation<TInput, TResult>(options: {
       ? error
       : new PortalApiError(safeError.code, safeError.message, safeError.retryAfterSeconds);
   }
+
+  const safeResult = stableJsonValue(result) as Prisma.JsonValue;
+  await store.update(record.id, { state: "SUCCEEDED", safeResult, errorCode: null });
+  return result;
 }
