@@ -22,6 +22,8 @@ model User {
   collaborationInvitesSent CollaborationInvite[] @relation("CollaborationInviteInviter")
   collaborationInvitesAccepted CollaborationInvite[] @relation("CollaborationInviteAcceptedUser")
   notificationDeliveries NotificationDelivery[]
+  portalApiOperations PortalApiOperation[]
+  portalApiRateLimitEvents PortalApiRateLimitEvent[]
 }
 
 model Template {
@@ -251,9 +253,47 @@ model RepositoryImport {
   appRequest                    AppRequest                    @relation(fields: [appRequestId], references: [id], onDelete: Cascade)
 }
 
+model PortalApiOperation {
+  id               String                  @id @default(cuid())
+  actorUserId      String
+  operation        String
+  idempotencyKey   String
+  inputDigest      String
+  state            PortalApiOperationState @default(PENDING)
+  appRequestId     String?
+  publishAttemptId String?
+  safeResult       Json?
+  errorCode        String?
+  expiresAt        DateTime
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  actor            User                    @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@unique([actorUserId, operation, idempotencyKey])
+  @@index([expiresAt])
+}
+
+model PortalApiRateLimitEvent {
+  id          String   @id @default(cuid())
+  actorUserId String
+  action      String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  actor       User     @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([actorUserId, action, createdAt])
+  @@index([expiresAt])
+}
+
 enum TemplateStatus {
   ACTIVE
   DISABLED
+}
+
+enum PortalApiOperationState {
+  PENDING
+  SUCCEEDED
+  FAILED
 }
 
 enum PortalRole {
