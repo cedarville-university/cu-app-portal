@@ -99,6 +99,8 @@ export function registerCreateAppTool(
             const creation = await context.createGeneratedApp({
               actorUserId: context.actor.userId,
               source: "codex-mcp",
+              portalOperation: "create_app",
+              idempotencyKey: input.idempotencyKey,
               input: {
                 ...mutationInput,
                 hostingTarget: template.hostingTarget,
@@ -113,6 +115,9 @@ export function registerCreateAppTool(
               allowedNextActions: app.allowedNextActions,
             };
           },
+          resultReferences: (creation) => ({
+            appRequestId: creation.requestId,
+          }),
         });
 
         return portalToolSuccess(

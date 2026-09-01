@@ -65,7 +65,13 @@ export function registerRetryPublishTool(
               requestId: input.appId,
               actorUserId: context.actor.userId,
               source: "codex-mcp",
+              portalOperation: "retry_publish",
+              idempotencyKey: input.idempotencyKey,
             }),
+          resultReferences: (queued) => ({
+            appRequestId: input.appId,
+            publishAttemptId: queued.attemptId,
+          }),
         });
         return portalToolSuccess(
           result,

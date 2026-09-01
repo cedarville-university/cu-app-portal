@@ -2,6 +2,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { appAccessWhere } from "@/features/app-requests/access";
+import { PortalApiError } from "@/features/portal-api/errors";
 import { recordAuditEvent } from "@/lib/audit";
 import { getPublishEligibility } from "./eligibility";
 import { runPublishAttempt } from "./run-publish-attempt";
@@ -99,7 +100,7 @@ describe("queuePublishForActor", () => {
     ).catch((error: unknown) => error);
 
     expect(missing).toEqual(foreign);
-    expect(missing).toEqual(new Error("App request not found."));
+    expect(missing).toEqual(new PortalApiError("NOT_FOUND", "App not found."));
     expect(dependencies.prisma.$transaction).not.toHaveBeenCalled();
     expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
   });
@@ -203,10 +204,34 @@ describe("queuePublishForActor", () => {
         },
         dependencies,
       ),
-    ).rejects.toThrow("Publish request is already queued or running.");
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Publish request is already queued or running.",
+    });
 
     expect(transactionClient.publishAttempt.create).not.toHaveBeenCalled();
     expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+  });
+
+  it("returns setup-repair-required when publishing setup blocks the request", async () => {
+    vi.mocked(dependencies.prisma.appRequest.findFirst).mockResolvedValue({
+      ...generatedRequest,
+      publishingSetupStatus: "NEEDS_REPAIR",
+    });
+
+    await expect(
+      queuePublishForActor(
+        {
+          requestId: "request-123",
+          actorUserId: "owner-123",
+          source: "codex-mcp",
+        },
+        dependencies,
+      ),
+    ).rejects.toMatchObject({
+      code: "SETUP_REPAIR_REQUIRED",
+      message: "Publishing setup must be repaired before publishing.",
+    });
   });
 
   it("records the explicit actor and caller source on the publish audit", async () => {
@@ -215,6 +240,8 @@ describe("queuePublishForActor", () => {
         requestId: "request-123",
         actorUserId: "collaborator-123",
         source: "codex-mcp",
+        portalOperation: "publish_app_to_azure",
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
       },
       dependencies,
     );
@@ -226,6 +253,8 @@ describe("queuePublishForActor", () => {
         publishAttemptId: "attempt-123",
         actorUserId: "collaborator-123",
         source: "codex-mcp",
+        operation: "publish_app_to_azure",
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
       },
     );
   });
@@ -275,7 +304,7 @@ describe("queuePublishForActor", () => {
         },
         dependencies,
       ),
-    ).rejects.toThrow("App request not found.");
+    ).rejects.toMatchObject({ code: "NOT_FOUND", message: "App not found." });
 
     expect(dependencies.prisma.appRequest.findFirst).toHaveBeenCalledTimes(2);
     expect(dependencies.prisma.$transaction).not.toHaveBeenCalled();
@@ -297,7 +326,7 @@ describe("queuePublishForActor", () => {
         },
         dependencies,
       ),
-    ).rejects.toThrow("App request not found.");
+    ).rejects.toMatchObject({ code: "NOT_FOUND", message: "App not found." });
 
     await vi.waitFor(() => {
       expect(dependencies.prisma.appRequest.findFirst).toHaveBeenCalledTimes(3);
@@ -342,7 +371,10 @@ describe("queuePublishForActor", () => {
     ).catch((error: unknown) => error);
 
     expect(result).toEqual(
-      new Error("App request access could not be confirmed."),
+      new PortalApiError(
+        "PROVIDER_FAILURE",
+        "App access could not be confirmed.",
+      ),
     );
 
     const transactionClient = await firstTransactionClient(dependencies);

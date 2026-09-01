@@ -14,6 +14,8 @@ export type PortalApiOperationRecord = {
   state: PortalApiOperationState;
   safeResult: Prisma.JsonValue | null;
   errorCode: string | null;
+  appRequestId?: string | null;
+  publishAttemptId?: string | null;
   expiresAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -25,7 +27,8 @@ export interface PortalApiOperationStore {
   create(record: Omit<PortalApiOperationRecord, "id" | "createdAt" | "updatedAt">): Promise<PortalApiOperationRecord>;
   update(
     id: string,
-    update: Pick<PortalApiOperationRecord, "state" | "safeResult" | "errorCode">,
+    update: Pick<PortalApiOperationRecord, "state" | "safeResult" | "errorCode"> &
+      Partial<Pick<PortalApiOperationRecord, "appRequestId" | "publishAttemptId">>,
   ): Promise<PortalApiOperationRecord>;
 }
 
@@ -107,6 +110,10 @@ export async function executeIdempotentMutation<TInput, TResult>(options: {
   expiresInSeconds: number;
   claimRateLimit: () => Promise<void>;
   execute: () => Promise<TResult>;
+  resultReferences?: (result: TResult) => {
+    appRequestId?: string;
+    publishAttemptId?: string;
+  };
   store?: PortalApiOperationStore;
 }): Promise<TResult> {
   if (!UUID_PATTERN.test(options.idempotencyKey)) {
@@ -163,6 +170,11 @@ export async function executeIdempotentMutation<TInput, TResult>(options: {
   }
 
   const safeResult = stableJsonValue(result) as Prisma.JsonValue;
-  await store.update(record.id, { state: "SUCCEEDED", safeResult, errorCode: null });
+  await store.update(record.id, {
+    state: "SUCCEEDED",
+    safeResult,
+    errorCode: null,
+    ...options.resultReferences?.(result),
+  });
   return result;
 }

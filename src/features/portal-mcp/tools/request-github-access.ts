@@ -75,7 +75,10 @@ export function registerRequestGitHubAccessTool(
               actorUserId: context.actor.userId,
               githubUsername: input.githubUsername,
               source: "codex-mcp",
+              portalOperation: "request_github_access",
+              idempotencyKey: input.idempotencyKey,
             }),
+          resultReferences: () => ({ appRequestId: input.appId }),
         });
         return portalToolSuccess(result, result.note);
       } catch (error) {

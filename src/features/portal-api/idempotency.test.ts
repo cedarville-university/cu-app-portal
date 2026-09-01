@@ -240,6 +240,29 @@ describe("executeIdempotentMutation", () => {
     });
   });
 
+  it("persists app and publish references from a successful mutation", async () => {
+    const store = new InMemoryOperationStore();
+    const result = { requestId: "req-1", attemptId: "attempt-1" };
+
+    await expect(
+      executeIdempotentMutation(
+        mutationOptions(store, {
+          execute: vi.fn().mockResolvedValue(result),
+          resultReferences: (value: typeof result) => ({
+            appRequestId: value.requestId,
+            publishAttemptId: value.attemptId,
+          }),
+        }),
+      ),
+    ).resolves.toEqual(result);
+
+    expect(store.all()[0]).toMatchObject({
+      state: "SUCCEEDED",
+      appRequestId: "req-1",
+      publishAttemptId: "attempt-1",
+    });
+  });
+
   it("allows a key to be reused after its stored operation expires", async () => {
     const store = new InMemoryOperationStore();
     await store.insertExpired({

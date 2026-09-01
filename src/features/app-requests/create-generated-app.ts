@@ -52,6 +52,8 @@ export async function createGeneratedApp(
     actorUserId: string;
     input: CreateAppRequestInput;
     source: "portal-ui" | "codex-mcp";
+    portalOperation?: string;
+    idempotencyKey?: string;
   },
   dependencies: CreateGeneratedAppDependencies = defaultDependencies,
 ): Promise<CreateGeneratedAppResult> {
@@ -89,6 +91,12 @@ export async function createGeneratedApp(
     source: request.source,
     requestId: appRequest.id,
     supportReference,
+    ...(request.portalOperation && request.idempotencyKey
+      ? {
+          operation: request.portalOperation,
+          idempotencyKey: request.idempotencyKey,
+        }
+      : {}),
   };
 
   try {

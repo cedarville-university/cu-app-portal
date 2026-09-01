@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { appAccessWhere, userHasAdminRole } from "@/features/app-requests/access";
+import { PortalApiError } from "@/features/portal-api/errors";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
@@ -67,7 +68,10 @@ function assertRepositoryReady(
     !appRequest.repositoryOwner ||
     !appRequest.repositoryName
   ) {
-    throw new Error("Managed repository is not ready for GitHub access grants.");
+    throw new PortalApiError(
+      "ACTION_REQUIRED",
+      "Managed repository is not ready for GitHub access grants.",
+    );
   }
 }
 
@@ -82,7 +86,7 @@ async function loadAccessibleAppRequest(
   });
 
   if (!appRequest) {
-    throw new Error("App request not found.");
+    throw new PortalApiError("NOT_FOUND", "App not found.");
   }
 
   return appRequest;
@@ -94,6 +98,8 @@ export async function grantRepositoryAccessForActor(
     actorUserId: string;
     githubUsername: string;
     source: "portal-ui" | "codex-mcp";
+    portalOperation?: string;
+    idempotencyKey?: string;
   },
   dependencies: GrantRepositoryAccessDependencies = defaultDependencies,
 ): Promise<RepositoryAccessResult> {
@@ -103,7 +109,12 @@ export async function grantRepositoryAccessForActor(
     dependencies,
   );
   assertRepositoryReady(appRequest);
-  const githubUsername = dependencies.parseGitHubUsername(input.githubUsername);
+  let githubUsername: string;
+  try {
+    githubUsername = dependencies.parseGitHubUsername(input.githubUsername);
+  } catch {
+    throw new PortalApiError("INVALID_INPUT", "Enter a valid GitHub username.");
+  }
 
   await dependencies.prisma.user.update({
     where: { id: input.actorUserId },
@@ -115,6 +126,12 @@ export async function grantRepositoryAccessForActor(
     supportReference: appRequest.supportReference,
     githubUsername,
     source: input.source,
+    ...(input.portalOperation && input.idempotencyKey
+      ? {
+          operation: input.portalOperation,
+          idempotencyKey: input.idempotencyKey,
+        }
+      : {}),
   });
 
   const authorizedAppRequest = await loadAccessibleAppRequest(
@@ -149,7 +166,8 @@ export async function grantRepositoryAccessForActor(
       source: input.source,
     });
   } catch {
-    throw new Error(
+    throw new PortalApiError(
+      "PROVIDER_FAILURE",
       "The GitHub access result could not be saved. Please try again.",
     );
   }

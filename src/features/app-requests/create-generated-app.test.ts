@@ -65,7 +65,13 @@ describe("createGeneratedApp", () => {
 
   it("creates a managed repository for the explicit actor without publishing", async () => {
     const result = await createGeneratedApp(
-      { actorUserId: "user-1", input: validInput, source: "codex-mcp" },
+      {
+        actorUserId: "user-1",
+        input: validInput,
+        source: "codex-mcp",
+        portalOperation: "create_app",
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
+      },
       dependencies,
     );
 
@@ -92,6 +98,8 @@ describe("createGeneratedApp", () => {
         source: "codex-mcp",
         requestId: "request-1",
         supportReference: "SUP-20260901-ABC123",
+        operation: "create_app",
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
       }),
     );
     expect(dependencies.safeNotifyAppEvent).toHaveBeenCalledWith({

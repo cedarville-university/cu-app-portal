@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { PortalApiError } from "@/features/portal-api/errors";
 import {
   grantRepositoryAccessForActor,
   type GrantRepositoryAccessDependencies,
@@ -69,6 +70,8 @@ describe("grantRepositoryAccessForActor", () => {
             actorUserId,
             githubUsername: "actor-name",
             source: "codex-mcp",
+            portalOperation: "request_github_access",
+            idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
           },
           deps,
         ),
@@ -82,6 +85,13 @@ describe("grantRepositoryAccessForActor", () => {
         "request-123",
         actorUserId,
         isAdmin,
+      );
+      expect(deps.recordAuditEvent).toHaveBeenCalledWith(
+        "REPOSITORY_ACCESS_REQUESTED",
+        expect.objectContaining({
+          operation: "request_github_access",
+          idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
+        }),
       );
     },
   );
@@ -135,7 +145,7 @@ describe("grantRepositoryAccessForActor", () => {
     ).catch((error: unknown) => error);
 
     expect(missing).toEqual(foreign);
-    expect(missing).toEqual(new Error("App request not found."));
+    expect(missing).toEqual(new PortalApiError("NOT_FOUND", "App not found."));
     expect(deps.parseGitHubUsername).not.toHaveBeenCalled();
     expect(deps.prisma.user.update).not.toHaveBeenCalled();
     expect(deps.grantManagedRepositoryAccess).not.toHaveBeenCalled();
@@ -157,7 +167,10 @@ describe("grantRepositoryAccessForActor", () => {
         },
         deps,
       ),
-    ).rejects.toThrow("Managed repository is not ready for GitHub access grants.");
+    ).rejects.toMatchObject({
+      code: "ACTION_REQUIRED",
+      message: "Managed repository is not ready for GitHub access grants.",
+    });
 
     expect(deps.grantManagedRepositoryAccess).not.toHaveBeenCalled();
   });
@@ -264,7 +277,7 @@ describe("grantRepositoryAccessForActor", () => {
         },
         deps,
       ),
-    ).rejects.toThrow("App request not found.");
+    ).rejects.toMatchObject({ code: "NOT_FOUND", message: "App not found." });
 
     expect(deps.userHasAdminRole).toHaveBeenCalledTimes(2);
     expect(deps.prisma.appRequest.findFirst).toHaveBeenCalledTimes(2);

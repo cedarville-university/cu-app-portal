@@ -70,7 +70,13 @@ export function registerPublishAppToAzureTool(
               requestId: input.appId,
               actorUserId: context.actor.userId,
               source: "codex-mcp",
+              portalOperation: "publish_app_to_azure",
+              idempotencyKey: input.idempotencyKey,
             }),
+          resultReferences: (queued) => ({
+            appRequestId: input.appId,
+            publishAttemptId: queued.attemptId,
+          }),
         });
         return portalToolSuccess(
           result,

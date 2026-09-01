@@ -491,6 +491,8 @@ describe("portal MCP mutation adapters", () => {
     expect(deps.createGeneratedApp).toHaveBeenCalledWith({
       actorUserId: "user-1",
       source: "codex-mcp",
+      portalOperation: "create_app",
+      idempotencyKey,
       input: {
         templateSlug: "web-app",
         appName: "Example app",
@@ -541,6 +543,8 @@ describe("portal MCP mutation adapters", () => {
         actorUserId: "user-1",
         githubUsername: "portal-user",
         source: "codex-mcp",
+        portalOperation: "request_github_access",
+        idempotencyKey,
       },
     },
     {
@@ -552,6 +556,8 @@ describe("portal MCP mutation adapters", () => {
         requestId: "app-1",
         actorUserId: "user-1",
         source: "codex-mcp",
+        portalOperation: "publish_app_to_azure",
+        idempotencyKey,
       },
     },
     {
@@ -563,6 +569,8 @@ describe("portal MCP mutation adapters", () => {
         requestId: "app-1",
         actorUserId: "user-1",
         source: "codex-mcp",
+        portalOperation: "repair_publishing_setup",
+        idempotencyKey,
       },
     },
     {
@@ -574,6 +582,8 @@ describe("portal MCP mutation adapters", () => {
         requestId: "app-1",
         actorUserId: "user-1",
         source: "codex-mcp",
+        portalOperation: "retry_publish",
+        idempotencyKey,
       },
     },
   ])(

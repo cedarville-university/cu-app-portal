@@ -10,9 +10,11 @@ import {
   appAccessWhere,
   userHasAdminRole,
 } from "@/features/app-requests/access";
+import { PortalApiError } from "@/features/portal-api/errors";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { getPublishingSetupRepairEligibility } from "@/features/publishing/eligibility";
 import { prisma } from "@/lib/db";
+import { recordAuditEvent } from "@/lib/audit";
 import { repairPublishingSetup } from "./service";
 
 const SETUP_REPAIR_FAILURE_SUMMARY =
@@ -49,6 +51,7 @@ export type RepairPublishingSetupDependencies = {
   getPublishingSetupRepairEligibility: typeof getPublishingSetupRepairEligibility;
   repairPublishingSetup: typeof repairPublishingSetup;
   safeNotifyAppEvent: typeof safeNotifyAppEvent;
+  recordAuditEvent: typeof recordAuditEvent;
 };
 
 const defaultDependencies: RepairPublishingSetupDependencies = {
@@ -58,12 +61,15 @@ const defaultDependencies: RepairPublishingSetupDependencies = {
   getPublishingSetupRepairEligibility,
   repairPublishingSetup,
   safeNotifyAppEvent,
+  recordAuditEvent,
 };
 
 export type RepairPublishingSetupInput = {
   requestId: string;
   actorUserId: string;
   source: "portal-ui" | "codex-mcp";
+  portalOperation?: string;
+  idempotencyKey?: string;
 };
 
 function isStaleRepairAttempt(error: unknown) {
@@ -89,11 +95,14 @@ async function loadAccessibleAppRequest(
       include: { repositoryImport: true },
     });
   } catch {
-    throw new Error("App request access could not be confirmed.");
+    throw new PortalApiError(
+      "PROVIDER_FAILURE",
+      "App access could not be confirmed.",
+    );
   }
 
   if (!appRequest) {
-    throw new Error("App request not found.");
+    throw new PortalApiError("NOT_FOUND", "App not found.");
   }
 
   return appRequest;
@@ -112,7 +121,7 @@ function requireRepairEligibility(
   });
 
   if (!eligibility.eligible) {
-    throw new Error(publishingSetupEligibilityError(eligibility.reason));
+    throw publishingSetupEligibilityError(eligibility.reason);
   }
 }
 
@@ -205,7 +214,29 @@ export async function repairPublishingSetupForActor(
   });
 
   if (claimed.count !== 1) {
-    throw new Error("Publishing setup is already being checked or repaired.");
+    throw new PortalApiError(
+      "CONFLICT",
+      "Publishing setup is already being checked or repaired.",
+    );
+  }
+
+  try {
+    await dependencies.recordAuditEvent("PUBLISHING_SETUP_REPAIR_REQUESTED", {
+      requestId: input.requestId,
+      actorUserId: input.actorUserId,
+      source: input.source,
+      ...(input.portalOperation && input.idempotencyKey
+        ? {
+            operation: input.portalOperation,
+            idempotencyKey: input.idempotencyKey,
+          }
+        : {}),
+    });
+  } catch {
+    console.error("Failed to record publishing setup repair audit event.", {
+      requestId: input.requestId,
+      source: input.source,
+    });
   }
 
   try {
@@ -304,16 +335,34 @@ function publishingSetupEligibilityError(
 ) {
   switch (reason) {
     case "REPOSITORY_NOT_READY":
-      return "Managed repository is not ready for publishing setup.";
+      return new PortalApiError(
+        "ACTION_REQUIRED",
+        "Managed repository is not ready for publishing setup.",
+      );
     case "PREPARATION_NOT_COMMITTED":
-      return "Imported repository preparation must be committed before publishing setup.";
+      return new PortalApiError(
+        "ACTION_REQUIRED",
+        "Imported repository preparation must be committed before publishing setup.",
+      );
     case "PUBLISH_STATUS_NOT_ALLOWED":
-      return "Publishing setup cannot be changed while publishing is active or unavailable.";
+      return new PortalApiError(
+        "ACTION_REQUIRED",
+        "Publishing setup cannot be changed while publishing is active or unavailable.",
+      );
     case "PUBLISHING_SETUP_IN_PROGRESS":
-      return "Publishing setup is already being checked or repaired.";
+      return new PortalApiError(
+        "CONFLICT",
+        "Publishing setup is already being checked or repaired.",
+      );
     case "PUBLISHING_SETUP_ACTION_NOT_ALLOWED":
-      return "Publishing setup cannot be started or repaired from its current state.";
+      return new PortalApiError(
+        "ACTION_REQUIRED",
+        "Publishing setup cannot be started or repaired from its current state.",
+      );
     case "PUBLISHING_SETUP_NOT_READY":
-      return "Publishing setup is not ready for this action.";
+      return new PortalApiError(
+        "SETUP_REPAIR_REQUIRED",
+        "Publishing setup is not ready for this action.",
+      );
   }
 }

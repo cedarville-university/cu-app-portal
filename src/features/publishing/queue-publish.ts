@@ -10,6 +10,7 @@ import {
   appAccessWhere,
   userHasAdminRole,
 } from "@/features/app-requests/access";
+import { PortalApiError } from "@/features/portal-api/errors";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
@@ -67,6 +68,8 @@ export type PublishActorInput = {
   requestId: string;
   actorUserId: string;
   source: "portal-ui" | "codex-mcp";
+  portalOperation?: string;
+  idempotencyKey?: string;
 };
 
 export type QueuePublishDependencies = {
@@ -147,11 +150,14 @@ async function loadAccessibleAppRequest(
       include: { repositoryImport: true },
     });
   } catch {
-    throw new Error("App request access could not be confirmed.");
+    throw new PortalApiError(
+      "PROVIDER_FAILURE",
+      "App access could not be confirmed.",
+    );
   }
 
   if (!appRequest) {
-    throw new Error("App request not found.");
+    throw new PortalApiError("NOT_FOUND", "App not found.");
   }
 
   return appRequest;
@@ -176,16 +182,14 @@ function requirePublishEligibility(
   );
 
   if (!eligibility.eligible) {
-    throw new Error(
-      publishEligibilityError({
+    throw publishEligibilityError({
         reason: eligibility.reason,
         sourceOfTruth: appRequest.sourceOfTruth,
         publishingSetupStatus,
         retryOnly:
           policy.allowedPublishStatuses.length === 1 &&
           policy.allowedPublishStatuses[0] === "FAILED",
-      }),
-    );
+      });
   }
 }
 
@@ -215,6 +219,12 @@ async function recordPublishRequested(
       publishAttemptId,
       actorUserId: input.actorUserId,
       source: input.source,
+      ...(input.portalOperation && input.idempotencyKey
+        ? {
+            operation: input.portalOperation,
+            idempotencyKey: input.idempotencyKey,
+          }
+        : {}),
     });
   } catch {
     console.error("Failed to record publish requested audit event.");
@@ -298,7 +308,10 @@ export async function queuePublishAttemptForActor(
     });
 
     if (queuedRequest.count !== 1) {
-      throw new Error("Publish request is already queued or running.");
+      throw new PortalApiError(
+        "CONFLICT",
+        "Publish request is already queued or running.",
+      );
     }
 
     const attempt = await tx.publishAttempt.create({
@@ -366,21 +379,39 @@ function publishEligibilityError({
   retryOnly: boolean;
 }) {
   if (reason === "REPOSITORY_NOT_READY") {
-    return "Managed repository is not ready for publishing.";
+    return new PortalApiError(
+      "ACTION_REQUIRED",
+      "Managed repository is not ready for publishing.",
+    );
   }
   if (reason === "PREPARATION_NOT_COMMITTED") {
-    return "Imported app repository preparation must be committed before publishing.";
+    return new PortalApiError(
+      "ACTION_REQUIRED",
+      "Imported app repository preparation must be committed before publishing.",
+    );
   }
   if (reason === "PUBLISH_STATUS_NOT_ALLOWED") {
-    return retryOnly
-      ? "Only failed publish attempts can be retried."
-      : "Publish request is already queued or running.";
+    return new PortalApiError(
+      "CONFLICT",
+      retryOnly
+        ? "Only failed publish attempts can be retried."
+        : "Publish request is already queued or running.",
+    );
   }
   if (BLOCKING_SETUP_STATUSES.has(publishingSetupStatus)) {
-    return "Publishing setup must be repaired before publishing.";
+    return new PortalApiError(
+      "SETUP_REPAIR_REQUIRED",
+      "Publishing setup must be repaired before publishing.",
+    );
   }
   if (sourceOfTruth === "IMPORTED_REPOSITORY") {
-    return "Imported app publishing setup must be ready before publishing.";
+    return new PortalApiError(
+      "ACTION_REQUIRED",
+      "Imported app publishing setup must be ready before publishing.",
+    );
   }
-  return "Publishing setup must be ready before publishing.";
+  return new PortalApiError(
+    "ACTION_REQUIRED",
+    "Publishing setup must be ready before publishing.",
+  );
 }

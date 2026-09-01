@@ -2,6 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appAccessWhere } from "@/features/app-requests/access";
+import { PortalApiError } from "@/features/portal-api/errors";
+import { recordAuditEvent } from "@/lib/audit";
 import {
   getPublishEligibility,
   getPublishingSetupRepairEligibility,
@@ -39,6 +41,7 @@ function createDependencies(): RepairPublishingSetupDependencies {
     getPublishingSetupRepairEligibility,
     repairPublishingSetup: vi.fn().mockResolvedValue(undefined),
     safeNotifyAppEvent: vi.fn().mockResolvedValue(undefined),
+    recordAuditEvent: vi.fn(recordAuditEvent).mockResolvedValue(undefined),
   } as unknown as RepairPublishingSetupDependencies;
 }
 
@@ -104,7 +107,7 @@ describe("repairPublishingSetupForActor", () => {
     ).catch((error: unknown) => error);
 
     expect(missing).toEqual(foreign);
-    expect(missing).toEqual(new Error("App request not found."));
+    expect(missing).toEqual(new PortalApiError("NOT_FOUND", "App not found."));
     expect(dependencies.prisma.appRequest.updateMany).not.toHaveBeenCalled();
     expect(dependencies.repairPublishingSetup).not.toHaveBeenCalled();
   });
@@ -150,6 +153,30 @@ describe("repairPublishingSetupForActor", () => {
     );
   });
 
+  it("records Codex repair correlation without dispatching a publish", async () => {
+    await repairPublishingSetupForActor(
+      {
+        requestId: "request-123",
+        actorUserId: "owner-123",
+        source: "codex-mcp",
+        portalOperation: "repair_publishing_setup",
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
+      },
+      dependencies,
+    );
+
+    expect(dependencies.recordAuditEvent).toHaveBeenCalledWith(
+      "PUBLISHING_SETUP_REPAIR_REQUESTED",
+      expect.objectContaining({
+        requestId: "request-123",
+        actorUserId: "owner-123",
+        source: "codex-mcp",
+        operation: "repair_publishing_setup",
+        idempotencyKey: "53b6240b-2f6f-4ab8-bf70-3458b861bf3f",
+      }),
+    );
+  });
+
   it("rejects a duplicate stale claim before any provider mutation", async () => {
     vi.mocked(dependencies.prisma.appRequest.updateMany).mockResolvedValue({
       count: 0,
@@ -164,9 +191,10 @@ describe("repairPublishingSetupForActor", () => {
         },
         dependencies,
       ),
-    ).rejects.toThrow(
-      "Publishing setup is already being checked or repaired.",
-    );
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "Publishing setup is already being checked or repaired.",
+    });
 
     expect(dependencies.repairPublishingSetup).not.toHaveBeenCalled();
   });
@@ -185,7 +213,7 @@ describe("repairPublishingSetupForActor", () => {
         },
         dependencies,
       ),
-    ).rejects.toThrow("App request not found.");
+    ).rejects.toMatchObject({ code: "NOT_FOUND", message: "App not found." });
 
     expect(dependencies.repairPublishingSetup).not.toHaveBeenCalled();
     expect(dependencies.prisma.appRequest.updateMany).toHaveBeenLastCalledWith({
@@ -353,9 +381,11 @@ describe("repairPublishingSetupForActor", () => {
         },
         dependencies,
       ),
-    ).rejects.toThrow(
-      "Publishing setup cannot be changed while publishing is active or unavailable.",
-    );
+    ).rejects.toMatchObject({
+      code: "ACTION_REQUIRED",
+      message:
+        "Publishing setup cannot be changed while publishing is active or unavailable.",
+    });
 
     expect(dependencies.prisma.appRequest.updateMany).not.toHaveBeenCalled();
     expect(dependencies.repairPublishingSetup).not.toHaveBeenCalled();

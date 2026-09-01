@@ -71,7 +71,10 @@ export function registerRepairPublishingSetupTool(
               requestId: input.appId,
               actorUserId: context.actor.userId,
               source: "codex-mcp",
+              portalOperation: "repair_publishing_setup",
+              idempotencyKey: input.idempotencyKey,
             }),
+          resultReferences: () => ({ appRequestId: input.appId }),
         });
         return portalToolSuccess(
           result,
