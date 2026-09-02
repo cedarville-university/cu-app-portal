@@ -35,7 +35,7 @@ export default async function SettingsPage() {
     <main>
       <div className="page-header">
         <h1>Settings</h1>
-        <p>Manage account preferences for your Cedarville App Portal account.</p>
+        <p>Manage account preferences for your CU Launch account.</p>
       </div>
 
       <section className="card" style={{ maxWidth: "760px" }}>
@@ -82,7 +82,7 @@ export default async function SettingsPage() {
               Notification Preferences
             </h2>
             <p style={{ color: "var(--text-secondary)", margin: 0 }}>
-              Choose which portal updates are sent to {user.email}.
+              Choose which CU Launch updates are sent to {user.email}.
             </p>
 
             <fieldset

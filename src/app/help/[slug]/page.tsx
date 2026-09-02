@@ -24,7 +24,7 @@ export async function generateMetadata({
   }
   const document = await getHelpDocument(slug);
   return {
-    title: `${document.title} | Cedarville App Portal`,
+    title: `${document.title} | CU Launch`,
     description: document.description,
   };
 }
@@ -68,4 +68,3 @@ export default async function HelpDocumentPage({
     </main>
   );
 }
-

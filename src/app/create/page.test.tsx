@@ -19,7 +19,7 @@ describe("CreatePage", () => {
   it("lists active templates as selectable links", async () => {
     render(await CreatePage());
     expect(
-      screen.getByRole("heading", { name: /create new app/i }),
+      screen.getByRole("heading", { name: "Launch New App" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /recommended templates/i }),
@@ -27,33 +27,17 @@ describe("CreatePage", () => {
     expect(
       screen.getByRole("heading", { name: /developer starters/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: /use department form \+ approval/i }),
-    ).toHaveAttribute("href", "/create/department-form-approval");
-    expect(
-      screen.getByRole("link", { name: /use simple data tracker/i }),
-    ).toHaveAttribute("href", "/create/simple-data-tracker");
-    expect(
-      screen.getByRole("link", { name: /use public information page/i }),
-    ).toHaveAttribute("href", "/create/public-information-page");
-    expect(
-      screen.getByRole("link", { name: /use custom web app/i }),
-    ).toHaveAttribute("href", "/create/web-app");
-    expect(
-      screen.getByRole("link", { name: /use api \/ automation service/i }),
-    ).toHaveAttribute("href", "/create/python-fastapi");
-
     const formCard = screen
-      .getByRole("link", { name: /use department form \+ approval/i })
+      .getByText("Department Form + Approval")
       .closest(".card");
     const publicPageCard = screen
-      .getByRole("link", { name: /use public information page/i })
+      .getByText("Public Information Page")
       .closest(".card");
     const webAppCard = screen
-      .getByRole("link", { name: /use custom web app/i })
+      .getByText("Custom Web App")
       .closest(".card");
     const fastApiCard = screen
-      .getByRole("link", { name: /use api \/ automation service/i })
+      .getByText("API / Automation Service")
       .closest(".card");
 
     expect(formCard).not.toBeNull();
@@ -65,6 +49,23 @@ describe("CreatePage", () => {
     const publicPage = within(publicPageCard as HTMLElement);
     const webApp = within(webAppCard as HTMLElement);
     const fastApi = within(fastApiCard as HTMLElement);
+
+    expect(form.getByRole("link", { name: "Launch App" })).toHaveAttribute(
+      "href",
+      "/create/department-form-approval",
+    );
+    expect(publicPage.getByRole("link", { name: "Launch App" })).toHaveAttribute(
+      "href",
+      "/create/public-information-page",
+    );
+    expect(webApp.getByRole("link", { name: "Launch App" })).toHaveAttribute(
+      "href",
+      "/create/web-app",
+    );
+    expect(fastApi.getByRole("link", { name: "Launch App" })).toHaveAttribute(
+      "href",
+      "/create/python-fastapi",
+    );
 
     expect(
       form.getByText(/structured request form with reviewer approval/i),

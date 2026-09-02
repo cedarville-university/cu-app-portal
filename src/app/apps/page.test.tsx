@@ -73,7 +73,7 @@ afterEach(() => {
 });
 
 describe("MyAppsPage", () => {
-  it("renders breadcrumb links for returning home or creating another app", async () => {
+  it("renders breadcrumb links for returning home or launching another app", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue(
       [] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>,
@@ -91,7 +91,7 @@ describe("MyAppsPage", () => {
       within(breadcrumb).getByRole("link", { name: /home/i }),
     ).toHaveAttribute("href", "/");
     expect(
-      within(breadcrumb).getByRole("link", { name: /create new app/i }),
+      within(breadcrumb).getByRole("link", { name: "Launch New App" }),
     ).toHaveAttribute("href", "/create");
     expect(within(breadcrumb).getByText("My Apps")).toHaveAttribute(
       "aria-current",

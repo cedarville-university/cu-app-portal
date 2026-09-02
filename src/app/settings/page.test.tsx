@@ -44,7 +44,7 @@ describe("SettingsPage", () => {
       "ownerhub",
     );
     expect(
-      screen.getByText("Choose which portal updates are sent to owner@cedarville.edu."),
+      screen.getByText("Choose which CU Launch updates are sent to owner@cedarville.edu."),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("group", { name: "Email notification master switch" }),
