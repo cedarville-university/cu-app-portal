@@ -17,29 +17,20 @@ describe("CuLaunchBrand", () => {
     );
   });
 
-  it("renders the reference-inspired launch A with a four-point star and navy orbit", () => {
+  it("uses the generated light-surface mark by default", () => {
     render(<CuLaunchBrand />);
 
     const mark = screen.getByTestId("cu-launch-mark");
-    expect(mark.querySelector(".cu-launch-brand__left-leg")).toHaveAttribute(
-      "fill",
-      "#FFB300",
-    );
-    expect(mark.querySelector(".cu-launch-brand__right-leg")).toHaveAttribute(
-      "fill",
-      "#FFB300",
-    );
-    expect(mark.querySelector(".cu-launch-brand__star")).toHaveAttribute(
-      "fill",
-      "#ffffff",
-    );
-    expect(mark.querySelector(".cu-launch-brand__orbit")).toHaveAttribute(
-      "fill",
-      "#0B1D3A",
-    );
-    expect(mark.querySelector(".cu-launch-brand__star")).toHaveAttribute(
-      "d",
-      "M32 13 34 27 43 29 35 32 32 43 29 32 21 29 30 27Z",
+    expect(mark).toHaveAttribute("src", "/brand/cu-launch-mark-light.png");
+    expect(mark).toHaveAttribute("alt", "");
+  });
+
+  it("uses the reversed generated mark on a navy surface", () => {
+    render(<CuLaunchBrand surface="dark" />);
+
+    expect(screen.getByTestId("cu-launch-mark")).toHaveAttribute(
+      "src",
+      "/brand/cu-launch-mark-dark.png",
     );
   });
 });

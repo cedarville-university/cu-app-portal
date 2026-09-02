@@ -7,7 +7,7 @@ export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="site-footer__inner">
-        <CuLaunchBrand showTagline />
+        <CuLaunchBrand showTagline surface="dark" />
         <span>© {year} Cedarville University. All rights reserved.</span>
       </div>
     </footer>

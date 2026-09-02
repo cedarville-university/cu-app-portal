@@ -39,17 +39,6 @@ describe("CU Launch global styles", () => {
     );
   });
 
-  it("reverses the star and orbit colors for the navy header mark", async () => {
-    const css = await readFile(globalStyles, "utf8");
-
-    expect(css).toContain(
-      ".site-header .cu-launch-brand__star { fill: var(--launch-navy); }",
-    );
-    expect(css).toContain(
-      ".site-header .cu-launch-brand__orbit { fill: var(--launch-white); }",
-    );
-  });
-
   it("keeps hero branding safe at 320px", async () => {
     const css = await readFile(globalStyles, "utf8");
 

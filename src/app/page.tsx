@@ -6,7 +6,7 @@ export default function HomePage() {
   return (
     <main>
       <div className="hero">
-        <h1><CuLaunchBrand /></h1>
+        <h1><CuLaunchBrand surface="dark" /></h1>
         <p>
           Launch an app, keep its code in a private online home, and publish it
           online — all from one place.

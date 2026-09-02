@@ -17,7 +17,7 @@ export async function SiteHeader() {
     <header className="site-header">
       <div className="site-header__inner">
         <Link href="/" className="site-header__brand">
-          <CuLaunchBrand compact />
+          <CuLaunchBrand compact surface="dark" />
         </Link>
 
         <nav className="site-header__nav" aria-label="Primary navigation">
