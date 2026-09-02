@@ -10,6 +10,9 @@ const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
   "54a3d32e89b6136ad0f0296feea5ff01321034e9d52acb9a752347ee6e5021cb",
   "05d2a8b01a003ace8b7fbb337b875972ac7c9b6a15718ae10f3360fcf2eb8d99",
   "a965b6c09a50d2757eef4ec7a6bedffb9ab8baa107cab002016b41ffc419ad30",
+  "42a92cda7d50cbd480f35d07e4b24556a936b1e94f54631deb377be10c86b661",
+  "6bdfc28ae8effeaedc2fa18a98ac07d74013b6f0efce882631bdfdeb7bd9318d",
+  "a0a5a753da489fa07e03ce41a1366a0e3ae062db8a45c616aa70daa0105cd394",
 ]);
 
 export function buildManagedAppPortalSkill() {
@@ -29,7 +32,7 @@ Use this skill when Codex is working inside a CU Launch-managed app repository.
 3. Read \`docs/publishing/azure-app-service.md\` and \`docs/publishing/lessons-learned.md\` when publishing context matters.
 4. Preserve local app code unless the user explicitly asks for app changes.
 
-## Portal-First Workflows
+## CU Launch-First Workflows
 
 - Prefer CU Launch for publishing setup, first publish, Repair Publishing Setup, collaborator access, GitHub access requests, push-to-deploy enablement, and scoped deletion.
 - Use local \`git\` to connect this checkout to the CU Launch-managed GitHub repository. Pull CU Launch's initial guidance commit before changing or uploading the local app.
@@ -46,7 +49,7 @@ Before uploading a local app to its CU Launch-managed repository:
 4. For an unsupported packaged frontend, inspect its scripts, dependencies, source files, and checked-in browser assets. If \`package.json\` is genuinely unused and the root HTML, JavaScript, and CSS run directly in a browser without building or generating files, explain the evidence and safely remove only the obsolete package tooling. If the package tooling is required, migrate the app to a supported root Next.js or Express app instead.
 5. Do not create \`app-portal/http_server_start.py\` before CU Launch prepares the repository. CU Launch adds that Python runner after a plain static app passes compatibility; the runner's absence during the first upload is expected, and an existing copy can cause a publishing-file conflict.
 6. For the other supported types, require a root Next.js app with a build script, an Express app with a start script, or Python FastAPI with a root \`main.py\` or \`app.py\` plus FastAPI, Gunicorn, and Uvicorn dependencies. Do not classify workspace roots as supported. Next.js and Express imports use npm; pnpm, Yarn, and Bun lockfiles are unsupported for those Node app types.
-7. If it is already supported, preserve its framework and behavior. Do not migrate it merely to make it resemble a portal starter.
+7. If it is already supported, preserve its framework and behavior. Do not migrate it merely to make it resemble a CU Launch starter.
 8. If it is unsupported, evaluate the smallest safe migration to one supported app type. Choose the option most likely to preserve the app's user-visible behavior, data, routes, integrations, and existing tests with the fewest structural changes.
 9. Explain the proposed migration and its visible impact in plain language before making it. If two reasonable migrations would change what the app can do, ask exactly one plain-language question and wait for the user's choice.
 10. Keep a recoverable Git history. Do not delete the original implementation or discard existing commits to simplify a migration.

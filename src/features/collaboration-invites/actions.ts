@@ -26,7 +26,7 @@ const INVALID_INVITE_ERROR = "This collaboration invite is no longer valid.";
 const INVITED_ACCOUNT_ERROR =
   "Sign in with the invited Cedarville account to accept this invite.";
 const DIRECTORY_LOOKUP_UNAVAILABLE_ERROR =
-  "The portal is unable to look up that email address right now.";
+  "CU Launch is unable to look up that email address right now.";
 const EMAIL_REQUIRED_ERROR = "Email is required.";
 const INELIGIBLE_INVITEE_ERROR =
   "Invitee must be an eligible Cedarville member.";

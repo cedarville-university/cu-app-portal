@@ -193,6 +193,15 @@ describe("renderAppEventEmail event copy", () => {
     expect(email.text).toContain(
       "Admin User gave you access to Campus Forms.",
     );
+    expect(email.text).not.toContain("A portal administrator");
+
+    const fallbackEmail = renderAppEventEmail({
+      ...baseContext,
+      eventKey: "APP_SHARED",
+    });
+    expect(fallbackEmail.text).toContain(
+      "A CU Launch administrator gave you access",
+    );
   });
 
   it("COLLABORATION_INVITE_SENT names the sender", () => {

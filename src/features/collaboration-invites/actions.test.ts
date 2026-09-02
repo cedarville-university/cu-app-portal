@@ -431,7 +431,7 @@ describe("collaboration invite actions", () => {
     await expect(
       sendCollaborationInviteAction("request-123", inviteForm()),
     ).rejects.toThrow(
-      "The portal is unable to look up that email address right now.",
+      "CU Launch is unable to look up that email address right now.",
     );
 
     expect(createEntraDirectoryClient).not.toHaveBeenCalled();

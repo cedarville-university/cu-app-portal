@@ -143,7 +143,7 @@ function buildEventContent(context: AppEventEmailContext): EventContent {
     case "APP_SHARED":
       return {
         subject: `You've been added to ${appName}`,
-        headline: `${actorDisplayName ?? "A portal administrator"} gave you access to ${appName}.`,
+        headline: `${actorDisplayName ?? "A CU Launch administrator"} gave you access to ${appName}.`,
         detail: "You can now view and collaborate on this app in CU Launch.",
         rows: [],
         cta: viewApp,

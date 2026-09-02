@@ -68,6 +68,8 @@ describe("buildCodexHandoffPrompt", () => {
     );
 
     expectManagedGitReadiness(prompt);
+    expect(prompt).toContain("CU Launch request req_generated");
+    expect(prompt).not.toContain("Cedarville App Portal request");
     expect(prompt).toContain(
       'Confirm that the primary folder is the new empty folder intended for "Campus Dashboard".',
     );
