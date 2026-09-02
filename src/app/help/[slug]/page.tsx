@@ -54,11 +54,11 @@ export default async function HelpDocumentPage({
       <div className="help-page-actions">
         <Link href="/help" className="btn btn--ghost btn--sm">All Help Topics</Link>
         {slug === "quick-start" ? (
-          <a className="btn btn--primary-solid btn--sm" href="/docs/cedarville-app-portal-quick-start.pdf" download>
+          <a className="btn btn--primary-solid btn--sm" href="/docs/cu-launch-quick-start.pdf" download>
             Download PDF
           </a>
         ) : (
-          <a className="btn btn--primary-solid btn--sm" href="/docs/cedarville-app-portal-user-guide.pdf" download>
+          <a className="btn btn--primary-solid btn--sm" href="/docs/cu-launch-user-guide.pdf" download>
             Download Full Guide PDF
           </a>
         )}
