@@ -94,6 +94,7 @@ describe("TemplateForm", () => {
 
     const submitButton = screen.getByRole("button", { name: "Launch App" });
 
+    expect(submitButton).toBeEnabled();
     expect(submitButton).toHaveAttribute("name", "createIntent");
     expect(submitButton).toHaveAttribute("value", "createOnly");
     expect(

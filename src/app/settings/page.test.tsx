@@ -49,17 +49,17 @@ describe("SettingsPage", () => {
     expect(
       screen.getByRole("group", { name: "Email notification master switch" }),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Email notifications")).toBeChecked();
+    expect(screen.getByLabelText("CU Launch email notifications")).toBeChecked();
     expect(
       screen.getByText(
-        "Turns all portal email notifications on or off. When this is off, the category choices below are ignored.",
+        "Turns all CU Launch email notifications on or off. When this is off, the category choices below are ignored.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("group", { name: "Email categories" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("These only apply when Email notifications is on."),
+      screen.getByText("These only apply when CU Launch email notifications is on."),
     ).toBeInTheDocument();
     expect(
       screen.getByLabelText(

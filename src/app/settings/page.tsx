@@ -103,13 +103,13 @@ export default async function SettingsPage() {
                   name="emailNotificationsEnabled"
                   defaultChecked={preferences.emailNotificationsEnabled}
                 />{" "}
-                Email notifications
+                CU Launch email notifications
               </label>
               <p
                 id="email-notifications-help"
                 style={{ color: "var(--text-secondary)", margin: 0 }}
               >
-                Turns all portal email notifications on or off. When this is off, the
+                Turns all CU Launch email notifications on or off. When this is off, the
                 category choices below are ignored.
               </p>
             </fieldset>
@@ -120,7 +120,7 @@ export default async function SettingsPage() {
                 id="email-categories-help"
                 style={{ color: "var(--text-secondary)", margin: 0 }}
               >
-                These only apply when Email notifications is on.
+                These only apply when CU Launch email notifications is on.
               </p>
 
               <label>
