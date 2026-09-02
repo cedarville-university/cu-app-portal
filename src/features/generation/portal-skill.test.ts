@@ -27,8 +27,8 @@ describe("portal skill generation", () => {
     expect(skill).toContain(
       "may not exist yet during the first upload of a local app",
     );
-    expect(skill).toContain("portal-managed GitHub repository");
-    expect(skill).toContain("Prefer the Cedarville App Portal");
+    expect(skill).toContain("CU Launch-managed GitHub repository");
+    expect(skill).toContain("Prefer CU Launch");
     expect(skill).toContain("Repair Publishing Setup");
     expect(skill).toContain("Add Existing App");
     expect(skill).toContain("Do not create unrelated Azure resources");
@@ -48,7 +48,7 @@ describe("portal skill generation", () => {
       "If `package.json` exists but declares neither Next.js nor Express",
     );
     expect(skill).toContain(
-      "Do not create `app-portal/http_server_start.py` before the portal prepares the repository",
+      "Do not create `app-portal/http_server_start.py` before CU Launch prepares the repository",
     );
     expect(skill).toContain("smallest safe migration");
     expect(skill).toContain("preserve the app's user-visible behavior");
@@ -60,9 +60,9 @@ describe("portal skill generation", () => {
     expect(skill).toContain("Cedarville Microsoft Entra login screen");
     expect(skill).toContain("Do not rely on a standalone allow list or client-side-only check");
     expect(skill).toContain(
-      "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate the Cedarville App Portal",
+      "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate CU Launch",
     );
-    expect(skill).toContain("Portal navigation and button clicks belong to the user");
+    expect(skill).toContain("CU Launch navigation and button clicks belong to the user");
     expect(skill).not.toContain(
       "Return to the portal for scan, publishing setup, repair, and publish actions",
     );
@@ -73,10 +73,10 @@ describe("portal skill generation", () => {
 
     expect(stub).toContain("name: publish-to-azure");
     expect(stub).toContain("Use the `cu-app-portal` skill");
-    expect(stub).toContain("portal-managed app");
+    expect(stub).toContain("CU Launch-managed app");
     expect(stub).toContain("not the default path");
     expect(stub).toContain(
-      "Do not open or operate the Cedarville App Portal",
+      "Do not open or operate CU Launch",
     );
   });
 

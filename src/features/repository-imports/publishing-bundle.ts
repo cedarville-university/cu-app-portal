@@ -370,7 +370,7 @@ export function planPublishingBundle({
   }
   filesToWrite[LEGACY_PUBLISH_SKILL_PATH] = buildLegacyPublishToAzureStub();
   filesToWrite["docs/publishing/azure-app-service.md"] =
-    `# Publish to Azure App Service\n\nThis imported ${runtime.displayName} app is prepared for Cedarville App Portal-managed Azure publishing.\n`;
+    `# Publish to Azure App Service\n\nThis imported ${runtime.displayName} app is prepared for CU Launch-managed Azure publishing.\n`;
   filesToWrite["docs/publishing/lessons-learned.md"] =
     "# Publishing Lessons Learned\n\nRecord manual fixes and deployment blockers here.\n";
   filesToWrite["app-portal/deployment-manifest.json"] = buildImportedManifest(

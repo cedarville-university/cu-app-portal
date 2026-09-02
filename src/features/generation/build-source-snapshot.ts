@@ -274,7 +274,7 @@ ${dataLoad}${userName}
   return (
     <main className="app-shell">
       <section className="hero">
-        <p className="eyebrow">Cedarville App Portal starter</p>
+        <p className="eyebrow">CU Launch starter</p>
         <h1>{ ${JSON.stringify(input.appName)} }</h1>
         <p className="lede">{ ${JSON.stringify(input.description)} }</p>
         <p className="deployment-note">Prepared for ${input.hostingTarget}.</p>
@@ -345,7 +345,7 @@ function buildReadmeFile(input: CreateAppRequestInput) {
 
   const databaseText =
     input.databaseProvider === "postgresql"
-      ? "Persistent app data is already wired in through `src/lib/app-data.ts`. The portal supplies the production database connection during publish, and the starter applies database updates automatically when it starts in Azure. Most app editors can use the helper functions without needing to configure the database by hand."
+      ? "Persistent app data is already wired in through `src/lib/app-data.ts`. CU Launch supplies the production database connection during publish, and the starter applies database updates automatically when it starts in Azure. Most app editors can use the helper functions without needing to configure the database by hand."
       : "This app was generated without a database. Add data storage later only if the app needs persistent state.";
   const localEnvironmentText =
     input.databaseProvider === "postgresql"
@@ -356,7 +356,7 @@ function buildReadmeFile(input: CreateAppRequestInput) {
     "App Service settings",
     ...(input.entraLogin ? ["production auth settings"] : []),
   ];
-  const publishResourcesText = `Let the portal provision ${formatList(
+  const publishResourcesText = `Let CU Launch provision ${formatList(
     publishResources,
   )} during publish.`;
   const authText = input.entraLogin
@@ -378,7 +378,7 @@ ${authText}
 
 ## Next Steps
 
-1. Use the portal-managed GitHub repository as the supported source of truth.
+1. Use the CU Launch-managed GitHub repository as the supported source of truth.
 2. Clone or open that managed repository locally when you are ready to customize the app.
 3. Run \`npm install\`, then \`npm run dev\` for local development.
 4. ${localEnvironmentText}

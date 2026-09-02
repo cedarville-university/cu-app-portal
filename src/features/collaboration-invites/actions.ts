@@ -269,9 +269,9 @@ function buildInviteMessage({
   acceptUrl,
 }: InviteEmailInput) {
   const lines = [
-    `${inviterName} invited you to collaborate on ${appName} in the Cedarville App Portal.`,
+    `${inviterName} invited you to collaborate on ${appName} in CU Launch.`,
     `Accept the invitation: ${acceptUrl}`,
-    "Accepting grants portal app access only. GitHub repository access is requested separately from the app details page.",
+    "Accepting grants CU Launch app access only. GitHub repository access is requested separately from the app details page.",
   ];
   const text = lines.join("\n\n");
   const html = lines
@@ -301,7 +301,7 @@ function inviteFormErrorMessage(error: unknown) {
 
   console.error("Collaboration invite form submission failed.", error);
 
-  return "The portal could not send that invite right now. Try again or contact support.";
+  return "CU Launch could not send that invite right now. Try again or contact support.";
 }
 
 function parseSubmittedInviteEmail(formData: FormData) {
@@ -326,7 +326,7 @@ function isDirectoryVerificationError(error: unknown) {
 }
 
 function directoryVerificationPrompt(email: string) {
-  return `The portal could not verify ${email} in Entra. You can send the invite without verification if you are sure the address is correct.`;
+  return `CU Launch could not verify ${email} in Entra. You can send the invite without verification if you are sure the address is correct.`;
 }
 
 async function sendInviteEmail({
