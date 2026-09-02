@@ -23,15 +23,20 @@ export function CuLaunchBrand({
         <path
           className="cu-launch-brand__triangle"
           d="M32 3 61 57H3L32 3Z"
+          fill="#fcb716"
         />
         <path
           className="cu-launch-brand__orbit"
           d="M10 41c11-14 30-19 45-9"
           fill="none"
+          stroke="#ffffff"
+          strokeWidth="2"
+          strokeLinecap="round"
         />
         <path
           className="cu-launch-brand__star"
           d="m32 17 2.8 8.5h9l-7.3 5.2 2.8 8.5-7.3-5.2-7.3 5.2 2.8-8.5-7.3-5.2h9L32 17Z"
+          fill="#ffffff"
         />
       </svg>
       <span className="cu-launch-brand__copy">
