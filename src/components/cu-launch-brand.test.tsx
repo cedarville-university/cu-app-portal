@@ -17,7 +17,7 @@ describe("CuLaunchBrand", () => {
     );
   });
 
-  it("keeps the launch mark colors and orbit visible without external CSS", () => {
+  it("renders the reference-inspired launch A with a white starburst and navy orbit", () => {
     render(<CuLaunchBrand />);
 
     const mark = screen.getByTestId("cu-launch-mark");
@@ -31,11 +31,15 @@ describe("CuLaunchBrand", () => {
     );
     expect(mark.querySelector(".cu-launch-brand__orbit")).toHaveAttribute(
       "stroke",
-      "#ffffff",
+      "#0B1D3A",
     );
     expect(mark.querySelector(".cu-launch-brand__orbit")).toHaveAttribute(
       "stroke-width",
       "2",
+    );
+    expect(mark.querySelector(".cu-launch-brand__star")).toHaveAttribute(
+      "d",
+      expect.stringContaining("13"),
     );
   });
 });
