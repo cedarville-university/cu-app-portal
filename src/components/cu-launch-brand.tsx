@@ -21,18 +21,19 @@ export function CuLaunchBrand({
         focusable="false"
       >
         <path
-          className="cu-launch-brand__triangle"
-          d="M32 3 60 57H47L32 25 17 57H4L32 3Zm0 25 7 16H25l7-16Z"
+          className="cu-launch-brand__left-leg"
+          d="M32 3 6 57 25 49 32 27Z"
           fill="#FFB300"
-          fillRule="evenodd"
+        />
+        <path
+          className="cu-launch-brand__right-leg"
+          d="M32 3 32 27 39 49 58 57Z"
+          fill="#FFB300"
         />
         <path
           className="cu-launch-brand__orbit"
-          d="M7 57c13-10 37-10 50 0"
-          fill="none"
-          stroke="#0B1D3A"
-          strokeWidth="2"
-          strokeLinecap="round"
+          d="M3 62c16-15 42-15 58 0-18-8-40-8-58 0Z"
+          fill="#0B1D3A"
         />
         <path
           className="cu-launch-brand__star"

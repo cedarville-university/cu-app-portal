@@ -21,7 +21,11 @@ describe("CuLaunchBrand", () => {
     render(<CuLaunchBrand />);
 
     const mark = screen.getByTestId("cu-launch-mark");
-    expect(mark.querySelector(".cu-launch-brand__triangle")).toHaveAttribute(
+    expect(mark.querySelector(".cu-launch-brand__left-leg")).toHaveAttribute(
+      "fill",
+      "#FFB300",
+    );
+    expect(mark.querySelector(".cu-launch-brand__right-leg")).toHaveAttribute(
       "fill",
       "#FFB300",
     );
@@ -30,12 +34,8 @@ describe("CuLaunchBrand", () => {
       "#ffffff",
     );
     expect(mark.querySelector(".cu-launch-brand__orbit")).toHaveAttribute(
-      "stroke",
+      "fill",
       "#0B1D3A",
-    );
-    expect(mark.querySelector(".cu-launch-brand__orbit")).toHaveAttribute(
-      "stroke-width",
-      "2",
     );
     expect(mark.querySelector(".cu-launch-brand__star")).toHaveAttribute(
       "d",
