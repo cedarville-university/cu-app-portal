@@ -125,6 +125,9 @@ li { margin-bottom: 0.25rem; }
   align-items: center;
 }
 
+.site-header .cu-launch-brand__star { fill: var(--launch-navy); }
+.site-header .cu-launch-brand__orbit { fill: var(--launch-white); }
+
 .site-header__inner {
   max-width: var(--max-width);
   width: 100%;

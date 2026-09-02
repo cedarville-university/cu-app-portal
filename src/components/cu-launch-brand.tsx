@@ -37,7 +37,7 @@ export function CuLaunchBrand({
         />
         <path
           className="cu-launch-brand__star"
-          d="M32 13 34.6 25.4 43 21.6 37.4 31 47 34 36 36.5 39 47 32 39.5 25 47 28 36.5 17 34 26.6 31 21 21.6 29.4 25.4 32 13Z"
+          d="M32 13 34 27 43 29 35 32 32 43 29 32 21 29 30 27Z"
           fill="#ffffff"
         />
       </svg>

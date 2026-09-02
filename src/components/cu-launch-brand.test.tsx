@@ -17,7 +17,7 @@ describe("CuLaunchBrand", () => {
     );
   });
 
-  it("renders the reference-inspired launch A with a white starburst and navy orbit", () => {
+  it("renders the reference-inspired launch A with a four-point star and navy orbit", () => {
     render(<CuLaunchBrand />);
 
     const mark = screen.getByTestId("cu-launch-mark");
@@ -39,7 +39,7 @@ describe("CuLaunchBrand", () => {
     );
     expect(mark.querySelector(".cu-launch-brand__star")).toHaveAttribute(
       "d",
-      expect.stringContaining("13"),
+      "M32 13 34 27 43 29 35 32 32 43 29 32 21 29 30 27Z",
     );
   });
 });
