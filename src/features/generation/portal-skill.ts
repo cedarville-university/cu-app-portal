@@ -8,6 +8,7 @@ const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
   "5ce4c7a302c86ecbdabda0ea68ed4dd763a741030ca7413686afa35e15998c28",
   "79e98100ee0299dcd3c68ca9efcce2fa80de774e41fc524645b01fd84dcdb926",
   "54a3d32e89b6136ad0f0296feea5ff01321034e9d52acb9a752347ee6e5021cb",
+  "a0a5a753da489fa07e03ce41a1366a0e3ae062db8a45c616aa70daa0105cd394",
 ]);
 
 export function buildManagedAppPortalSkill() {
@@ -93,6 +94,7 @@ When the app is already on GitHub:
 - Do not create unrelated Azure resources, GitHub repositories, GitHub Actions secrets, app registrations, or federated credentials outside the portal-managed model unless the user explicitly asks for an unsupported recovery path.
 - Do not weaken Cedarville Entra login, database, or App Service settings that the manifest marks as portal-managed.
 - Treat a request to limit the app audience as an authentication change. Use the portal-managed Cedarville Microsoft Entra login screen and a verified Entra session before showing protected app content, then enforce the requested email, group, or role restriction server-side. Do not rely on a standalone allow list or client-side-only check. Keep only the exact public health endpoint plus the framework's required Entra sign-in and callback routes anonymous.
+- When adding a custom sign-in route, leave that exact route and the required Entra callback route anonymous. The portal must not depend on that route's path for deployment verification.
 - Keep the exact \`GET /api/health\` endpoint public and returning HTTP 200 when the app process is healthy. Never protect, remove, rename, or make that endpoint depend on an allow list, session, database, or external service; the portal uses it to verify deployments.
 - Record manual fixes, blockers, and recovery steps in \`docs/publishing/lessons-learned.md\`.
 `;

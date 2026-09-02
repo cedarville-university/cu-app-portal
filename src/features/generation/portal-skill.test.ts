@@ -59,6 +59,8 @@ describe("portal skill generation", () => {
     expect(skill).toContain("Treat a request to limit the app audience as an authentication change");
     expect(skill).toContain("Cedarville Microsoft Entra login screen");
     expect(skill).toContain("Do not rely on a standalone allow list or client-side-only check");
+    expect(skill).toContain("When adding a custom sign-in route");
+    expect(skill).toContain("must not depend on that route's path for deployment verification");
     expect(skill).toContain(
       "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate the Cedarville App Portal",
     );

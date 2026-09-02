@@ -100,6 +100,8 @@ Every publishing-capable generated app must retain an exact public `GET /api/hea
 
 When a later Codex change restricts an app's audience, it must use the portal-managed Cedarville Microsoft Entra sign-in flow, verify the user session, and enforce the requested restriction server-side. A client-only or standalone allow-list check is not sufficient.
 
+Custom sign-in routes are allowed, but their exact route and required Entra callback route must remain anonymous. Portal deployment verification uses only the fixed `/api/health` endpoint and does not infer deployment success from an app's sign-in redirect.
+
 Next.js publishing workflows provide a syntactically valid, non-production `DATABASE_URL` only to the GitHub Actions build step so Prisma can validate and generate the application without a live database. The portal-managed Azure App Service configuration remains the source of the real runtime connection string.
 
 Publishing-capable templates should assume this direction:
