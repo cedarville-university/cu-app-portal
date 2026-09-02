@@ -3,17 +3,24 @@
 :root {
   color-scheme: light;
 
+  /* CU Launch reference palette */
+  --launch-navy: #0B1D3A;
+  --launch-gold: #FFB300;
+  --launch-sky: #1D4ED8;
+  --launch-slate: #E6EAF0;
+  --launch-white: #FFFFFF;
+
   /* Brand colors */
-  --cu-navy:        #003865;
-  --cu-navy-dark:   #00253d;
-  --cu-navy-darker: #00073d;
-  --cu-gold:        #fcb716;
-  --cu-gold-dark:   #cf962a;
-  --cu-gold-light:  #fcce61;
-  --cu-gold-pale:   #fce9a5;
-  --cu-orange:      #e87625;
-  --cu-cyan:        #04b2e2;
-  --cu-teal:        #018fb6;
+  --cu-navy:        var(--launch-navy);
+  --cu-navy-dark:   #07162E;
+  --cu-navy-darker: #030A17;
+  --cu-gold:        var(--launch-gold);
+  --cu-gold-dark:   #D99200;
+  --cu-gold-light:  #FFD166;
+  --cu-gold-pale:   #FFF1CC;
+  --cu-orange:      var(--launch-gold);
+  --cu-cyan:        var(--launch-sky);
+  --cu-teal:        var(--launch-sky);
 
   /* Text */
   --text-body:      #0b0b0b;
@@ -22,11 +29,11 @@
   --text-muted:     #888;
 
   /* Surface */
-  --bg-page:        #f4f5f7;
-  --bg-white:       #ffffff;
-  --bg-light:       #f8f9fa;
-  --border:         #dedede;
-  --border-light:   #ebebeb;
+  --bg-page:        #F7F9FC;
+  --bg-white:       var(--launch-white);
+  --bg-light:       #F2F5F9;
+  --border:         var(--launch-slate);
+  --border-light:   var(--launch-slate);
 
   /* Status */
   --status-success: #16a34a;
@@ -1640,4 +1647,234 @@ select.form-control {
 
 .data-table tr:last-child td {
   border-bottom: none;
+}
+
+/* ─── CU Launch visual system ─── */
+
+h1, h2, h3, h4, h5,
+.btn,
+.site-header__nav a,
+.site-header__nav > form button,
+.site-header__account-menu-content form button,
+.cu-launch-brand {
+  font-family: var(--font-montserrat, "Montserrat"), var(--font-inter, "Inter"), sans-serif;
+}
+
+:focus-visible {
+  outline: 3px solid var(--launch-gold);
+  outline-offset: 3px;
+}
+
+.cu-launch-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--launch-white);
+  line-height: 1;
+  text-decoration: none;
+}
+
+.cu-launch-brand__mark {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+}
+
+.cu-launch-brand__copy {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.cu-launch-brand__name {
+  color: var(--launch-white);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+
+.cu-launch-brand__cu { color: var(--launch-white); }
+.cu-launch-brand__launch { color: var(--launch-gold); }
+
+.cu-launch-brand__tagline {
+  color: var(--launch-slate);
+  font-family: var(--font-inter, "Inter"), sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.cu-launch-brand--compact {
+  gap: 0.45rem;
+}
+
+.cu-launch-brand--compact .cu-launch-brand__mark {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+
+.cu-launch-brand--compact .cu-launch-brand__name {
+  font-size: 1rem;
+}
+
+.site-header {
+  height: auto;
+  min-height: var(--header-h);
+  background: var(--launch-navy);
+  border-top: 0;
+  border-bottom: 4px solid var(--launch-gold);
+  box-shadow: 0 2px 10px rgba(11, 29, 58, 0.22);
+}
+
+.site-header__inner {
+  max-width: 1180px;
+  min-height: var(--header-h);
+}
+
+.site-header__brand:focus-visible,
+.site-header__nav a:focus-visible,
+.site-header__nav button:focus-visible {
+  outline-color: var(--launch-gold);
+}
+
+.site-header__nav a {
+  color: var(--launch-slate);
+  border-radius: 999px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.site-header__nav a:hover,
+.site-header__nav a.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--launch-white);
+}
+
+.site-footer {
+  background: var(--launch-navy);
+  border-top: 4px solid var(--launch-gold);
+  color: var(--launch-slate);
+}
+
+.site-footer__inner {
+  max-width: 1180px;
+}
+
+.site-footer a { color: var(--launch-gold); }
+
+.hero {
+  background:
+    radial-gradient(circle at 85% 8%, rgba(255, 179, 0, 0.22), transparent 17rem),
+    linear-gradient(135deg, var(--launch-navy), #142F5D);
+  border-radius: 1rem;
+  box-shadow: 0 16px 36px rgba(11, 29, 58, 0.18);
+  padding: clamp(2.5rem, 7vw, 5rem);
+}
+
+.hero::after {
+  height: 5px;
+  background: var(--launch-gold);
+}
+
+.hero h1 {
+  margin-bottom: 1.25rem;
+}
+
+.hero h1 .cu-launch-brand__mark {
+  width: clamp(3.5rem, 8vw, 5rem);
+  height: clamp(3.5rem, 8vw, 5rem);
+}
+
+.hero h1 .cu-launch-brand__name {
+  font-size: clamp(2.4rem, 6vw, 4.4rem);
+}
+
+.hero p { max-width: 38rem; }
+
+.hero__secondary-action {
+  color: var(--launch-white);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+
+.hero__secondary-action:hover:not(:disabled) {
+  background: var(--launch-white);
+  border-color: var(--launch-white);
+  color: var(--launch-navy);
+}
+
+.btn {
+  border-radius: 0.5rem;
+  letter-spacing: 0.015em;
+  text-transform: none;
+}
+
+.btn--primary-solid {
+  background: var(--launch-sky);
+  border-color: var(--launch-sky);
+}
+
+.btn--primary-solid:hover:not(:disabled) {
+  background: #163EAD;
+  border-color: #163EAD;
+}
+
+.btn--secondary-solid {
+  background: var(--launch-gold);
+  border-color: var(--launch-gold);
+  color: var(--launch-navy);
+}
+
+.btn--secondary-solid:hover:not(:disabled) {
+  background: #E39F00;
+  border-color: #E39F00;
+  color: var(--launch-navy);
+}
+
+.card {
+  border-color: var(--launch-slate);
+  border-radius: 0.875rem;
+  box-shadow: 0 8px 22px rgba(11, 29, 58, 0.07);
+}
+
+.card--navy-border { border-left-color: var(--launch-sky); }
+.card--gold-border { border-left-color: var(--launch-gold); }
+.card__title { color: var(--launch-navy); }
+
+.login-page {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255, 179, 0, 0.22), transparent 25rem),
+    linear-gradient(135deg, #F7F9FC, var(--launch-slate));
+}
+
+.login-card {
+  border-color: var(--launch-slate);
+  border-radius: 1rem;
+}
+
+.login-card__content { padding: 3rem 2.5rem; }
+.login-card__content h1 { margin: -0.25rem 0 0; }
+.login-card__content h1 .cu-launch-brand { color: var(--launch-navy); }
+.login-card__content h1 .cu-launch-brand__name { color: var(--launch-navy); font-size: 2.4rem; }
+.login-card__content h1 .cu-launch-brand__cu { color: var(--launch-navy); }
+.login-card__content h1 .cu-launch-brand__launch { color: var(--launch-sky); }
+
+@media (max-width: 760px) {
+  .site-header__inner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding-block: 0.75rem;
+  }
+
+  .site-header__nav {
+    width: 100%;
+    margin-left: 0;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+  }
+
+  .hero h1 .cu-launch-brand__name { font-size: 2.5rem; }
+
+  .site-footer .cu-launch-brand__tagline { white-space: normal; }
 }

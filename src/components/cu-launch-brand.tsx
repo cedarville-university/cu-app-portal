@@ -8,7 +8,7 @@ interface CuLaunchBrandProps {
 export function CuLaunchBrand({
   compact = false,
   showTagline = false,
-}: CuLaunchBrandProps): JSX.Element {
+}: CuLaunchBrandProps): React.JSX.Element {
   return (
     <span
       className={`cu-launch-brand${compact ? " cu-launch-brand--compact" : ""}`}
