@@ -30,6 +30,17 @@ afterEach(() => {
 });
 
 describe("SiteHeader", () => {
+  it("labels the create action as Launch New App", async () => {
+    mockGetServerSession.mockResolvedValue(null);
+
+    render(await SiteHeader());
+
+    expect(screen.getByRole("link", { name: "Launch New App" })).toHaveAttribute(
+      "href",
+      "/create",
+    );
+  });
+
   it("shows an Admin link to authenticated admins", async () => {
     mockGetServerSession.mockResolvedValue({
       user: {
