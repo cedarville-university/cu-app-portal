@@ -1763,6 +1763,15 @@ h1, h2, h3, h4, h5,
   color: var(--launch-white);
 }
 
+.site-header__account-menu-content a {
+  color: var(--launch-navy);
+}
+
+.site-header__account-menu-content a:hover {
+  background: var(--bg-light);
+  color: var(--launch-navy);
+}
+
 .site-footer {
   background: var(--launch-navy);
   border-top: 4px solid var(--launch-gold);

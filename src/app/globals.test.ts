@@ -31,6 +31,14 @@ describe("CU Launch global styles", () => {
     expect(mobileRules).not.toMatch(/\.site-header__nav\s*{[^}]*overflow-x:\s*auto/s);
   });
 
+  it("keeps account-menu links navy on the white flyout at every viewport", async () => {
+    const css = await readFile(globalStyles, "utf8");
+
+    expect(css).toMatch(
+      /\.site-header__account-menu-content a \{\n  color: var\(--launch-navy\);/,
+    );
+  });
+
   it("keeps hero branding safe at 320px", async () => {
     const css = await readFile(globalStyles, "utf8");
 
