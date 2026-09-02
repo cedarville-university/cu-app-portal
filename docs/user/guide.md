@@ -57,7 +57,7 @@ Imported apps currently support root Next.js, Express, Python FastAPI, and plain
    - **Cedarville sign-in required** means users must sign in with a Cedarville account.
    - **Openly public on the internet** means anyone who knows or discovers the app address can use it. Read and confirm the warning before choosing this option.
 6. Review the optional database choice.
-7. Select **Create App**. Creation stops before publishing.
+7. Select **Launch App**. Creation stops before publishing.
 
 When **Your starter app is ready** appears, choose **Publish the starter now** or **Customize it with Codex first**.
 

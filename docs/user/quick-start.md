@@ -30,7 +30,7 @@ Git keeps change history in the app folder on your computer. GitHub keeps Cedarv
 1. Select **Launch New App**, then **Choose an app template**.
 2. Choose a recommended template. Each template explains what it is best for. If you are unsure, use the option whose examples are closest to your project.
 3. Enter the app name and description. Choose whether Cedarville sign-in is required or the app is openly public. An openly public app can be used by anyone who knows or discovers its address, so read and confirm the warning before choosing it. Choose a database only when your app needs it.
-4. Select **Create App**. This creates the starter and its private online code home; it does not publish.
+4. Select **Launch App**. This creates the starter and its private online code home; it does not publish.
 5. **Publish the starter now** starts Azure publishing immediately. It is the only publish confirmation for an unchanged starter. Or select **Customize it with Codex first**. Codex is an AI coding assistant. Follow the page's GitHub account, invitation, and local-project steps. Return after Codex says the changes were pushed. The customized path later asks you to select **Publish to Azure** after setup is ready.
 6. Leave the progress page open. It updates automatically during preparation, publishing setup, and publishing. Do not click an action again while it is running.
 7. When **Your app is online** appears, select **Open your app** and test the app's main task. Use **Open app details** afterward for collaborators, publishing, and settings; technical controls are under **Advanced options**.
