@@ -1661,7 +1661,7 @@ h1, h2, h3, h4, h5,
 }
 
 :focus-visible {
-  outline: 3px solid var(--launch-gold);
+  outline: 3px solid var(--launch-sky);
   outline-offset: 3px;
 }
 
@@ -1803,6 +1803,10 @@ h1, h2, h3, h4, h5,
   color: var(--launch-navy);
 }
 
+.hero :focus-visible {
+  outline-color: var(--launch-gold);
+}
+
 .btn {
   border-radius: 0.5rem;
   letter-spacing: 0.015em;
@@ -1877,4 +1881,51 @@ h1, h2, h3, h4, h5,
   .hero h1 .cu-launch-brand__name { font-size: 2.5rem; }
 
   .site-footer .cu-launch-brand__tagline { white-space: normal; }
+}
+
+@media (max-width: 420px) {
+  main {
+    padding-inline: 1rem;
+  }
+
+  .hero {
+    padding: 1.5rem 1rem 2rem;
+  }
+
+  .hero h1 .cu-launch-brand {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .hero h1 .cu-launch-brand__mark {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .hero h1 .cu-launch-brand__name {
+    font-size: 2rem;
+  }
+
+  .hero__actions .btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .login-card__content {
+    padding: 2rem 1.25rem;
+  }
+
+  .login-card__content h1 .cu-launch-brand {
+    gap: 0.45rem;
+  }
+
+  .login-card__content h1 .cu-launch-brand__mark {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .login-card__content h1 .cu-launch-brand__name {
+    font-size: 1.9rem;
+  }
 }
