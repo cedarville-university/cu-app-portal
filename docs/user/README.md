@@ -1,6 +1,6 @@
-# Maintaining User Documentation
+# Maintaining CU Launch User Documentation
 
-The Markdown files in this directory are the source of truth for the portal's web help and downloadable PDFs.
+The Markdown files in this directory are the source of truth for CU Launch web help and downloadable PDFs.
 
 ## Editing
 
@@ -13,4 +13,4 @@ The Markdown files in this directory are the source of truth for the portal's we
 
 Keep instructions task-focused and define technical terms on first use. Do not include real credentials, environment-variable values, private repository addresses, or other secrets.
 
-The complete guide PDF combines `guide.md`, `troubleshooting.md`, `faq.md`, and `glossary.md`. The Quick Start PDF uses `quick-start.md` only.
+The complete guide PDF combines `guide.md`, `troubleshooting.md`, `faq.md`, and `glossary.md`. The Quick Start PDF uses `quick-start.md` only. The public download names are `cu-launch-quick-start.pdf` and `cu-launch-user-guide.pdf`.

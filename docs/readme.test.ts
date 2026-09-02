@@ -2,6 +2,15 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("README", () => {
+  it("identifies CU Launch and links readers to the current Quick Start PDF", () => {
+    const readme = readFileSync("README.md", "utf8");
+
+    expect(readme).toContain("# CU Launch");
+    expect(readme).toContain(
+      "[Quick Start PDF](/docs/cu-launch-quick-start.pdf)",
+    );
+  });
+
   it("documents local setup and key scripts", () => {
     const readme = readFileSync("README.md", "utf8");
 
@@ -14,7 +23,7 @@ describe("README", () => {
     expect(readme).toContain("Recommended Templates");
     expect(readme).toContain("Developer Starters");
     expect(readme).toContain("Department Form + Approval");
-    expect(readme).toContain("Create New App");
+    expect(readme).toContain("Launch New App");
     expect(readme).toContain("Add Existing App");
     expect(readme).toContain("Continue Setup");
     expect(readme).toContain("Manage App");

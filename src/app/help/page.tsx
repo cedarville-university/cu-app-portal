@@ -39,14 +39,14 @@ export default async function HelpPage() {
 
       <div className="page-header help-header">
         <div>
-          <h1>Help Center</h1>
-          <p>Start here for your first app, then use the detailed guides when you need them.</p>
+          <h1>CU Launch Help Center</h1>
+          <p>Start here to launch your first app, then use the detailed guides when you need them.</p>
         </div>
         <div className="help-downloads" aria-label="Documentation downloads">
-          <a className="btn btn--primary-solid btn--sm" href="/docs/cedarville-app-portal-quick-start.pdf" download>
+          <a className="btn btn--primary-solid btn--sm" href="/docs/cu-launch-quick-start.pdf" download>
             Download Quick Start PDF
           </a>
-          <a className="btn btn--ghost btn--sm" href="/docs/cedarville-app-portal-user-guide.pdf" download>
+          <a className="btn btn--ghost btn--sm" href="/docs/cu-launch-user-guide.pdf" download>
             Download Full Guide PDF
           </a>
         </div>
@@ -65,4 +65,3 @@ export default async function HelpPage() {
     </main>
   );
 }
-

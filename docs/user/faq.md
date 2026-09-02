@@ -1,7 +1,7 @@
 ---
 title: Frequently Asked Questions
 description: Answers to common questions about apps, GitHub, Azure, access, and publishing.
-lastReviewed: 2026-08-25
+lastReviewed: 2026-09-02
 owner: Cedarville IT
 ---
 

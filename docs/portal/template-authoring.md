@@ -1,4 +1,4 @@
-# Template Authoring
+# CU Launch Template Authoring
 
 Templates are metadata-driven starter packages used by the portal to generate managed GitHub repository contents from a rendered source snapshot.
 

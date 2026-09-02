@@ -1,23 +1,23 @@
 ---
 title: User Guide
-description: Detailed instructions for creating, managing, and publishing apps with the Cedarville App Portal.
-lastReviewed: 2026-08-25
+description: Detailed instructions for launching, managing, and publishing apps with CU Launch.
+lastReviewed: 2026-09-02
 owner: Cedarville IT
 ---
 
-# Cedarville App Portal User Guide
+# CU Launch User Guide
 
 This guide explains the complete app lifecycle in plain language. Start with the [Quick Start](/help/quick-start) if you only need the shortest path to a first published app.
 
 ## 1. What the portal does
 
-The Cedarville App Portal brings the main pieces of an app into one managed workflow. It can create starter code from an approved template, keep that code in a managed GitHub repository, prepare Azure hosting, publish the app, and help you manage access afterward.
+CU Launch brings the main pieces of an app into one managed workflow. It can create starter code from an approved template, keep that code in a managed GitHub repository, prepare Azure hosting, publish the app, and help you manage access afterward.
 
 The portal does not design every screen or write every business rule for you. After creating the starter, you can work with Codex or a developer to customize the app. GitHub remains the supported source of truth: the version stored there is the version Cedarville tools review and publish.
 
 ## 2. Understand the app lifecycle
 
-1. **Create or add:** Select **Create New App** for a template or **Add Existing App** for code that already exists.
+1. **Launch or add:** Select **Launch New App** for a template or **Add Existing App** for code that already exists.
 2. **Customize:** Use Codex or a developer to change the managed GitHub repository.
 3. **Prepare:** The portal adds and checks the settings needed for GitHub and Azure to work together.
 4. **Publish:** The portal starts the GitHub workflow that sends the current app to Azure.
@@ -25,9 +25,9 @@ The portal does not design every screen or write every business rule for you. Af
 
 ## 3. Choose the right starting point
 
-### Create New App
+### Launch New App
 
-Choose **Create New App** when you are starting a new project and want Cedarville-approved defaults. The entry page first explains that choosing a template is the next step. Recommended Templates are written for common, non-technical use cases. Developer Starters expose lower-level choices and are better when a developer already knows the intended architecture.
+Choose **Launch New App** when you are starting a new project and want Cedarville-approved defaults. The entry page first explains that choosing a template is the next step. Recommended Templates are written for common, non-technical use cases. Developer Starters expose lower-level choices and are better when a developer already knows the intended architecture.
 
 Common template choices include:
 
@@ -47,9 +47,9 @@ Choose **Add Existing App** when code already exists.
 
 Imported apps currently support root Next.js, Express, Python FastAPI, and plain static Python apps. A repository with conflicting publishing files may require a GitHub review page before the portal applies its setup.
 
-## 4. Create and choose what happens next
+## 4. Launch and choose what happens next
 
-1. From the home page, select **Create New App** and then **Choose an app template**.
+1. From the home page, select **Launch New App** and then **Choose an app template**.
 2. Read the template summaries and select the closest match.
 3. Enter a short, recognizable app name. Avoid department abbreviations that coworkers may not understand.
 4. Describe the app's purpose and intended users.

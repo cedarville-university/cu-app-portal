@@ -32,9 +32,9 @@ SOURCE_DIR = ROOT / "docs" / "user"
 OUTPUT_DIR = ROOT / "output" / "pdf"
 PUBLIC_DIR = ROOT / "public" / "docs"
 
-NAVY = colors.HexColor("#003865")
-NAVY_DARK = colors.HexColor("#00253D")
-GOLD = colors.HexColor("#FCB716")
+NAVY = colors.HexColor("#0B2D4D")
+NAVY_DARK = colors.HexColor("#071F35")
+GOLD = colors.HexColor("#F4B41A")
 TEXT = colors.HexColor("#262627")
 MUTED = colors.HexColor("#63656A")
 LIGHT = colors.HexColor("#F4F5F7")
@@ -59,7 +59,7 @@ def inline_markup(value: str) -> str:
     escaped = html.escape(value, quote=False)
     escaped = re.sub(r"`([^`]+)`", r'<font name="Courier">\1</font>', escaped)
     escaped = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", escaped)
-    escaped = re.sub(r"\[([^]]+)]\(([^)]+)\)", r'<a href="\2" color="#003865">\1</a>', escaped)
+    escaped = re.sub(r"\[([^]]+)]\(([^)]+)\)", r'<a href="\2" color="#0B2D4D">\1</a>', escaped)
     return escaped
 
 
@@ -248,7 +248,7 @@ def page_decor(canvas, doc):
     canvas.rect(0, height - 0.27 * inch, width, 0.05 * inch, stroke=0, fill=1)
     canvas.setFont("Helvetica-Bold", 7.5)
     canvas.setFillColor(NAVY)
-    canvas.drawString(doc.leftMargin, 0.34 * inch, "CEDARVILLE UNIVERSITY APP PORTAL")
+    canvas.drawString(doc.leftMargin, 0.34 * inch, "CU LAUNCH")
     canvas.setFont("Helvetica", 7.5)
     canvas.setFillColor(MUTED)
     canvas.drawRightString(width - doc.rightMargin, 0.34 * inch, f"Page {doc.page}")
@@ -266,7 +266,7 @@ def build_document(path: Path, story: Iterable, compact: bool = False):
         rightMargin=margin,
         topMargin=top,
         bottomMargin=bottom,
-        title="Cedarville App Portal User Documentation",
+        title="CU Launch User Documentation",
         author="Cedarville IT",
         subject="First-time user instructions for creating and publishing apps",
     )
@@ -279,7 +279,7 @@ def build_quick_start() -> Path:
     _, markdown = read_markdown("quick-start.md")
     styles = make_styles(compact=True)
     width = LETTER[0] - 0.9 * inch
-    path = OUTPUT_DIR / "cedarville-app-portal-quick-start.pdf"
+    path = OUTPUT_DIR / "cu-launch-quick-start.pdf"
     build_document(path, markdown_flowables(markdown, styles, width), compact=True)
     page_count = len(PdfReader(str(path)).pages)
     if page_count != 1:
@@ -292,7 +292,7 @@ def build_complete_guide() -> Path:
     width = LETTER[0] - 1.24 * inch
     story = [
         Spacer(1, 1.25 * inch),
-        Paragraph("Cedarville App Portal", ParagraphStyle(
+        Paragraph("CU Launch", ParagraphStyle(
             "CoverTitle", fontName="Helvetica-Bold", fontSize=30, leading=34,
             textColor=NAVY, alignment=TA_CENTER, spaceAfter=12,
         )),
@@ -302,7 +302,7 @@ def build_complete_guide() -> Path:
         )),
         HRFlowable(width="70%", thickness=5, color=GOLD, hAlign="CENTER", spaceAfter=18),
         Paragraph(
-            "Create, publish, manage, and troubleshoot Cedarville apps without prior development or hosting experience.",
+            "Launch, publish, manage, and troubleshoot Cedarville apps without prior development or hosting experience.",
             ParagraphStyle("CoverBody", parent=styles["body"], fontSize=12, leading=17, alignment=TA_CENTER, textColor=MUTED),
         ),
         Spacer(1, 0.45 * inch),
@@ -317,7 +317,7 @@ def build_complete_guide() -> Path:
         story.extend(markdown_flowables(markdown, styles, width))
         if position < len(names) - 1:
             story.append(PageBreak())
-    path = OUTPUT_DIR / "cedarville-app-portal-user-guide.pdf"
+    path = OUTPUT_DIR / "cu-launch-user-guide.pdf"
     build_document(path, story)
     return path
 
@@ -332,7 +332,7 @@ def main():
         if not reader.pages:
             raise RuntimeError(f"{path.name} has no pages")
         extracted = "\n".join((page.extract_text() or "") for page in reader.pages)
-        if "cedarville" not in extracted.lower() or "app portal" not in extracted.lower():
+        if "cu launch" not in extracted.lower():
             raise RuntimeError(f"{path.name} failed text validation")
         print(f"Built {path.relative_to(ROOT)} ({len(reader.pages)} pages)")
 

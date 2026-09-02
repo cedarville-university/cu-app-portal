@@ -10,12 +10,11 @@ describe("HelpPage", () => {
     expect(screen.getByRole("heading", { name: /^quick start$/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /download quick start pdf/i })).toHaveAttribute(
       "href",
-      "/docs/cedarville-app-portal-quick-start.pdf",
+      "/docs/cu-launch-quick-start.pdf",
     );
     expect(screen.getByRole("link", { name: /download full guide pdf/i })).toHaveAttribute(
       "href",
-      "/docs/cedarville-app-portal-user-guide.pdf",
+      "/docs/cu-launch-user-guide.pdf",
     );
   });
 });
-

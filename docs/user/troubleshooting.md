@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
 description: Plain-language solutions to common portal and publishing problems.
-lastReviewed: 2026-08-25
+lastReviewed: 2026-09-02
 owner: Cedarville IT
 ---
 
