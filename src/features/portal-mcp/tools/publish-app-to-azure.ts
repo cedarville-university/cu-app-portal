@@ -49,7 +49,7 @@ export function registerPublishAppToAzureTool(
         if (app.sourceOfTruth !== "PORTAL_MANAGED_REPO") {
           throw new PortalApiError(
             "ACTION_REQUIRED",
-            "Open the Cedarville App Portal for this app workflow.",
+            "Open CU Launch for this app workflow.",
           );
         }
 

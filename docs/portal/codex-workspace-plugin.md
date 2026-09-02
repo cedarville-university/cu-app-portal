@@ -1,7 +1,7 @@
-# Codex Workspace Plugin Operations
+# CU Launch Codex Workspace Plugin Operations
 
 This runbook is for portal operations, Entra administrators, and Codex
-workspace administrators. It describes the optional Cedarville App Portal
+workspace administrators. It describes the optional CU Launch
 workspace plugin and its delegated MCP API. It is not end-user publishing
 instructions, and it does not authorize changes to portal UI workflows.
 
@@ -47,13 +47,15 @@ The supported tool list is deliberately narrow:
 9. `retry_publish`
 
 There is no delete, import, collaborator-management, environment-variable, or
-push-to-deploy tool. Creation never publishes. Publish, repair, and retry each
+push-to-deploy tool. Launching a new app never publishes. Product-facing
+“launch” maps to the technical `create_app` tool and stops after the app record
+and private managed repository are created. Publish, repair, and retry each
 need a separate explicit request and a caller-provided idempotency UUID.
 
 Existing/local app imports, collaborator management, environment-variable
 management, push-to-deploy, deletion, and other excluded workflows must be
-completed in the Cedarville App Portal UI. The plugin must not substitute
-template creation for an excluded workflow or perform direct provider
+completed in the CU Launch UI. The plugin must not substitute
+template-based launch for an excluded workflow or perform direct provider
 operations against GitHub, Azure, Entra, or other external services.
 
 ## Configuration and delegated identity gate
@@ -154,7 +156,7 @@ request.
    the restricted pilot role in the next step.
 10. Assign the plugin to a restricted pilot role or group; do not make it
     workspace-wide. With a disposable test app and real Cedarville pilot user,
-    exercise template listing, explicit creation, authorized reads, a separate
+    exercise template listing, explicit app launch, authorized reads, a separate
     publish request, and a safe recovery denial. Record only safe IDs, support
     references, outcome, and timing in the rollout evidence.
 11. Expand access only after portal operations, Entra administration, and the

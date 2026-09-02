@@ -159,7 +159,7 @@ try {
   await finalizePlugin(appId, target);
   console.log(`Target root: ${targetRoot}`);
   console.log(`Plugin path: ${pluginRoot}`);
-  console.log("Finalized Cedarville App Portal plugin registration.");
+  console.log("Finalized CU Launch plugin registration.");
 } catch (error) {
   try {
     targetRoot = await realpath(invokedRoot);

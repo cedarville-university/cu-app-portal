@@ -51,11 +51,19 @@ describe("Codex workspace plugin operator documentation", () => {
   });
 
   it("routes excluded workflows to the portal UI without provider shortcuts", () => {
-    const docs = allOperatorDocs();
+    const docs = readDoc(runbookPath);
 
-    expect(docs).toMatch(/existing[\s/]+local app imports[\s\S]{0,220}Cedarville App Portal UI/i);
+    expect(docs).toMatch(/existing[\s/]+local app imports[\s\S]{0,220}CU Launch UI/i);
     expect(docs).toMatch(/collaborator management[\s\S]{0,220}environment-variable\s+management[\s\S]{0,220}push-to-deploy[\s\S]{0,220}deletion/i);
-    expect(docs).toMatch(/must not substitute\s+template creation[\s\S]{0,160}direct provider\s+operations/i);
+    expect(docs).toMatch(/must not substitute\s+template-based launch[\s\S]{0,160}direct provider\s+operations/i);
+  });
+
+  it("uses CU Launch terminology without treating launch as publish approval", () => {
+    const docs = readDoc(runbookPath);
+
+    expect(docs).toMatch(/CU Launch\s+workspace plugin/i);
+    expect(docs).toMatch(/launching a new app never publishes/i);
+    expect(docs).toMatch(/launch[\s\S]{0,180}create_app[\s\S]{0,180}separate explicit request/i);
   });
 
   it("gives operators the exact MCP contract and production security gates", () => {

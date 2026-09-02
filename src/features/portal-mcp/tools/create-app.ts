@@ -35,9 +35,9 @@ export function registerCreateAppTool(
   server.registerTool(
     "create_app",
     {
-      title: "Create App",
+      title: "Launch App",
       description:
-        "Create a template-backed app and private managed repository. This never publishes to Azure.",
+        "Launch a template-backed app and private managed repository. This never publishes to Azure.",
       inputSchema: createAppMcpInputSchema,
       annotations: {
         readOnlyHint: false,

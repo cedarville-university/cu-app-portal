@@ -13,7 +13,7 @@ function readJson(path: string) {
   return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
 }
 
-describe("Cedarville App Portal workspace plugin package", () => {
+describe("CU Launch workspace plugin package", () => {
   it("declares the skills-only plugin and university marketplace contracts", () => {
     const plugin = readJson(resolve(pluginRoot, ".codex-plugin/plugin.json"));
     const marketplace = readJson(
@@ -22,9 +22,14 @@ describe("Cedarville App Portal workspace plugin package", () => {
 
     expect(plugin).toMatchObject({
       name: "cedarville-app-portal",
-      version: "1.0.0",
       skills: "./skills/",
+      interface: {
+        displayName: "CU Launch",
+        shortDescription: "Launch and publish Cedarville-managed apps from Codex.",
+        defaultPrompt: "Launch a new Cedarville app from an approved template.",
+      },
     });
+    expect(String(plugin.version)).toMatch(/^1\.0\.0\+codex\./);
     expect(plugin).not.toHaveProperty("apps");
 
     expect(marketplace).toMatchObject({
@@ -71,7 +76,8 @@ describe("Cedarville App Portal workspace plugin package", () => {
   it("teaches the approved creation, customization, and recovery boundaries", () => {
     const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
 
-    expect(skill).toContain("Creation never publishes");
+    expect(skill).toContain("Launching a new app never publishes");
+    expect(skill).toMatch(/launch an app.*authorizes only.*`create_app`/is);
     expect(skill).toContain("separate explicit request");
     expect(skill).toMatch(/one plain-language question at a time/i);
     expect(skill).toMatch(/public acknowledgement/i);
@@ -87,7 +93,7 @@ describe("Cedarville App Portal workspace plugin package", () => {
     expect(skill).toMatch(/environment variables/i);
     expect(skill).toMatch(/push-to-deploy/i);
     expect(skill).toMatch(/deletion/i);
-    expect(skill).toMatch(/Cedarville App Portal UI/i);
+    expect(skill).toMatch(/CU Launch UI/i);
   });
 
   it("closes the observed consent, invitation, and quiet-not-found loopholes", () => {
@@ -97,7 +103,7 @@ describe("Cedarville App Portal workspace plugin package", () => {
       "Codex may recommend a template, but must not select or infer one on the user's behalf.",
     );
     expect(skill).toContain(
-      "The user must explicitly select the template before the creation summary, approval, or `create_app` call.",
+      "The user must explicitly select the template before the launch summary, approval, or `create_app` call.",
     );
     expect(skill).toContain(
       "Only actor-specific `repositoryAccess.status === GRANTED` is clone, fetch, and push ready.",
@@ -151,12 +157,12 @@ describe("Cedarville App Portal workspace plugin package", () => {
   it("keeps implicit invocation and the approved skill interface metadata", () => {
     const metadata = readFileSync(resolve(skillRoot, "agents/openai.yaml"), "utf8");
 
-    expect(metadata).toContain('display_name: "Cedarville App Portal"');
+    expect(metadata).toContain('display_name: "CU Launch"');
     expect(metadata).toContain(
-      'short_description: "Create and publish Cedarville-managed apps from Codex."',
+      'short_description: "Launch and publish Cedarville-managed apps from Codex."',
     );
     expect(metadata).toContain(
-      'default_prompt: "Create a new Cedarville app from an approved portal template."',
+      'default_prompt: "Launch a new Cedarville app from an approved template."',
     );
     expect(metadata).toContain("allow_implicit_invocation: true");
   });

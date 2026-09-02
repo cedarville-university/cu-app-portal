@@ -1,22 +1,22 @@
 ---
 name: cedarville-app-portal-workspace
-description: Use when a Cedarville employee wants to create, inspect, customize, publish, repair, or retry a template-backed app managed by the Cedarville App Portal from Codex.
+description: Use when a Cedarville employee wants to launch, inspect, customize, publish, repair, or retry a template-backed app managed by CU Launch from Codex.
 ---
 
-# Cedarville App Portal Workspace
+# CU Launch Workspace
 
-Operate portal records with the Cedarville App Portal tools. This workspace skill is not the generated app-local `cu-app-portal` skill, which governs work inside one existing managed repository.
+Operate portal records with the CU Launch tools. This workspace skill is not the generated app-local `cu-app-portal` skill, which governs work inside one existing managed repository.
 
-## Create From a Template
+## Launch From a Template
 
-1. Call `list_app_templates` before recommending a template. Codex may recommend a template, but must not select or infer one on the user's behalf. The user must explicitly select the template before the creation summary, approval, or `create_app` call. Ask one plain-language question at a time and only offer choices returned for that template.
+1. Call `list_app_templates` before recommending a template. Codex may recommend a template, but must not select or infer one on the user's behalf. The user must explicitly select the template before the launch summary, approval, or `create_app` call. Ask one plain-language question at a time and only offer choices returned for that template.
 2. Preserve the audience exactly: Cedarville sign-in or openly public access. For public access, explain that anyone who knows or discovers the address can use the app and obtain the user's explicit public acknowledgement. Never infer acknowledgement.
-3. Summarize the selected template, app name, description, database choice, and audience. Ask for explicit approval to create.
+3. Summarize the selected template, app name, description, database choice, and audience. Ask for explicit approval to launch.
 4. After approval, apply the shared mutation replay contract below and call `create_app`.
 
 For every mutating tool (`create_app`, `request_github_access`, `publish_app_to_azure`, `repair_publishing_setup`, and `retry_publish`), generate one UUID for each approved logical operation. If that same operation times out or returns an uncertain response, reuse the same idempotency key: replay it with the same UUID and identical input. A new key means a deliberately new operation; renew the user's intent before a consequential new operation. Publish and republish both use `publish_app_to_azure`.
 
-**Creation never publishes.** Creation stops at the private managed GitHub repository boundary. After creation, ask whether the user wants to keep the starter unchanged, publish it later, or customize it first. Publishing always requires a separate explicit request.
+**Launching a new app never publishes.** In this skill, “launch an app” authorizes only the `create_app` operation after the user selects a template and approves the summary. Launching stops at the private managed GitHub repository boundary. After launch, ask whether the user wants to keep the starter unchanged, publish it later, or customize it first. Publishing always requires a separate explicit request, even when the user uses “launch” as a general product term.
 
 Repository readiness means only that the portal-managed GitHub repository is ready. Repository readiness does not prove the actor has GitHub access, local Git or GitHub authentication works, customization was tested or committed, or changes were pushed. Report each fact separately.
 
@@ -33,7 +33,7 @@ Before any publish, republish, repair, or retry, use `get_app` and follow `allow
 - After an explicit publish or republish request, call `publish_app_to_azure`, then use `get_publish_status` for its attempt.
 - If setup needs repair, explain the diagnosis and the fact that repair dispatches no deployment. Ask separately before `repair_publishing_setup`.
 - If a publish failed, explain the safe failure and ask separately before `retry_publish`.
-- Never automatically repair or retry. A read, diagnosis, creation approval, or publish approval is not approval for either recovery action.
+- Never automatically repair or retry. A read, diagnosis, launch approval, or publish approval is not approval for either recovery action.
 
 Poll with bounded waits: make at most six status checks over ten minutes, and stop earlier on success, safe failure, `AUTHENTICATION_REQUIRED`, `ACTION_REQUIRED`, or another terminal result. If the attempt is still queued or running at the bound, report a partial outcome and stop. Queued, running, invited, or setup-ready is not deployed.
 
@@ -45,4 +45,4 @@ After `NOT_FOUND`, say only that no accessible app was found and stop. Do not ca
 
 Use `list_my_apps` and `get_app` for authorized discovery. The nine supported tools are `list_app_templates`, `list_my_apps`, `create_app`, `get_app`, `request_github_access`, `publish_app_to_azure`, `get_publish_status`, `repair_publishing_setup`, and `retry_publish`.
 
-Route existing GitHub or local app imports, collaborator management, environment variables, push-to-deploy, and deletion to the Cedarville App Portal UI. Do not replace an import with template creation, operate the browser for the user, or solicit credentials.
+Route existing GitHub or local app imports, collaborator management, environment variables, push-to-deploy, and deletion to the CU Launch UI. Do not replace an import with template-based launch, operate the browser for the user, or solicit credentials.

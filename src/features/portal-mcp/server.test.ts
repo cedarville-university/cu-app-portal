@@ -53,6 +53,8 @@ const managedApp: PortalAppSummary = {
 
 type RegisteredTool = {
   config: {
+    title?: string;
+    description?: string;
     annotations?: Record<string, boolean>;
     inputSchema?: { safeParse(value: unknown): { success: boolean } };
   };
@@ -193,6 +195,15 @@ describe("portal MCP server contract", () => {
       "retry_publish",
     ]);
     expect(tools.has("delete_app")).toBe(false);
+  });
+
+  it("presents create_app as Launch App without implying Azure publishing", () => {
+    const { tools } = registeredPortalTools();
+    const launch = tool(tools, "create_app").config;
+
+    expect(launch.title).toBe("Launch App");
+    expect(launch.description).toMatch(/launch a template-backed app/i);
+    expect(launch.description).toMatch(/never publishes to Azure/i);
   });
 
   it("marks reads closed-world and mutations non-destructive open-world", () => {
@@ -639,12 +650,12 @@ describe("portal MCP mutation adapters", () => {
       content: [
         {
           type: "text",
-          text: "Open the Cedarville App Portal for this app workflow.",
+          text: "Open CU Launch for this app workflow.",
         },
       ],
       structuredContent: {
         code: "ACTION_REQUIRED",
-        message: "Open the Cedarville App Portal for this app workflow.",
+        message: "Open CU Launch for this app workflow.",
         retryAfterSeconds: null,
       },
     });

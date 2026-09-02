@@ -89,7 +89,7 @@ export function createPortalMcpHandler(
     {
       serverInfo: { name: "cedarville-app-portal", version: "1.0.0" },
       instructions:
-        "List current templates before app creation. Creation never publishes. Publish, repair, and retry require a separate explicit user request.",
+        "List current templates before launching an app. Launching never publishes. Publish, repair, and retry require a separate explicit user request.",
     },
   );
 }
