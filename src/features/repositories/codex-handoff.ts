@@ -57,7 +57,7 @@ export function buildCodexHandoffPrompt(
     "Explain what you are doing in everyday language.",
     "",
     "Your goal",
-    `Prepare the local project for "${appName}" for CU Launch request ${requestId}, then help me make the changes I request.`,
+    `Prepare the local project for "${appName}" for Cedarville App Portal request ${requestId}, then help me make the changes I request.`,
     "First own the repository setup and verification. Do not invent an app-change request or assume publishing is next.",
     "",
     "Safety rules",
