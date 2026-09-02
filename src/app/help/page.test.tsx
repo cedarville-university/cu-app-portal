@@ -16,5 +16,7 @@ describe("HelpPage", () => {
       "href",
       "/docs/cu-launch-user-guide.pdf",
     );
+    expect(screen.getByText(/launch, add, customize, publish/i)).toBeVisible();
+    expect(screen.queryByText(/create, add, customize, publish/i)).not.toBeInTheDocument();
   });
 });

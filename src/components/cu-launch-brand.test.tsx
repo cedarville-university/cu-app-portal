@@ -23,7 +23,7 @@ describe("CuLaunchBrand", () => {
     const mark = screen.getByTestId("cu-launch-mark");
     expect(mark.querySelector(".cu-launch-brand__triangle")).toHaveAttribute(
       "fill",
-      "#fcb716",
+      "#FFB300",
     );
     expect(mark.querySelector(".cu-launch-brand__star")).toHaveAttribute(
       "fill",

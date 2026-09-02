@@ -23,7 +23,7 @@ export function CuLaunchBrand({
         <path
           className="cu-launch-brand__triangle"
           d="M32 3 61 57H3L32 3Z"
-          fill="#fcb716"
+          fill="#FFB300"
         />
         <path
           className="cu-launch-brand__orbit"

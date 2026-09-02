@@ -7,7 +7,7 @@ const sections = [
   {
     href: "/help/guide",
     title: "Complete User Guide",
-    description: "Create, add, customize, publish, share, repair, download, and delete apps.",
+    description: "Launch, add, customize, publish, share, repair, download, and delete apps.",
   },
   {
     href: "/help/troubleshooting",

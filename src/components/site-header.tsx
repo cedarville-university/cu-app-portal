@@ -21,12 +21,14 @@ export async function SiteHeader() {
         </Link>
 
         <nav className="site-header__nav" aria-label="Primary navigation">
-          <Link href="/">Home</Link>
-          <Link href="/create">Launch New App</Link>
-          <Link href="/apps">My Apps</Link>
-          <Link href="/apps/public">Public Apps</Link>
-          <Link href="/help">Help</Link>
-          {isAdmin ? <Link href="/admin">Admin</Link> : null}
+          <div className="site-header__nav-links">
+            <Link href="/">Home</Link>
+            <Link href="/create">Launch New App</Link>
+            <Link href="/apps">My Apps</Link>
+            <Link href="/apps/public">Public Apps</Link>
+            <Link href="/help">Help</Link>
+            {isAdmin ? <Link href="/admin">Admin</Link> : null}
+          </div>
           {session?.user ? (
             <details className="site-header__account-menu">
               <summary className="site-header__user-name">

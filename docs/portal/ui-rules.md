@@ -377,7 +377,7 @@ When a list has no items:
 <div className="empty-state">
   <div className="empty-state__icon">📦</div>
   <div className="empty-state__title">No apps yet</div>
-  <p className="empty-state__desc">Create your first app to get started.</p>
+  <p className="empty-state__desc">Launch your first app to get started.</p>
   <Link href="/create" className="btn btn--primary-solid">Launch New App</Link>
 </div>
 ```

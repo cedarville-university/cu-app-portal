@@ -183,6 +183,12 @@ li { margin-bottom: 0.25rem; }
   margin-left: auto;
 }
 
+.site-header__nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .site-header__nav a {
   color: rgba(255,255,255,0.85);
   text-decoration: none;
@@ -1661,7 +1667,7 @@ h1, h2, h3, h4, h5,
 }
 
 :focus-visible {
-  outline: 3px solid var(--launch-sky);
+  outline: 3px solid var(--launch-navy);
   outline-offset: 3px;
 }
 
@@ -1733,9 +1739,15 @@ h1, h2, h3, h4, h5,
 }
 
 .site-header__brand:focus-visible,
-.site-header__nav a:focus-visible,
-.site-header__nav button:focus-visible {
+.site-header__nav > .site-header__nav-links > a:focus-visible,
+.site-header__nav > form button:focus-visible,
+.site-header__user-name:focus-visible {
   outline-color: var(--launch-gold);
+}
+
+.site-header__account-menu-content a:focus-visible,
+.site-header__account-menu-content button:focus-visible {
+  outline-color: var(--launch-navy);
 }
 
 .site-header__nav a {
@@ -1873,9 +1885,25 @@ h1, h2, h3, h4, h5,
 
   .site-header__nav {
     width: 100%;
+    min-width: 0;
     margin-left: 0;
+  }
+
+  .site-header__nav-links {
+    flex: 1 1 auto;
+    min-width: 0;
     overflow-x: auto;
     padding-bottom: 0.15rem;
+  }
+
+  .site-header__nav-links > a {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .site-header__account-menu,
+  .site-header__nav > form {
+    flex: 0 0 auto;
   }
 
   .hero h1 .cu-launch-brand__name { font-size: 2.5rem; }

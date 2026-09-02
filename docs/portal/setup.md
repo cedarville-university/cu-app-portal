@@ -191,7 +191,7 @@ The Markdown files in `docs/user/` are the source of truth for the portal Help p
 
 The Azure deployment package must include `docs/user/` because Help pages read those Markdown files at runtime. The deployment workflow copies that directory to `release/docs/user/` and verifies that `quick-start.md` exists before publishing the release.
 
-For managed repo bootstrap verification, confirm the GitHub App is installed on the target org and then create an app through the portal. A successful request should show a managed repository URL instead of a repository failure state.
+For managed repo bootstrap verification, confirm the GitHub App is installed on the target org and then launch an app through CU Launch. A successful request should show a managed repository URL instead of a repository failure state.
 
 ## Notes
 

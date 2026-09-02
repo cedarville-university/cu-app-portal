@@ -31,10 +31,11 @@ ROOT = Path(__file__).resolve().parents[2]
 SOURCE_DIR = ROOT / "docs" / "user"
 OUTPUT_DIR = ROOT / "output" / "pdf"
 PUBLIC_DIR = ROOT / "public" / "docs"
+PORTAL_BASE_URL = "https://cu-app-portal.azurewebsites.net"
 
-NAVY = colors.HexColor("#0B2D4D")
-NAVY_DARK = colors.HexColor("#071F35")
-GOLD = colors.HexColor("#F4B41A")
+NAVY = colors.HexColor("#0B1D3A")
+NAVY_DARK = NAVY
+GOLD = colors.HexColor("#FFB300")
 TEXT = colors.HexColor("#262627")
 MUTED = colors.HexColor("#63656A")
 LIGHT = colors.HexColor("#F4F5F7")
@@ -59,7 +60,16 @@ def inline_markup(value: str) -> str:
     escaped = html.escape(value, quote=False)
     escaped = re.sub(r"`([^`]+)`", r'<font name="Courier">\1</font>', escaped)
     escaped = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", escaped)
-    escaped = re.sub(r"\[([^]]+)]\(([^)]+)\)", r'<a href="\2" color="#0B2D4D">\1</a>', escaped)
+    escaped = re.sub(
+        r"\[([^]]+)]\(([^)]+)\)",
+        lambda match: (
+            f'<a href="{PORTAL_BASE_URL}{match.group(2)}" color="#0B1D3A">'
+            f"{match.group(1)}</a>"
+            if match.group(2).startswith("/")
+            else f'<a href="{match.group(2)}" color="#0B1D3A">{match.group(1)}</a>'
+        ),
+        escaped,
+    )
     return escaped
 
 
@@ -268,7 +278,7 @@ def build_document(path: Path, story: Iterable, compact: bool = False):
         bottomMargin=bottom,
         title="CU Launch User Documentation",
         author="Cedarville IT",
-        subject="First-time user instructions for creating and publishing apps",
+        subject="First-time user instructions for launching and publishing apps",
     )
     frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="normal")
     doc.addPageTemplates([PageTemplate(id="portal", frames=[frame], onPage=page_decor)])

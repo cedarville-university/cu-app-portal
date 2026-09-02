@@ -1,5 +1,19 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { extname, join } from "node:path";
 import { describe, expect, it } from "vitest";
+
+function currentCopyFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      return currentCopyFiles(path);
+    }
+    if (entry.name.includes(".test.")) {
+      return [];
+    }
+    return [".md", ".ts", ".tsx"].includes(extname(entry.name)) ? [path] : [];
+  });
+}
 
 describe("README", () => {
   it("identifies CU Launch and links readers to the current Quick Start PDF", () => {
@@ -9,6 +23,34 @@ describe("README", () => {
     expect(readme).toContain(
       "[Quick Start PDF](/docs/cu-launch-quick-start.pdf)",
     );
+  });
+
+  it("ships CU Launch PDFs under the portable download names in both artifact locations", () => {
+    for (const directory of ["output/pdf", "public/docs"]) {
+      const filenames = readdirSync(directory);
+      expect(filenames).toContain("cu-launch-quick-start.pdf");
+      expect(filenames).toContain("cu-launch-user-guide.pdf");
+      expect(filenames).not.toContain("cedarville-app-portal-quick-start.pdf");
+      expect(filenames).not.toContain("cedarville-app-portal-user-guide.pdf");
+    }
+  });
+
+  it("keeps current user-visible app-starting copy in launch language", () => {
+    const paths = [
+      "README.md",
+      ...currentCopyFiles("docs/portal"),
+      ...currentCopyFiles("docs/user"),
+      ...currentCopyFiles("src"),
+    ];
+    const obsoleteAppStartingPhrase =
+      /\bcreate(?:,| (?:your first|a new|new|an?|the first) apps?\b)/i;
+
+    const matches = paths.flatMap((path) => {
+      const match = readFileSync(path, "utf8").match(obsoleteAppStartingPhrase);
+      return match ? [`${path}: ${match[0]}`] : [];
+    });
+
+    expect(matches).toEqual([]);
   });
 
   it("documents local setup and key scripts", () => {
