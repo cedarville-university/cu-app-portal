@@ -9,7 +9,8 @@ describe("CuLaunchBrand", () => {
   it("shows the product name, optional tagline, and decorative mark", () => {
     render(<CuLaunchBrand showTagline />);
 
-    expect(screen.getByText("CU LAUNCH")).toBeVisible();
+    expect(screen.getByLabelText("CU Launch")).toBeVisible();
+    expect(screen.getByText("LAUNCH")).toBeVisible();
     expect(screen.getByText("Launch your app. We handle the rest.")).toBeVisible();
     expect(screen.getByTestId("cu-launch-mark")).toHaveAttribute(
       "aria-hidden",
