@@ -50,9 +50,9 @@ function expectCodexRuntimeAndPortalBoundaries(prompt: string) {
     "Do not report that tests cannot run until you have checked both the system commands and the bundled workspace dependencies",
   );
   expect(prompt).toContain(
-    "Do not use Browser, Computer Use, Chrome, plugins, or connectors to access the Cedarville App Portal",
+    "Do not use Browser, Computer Use, Chrome, plugins, or connectors to access CU Launch",
   );
-  expect(prompt).toContain("Portal navigation and button clicks are my job");
+  expect(prompt).toContain("CU Launch navigation and button clicks are my job");
   expect(prompt).not.toContain(
     "Return to the portal and select Publish to Azure",
   );
@@ -68,6 +68,9 @@ describe("buildCodexHandoffPrompt", () => {
     );
 
     expectManagedGitReadiness(prompt);
+    expect(prompt).toContain(
+      "Cedarville App Portal request req_generated",
+    );
     expect(prompt).toContain(
       'Confirm that the primary folder is the new empty folder intended for "Campus Dashboard".',
     );
@@ -155,10 +158,10 @@ describe("buildCodexHandoffPrompt", () => {
     );
     expect(prompt).not.toContain("git pull portal trunk");
     expect(prompt).toContain(
-      "Use the verified portal remote when preparing work for Cedarville App Portal publishing.",
+      "Use the verified portal remote when preparing work for CU Launch publishing.",
     );
     expect(prompt).toContain(
-      "Use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
+      "Use `.codex/skills/cu-app-portal/SKILL.md` for CU Launch-managed app workflow guidance.",
     );
     expect(prompt).toContain("The person I am helping is a beginner");
     expect(prompt).toContain("Do not ask me to type terminal or Git commands");
@@ -235,7 +238,7 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     expect(prompt).toContain("run the relevant tests");
     expect(prompt).toContain("commit and push");
     expect(prompt).toContain(
-      "tell me that I can return to the Cedarville App Portal",
+      "tell me that I can return to CU Launch",
     );
     expect(prompt).toContain("preserve any existing Git history");
     expect(prompt).toContain("report the repository and branch that received the push");

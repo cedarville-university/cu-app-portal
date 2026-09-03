@@ -67,6 +67,9 @@ describe("planPublishingBundle", () => {
       },
       defaults: { githubRepository: "campus-dashboard" },
     });
+    expect(plan.filesToWrite["docs/publishing/azure-app-service.md"]).toContain(
+      "CU Launch-managed Azure publishing",
+    );
   });
 
   it("does not rewrite package.json when start and engines already exist", () => {
@@ -193,7 +196,7 @@ describe("planPublishingBundle", () => {
       "Node.js 24 / Express",
     );
     expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
-      "CU App Portal",
+      "CU Launch",
     );
     expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
       "Add Existing App",
@@ -266,7 +269,7 @@ describe("planPublishingBundle", () => {
       "Python 3.14 / FastAPI",
     );
     expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
-      "CU App Portal",
+      "CU Launch",
     );
     expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
       "Add Existing App",
@@ -331,7 +334,7 @@ describe("planPublishingBundle", () => {
       "Python 3.14 / http.server",
     );
     expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
-      "CU App Portal",
+      "CU Launch",
     );
     expect(plan.filesToWrite[".codex/skills/cu-app-portal/SKILL.md"]).toContain(
       "Add Existing App",

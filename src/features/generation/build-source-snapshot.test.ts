@@ -89,6 +89,21 @@ function executeGeneratedModule(
 }
 
 describe("buildSourceSnapshot", () => {
+  it("uses CU Launch in generated starter guidance", async () => {
+    const buildSourceSnapshot = await loadBuildSourceSnapshot();
+    const files = await buildSourceSnapshot({
+      templateSlug: "web-app",
+      appName: "Campus Hub",
+      description: "Student services portal",
+      hostingTarget: "Azure App Service",
+      databaseProvider: "none",
+      entraLogin: false,
+    });
+
+    expect(files["src/app/page.tsx"]).toContain("CU Launch starter");
+    expect(files["README.md"]).toContain("CU Launch");
+  });
+
   it("keeps current web-app database and Entra files when both features are selected", async () => {
     const buildSourceSnapshot = await loadBuildSourceSnapshot();
     const files = await buildSourceSnapshot({

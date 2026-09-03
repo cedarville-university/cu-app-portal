@@ -1,6 +1,6 @@
-# Publish the Portal to Azure App Service
+# Publish CU Launch to Azure App Service
 
-This document covers publishing the Cedarville App Portal app itself to Azure App Service. That operator path uses GitHub Actions plus Azure App Service for the Next.js portal app, backed by Azure Database for PostgreSQL.
+This document covers publishing CU Launch itself to Azure App Service. That operator path uses GitHub Actions plus Azure App Service for the Next.js CU Launch app, backed by Azure Database for PostgreSQL.
 
 This is separate from portal-managed publishing for generated user apps. Generated app publishing is orchestrated by the running portal after an app request is created.
 

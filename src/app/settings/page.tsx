@@ -35,7 +35,7 @@ export default async function SettingsPage() {
     <main>
       <div className="page-header">
         <h1>Settings</h1>
-        <p>Manage account preferences for your Cedarville App Portal account.</p>
+        <p>Manage account preferences for your CU Launch account.</p>
       </div>
 
       <section className="card" style={{ maxWidth: "760px" }}>
@@ -82,7 +82,7 @@ export default async function SettingsPage() {
               Notification Preferences
             </h2>
             <p style={{ color: "var(--text-secondary)", margin: 0 }}>
-              Choose which portal updates are sent to {user.email}.
+              Choose which CU Launch updates are sent to {user.email}.
             </p>
 
             <fieldset
@@ -103,13 +103,13 @@ export default async function SettingsPage() {
                   name="emailNotificationsEnabled"
                   defaultChecked={preferences.emailNotificationsEnabled}
                 />{" "}
-                Email notifications
+                CU Launch email notifications
               </label>
               <p
                 id="email-notifications-help"
                 style={{ color: "var(--text-secondary)", margin: 0 }}
               >
-                Turns all portal email notifications on or off. When this is off, the
+                Turns all CU Launch email notifications on or off. When this is off, the
                 category choices below are ignored.
               </p>
             </fieldset>
@@ -120,7 +120,7 @@ export default async function SettingsPage() {
                 id="email-categories-help"
                 style={{ color: "var(--text-secondary)", margin: 0 }}
               >
-                These only apply when Email notifications is on.
+                These only apply when CU Launch email notifications is on.
               </p>
 
               <label>

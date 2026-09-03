@@ -77,11 +77,11 @@ function buildPullRequestBody(
   options: { hasPublishingFileConflicts?: boolean } = {},
 ) {
   const body = [
-    `This PR prepares ${appName} for Cedarville App Portal-managed Azure publishing.`,
+    `This PR prepares ${appName} for CU Launch-managed Azure publishing.`,
     "",
     "Changes:",
     "- Adds the Azure App Service deployment workflow.",
-    "- Adds the App Portal deployment manifest.",
+    "- Adds the CU Launch deployment manifest.",
     "- Adds publishing docs and fallback Codex skill.",
     "- Adds narrow package.json runtime defaults when missing.",
   ];

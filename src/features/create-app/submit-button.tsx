@@ -11,9 +11,9 @@ type SubmitButtonProps = {
 };
 
 export function SubmitButton({
-  idleLabel = "Create App",
-  pendingLabel = "Creating Your App...",
-  statusText = "Creating your app and its private code repository.",
+  idleLabel = "Launch App",
+  pendingLabel = "Launching Your App...",
+  statusText = "Launching your app and its private code repository.",
   variant = "primary-solid",
   name = "createIntent",
   value = "createOnly",

@@ -27,8 +27,8 @@ describe("user help documents", () => {
 
   it("ships both downloadable PDF artifacts", async () => {
     for (const filename of [
-      "cedarville-app-portal-quick-start.pdf",
-      "cedarville-app-portal-user-guide.pdf",
+      "cu-launch-quick-start.pdf",
+      "cu-launch-user-guide.pdf",
     ]) {
       const file = await readFile(join(process.cwd(), "public", "docs", filename));
       expect(file.subarray(0, 5).toString()).toBe("%PDF-");

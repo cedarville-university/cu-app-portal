@@ -10,12 +10,12 @@ export default async function CreatePage() {
       <nav aria-label="Breadcrumb" className="breadcrumb">
         <Link href="/">Home</Link>
         <span className="breadcrumb__sep" aria-hidden="true">/</span>
-        <span aria-current="page">Create New App</span>
+        <span aria-current="page">Launch New App</span>
       </nav>
 
       <div className="page-header">
-        <h1>Create New App</h1>
-        <p>Choose a template to generate your Cedarville-approved app package.</p>
+        <h1>Launch New App</h1>
+        <p>Choose a template to launch your CU Launch app.</p>
       </div>
 
       <div className="form-stack">
@@ -37,7 +37,7 @@ export default async function CreatePage() {
                     <span className="badge badge--default">Access: Choose sign-in or public</span>
                   </div>
                   <Link href={`/create/${template.slug}`} className="btn btn--primary-solid btn--sm">
-                    Use {template.name}
+                    Launch App
                   </Link>
                 </div>
               ))}

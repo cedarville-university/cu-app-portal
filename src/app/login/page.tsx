@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { loginAction } from "@/features/auth/login";
+import { CuLaunchBrand } from "@/components/cu-launch-brand";
 
 export default async function LoginPage({
   searchParams,
@@ -13,15 +14,11 @@ export default async function LoginPage({
   return (
     <main className="login-page">
       <section className="login-card" aria-labelledby="login-title">
-        <div className="login-card__brand" aria-hidden="true">
-          <span className="login-card__monogram">CU</span>
-          <span>Cedarville University</span>
-        </div>
         <div className="login-card__content">
           <p className="login-card__eyebrow">Welcome to</p>
-          <h1 id="login-title">CU App Portal</h1>
+          <h1 id="login-title"><CuLaunchBrand /></h1>
           <p className="login-card__description">
-            Sign in with your Cedarville account to create, publish, and manage
+            Sign in with your Cedarville account to launch, publish, and manage
             your apps.
           </p>
           <form action={loginAction}>

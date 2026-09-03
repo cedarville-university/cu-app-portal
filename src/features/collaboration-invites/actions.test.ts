@@ -247,7 +247,7 @@ describe("collaboration invite actions", () => {
       expect.objectContaining({
         subject: expect.stringContaining("Owner User"),
         text: expect.stringContaining(
-          "Owner User invited you to collaborate on Campus Forms",
+          "Owner User invited you to collaborate on Campus Forms in CU Launch",
         ),
       }),
     );
@@ -266,7 +266,7 @@ describe("collaboration invite actions", () => {
       expect.objectContaining({
         subject: expect.stringContaining("Admin Actor"),
         text: expect.stringContaining(
-          "Admin Actor invited you to collaborate on Campus Forms",
+          "Admin Actor invited you to collaborate on Campus Forms in CU Launch",
         ),
       }),
     );
@@ -431,7 +431,7 @@ describe("collaboration invite actions", () => {
     await expect(
       sendCollaborationInviteAction("request-123", inviteForm()),
     ).rejects.toThrow(
-      "The portal is unable to look up that email address right now.",
+      "CU Launch is unable to look up that email address right now.",
     );
 
     expect(createEntraDirectoryClient).not.toHaveBeenCalled();
@@ -452,7 +452,7 @@ describe("collaboration invite actions", () => {
       ),
     ).resolves.toEqual({
       error:
-        "The portal could not verify invited@cedarville.edu in Entra. You can send the invite without verification if you are sure the address is correct.",
+        "CU Launch could not verify invited@cedarville.edu in Entra. You can send the invite without verification if you are sure the address is correct.",
       deliveryStatus: null,
       unverifiedInviteEmail: "invited@cedarville.edu",
     });

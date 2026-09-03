@@ -1,6 +1,6 @@
-# Portal Setup
+# CU Launch Setup
 
-This guide explains local development, required environment variables, and database setup for the Cedarville App Portal.
+This guide explains local development, required environment variables, and database setup for CU Launch.
 
 ## Requirements
 
@@ -47,7 +47,7 @@ Notes for GitHub App setup:
 
 ### Add Existing App
 
-The home page routes **Create New App** and **Add Existing App** through the initial onboarding wizard. New-app users are told that template selection is next. Existing-app users receive separate **Already on GitHub** and **Only on my computer** routes, with the selected form identified by the query string and heading (the local route also uses `#local-app`). After a repository is created or imported, the user enters a focused setup sequence for GitHub access, optional Codex handoff, repository preparation, and an explicitly requested first Azure publish.
+The home page routes **Launch New App** and **Add Existing App** through the initial onboarding wizard. New-app users are told that template selection is next. Existing-app users receive separate **Already on GitHub** and **Only on my computer** routes, with the selected form identified by the query string and heading (the local route also uses `#local-app`). After a repository is created or imported, the user enters a focused setup sequence for GitHub access, optional Codex handoff, repository preparation, and an explicitly requested first Azure publish.
 
 Template creation never publishes automatically. The generated-app form requires the user to choose Cedarville sign-in or openly public access; an openly public choice requires acknowledgement that anyone who knows or discovers the address can use the app. After creation, **Publish the starter now** starts Azure publishing immediately and is the only publish confirmation for an unchanged generated starter. **Customize it with Codex first** takes the user through GitHub access, customization, and setup before a later **Publish to Azure** action. Users who customize or upload local code are first asked whether they have a GitHub account. Account creation guidance explains that the username is chosen during signup and appears after `github.com/` in the profile address before the portal displays the username form. Imported apps are prepared only after the user requests it; publishing-file conflicts use a pull request for review instead of overwriting files. Local apps use a Codex-owned upload flow and must not advance until the user selects **My code has been uploaded** after Codex confirms the push.
 
@@ -191,7 +191,7 @@ The Markdown files in `docs/user/` are the source of truth for the portal Help p
 
 The Azure deployment package must include `docs/user/` because Help pages read those Markdown files at runtime. The deployment workflow copies that directory to `release/docs/user/` and verifies that `quick-start.md` exists before publishing the release.
 
-For managed repo bootstrap verification, confirm the GitHub App is installed on the target org and then create an app through the portal. A successful request should show a managed repository URL instead of a repository failure state.
+For managed repo bootstrap verification, confirm the GitHub App is installed on the target org and then launch an app through CU Launch. A successful request should show a managed repository URL instead of a repository failure state.
 
 ## Notes
 

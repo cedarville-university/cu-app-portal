@@ -86,7 +86,7 @@ export default async function MyAppsPage() {
         <span className="breadcrumb__sep" aria-hidden="true">
           /
         </span>
-        <Link href="/create">Create New App</Link>
+        <Link href="/create">Launch New App</Link>
         <span className="breadcrumb__sep" aria-hidden="true">
           /
         </span>
@@ -108,7 +108,7 @@ export default async function MyAppsPage() {
           <p>Review app status and open the links you need most often.</p>
         </div>
         <Link href="/create" className="btn btn--primary-solid btn--sm">
-          + Create New App
+          + Launch New App
         </Link>
       </div>
 
@@ -117,10 +117,10 @@ export default async function MyAppsPage() {
           <div className="empty-state__icon">📦</div>
           <div className="empty-state__title">No apps yet</div>
           <p className="empty-state__desc">
-            Create your first Cedarville-approved app to get started.
+            Launch your first CU Launch app to get started.
           </p>
           <Link href="/create" className="btn btn--primary-solid">
-            Create New App
+            Launch New App
           </Link>
         </div>
       ) : (

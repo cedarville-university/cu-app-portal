@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import TemplatePage from "./page";
 
@@ -69,6 +69,12 @@ describe("TemplatePage", () => {
         params: Promise.resolve({ templateSlug: "web-app" }),
       }),
     );
+    const breadcrumb = screen.getByRole("navigation", {
+      name: "Breadcrumb",
+    });
+    expect(
+      within(breadcrumb).getByRole("link", { name: "Launch New App" }),
+    ).toHaveAttribute("href", "/create");
     expect(
       screen.getByRole("heading", { name: /web app starter/i }),
     ).toBeInTheDocument();
@@ -83,7 +89,7 @@ describe("TemplatePage", () => {
     expect(screen.getByText(/database: optional/i)).toBeInTheDocument();
     expect(screen.getByText(/access: choose sign-in or public/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/create the starter now/i),
+      screen.getByText(/launch the starter now/i),
     ).toBeInTheDocument();
   });
 

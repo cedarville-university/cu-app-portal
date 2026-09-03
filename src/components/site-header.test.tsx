@@ -30,6 +30,17 @@ afterEach(() => {
 });
 
 describe("SiteHeader", () => {
+  it("labels the create action as Launch New App", async () => {
+    mockGetServerSession.mockResolvedValue(null);
+
+    render(await SiteHeader());
+
+    expect(screen.getByRole("link", { name: "Launch New App" })).toHaveAttribute(
+      "href",
+      "/create",
+    );
+  });
+
   it("shows an Admin link to authenticated admins", async () => {
     mockGetServerSession.mockResolvedValue({
       user: {
@@ -97,6 +108,33 @@ describe("SiteHeader", () => {
       screen.getByRole("link", { name: /settings/i }),
     );
     expect(accountMenu).toContainElement(logoutButton);
+  });
+
+  it("keeps the account menu outside the horizontally scrollable navigation links", async () => {
+    mockGetServerSession.mockResolvedValue({
+      user: {
+        id: "user-123",
+        name: "Portal Staff",
+        email: "portal.staff@example.edu",
+        entraOid: "entra-oid",
+      },
+      expires: "2099-01-01T00:00:00.000Z",
+    });
+    mockUserHasAdminRole.mockResolvedValue(false);
+
+    render(await SiteHeader());
+
+    const accountMenu = screen.getByText("Portal Staff").closest("details");
+    const navigation = screen.getByRole("navigation", {
+      name: "Primary navigation",
+    });
+    const linkStrip = navigation.querySelector(".site-header__nav-links");
+
+    expect(linkStrip).not.toBeNull();
+    expect(linkStrip).toContainElement(
+      screen.getByRole("link", { name: "Launch New App" }),
+    );
+    expect(linkStrip).not.toContainElement(accountMenu);
   });
 
   it("links to the public apps page", async () => {
