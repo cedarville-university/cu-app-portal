@@ -22,7 +22,15 @@ function dependencies(): GrantRepositoryAccessDependencies {
         findFirst: vi.fn().mockResolvedValue(request),
         update: vi.fn().mockResolvedValue({}),
       },
-      user: { update: vi.fn().mockResolvedValue({}) },
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ githubUsername: "actor-name" }),
+        update: vi.fn().mockResolvedValue({}),
+      },
+      repositoryAccessGrant: {
+        findMany: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn().mockResolvedValue({ id: "grant-1" }),
+        update: vi.fn().mockResolvedValue({}),
+      },
     },
     appAccessWhere: vi.fn((requestId, actorUserId, isAdmin) => ({
       id: requestId,
@@ -39,6 +47,7 @@ function dependencies(): GrantRepositoryAccessDependencies {
     grantManagedRepositoryAccess: vi.fn().mockResolvedValue({
       status: "INVITED",
     }),
+    revokeManagedRepositoryAccess: vi.fn().mockResolvedValue(undefined),
     recordAuditEvent: vi.fn().mockResolvedValue(undefined),
     persistRepositoryAccessOutcome: vi.fn().mockResolvedValue(undefined),
     buildSafeRepositoryAccessNote: vi.fn(
@@ -192,9 +201,98 @@ describe("grantRepositoryAccessForActor", () => {
     expect(deps.grantManagedRepositoryAccess).not.toHaveBeenCalled();
   });
 
+  it("rejects a username that differs from the actor's saved GitHub identity", async () => {
+    vi.mocked(deps.prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "actor-name",
+    });
+
+    await expect(
+      grantRepositoryAccessForActor(
+        {
+          requestId: "request-123",
+          actorUserId: "actor-123",
+          githubUsername: "outside-account",
+          source: "codex-mcp",
+        },
+        deps,
+      ),
+    ).rejects.toMatchObject({ code: "ACTION_REQUIRED" });
+
+    expect(deps.grantManagedRepositoryAccess).not.toHaveBeenCalled();
+    expect(deps.prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("requires the actor to save a GitHub identity before requesting access", async () => {
+    vi.mocked(deps.prisma.user.findUnique).mockResolvedValue({
+      githubUsername: null,
+    });
+
+    await expect(
+      grantRepositoryAccessForActor(
+        {
+          requestId: "request-123",
+          actorUserId: "actor-123",
+          githubUsername: "actor-name",
+          source: "portal-ui",
+        },
+        deps,
+      ),
+    ).rejects.toMatchObject({ code: "ACTION_REQUIRED" });
+
+    expect(deps.grantManagedRepositoryAccess).not.toHaveBeenCalled();
+  });
+
+  it("records the actor binding before granting provider access", async () => {
+    vi.mocked(deps.prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "Actor-Name",
+    });
+
+    await grantRepositoryAccessForActor(
+      {
+        requestId: "request-123",
+        actorUserId: "actor-123",
+        githubUsername: "actor-name",
+        source: "codex-mcp",
+      },
+      deps,
+    );
+
+    expect(deps.prisma.repositoryAccessGrant.upsert).toHaveBeenCalledWith({
+      where: {
+        appRequestId_actorUserId_githubUsername: {
+          appRequestId: "request-123",
+          actorUserId: "actor-123",
+          githubUsername: "actor-name",
+        },
+      },
+      create: {
+        appRequestId: "request-123",
+        actorUserId: "actor-123",
+        githubUsername: "actor-name",
+        status: "PENDING",
+      },
+      update: { revokedAt: null, status: "PENDING" },
+      select: { id: true },
+    });
+    expect(
+      vi.mocked(deps.prisma.repositoryAccessGrant.upsert).mock
+        .invocationCallOrder[0],
+    ).toBeLessThan(
+      vi.mocked(deps.grantManagedRepositoryAccess).mock.invocationCallOrder[0],
+    );
+    expect(deps.prisma.repositoryAccessGrant.update).toHaveBeenCalledWith({
+      where: { id: "grant-1" },
+      data: { status: "INVITED" },
+    });
+    expect(deps.prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it.each(["INVITED", "GRANTED"] as const)(
     "returns and persists a safe %s provider result for the requesting actor",
     async (status) => {
+      vi.mocked(deps.prisma.user.findUnique).mockResolvedValue({
+        githubUsername: "collaborator-name",
+      });
       vi.mocked(deps.grantManagedRepositoryAccess).mockResolvedValue({ status });
 
       await expect(
@@ -213,10 +311,7 @@ describe("grantRepositoryAccessForActor", () => {
         githubUsername: "collaborator-name",
       });
 
-      expect(deps.prisma.user.update).toHaveBeenCalledWith({
-        where: { id: "collaborator-123" },
-        data: { githubUsername: "collaborator-name" },
-      });
+      expect(deps.prisma.user.update).not.toHaveBeenCalled();
       expect(deps.persistRepositoryAccessOutcome).toHaveBeenCalledWith({
         requestId: "request-123",
         actorUserId: "collaborator-123",
@@ -230,6 +325,9 @@ describe("grantRepositoryAccessForActor", () => {
   );
 
   it("returns and persists a safe failed result without provider details", async () => {
+    vi.mocked(deps.prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collaborator-name",
+    });
     vi.mocked(deps.grantManagedRepositoryAccess).mockRejectedValue(
       new Error("token=provider-secret"),
     );
@@ -257,12 +355,19 @@ describe("grantRepositoryAccessForActor", () => {
         source: "codex-mcp",
       }),
     );
+    expect(deps.prisma.repositoryAccessGrant.update).toHaveBeenCalledWith({
+      where: { id: "grant-1" },
+      data: { status: "FAILED" },
+    });
     expect(JSON.stringify(deps.persistRepositoryAccessOutcome.mock.calls)).not.toContain(
       "provider-secret",
     );
   });
 
   it("rechecks portal authorization immediately before the GitHub grant", async () => {
+    vi.mocked(deps.prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collaborator-name",
+    });
     vi.mocked(deps.prisma.appRequest.findFirst)
       .mockResolvedValueOnce(request)
       .mockResolvedValueOnce(null);
@@ -282,5 +387,38 @@ describe("grantRepositoryAccessForActor", () => {
     expect(deps.userHasAdminRole).toHaveBeenCalledTimes(2);
     expect(deps.prisma.appRequest.findFirst).toHaveBeenCalledTimes(2);
     expect(deps.grantManagedRepositoryAccess).not.toHaveBeenCalled();
+  });
+
+  it("revokes a completed provider grant when portal access is removed in flight", async () => {
+    vi.mocked(deps.prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "collaborator-name",
+    });
+    vi.mocked(deps.prisma.appRequest.findFirst)
+      .mockResolvedValueOnce(request)
+      .mockResolvedValueOnce(request)
+      .mockResolvedValueOnce(null);
+
+    await expect(
+      grantRepositoryAccessForActor(
+        {
+          requestId: "request-123",
+          actorUserId: "collaborator-123",
+          githubUsername: "collaborator-name",
+          source: "codex-mcp",
+        },
+        deps,
+      ),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+    expect(deps.grantManagedRepositoryAccess).toHaveBeenCalledOnce();
+    expect(deps.revokeManagedRepositoryAccess).toHaveBeenCalledWith({
+      owner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      githubUsername: "collaborator-name",
+    });
+    expect(deps.prisma.repositoryAccessGrant.update).toHaveBeenCalledWith({
+      where: { id: "grant-1" },
+      data: { status: "INVITED", revokedAt: expect.any(Date) },
+    });
   });
 });

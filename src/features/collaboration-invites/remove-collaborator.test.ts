@@ -12,6 +12,10 @@ vi.mock("@/lib/db", () => ({
     appRequest: { findUnique: vi.fn() },
     appAccess: { deleteMany: vi.fn() },
     user: { findUnique: vi.fn() },
+    repositoryAccessGrant: {
+      findMany: vi.fn(),
+      update: vi.fn(),
+    },
   },
 }));
 
@@ -52,6 +56,8 @@ describe("removeAppCollaborator", () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       githubUsername: "casey-dev",
     } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.repositoryAccessGrant.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.repositoryAccessGrant.update).mockResolvedValue({} as never);
     vi.mocked(revokeManagedRepositoryAccess).mockResolvedValue(undefined);
   });
 
@@ -65,6 +71,9 @@ describe("removeAppCollaborator", () => {
     expect(prisma.appAccess.deleteMany).toHaveBeenCalledWith({
       where: { appRequestId, userId: targetUserId },
     });
+    expect(prisma.appAccess.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(
+      prisma.repositoryAccessGrant.findMany.mock.invocationCallOrder[0],
+    );
     expect(revokeManagedRepositoryAccess).toHaveBeenCalledWith({
       owner: "cedarville-it",
       repositoryName: "campus-dashboard",
@@ -154,6 +163,42 @@ describe("removeAppCollaborator", () => {
     );
     expect(safeNotifyAppEvent).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
+  });
+
+  it("revokes every recorded GitHub identity even after the profile changes", async () => {
+    mockApp();
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "current-name",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.repositoryAccessGrant.findMany).mockResolvedValue([
+      { id: "grant-1", githubUsername: "first-name" },
+      { id: "grant-2", githubUsername: "second-name" },
+    ] as never);
+
+    await expect(
+      removeAppCollaborator({ appRequestId, targetUserId, actorUserId }),
+    ).resolves.toEqual({ removed: true, github: "revoked" });
+
+    expect(prisma.repositoryAccessGrant.findMany).toHaveBeenCalledWith({
+      where: {
+        appRequestId,
+        actorUserId: targetUserId,
+        revokedAt: null,
+      },
+      select: { id: true, githubUsername: true },
+    });
+    expect(revokeManagedRepositoryAccess).toHaveBeenCalledTimes(2);
+    expect(revokeManagedRepositoryAccess).toHaveBeenNthCalledWith(1, {
+      owner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      githubUsername: "first-name",
+    });
+    expect(revokeManagedRepositoryAccess).toHaveBeenNthCalledWith(2, {
+      owner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      githubUsername: "second-name",
+    });
+    expect(prisma.repositoryAccessGrant.update).toHaveBeenCalledTimes(2);
   });
 
   it("throws when the app does not exist", async () => {

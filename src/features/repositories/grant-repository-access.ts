@@ -7,7 +7,11 @@ import {
   buildSafeRepositoryAccessNote,
   persistRepositoryAccessOutcome,
 } from "./actor-access";
-import { grantManagedRepositoryAccess, parseGitHubUsername } from "./access";
+import {
+  grantManagedRepositoryAccess,
+  parseGitHubUsername,
+  revokeManagedRepositoryAccess,
+} from "./access";
 
 type RepositoryAccessAppRequest = {
   id: string;
@@ -24,7 +28,14 @@ type RepositoryAccessDb = {
     ): Promise<RepositoryAccessAppRequest | null>;
   };
   user: {
+    findUnique(
+      args: Prisma.UserFindUniqueArgs,
+    ): Promise<{ githubUsername: string | null } | null>;
     update(args: Prisma.UserUpdateArgs): Promise<unknown>;
+  };
+  repositoryAccessGrant: {
+    upsert(args: Prisma.RepositoryAccessGrantUpsertArgs): Promise<{ id: string }>;
+    update(args: Prisma.RepositoryAccessGrantUpdateArgs): Promise<unknown>;
   };
 };
 
@@ -40,6 +51,7 @@ export type GrantRepositoryAccessDependencies = {
   userHasAdminRole: typeof userHasAdminRole;
   parseGitHubUsername: typeof parseGitHubUsername;
   grantManagedRepositoryAccess: typeof grantManagedRepositoryAccess;
+  revokeManagedRepositoryAccess: typeof revokeManagedRepositoryAccess;
   recordAuditEvent: typeof recordAuditEvent;
   persistRepositoryAccessOutcome: typeof persistRepositoryAccessOutcome;
   buildSafeRepositoryAccessNote: typeof buildSafeRepositoryAccessNote;
@@ -51,6 +63,7 @@ const defaultDependencies: GrantRepositoryAccessDependencies = {
   userHasAdminRole,
   parseGitHubUsername,
   grantManagedRepositoryAccess,
+  revokeManagedRepositoryAccess,
   recordAuditEvent,
   persistRepositoryAccessOutcome,
   buildSafeRepositoryAccessNote,
@@ -111,15 +124,24 @@ export async function grantRepositoryAccessForActor(
   assertRepositoryReady(appRequest);
   let githubUsername: string;
   try {
-    githubUsername = dependencies.parseGitHubUsername(input.githubUsername);
+    githubUsername = dependencies
+      .parseGitHubUsername(input.githubUsername)
+      .toLowerCase();
   } catch {
     throw new PortalApiError("INVALID_INPUT", "Enter a valid GitHub username.");
   }
 
-  await dependencies.prisma.user.update({
+  const actor = await dependencies.prisma.user.findUnique({
     where: { id: input.actorUserId },
-    data: { githubUsername },
+    select: { githubUsername: true },
   });
+  const savedGitHubUsername = actor?.githubUsername?.trim().toLowerCase();
+  if (!savedGitHubUsername || savedGitHubUsername !== githubUsername) {
+    throw new PortalApiError(
+      "ACTION_REQUIRED",
+      "Save this GitHub username in your CU Launch settings before requesting repository access.",
+    );
+  }
   await dependencies.recordAuditEvent("REPOSITORY_ACCESS_REQUESTED", {
     requestId: input.requestId,
     actorUserId: input.actorUserId,
@@ -141,6 +163,24 @@ export async function grantRepositoryAccessForActor(
   );
   assertRepositoryReady(authorizedAppRequest);
 
+  const accessGrant = await dependencies.prisma.repositoryAccessGrant.upsert({
+    where: {
+      appRequestId_actorUserId_githubUsername: {
+        appRequestId: input.requestId,
+        actorUserId: input.actorUserId,
+        githubUsername,
+      },
+    },
+    create: {
+      appRequestId: input.requestId,
+      actorUserId: input.actorUserId,
+      githubUsername,
+      status: "PENDING",
+    },
+    update: { revokedAt: null, status: "PENDING" },
+    select: { id: true },
+  });
+
   let status: RepositoryAccessResult["status"];
   try {
     status = (
@@ -153,6 +193,37 @@ export async function grantRepositoryAccessForActor(
   } catch {
     status = "FAILED";
   }
+
+  try {
+    const stillAuthorizedAppRequest = await loadAccessibleAppRequest(
+      input.requestId,
+      input.actorUserId,
+      dependencies,
+    );
+    assertRepositoryReady(stillAuthorizedAppRequest);
+  } catch (authorizationError) {
+    let revokedAt: Date | undefined;
+    try {
+      await dependencies.revokeManagedRepositoryAccess({
+        owner: authorizedAppRequest.repositoryOwner,
+        repositoryName: authorizedAppRequest.repositoryName,
+        githubUsername,
+      });
+      revokedAt = new Date();
+    } catch {
+      // Keep the binding active so a later cleanup can retry an uncertain grant.
+    }
+    await dependencies.prisma.repositoryAccessGrant.update({
+      where: { id: accessGrant.id },
+      data: { status, ...(revokedAt ? { revokedAt } : {}) },
+    });
+    throw authorizationError;
+  }
+
+  await dependencies.prisma.repositoryAccessGrant.update({
+    where: { id: accessGrant.id },
+    data: { status },
+  });
 
   const note = dependencies.buildSafeRepositoryAccessNote(status, githubUsername);
 

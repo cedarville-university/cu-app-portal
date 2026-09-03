@@ -34,7 +34,7 @@ export function registerRetryPublishTool(
       inputSchema: retryPublishMcpInputSchema,
       annotations: {
         readOnlyHint: false,
-        destructiveHint: false,
+        destructiveHint: true,
         openWorldHint: true,
       },
     },

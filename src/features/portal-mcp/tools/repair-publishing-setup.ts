@@ -37,7 +37,7 @@ export function registerRepairPublishingSetupTool(
       inputSchema: repairPublishingSetupMcpInputSchema,
       annotations: {
         readOnlyHint: false,
-        destructiveHint: false,
+        destructiveHint: true,
         openWorldHint: true,
       },
     },

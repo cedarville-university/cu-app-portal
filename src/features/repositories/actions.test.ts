@@ -125,6 +125,13 @@ describe("repository access actions", () => {
 
     await saveGitHubUsernameAndGrantAccessAction("req_123", formData);
 
+    expect(mocks.userUpdate).toHaveBeenCalledWith({
+      where: { id: "collaborator-123" },
+      data: { githubUsername: "collaborator-name" },
+    });
+    expect(mocks.userUpdate.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.grantRepositoryAccessForActor.mock.invocationCallOrder[0],
+    );
     expect(mocks.grantRepositoryAccessForActor).toHaveBeenCalledWith({
       requestId: "req_123",
       actorUserId: "collaborator-123",

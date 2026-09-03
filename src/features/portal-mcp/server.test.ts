@@ -206,7 +206,7 @@ describe("portal MCP server contract", () => {
     expect(launch.description).toMatch(/never publishes to Azure/i);
   });
 
-  it("marks reads closed-world and mutations non-destructive open-world", () => {
+  it("marks reads closed-world and accurately classifies mutation risk", () => {
     const { tools } = registeredPortalTools();
     const readNames = [
       "list_app_templates",
@@ -214,9 +214,11 @@ describe("portal MCP server contract", () => {
       "get_app",
       "get_publish_status",
     ];
-    const mutationNames = [
+    const additiveMutationNames = [
       "create_app",
       "request_github_access",
+    ];
+    const destructiveMutationNames = [
       "publish_app_to_azure",
       "repair_publishing_setup",
       "retry_publish",
@@ -229,10 +231,17 @@ describe("portal MCP server contract", () => {
         openWorldHint: false,
       });
     }
-    for (const name of mutationNames) {
+    for (const name of additiveMutationNames) {
       expect(tool(tools, name).config.annotations).toEqual({
         readOnlyHint: false,
         destructiveHint: false,
+        openWorldHint: true,
+      });
+    }
+    for (const name of destructiveMutationNames) {
+      expect(tool(tools, name).config.annotations).toEqual({
+        readOnlyHint: false,
+        destructiveHint: true,
         openWorldHint: true,
       });
     }

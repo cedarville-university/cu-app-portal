@@ -46,6 +46,8 @@ The supported tool list is deliberately narrow:
 8. `repair_publishing_setup`
 9. `retry_publish`
 
+`request_github_access` accepts only the signed-in actor's GitHub username already saved in CU Launch settings. The portal records the app, actor, and normalized username before asking GitHub to grant access so later collaborator removal can revoke every recorded identity even if the profile changes.
+
 There is no delete, import, collaborator-management, environment-variable, or
 push-to-deploy tool. Launching a new app never publishes. Product-facing
 “launch” maps to the technical `create_app` tool and stops after the app record

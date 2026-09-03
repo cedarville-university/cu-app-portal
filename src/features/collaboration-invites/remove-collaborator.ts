@@ -38,6 +38,10 @@ export async function removeAppCollaborator({
     throw new Error("Cannot remove the app owner as a collaborator.");
   }
 
+  const canAttemptGitHub =
+    appRequest.repositoryStatus === "READY" &&
+    Boolean(appRequest.repositoryOwner) &&
+    Boolean(appRequest.repositoryName);
   const deleted = await prisma.appAccess.deleteMany({
     where: {
       appRequestId,
@@ -46,36 +50,57 @@ export async function removeAppCollaborator({
   });
   const removed = deleted.count > 0;
 
+  const recordedGrants = canAttemptGitHub
+    ? await prisma.repositoryAccessGrant.findMany({
+        where: {
+          appRequestId,
+          actorUserId: targetUserId,
+          revokedAt: null,
+        },
+        select: { id: true, githubUsername: true },
+      })
+    : [];
+
   let github: RemoveAppCollaboratorResult["github"] = "skipped";
   let githubError: string | undefined;
 
-  const canAttemptGitHub =
-    appRequest.repositoryStatus === "READY" &&
-    Boolean(appRequest.repositoryOwner) &&
-    Boolean(appRequest.repositoryName);
-
   if (canAttemptGitHub) {
-    const targetUser = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      select: { githubUsername: true },
-    });
-    const githubUsername = targetUser?.githubUsername?.trim() ?? "";
+    let grants: Array<{ id: string | null; githubUsername: string }> =
+      recordedGrants;
+    if (grants.length === 0) {
+      const targetUser = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { githubUsername: true },
+      });
+      const legacyUsername = targetUser?.githubUsername?.trim().toLowerCase() ?? "";
+      grants = legacyUsername
+        ? [{ id: null, githubUsername: legacyUsername }]
+        : [];
+    }
 
-    if (githubUsername) {
+    for (const grant of grants) {
       try {
         await revokeManagedRepositoryAccess({
           owner: appRequest.repositoryOwner!,
           repositoryName: appRequest.repositoryName!,
-          githubUsername,
+          githubUsername: grant.githubUsername,
         });
-        github = "revoked";
+        if (grant.id) {
+          await prisma.repositoryAccessGrant.update({
+            where: { id: grant.id },
+            data: { revokedAt: new Date() },
+          });
+        }
+        if (github !== "failed") {
+          github = "revoked";
+        }
       } catch (error) {
         github = "failed";
-        githubError = error instanceof Error ? error.message : "unknown";
+        githubError ??= error instanceof Error ? error.message : "unknown";
         console.error("Managed repository collaborator revoke failed", {
           appRequestId,
           targetUserId,
-          githubUsername,
+          githubUsername: grant.githubUsername,
           error,
         });
       }

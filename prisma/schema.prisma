@@ -24,6 +24,7 @@ model User {
   notificationDeliveries NotificationDelivery[]
   portalApiOperations PortalApiOperation[]
   portalApiRateLimitEvents PortalApiRateLimitEvent[]
+  repositoryAccessGrants RepositoryAccessGrant[]
 }
 
 model Template {
@@ -93,6 +94,22 @@ model AppRequest {
   collaborationInvites CollaborationInvite[]
   notificationDeliveries NotificationDelivery[]
   environmentVariables AppEnvironmentVariable[]
+}
+
+model RepositoryAccessGrant {
+  id             String                      @id @default(cuid())
+  appRequestId   String
+  actorUserId    String
+  githubUsername String
+  status         RepositoryAccessGrantStatus @default(PENDING)
+  revokedAt      DateTime?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  actor          User                        @relation(fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@unique([appRequestId, actorUserId, githubUsername])
+  @@index([appRequestId, actorUserId, revokedAt])
+  @@index([actorUserId])
 }
 
 model UserRole {
@@ -329,6 +346,13 @@ enum RepositoryStatus {
 
 enum RepositoryAccessStatus {
   NOT_REQUESTED
+  INVITED
+  GRANTED
+  FAILED
+}
+
+enum RepositoryAccessGrantStatus {
+  PENDING
   INVITED
   GRANTED
   FAILED

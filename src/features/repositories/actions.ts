@@ -19,6 +19,7 @@ import {
   SOURCE_GENERATION_FAILURE_SUMMARY,
 } from "./failure-feedback";
 import { grantRepositoryAccessForActor } from "./grant-repository-access";
+import { parseGitHubUsername } from "./access";
 
 async function loadAccessibleAppRequestForActor(requestId: string) {
   const actorUserId = await resolveCurrentUserId();
@@ -242,10 +243,17 @@ export async function saveGitHubUsernameAndGrantAccessAction(
   formData: FormData,
 ) {
   const actorUserId = await resolveCurrentUserId();
+  const githubUsername = parseGitHubUsername(
+    String(formData.get("githubUsername") ?? ""),
+  ).toLowerCase();
+  await prisma.user.update({
+    where: { id: actorUserId },
+    data: { githubUsername },
+  });
   await grantRepositoryAccessForActor({
     requestId,
     actorUserId,
-    githubUsername: String(formData.get("githubUsername") ?? ""),
+    githubUsername,
     source: "portal-ui",
   });
 

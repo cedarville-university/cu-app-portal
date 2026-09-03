@@ -36,7 +36,7 @@ export function registerPublishAppToAzureTool(
       inputSchema: publishAppToAzureMcpInputSchema,
       annotations: {
         readOnlyHint: false,
-        destructiveHint: false,
+        destructiveHint: true,
         openWorldHint: true,
       },
     },
