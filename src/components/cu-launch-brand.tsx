@@ -41,7 +41,7 @@ export function CuLaunchBrand({
             CU Launch
           </span>
           <span className="cu-launch-brand__cu">CU</span>{" "}
-          <span className="cu-launch-brand__launch">Launch</span>
+          <span className="cu-launch-brand__launch">LAUNCH</span>
         </span>
         {showTagline ? (
           <span className="cu-launch-brand__tagline">
