@@ -128,7 +128,10 @@ test.describe("novice onboarding", () => {
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "Create New App", exact: true }).click();
+    await page
+      .getByRole("main")
+      .getByRole("link", { name: "Launch New App", exact: true })
+      .click();
 
     await expect(
       page.getByRole("heading", { name: "Choose a starting point" }),
@@ -137,13 +140,17 @@ test.describe("novice onboarding", () => {
       page.getByText(/template gives you a ready-to-customize starting version/i),
     ).toBeVisible();
     await page.getByRole("link", { name: "Choose an app template" }).click();
-    await expect(page.getByRole("heading", { name: "Create New App" })).toBeVisible();
-    await page.getByRole("link", { name: "Use Public Information Page" }).click();
+    await expect(page.getByRole("heading", { name: "Launch New App" })).toBeVisible();
+    await page
+      .getByText("Public Information Page", { exact: true })
+      .locator("..")
+      .getByRole("link", { name: "Launch App" })
+      .click();
     await expect(
       page.getByRole("heading", { name: "Public Information Page" }),
     ).toBeVisible();
     await expect(page.getByLabel("App Name")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create App" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Launch App" })).toBeVisible();
 
     await page.goto("/");
     await page.getByRole("link", { name: "Add Existing App", exact: true }).click();
@@ -174,7 +181,7 @@ test.describe("novice onboarding", () => {
     await page
       .getByLabel(/I understand that anyone who knows or discovers/i)
       .check();
-    await page.getByRole("button", { name: "Create App" }).click();
+    await page.getByRole("button", { name: "Launch App" }).click();
 
     await expect(page).toHaveURL(/\/onboarding\/[^/?#]+$/);
     const requestId = new URL(page.url()).pathname.split("/").at(-1);
