@@ -923,11 +923,11 @@ describe("AppOnboardingPage imported and local preparation", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /tell me that I can return to the Cedarville App Portal myself and tell me to select "I've repaired and uploaded my code" myself/i,
+        /tell me that I can return to CU Launch myself and tell me to select "I've repaired and uploaded my code" myself/i,
       ),
     ).toBeInTheDocument();
     expect(document.body).toHaveTextContent(
-      /Do not use Browser, Computer Use, Chrome, plugins, or connectors to access the Cedarville App Portal/i,
+      /Do not use Browser, Computer Use, Chrome, plugins, or connectors to access CU Launch/i,
     );
     expect(
       screen.queryByRole("button", { name: "Try preparation again" }),

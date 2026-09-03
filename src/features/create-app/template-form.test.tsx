@@ -82,18 +82,19 @@ describe("TemplateForm", () => {
     render(<TemplateForm template={template} />);
 
     expect(
-      screen.getByRole("button", { name: /creating your app/i }),
+      screen.getByRole("button", { name: /launching your app/i }),
     ).toBeDisabled();
     expect(screen.getAllByRole("status")[0]).toHaveTextContent(
-      /creating your app and its private code repository/i,
+      /launching your app and its private code repository/i,
     );
   });
 
   it("shows only the repository-only create submit action", () => {
     render(<TemplateForm template={template} />);
 
-    const submitButton = screen.getByRole("button", { name: "Create App" });
+    const submitButton = screen.getByRole("button", { name: "Launch App" });
 
+    expect(submitButton).toBeEnabled();
     expect(submitButton).toHaveAttribute("name", "createIntent");
     expect(submitButton).toHaveAttribute("value", "createOnly");
     expect(

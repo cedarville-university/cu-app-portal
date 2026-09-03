@@ -282,6 +282,9 @@ describe("prepareImportedRepository", () => {
       expect.objectContaining({
         branch: "portal/add-azure-publishing-campus-dashboard",
         expectedHeadSha: "head-sha",
+        body: expect.stringContaining(
+          "This PR prepares Campus Dashboard for CU Launch-managed Azure publishing.",
+        ),
       }),
     );
   });

@@ -33,11 +33,11 @@ function codexRuntimeAndPortalBoundaryInstructions() {
     "Do not report that tests cannot run until you have checked both the system commands and the bundled workspace dependencies.",
     "Do not attempt to install or download Node.js, Python, npm, pnpm, or another development runtime merely because a system command is missing.",
     "The bundled-runtime fallback does not replace the managed Git installation process above. Git must still be available through Company Portal on Windows or CedarNet 2.0 on macOS.",
-    "Cedarville App Portal boundary",
-    "Do not use Browser, Computer Use, Chrome, plugins, or connectors to access the Cedarville App Portal.",
-    "Never open, sign into, navigate, click, publish, or otherwise operate the Cedarville App Portal for me. Portal navigation and button clicks are my job.",
-    "You may tell me in plain language what I can do in the portal, but then stop and let me do it myself.",
-    "This portal boundary does not prevent a secure GitHub sign-in window opened by Git when repository authentication is required.",
+    "CU Launch boundary",
+    "Do not use Browser, Computer Use, Chrome, plugins, or connectors to access CU Launch.",
+    "Never open, sign into, navigate, click, publish, or otherwise operate CU Launch for me. CU Launch navigation and button clicks are my job.",
+    "You may tell me in plain language what I can do in CU Launch, but then stop and let me do it myself.",
+    "This CU Launch boundary does not prevent a secure GitHub sign-in window opened by Git when repository authentication is required.",
   ];
 }
 
@@ -98,7 +98,7 @@ export function buildCodexHandoffPrompt(
       "git fetch <verified-portal-remote>",
       `git pull --ff-only <verified-portal-remote> ${defaultBranch}`,
       `git push <verified-portal-remote> HEAD:${defaultBranch}`,
-      "Use the verified portal remote when preparing work for Cedarville App Portal publishing.",
+      "Use the verified portal remote when preparing work for CU Launch publishing.",
     );
   } else if (options.localFolderMode === "new-or-existing") {
     const defaultBranch = options.defaultBranch ?? "main";
@@ -136,7 +136,7 @@ export function buildCodexHandoffPrompt(
 
   prompt.push(
     "Use the managed repository as the source of truth and inspect only enough files to confirm that the project is ready.",
-    "Use `.codex/skills/cu-app-portal/SKILL.md` for portal-managed app workflow guidance.",
+    "Use `.codex/skills/cu-app-portal/SKILL.md` for CU Launch-managed app workflow guidance.",
     "",
     "Repository ready — ask for project work",
     "After the repository setup and verification succeed, do not modify app files yet.",
@@ -149,10 +149,10 @@ export function buildCodexHandoffPrompt(
   prompt.push(
     "",
     "Before you finish",
-    "After completing the project work I requested, run the relevant tests using compatible system or bundled workspace runtimes, explain the result plainly, then commit and push the completed work through the portal-supported workflow.",
+    "After completing the project work I requested, run the relevant tests using compatible system or bundled workspace runtimes, explain the result plainly, then commit and push the completed work through the CU Launch-supported workflow.",
     "Verify that the push succeeded and give me a simple status summary.",
-    "Tell me that the requested changes are ready in GitHub. If I want to publish them, tell me that I can return to the Cedarville App Portal myself.",
-    "Do not open or operate the portal, and do not make publishing the next step unless I ask about publishing.",
+    "Tell me that the requested changes are ready in GitHub. If I want to publish them, tell me that I can return to CU Launch myself.",
+    "Do not open or operate CU Launch, and do not make publishing the next step unless I ask about publishing.",
   );
 
   return prompt.join("\n");
@@ -179,7 +179,7 @@ export function buildLocalCodexGitSetupPrompt({
     "Explain what you are doing in everyday language.",
     "",
     "Your goal",
-    `Connect the local "${appName}" project to the Cedarville App Portal managed repository for request ${requestId}.`,
+    `Connect the local "${appName}" project to the CU Launch managed repository for request ${requestId}.`,
     "You own the technical workflow: inspect the app, connect and upload the code safely, and verify the result.",
     "",
     "Safety rules",
@@ -208,7 +208,7 @@ export function buildLocalCodexGitSetupPrompt({
     "If portal exists with a different URL and is clearly an obsolete portal entry, record the old URL and update only that remote with git remote set-url portal <managed-repository-url>.",
     "If the existing portal remote may still be useful, preserve that remote and choose an unused, unambiguous name such as portal-managed (or portal-managed-2 if needed). Do not rename, delete, or overwrite other remotes.",
     "Run git remote get-url <verified-managed-remote> and confirm it exactly matches the managed repository before continuing.",
-    "Pull the portal's starter commit before inspecting, changing, staging, or uploading the local app. That commit contains the app-local portal skill and no replacement app code.",
+    "Pull the CU Launch starter commit before inspecting, changing, staging, or uploading the local app. That commit contains the app-local CU Launch skill and no replacement app code.",
     `git pull --no-rebase <verified-managed-remote> ${branch}`,
     "If the local repository already has commits that do not share history with the managed repository, preserve both histories and use:",
     `git pull --no-rebase --allow-unrelated-histories <verified-managed-remote> ${branch}`,
@@ -221,16 +221,16 @@ export function buildLocalCodexGitSetupPrompt({
     "Re-check the staged file names and diff with git diff --cached --name-only and git diff --cached.",
     "Unstage anything sensitive or local before committing with git rm --cached -- <path>; this removes it from the staged list without deleting the local file and works before the first commit.",
     'git commit -m "Prepare local app for portal hosting"',
-    "Push the current local code to the portal-managed repository:",
+    "Push the current local code to the CU Launch-managed repository:",
     `git push -u <verified-managed-remote> HEAD:${branch}`,
     "",
     "Before you finish",
-    "Before you finish, run the relevant tests using compatible system or bundled workspace runtimes, explain the result plainly, then commit and push the completed work through the portal-supported workflow.",
+    "Before you finish, run the relevant tests using compatible system or bundled workspace runtimes, explain the result plainly, then commit and push the completed work through the CU Launch-supported workflow.",
     `Verify that the push succeeded, and report the repository and branch that received the push: ${repositoryUrl} (${branch}).`,
     "Give me a simple status summary.",
     preparationErrorSummary
-      ? `After the push succeeds, tell me that I can return to the Cedarville App Portal myself and tell me to select "${LOCAL_REPAIR_CONFIRMATION_LABEL}" myself. Do not open or operate the portal.`
-      : `After the push succeeds, tell me that I can return to the Cedarville App Portal myself and tell me to select "${LOCAL_UPLOAD_CONFIRMATION_LABEL}" myself. Do not open or operate the portal.`,
+      ? `After the push succeeds, tell me that I can return to CU Launch myself and tell me to select "${LOCAL_REPAIR_CONFIRMATION_LABEL}" myself. Do not open or operate CU Launch.`
+      : `After the push succeeds, tell me that I can return to CU Launch myself and tell me to select "${LOCAL_UPLOAD_CONFIRMATION_LABEL}" myself. Do not open or operate CU Launch.`,
   ];
 
   if (preparationErrorSummary) {
@@ -238,11 +238,11 @@ export function buildLocalCodexGitSetupPrompt({
       prompt.indexOf("Work to perform"),
       0,
       "Repair needed before uploading again",
-      "The portal inspected the previous upload and found a deterministic compatibility problem. Repair the app itself before pushing and confirming another upload; repeating the same portal action without code changes will not help.",
-      `Portal feedback: ${preparationErrorSummary}`,
-      "For plain static apps, use the portal's exact rule: A root index.html alone is not enough.",
+      "CU Launch inspected the previous upload and found a deterministic compatibility problem. Repair the app itself before pushing and confirming another upload; repeating the same CU Launch action without code changes will not help.",
+      `CU Launch feedback: ${preparationErrorSummary}`,
+      "For plain static apps, use CU Launch's exact rule: A root index.html alone is not enough.",
       "A plain static app must not contain package.json, requirements.txt, or pyproject.toml. If package.json exists, determine whether it is truly unused or whether the app must be migrated to supported Next.js or Express.",
-      "Do not add app-portal/http_server_start.py before uploading the repair. The portal adds that Python runner after compatibility succeeds.",
+      "Do not add app-portal/http_server_start.py before uploading the repair. CU Launch adds that Python runner after compatibility succeeds.",
       "Inspect that feedback, make the smallest safe source-code or runtime change that resolves it, and run the relevant tests before continuing with the upload steps below.",
       "",
     );

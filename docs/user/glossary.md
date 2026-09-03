@@ -1,7 +1,7 @@
 ---
 title: Glossary
 description: Plain-language definitions for portal, GitHub, and Azure terms.
-lastReviewed: 2026-08-25
+lastReviewed: 2026-09-02
 owner: Cedarville IT
 ---
 
@@ -77,7 +77,7 @@ Build and send the current managed GitHub version to Azure so it can run in a we
 
 ## Share in Portal
 
-An optional directory listing visible to people signed in to the Cedarville App Portal. It helps them discover an app but does not change the app audience.
+An optional directory listing visible to people signed in to CU Launch. It helps them discover an app but does not change the app audience.
 
 ## Publishing setup
 

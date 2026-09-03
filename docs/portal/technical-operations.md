@@ -1,6 +1,6 @@
-# Portal Technical Operations and Support Guide
+# CU Launch Technical Operations and Support Guide
 
-This is the administrative and support runbook for the Cedarville App Portal. It is for Tier 1 service desk staff, Tier 2 application administrators, and engineers maintaining the portal. It is not end-user documentation.
+This is the administrative and support runbook for CU Launch. It is for Tier 1 service desk staff, Tier 2 application administrators, and engineers maintaining CU Launch. It is not end-user documentation.
 
 ## Service Overview
 

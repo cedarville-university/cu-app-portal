@@ -1,10 +1,10 @@
-# Cedarville App Portal
+# CU Launch
 
-Internal portal for Cedarville staff to create managed GitHub repositories from approved templates and publish them through the portal.
+CU Launch is Cedarville's internal portal for staff to launch managed GitHub repositories from approved templates and publish them through CU Launch.
 
 ## What It Does
 
-The portal signs staff in with Microsoft Entra ID and begins creation or import with a plain-language onboarding wizard. The home page offers **Create New App** and **Add Existing App**. Existing-app users then choose **Already on GitHub** or **Only on my computer**, while new-app users choose an approved template and explicitly select either Cedarville sign-in or openly public access. The wizard guides each path through managed GitHub repository setup, optional Codex customization, safe preparation, and an explicitly requested first Azure publish.
+CU Launch signs staff in with Microsoft Entra ID and begins creation or import with a plain-language onboarding wizard. The home page offers **Launch New App** and **Add Existing App**. Existing-app users then choose **Already on GitHub** or **Only on my computer**, while new-app users choose an approved template and explicitly select either Cedarville sign-in or openly public access. The wizard guides each path through managed GitHub repository setup, optional Codex customization, safe preparation, and an explicitly requested first Azure publish.
 
 Creating a template starter stops before publishing. **Publish the starter now** starts Azure publishing immediately and is the only publish confirmation for an unchanged starter. **Customize it with Codex first** is optional and leads through customization and setup before a later **Publish to Azure** action. Long-running repository, preparation, setup, and publishing states update automatically. Before first-publish success, My Apps resumes the focused wizard with **Continue Setup**. After success, it opens the full management page with **Manage App** so initial setup is not mixed with advanced controls.
 
@@ -62,7 +62,7 @@ setting.
 - `npm run build` creates a production build.
 - `npm test` runs the Vitest suite.
 - `npm run prisma:seed` syncs the in-code template catalog into the database.
-- `npm run docs:pdf` regenerates the downloadable user documentation from `docs/user/` after the Python requirements in `scripts/docs/requirements.txt` are installed.
+- `npm run docs:pdf` regenerates the downloadable CU Launch user documentation from `docs/user/` after the Python requirements in `scripts/docs/requirements.txt` are installed.
 
 ## Docs
 
@@ -71,6 +71,8 @@ setting.
 - [Codex workspace plugin operations](docs/portal/codex-workspace-plugin.md)
 - [Template authoring](docs/portal/template-authoring.md)
 - [User documentation maintenance](docs/user/README.md)
+- [Quick Start PDF](/docs/cu-launch-quick-start.pdf)
+- [Complete User Guide PDF](/docs/cu-launch-user-guide.pdf)
 - [Azure publishing](docs/publishing/azure-app-service.md)
 - [Portal-managed publishing design](docs/superpowers/specs/2026-04-28-portal-managed-publishing-design.md)
 - [Portal Azure publish runtime design](docs/superpowers/specs/2026-04-29-portal-azure-publish-runtime-design.md)

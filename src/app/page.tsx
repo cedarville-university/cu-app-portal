@@ -1,36 +1,29 @@
 import React from "react";
 import Link from "next/link";
+import { CuLaunchBrand } from "@/components/cu-launch-brand";
 
 export default function HomePage() {
   return (
     <main>
       <div className="hero">
-        <h1>Cedarville App Portal</h1>
+        <h1><CuLaunchBrand surface="dark" /></h1>
         <p>
-          Create an app, keep its code in a private online home, and publish it
+          Launch an app, keep its code in a private online home, and publish it
           online — all from one place.
         </p>
         <div className="hero__actions">
           <Link href="/onboarding?start=new" className="btn btn--secondary-solid btn--lg">
-            Create New App
+            Launch New App
           </Link>
           <Link
             href="/onboarding?start=existing"
-            className="btn btn--ghost btn--lg"
-            style={{
-              color: "rgba(255,255,255,0.85)",
-              borderColor: "rgba(255,255,255,0.3)",
-            }}
+            className="btn btn--ghost btn--lg hero__secondary-action"
           >
             Add Existing App
           </Link>
           <Link
             href="/apps"
-            className="btn btn--ghost btn--lg"
-            style={{
-              color: "rgba(255,255,255,0.85)",
-              borderColor: "rgba(255,255,255,0.3)",
-            }}
+            className="btn btn--ghost btn--lg hero__secondary-action"
           >
             My Apps
           </Link>

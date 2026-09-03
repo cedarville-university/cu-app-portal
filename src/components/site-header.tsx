@@ -4,6 +4,7 @@ import { LoginButton } from "@/features/auth/login-button";
 import { LogoutButton } from "@/features/auth/logout-button";
 import { getServerSession } from "@/auth/session";
 import { userHasAdminRole } from "@/features/app-requests/access";
+import { CuLaunchBrand } from "./cu-launch-brand";
 
 export async function SiteHeader() {
   const session = await getServerSession();
@@ -16,20 +17,18 @@ export async function SiteHeader() {
     <header className="site-header">
       <div className="site-header__inner">
         <Link href="/" className="site-header__brand">
-          <div className="site-header__logo-mark">CU</div>
-          <div>
-            <span className="site-header__title">App Portal</span>
-            <span className="site-header__subtitle">Cedarville University</span>
-          </div>
+          <CuLaunchBrand compact surface="dark" />
         </Link>
 
         <nav className="site-header__nav" aria-label="Primary navigation">
-          <Link href="/">Home</Link>
-          <Link href="/create">Create App</Link>
-          <Link href="/apps">My Apps</Link>
-          <Link href="/apps/public">Public Apps</Link>
-          <Link href="/help">Help</Link>
-          {isAdmin ? <Link href="/admin">Admin</Link> : null}
+          <div className="site-header__nav-links">
+            <Link href="/">Home</Link>
+            <Link href="/create">Launch New App</Link>
+            <Link href="/apps">My Apps</Link>
+            <Link href="/apps/public">Public Apps</Link>
+            <Link href="/help">Help</Link>
+            {isAdmin ? <Link href="/admin">Admin</Link> : null}
+          </div>
           {session?.user ? (
             <details className="site-header__account-menu">
               <summary className="site-header__user-name">

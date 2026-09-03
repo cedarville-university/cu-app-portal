@@ -8,11 +8,11 @@ vi.mock("@/features/auth/login", () => ({
 }));
 
 describe("LoginPage", () => {
-  it("shows a branded Entra sign-in action and a cancel link home", async () => {
+  it("shows CU Launch, a branded Entra sign-in action, and a cancel link home", async () => {
     render(await LoginPage({ searchParams: Promise.resolve({}) }));
 
     expect(
-      screen.getByRole("heading", { name: "CU App Portal" }),
+      screen.getByRole("heading", { name: "CU Launch" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /sign in with microsoft entra/i }),

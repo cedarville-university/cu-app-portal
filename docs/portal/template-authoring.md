@@ -1,4 +1,4 @@
-# Template Authoring
+# CU Launch Template Authoring
 
 Templates are metadata-driven starter packages used by the portal to generate managed GitHub repository contents from a rendered source snapshot.
 
@@ -95,6 +95,12 @@ Publishing-capable templates can include assets such as:
 - `docs/publishing/`
 
 Current publishing-capable templates emit a generated deployment manifest at `app-portal/deployment-manifest.json` so generated-app fallback skills and portal-managed publishing flows can share the same deployment contract.
+
+Every publishing-capable generated app must retain an exact public `GET /api/health` endpoint. It must return HTTP 200 when the app process is healthy and must not require an allow-list match, session, database, or external service. The portal uses this narrowly scoped endpoint to verify deployments when the app's normal route requires authentication.
+
+When a later Codex change restricts an app's audience, it must use the portal-managed Cedarville Microsoft Entra sign-in flow, verify the user session, and enforce the requested restriction server-side. A client-only or standalone allow-list check is not sufficient.
+
+Custom sign-in routes are allowed, but their exact route and required Entra callback route must remain anonymous. Portal deployment verification uses only the fixed `/api/health` endpoint and does not infer deployment success from an app's sign-in redirect.
 
 Next.js publishing workflows provide a syntactically valid, non-production `DATABASE_URL` only to the GitHub Actions build step so Prisma can validate and generate the application without a live database. The portal-managed Azure App Service configuration remains the source of the real runtime connection string.
 

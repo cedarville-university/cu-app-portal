@@ -70,7 +70,7 @@ function buildEventContent(context: AppEventEmailContext): EventContent {
   const { appName, appHref, actorDisplayName } = context;
   const byActor = actorDisplayName ? ` by ${actorDisplayName}` : "";
   const viewApp: Cta | null = appHref
-    ? { label: "View app in portal", href: appHref }
+    ? { label: "View app in CU Launch", href: appHref }
     : null;
   const supportRows: DetailRow[] = context.supportReference
     ? [{ label: "Support reference", value: context.supportReference }]
@@ -100,18 +100,18 @@ function buildEventContent(context: AppEventEmailContext): EventContent {
     case "APP_CREATED":
       return {
         subject: `New app created: ${appName}`,
-        headline: `${actorDisplayName ?? "A portal user"} created ${appName} in the Cedarville App Portal.`,
+        headline: `${actorDisplayName ?? "A CU Launch user"} created ${appName} in CU Launch.`,
         detail:
-          "The portal is setting up the app now. You can follow its progress on the app page.",
+          "CU Launch is setting up the app now. You can follow its progress on the app page.",
         rows: supportRows,
         cta: viewApp,
       };
     case "EXISTING_APP_IMPORTED":
       return {
         subject: `App imported: ${appName}`,
-        headline: `${appName} was imported into the Cedarville App Portal${byActor}.`,
+        headline: `${appName} was imported into CU Launch${byActor}.`,
         detail:
-          "Its repository and publishing are now managed through the portal.",
+          "Its repository and publishing are now managed through CU Launch.",
         rows: [...repositoryRows, ...supportRows],
         cta: viewApp,
       };
@@ -126,25 +126,25 @@ function buildEventContent(context: AppEventEmailContext): EventContent {
     case "REPOSITORY_FAILED":
       return {
         subject: `Repository setup failed: ${appName}`,
-        headline: `The portal could not finish setting up the repository for ${appName}.`,
+        headline: `CU Launch could not finish setting up the repository for ${appName}.`,
         detail:
-          "You can retry from the app page. If the problem continues, contact Information Technology and mention the support reference below.",
+          "You can retry from the app page in CU Launch. If the problem continues, contact Information Technology and mention the support reference below.",
         rows: supportRows,
         cta: viewApp,
       };
     case "APP_DELETED":
       return {
         subject: `App deleted: ${appName}`,
-        headline: `${appName} has been deleted from the Cedarville App Portal${byActor}.`,
-        detail: "The app details page is no longer available in the portal.",
+        headline: `${appName} has been deleted from CU Launch${byActor}.`,
+        detail: "The app details page is no longer available in CU Launch.",
         rows: [],
         cta: null,
       };
     case "APP_SHARED":
       return {
         subject: `You've been added to ${appName}`,
-        headline: `${actorDisplayName ?? "A portal administrator"} gave you access to ${appName}.`,
-        detail: "You can now view and collaborate on this app in the portal.",
+        headline: `${actorDisplayName ?? "A CU Launch administrator"} gave you access to ${appName}.`,
+        detail: "You can now view and collaborate on this app in CU Launch.",
         rows: [],
         cta: viewApp,
       };
@@ -179,7 +179,7 @@ function buildEventContent(context: AppEventEmailContext): EventContent {
         subject: `Collaborator access removed: ${appName}`,
         headline: `Collaborator access to ${appName} was removed${byActor}.`,
         detail:
-          "If this change affects your account, you no longer have access to this app in the portal.",
+          "If this change affects your account, you no longer have access to this app in CU Launch.",
         rows: [],
         cta: viewApp,
       };
@@ -187,7 +187,7 @@ function buildEventContent(context: AppEventEmailContext): EventContent {
       return {
         subject: `Ownership changed: ${appName}`,
         headline: `${appName} has a new owner${actorDisplayName ? `, reassigned by ${actorDisplayName}` : ""}.`,
-        detail: "The owner manages collaborators and app settings in the portal.",
+        detail: "The owner manages collaborators and app settings in CU Launch.",
         rows: [],
         cta: viewApp,
       };
@@ -212,7 +212,7 @@ function buildEventContent(context: AppEventEmailContext): EventContent {
           : viewApp,
         secondaryCta:
           context.publishUrl && appHref
-            ? { label: "View app in portal", href: appHref }
+            ? { label: "View app in CU Launch", href: appHref }
             : undefined,
       };
     case "PUBLISH_FAILED":
@@ -220,16 +220,16 @@ function buildEventContent(context: AppEventEmailContext): EventContent {
         subject: `Publish failed: ${appName}`,
         headline: `The latest attempt to publish ${appName} did not complete.`,
         detail:
-          "Review the error below and try publishing again from the portal. If the problem continues, contact Information Technology and mention the support reference.",
+          "Review the error below and try publishing again from CU Launch. If the problem continues, contact Information Technology and mention the support reference.",
         rows: [...errorRows(context.publishErrorSummary), ...supportRows],
         cta: viewApp,
       };
     case "PUBLISHING_SETUP_NEEDS_REPAIR":
       return {
         subject: `Publishing needs attention: ${appName}`,
-        headline: `The portal found a problem with the publishing setup for ${appName}.`,
+        headline: `CU Launch found a problem with the publishing setup for ${appName}.`,
         detail:
-          "Open the app in the portal to repair the publishing setup, then try publishing again.",
+          "Open the app in CU Launch to repair the publishing setup, then try publishing again.",
         rows: [
           ...errorRows(context.publishingSetupErrorSummary),
           ...supportRows,

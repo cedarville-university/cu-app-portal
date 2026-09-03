@@ -21,7 +21,7 @@ export default async function TemplatePage({
       <nav aria-label="Breadcrumb" className="breadcrumb">
         <Link href="/">Home</Link>
         <span className="breadcrumb__sep" aria-hidden="true">/</span>
-        <Link href="/create">Create New App</Link>
+        <Link href="/create">Launch New App</Link>
         <span className="breadcrumb__sep" aria-hidden="true">/</span>
         <span aria-current="page">{template.name}</span>
       </nav>
@@ -46,8 +46,8 @@ export default async function TemplatePage({
         </section>
 
         <div className="info-box">
-          You can create the starter now. If you choose to customize it later,
-          the portal will guide you through the account and access steps.
+          You can launch the starter now. If you choose to customize it later,
+          CU Launch will guide you through the account and access steps.
         </div>
 
         <div className="card">

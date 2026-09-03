@@ -59,17 +59,17 @@ describe("renderAppEventEmail branded layout", () => {
     expect(email.html).toContain(
       'href="https://portal.example.edu/download/request-123"',
     );
-    expect(email.html).toContain("View app in portal");
+    expect(email.html).toContain("View app in CU Launch");
     expect(email.text).toContain(
-      "View app in portal: https://portal.example.edu/download/request-123",
+      "View app in CU Launch: https://portal.example.edu/download/request-123",
     );
   });
 
   it("omits the CTA when appHref is null", () => {
     const email = renderAppEventEmail({ ...baseContext, appHref: null });
 
-    expect(email.html).not.toContain("View app in portal");
-    expect(email.text).not.toContain("View app in portal");
+    expect(email.html).not.toContain("View app in CU Launch");
+    expect(email.text).not.toContain("View app in CU Launch");
   });
 
   it("escapes HTML in app and recipient names", () => {
@@ -98,7 +98,7 @@ describe("renderAppEventEmail event copy", () => {
 
     expect(email.subject).toBe("New app created: Campus Forms");
     expect(email.text).toContain(
-      "Owner User created Campus Forms in the Cedarville App Portal.",
+      "Owner User created Campus Forms in CU Launch.",
     );
     expect(email.text).toContain("Support reference: CU-123");
     expect(email.html).toContain("CU-123");
@@ -111,7 +111,7 @@ describe("renderAppEventEmail event copy", () => {
     });
 
     expect(email.text).toContain(
-      "A portal user created Campus Forms in the Cedarville App Portal.",
+      "A CU Launch user created Campus Forms in CU Launch.",
     );
   });
 
@@ -126,7 +126,7 @@ describe("renderAppEventEmail event copy", () => {
 
     expect(email.subject).toBe("App imported: Campus Forms");
     expect(email.text).toContain(
-      "Campus Forms was imported into the Cedarville App Portal by Owner User.",
+      "Campus Forms was imported into CU Launch by Owner User.",
     );
     expect(email.html).toContain(
       'href="https://github.com/cedarville/cu-campus-forms"',
@@ -159,7 +159,7 @@ describe("renderAppEventEmail event copy", () => {
 
     expect(email.subject).toBe("Repository setup failed: Campus Forms");
     expect(email.text).toContain(
-      "The portal could not finish setting up the repository for Campus Forms.",
+      "CU Launch could not finish setting up the repository for Campus Forms.",
     );
     expect(email.text).toContain("Support reference: CU-123");
   });
@@ -174,12 +174,12 @@ describe("renderAppEventEmail event copy", () => {
 
     expect(email.subject).toBe("App deleted: Campus Forms");
     expect(email.text).toContain(
-      "Campus Forms has been deleted from the Cedarville App Portal by Owner User.",
+      "Campus Forms has been deleted from CU Launch by Owner User.",
     );
     expect(email.text).toContain(
-      "The app details page is no longer available in the portal.",
+      "The app details page is no longer available in CU Launch.",
     );
-    expect(email.html).not.toContain("View app in portal");
+    expect(email.html).not.toContain("View app in CU Launch");
   });
 
   it("APP_SHARED tells the recipient who granted access", () => {
@@ -192,6 +192,15 @@ describe("renderAppEventEmail event copy", () => {
     expect(email.subject).toBe("You've been added to Campus Forms");
     expect(email.text).toContain(
       "Admin User gave you access to Campus Forms.",
+    );
+    expect(email.text).not.toContain("A portal administrator");
+
+    const fallbackEmail = renderAppEventEmail({
+      ...baseContext,
+      eventKey: "APP_SHARED",
+    });
+    expect(fallbackEmail.text).toContain(
+      "A CU Launch administrator gave you access",
     );
   });
 
@@ -278,7 +287,7 @@ describe("renderAppEventEmail event copy", () => {
       'href="https://campus-forms.azurewebsites.net"',
     );
     expect(email.text).toContain(
-      "View app in portal: https://portal.example.edu/download/request-123",
+      "View app in CU Launch: https://portal.example.edu/download/request-123",
     );
   });
 
@@ -289,7 +298,7 @@ describe("renderAppEventEmail event copy", () => {
     });
 
     expect(email.text).toContain(
-      "View app in portal: https://portal.example.edu/download/request-123",
+      "View app in CU Launch: https://portal.example.edu/download/request-123",
     );
     expect(email.text).not.toContain("Visit your site");
   });
@@ -321,7 +330,7 @@ describe("renderAppEventEmail event copy", () => {
 
     expect(email.subject).toBe("Publishing needs attention: Campus Forms");
     expect(email.text).toContain(
-      "The portal found a problem with the publishing setup for Campus Forms.",
+      "CU Launch found a problem with the publishing setup for Campus Forms.",
     );
     expect(email.text).toContain("Error: Missing deployment credentials");
   });

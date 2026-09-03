@@ -1,7 +1,7 @@
 ---
 title: Frequently Asked Questions
 description: Answers to common questions about apps, GitHub, Azure, access, and publishing.
-lastReviewed: 2026-08-25
+lastReviewed: 2026-09-02
 owner: Cedarville IT
 ---
 
@@ -37,7 +37,7 @@ No. **Share in Portal** lets signed-in Cedarville portal users see the app's nam
 
 ## Does creating a starter publish it?
 
-No. **Create App** makes the starter and its managed repository, then stops. **Publish the starter now** starts Azure publishing immediately and is the only publish confirmation for an unchanged starter. **Customize it with Codex first** leads through GitHub access and setup before a later **Publish to Azure** action.
+No. **Launch App** makes the starter and its managed repository, then stops. **Publish the starter now** starts Azure publishing immediately and is the only publish confirmation for an unchanged starter. **Customize it with Codex first** leads through GitHub access and setup before a later **Publish to Azure** action.
 
 ## Do I need a GitHub account?
 

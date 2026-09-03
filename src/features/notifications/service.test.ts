@@ -611,7 +611,7 @@ describe("sendDeletedAppNotificationSnapshot", () => {
       expect.objectContaining({
         to: "owner@cedarville.edu",
         text: expect.stringContaining(
-          "The app details page is no longer available in the portal.",
+          "The app details page is no longer available in CU Launch.",
         ),
       }),
     );
@@ -696,13 +696,13 @@ describe("sendDeletedAppNotificationSnapshot", () => {
         subject: "App deleted: Campus Forms",
         html: expect.stringContaining("Hi Collaborator User,"),
         text: expect.stringContaining(
-          "Campus Forms has been deleted from the Cedarville App Portal by Owner User.",
+          "Campus Forms has been deleted from CU Launch by Owner User.",
         ),
       }),
     );
     expect(mailer.send).not.toHaveBeenCalledWith(
       expect.objectContaining({
-        html: expect.stringContaining("View app in portal"),
+        html: expect.stringContaining("View app in CU Launch"),
       }),
     );
   });

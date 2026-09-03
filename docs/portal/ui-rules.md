@@ -1,4 +1,4 @@
-# UI Rules — Cedarville App Portal
+# UI Rules — CU Launch
 
 All UI work in this codebase must follow these rules. They exist to keep the portal
 visually consistent with the Cedarville University brand and to avoid regressions as
@@ -377,8 +377,8 @@ When a list has no items:
 <div className="empty-state">
   <div className="empty-state__icon">📦</div>
   <div className="empty-state__title">No apps yet</div>
-  <p className="empty-state__desc">Create your first app to get started.</p>
-  <Link href="/create" className="btn btn--primary-solid">Create New App</Link>
+  <p className="empty-state__desc">Launch your first app to get started.</p>
+  <Link href="/create" className="btn btn--primary-solid">Launch New App</Link>
 </div>
 ```
 
