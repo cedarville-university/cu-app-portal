@@ -10,11 +10,11 @@ describe("HomePage", () => {
       screen.getByRole("heading", { name: "CU Launch" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Launch New App" }),
-    ).toHaveAttribute("href", "/onboarding?start=new");
+      screen.getByRole("link", { name: "Launch Your App" }),
+    ).toHaveAttribute("href", "/onboarding");
     expect(
-      screen.getByRole("link", { name: /add existing app/i }),
-    ).toHaveAttribute("href", "/onboarding?start=existing");
+      screen.queryByRole("link", { name: /add existing app/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/launch an app, keep its code in a private online home/i)).toBeInTheDocument();
     expect(screen.queryByText(/github \(an online platform/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/microsoft’s cloud hosting service/i)).not.toBeInTheDocument();

@@ -12,14 +12,8 @@ export default function HomePage() {
           online — all from one place.
         </p>
         <div className="hero__actions">
-          <Link href="/onboarding?start=new" className="btn btn--secondary-solid btn--lg">
-            Launch New App
-          </Link>
-          <Link
-            href="/onboarding?start=existing"
-            className="btn btn--ghost btn--lg hero__secondary-action"
-          >
-            Add Existing App
+          <Link href="/onboarding" className="btn btn--secondary-solid btn--lg">
+            Launch Your App
           </Link>
           <Link
             href="/apps"

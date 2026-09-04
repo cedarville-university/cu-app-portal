@@ -492,7 +492,6 @@ export default async function AppOnboardingPage({
           explanation="You can publish the starter exactly as it is, or customize it first with Codex, an assistant that can make app changes for you. Publishing the starter does not require an account for the private code home."
           next="Choose whether to put this starter online as-is or make changes before publishing."
           supportReference={app.supportReference}
-          details={repositoryDetails}
         >
           <div className="wizard-actions">
             <div>
@@ -590,7 +589,6 @@ export default async function AppOnboardingPage({
           explanation="GitHub is the private online home for your app's code. The portal needs your GitHub username so it can invite your signed-in account to that private home."
           next="After access is ready, the portal will give you one prompt to paste into Codex."
           supportReference={app.supportReference}
-          details={repositoryDetails}
         >
           {accountAction}
         </OnboardingStepShell>

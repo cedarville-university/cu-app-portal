@@ -390,6 +390,9 @@ describe("AppOnboardingPage generated apps", () => {
     await renderPage();
 
     expect(
+      screen.queryByRole("link", { name: /open your private code home on github/i }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: /publish the starter now/i }),
     ).toBeInTheDocument();
     expect(
@@ -457,6 +460,9 @@ describe("AppOnboardingPage generated apps", () => {
 
     await renderPage({ path: "customize" });
 
+    expect(
+      screen.queryByRole("link", { name: /open your private code home on github/i }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "I already have a GitHub account" }),
     ).toHaveAttribute(

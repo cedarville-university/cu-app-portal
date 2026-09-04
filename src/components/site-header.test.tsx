@@ -30,15 +30,14 @@ afterEach(() => {
 });
 
 describe("SiteHeader", () => {
-  it("labels the create action as Launch New App", async () => {
+  it("does not show the create action in the site header", async () => {
     mockGetServerSession.mockResolvedValue(null);
 
     render(await SiteHeader());
 
-    expect(screen.getByRole("link", { name: "Launch New App" })).toHaveAttribute(
-      "href",
-      "/create",
-    );
+    expect(
+      screen.queryByRole("link", { name: "Launch New App" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows an Admin link to authenticated admins", async () => {
@@ -131,8 +130,8 @@ describe("SiteHeader", () => {
     const linkStrip = navigation.querySelector(".site-header__nav-links");
 
     expect(linkStrip).not.toBeNull();
-    expect(linkStrip).toContainElement(
-      screen.getByRole("link", { name: "Launch New App" }),
+    expect(linkStrip).not.toContainElement(
+      screen.queryByRole("link", { name: "Launch New App" }),
     );
     expect(linkStrip).not.toContainElement(accountMenu);
   });
