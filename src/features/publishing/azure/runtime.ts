@@ -17,7 +17,10 @@ import type { AzurePublishConfig } from "./config";
 import { buildPublishResourceTags, buildPublishTargetNames } from "./naming";
 import { verifyPublishedUrl as defaultVerifyPublishedUrl } from "./verify-deployment";
 import { buildUserAppSettings } from "@/features/env-vars/settings";
-import { KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID } from "./arm-client";
+import {
+  KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID,
+  WEBSITE_CONTRIBUTOR_ROLE_DEFINITION_ID,
+} from "./arm-client";
 import {
   buildGitHubFederatedCredentialSubject,
   type GitHubOidcRepositoryIdentity,
@@ -75,16 +78,31 @@ type RuntimeDeps = {
       resourceGroup: string;
       name: string;
     }): Promise<{ principalId: string }>;
+    webAppId(resourceGroup: string, name: string): string;
+    putUserAssignedIdentity(input: {
+      resourceGroup: string;
+      name: string;
+      location: string;
+      tags: Record<string, string>;
+    }): Promise<{ clientId: string; principalId: string }>;
+    getUserAssignedIdentity(input: {
+      resourceGroup: string;
+      name: string;
+    }): Promise<
+      | { exists: false }
+      | { exists: true; clientId: string; principalId: string }
+    >;
+    ensureFederatedIdentityCredential(input: {
+      resourceGroup: string;
+      identityName: string;
+      name: string;
+      subject: string;
+    }): Promise<void>;
   };
   graph: {
     ensureRedirectUri(input: {
       applicationObjectId: string;
       redirectUri: string;
-    }): Promise<void>;
-    ensureFederatedCredential(input: {
-      applicationAppId: string;
-      name: string;
-      subject: string;
     }): Promise<void>;
   };
   github: {
@@ -550,6 +568,22 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         webApp.properties?.defaultHostName ?? names.azureDefaultHostName;
       const primaryPublishUrl = `https://${azureDefaultHostName}`;
 
+      // Each app deploys through its own managed identity, which may only
+      // touch this app's Web App.
+      await options?.authorizeProviderMutation?.();
+      const deployIdentity = await deps.arm.putUserAssignedIdentity({
+        resourceGroup: deps.config.resourceGroup,
+        name: names.managedIdentityName,
+        location: deps.config.location,
+        tags,
+      });
+      await options?.authorizeProviderMutation?.();
+      await deps.arm.putRoleAssignment({
+        scope: deps.arm.webAppId(deps.config.resourceGroup, names.webAppName),
+        roleDefinitionId: WEBSITE_CONTRIBUTOR_ROLE_DEFINITION_ID,
+        principalId: deployIdentity.principalId,
+      });
+
       if (keyVaultName && keyVaultUri) {
         let principalId = webApp.identity?.principalId;
         if (!principalId) {
@@ -616,6 +650,8 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
           databaseProvider === "postgresql" ? names.databaseName : null,
         azureKeyVaultName: keyVaultName ?? null,
         azureKeyVaultUri: keyVaultUri ?? null,
+        azureManagedIdentityName: names.managedIdentityName,
+        azureManagedIdentityClientId: deployIdentity.clientId,
         azureDefaultHostName,
         primaryPublishUrl,
       };
@@ -639,14 +675,25 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         name,
       });
       await options?.authorizeProviderMutation?.();
-      await deps.graph.ensureFederatedCredential({
-        applicationAppId: deps.config.azureClientId,
+      await deps.arm.ensureFederatedIdentityCredential({
+        resourceGroup: deps.config.resourceGroup,
+        identityName: names.managedIdentityName,
         name: names.federatedCredentialName,
         subject: buildGitHubFederatedCredentialSubject({
           identity: oidcIdentity,
           branch,
         }),
       });
+      const deployIdentity = await deps.arm.getUserAssignedIdentity({
+        resourceGroup: deps.config.resourceGroup,
+        name: names.managedIdentityName,
+      });
+
+      if (!deployIdentity.exists) {
+        throw new Error(
+          `Deployment identity ${names.managedIdentityName} is missing. Run Repair Publishing Setup.`,
+        );
+      }
 
       options?.onSetupStep?.("github_actions_secrets");
       await options?.authorizeProviderMutation?.();
@@ -654,7 +701,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         owner,
         name,
         secretName: "AZURE_CLIENT_ID",
-        secretValue: deps.config.azureClientId,
+        secretValue: deployIdentity.clientId,
       });
       await options?.authorizeProviderMutation?.();
       await deps.github.setActionsSecret({
