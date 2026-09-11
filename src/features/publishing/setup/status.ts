@@ -60,7 +60,11 @@ const STALE_CREDENTIAL_DETAIL =
 const GRAPH_PERMISSION_SUMMARY =
   "Microsoft Graph permission is missing for Entra publishing setup.";
 const GRAPH_PERMISSION_DETAIL =
-  "Grant the portal runtime identity permission to update the shared app registration redirect URIs and the publisher application's federated identity credentials, then run Repair Publishing Setup.";
+  "Grant the portal runtime identity permission to update the shared app registration redirect URIs, then run Repair Publishing Setup.";
+const AZURE_PERMISSION_SUMMARY =
+  "Azure permission is missing for publishing setup.";
+const AZURE_PERMISSION_DETAIL =
+  "Grant the portal runtime identity Contributor and the constrained Role Based Access Control Administrator role (allowing Key Vault Secrets User and Website Contributor) on the publish resource group, then run Repair Publishing Setup.";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -94,6 +98,10 @@ function getProviderRequestId(payload: ReturnType<typeof parseGraphErrorPayload>
     payload?.error?.innerError?.requestId ??
     null
   );
+}
+
+function isAzureArmForbidden(message: string) {
+  return message.includes("Azure ARM request failed: 403");
 }
 
 function isGraphAuthorizationDenied(message: string) {
@@ -133,6 +141,15 @@ export function classifyPublishingSetupError({
       summary: GRAPH_PERMISSION_SUMMARY,
       operatorDetail: GRAPH_PERMISSION_DETAIL,
       providerRequestId: getProviderRequestId(graphPayload),
+    };
+  }
+
+  if (isAzureArmForbidden(message)) {
+    return {
+      setupStatus: "BLOCKED",
+      summary: AZURE_PERMISSION_SUMMARY,
+      operatorDetail: AZURE_PERMISSION_DETAIL,
+      providerRequestId: null,
     };
   }
 

@@ -15,7 +15,6 @@ const azurePublishConfigSchema = z.object({
   AZURE_PUBLISH_POSTGRES_ADMIN_PASSWORD: nonBlankString,
   AZURE_PUBLISH_LOCATION: nonBlankString,
   AZURE_PUBLISH_RUNTIME_STACK: nonBlankString,
-  AZURE_PUBLISH_CLIENT_ID: nonBlankString,
   AZURE_PUBLISH_TENANT_ID: nonBlankString,
   AZURE_PUBLISH_SUBSCRIPTION_ID: nonBlankString,
   AZURE_PUBLISH_AUTH_SECRET: nonBlankString,
@@ -33,7 +32,6 @@ export type AzurePublishConfig = {
   postgresAdminPassword: string;
   location: string;
   runtimeStack: string;
-  azureClientId: string;
   azureTenantId: string;
   azureSubscriptionId: string;
   authSecret: string;
@@ -56,7 +54,6 @@ export function loadAzurePublishConfig(
     postgresAdminPassword: parsed.AZURE_PUBLISH_POSTGRES_ADMIN_PASSWORD,
     location: parsed.AZURE_PUBLISH_LOCATION,
     runtimeStack: parsed.AZURE_PUBLISH_RUNTIME_STACK,
-    azureClientId: parsed.AZURE_PUBLISH_CLIENT_ID,
     azureTenantId: parsed.AZURE_PUBLISH_TENANT_ID,
     azureSubscriptionId: parsed.AZURE_PUBLISH_SUBSCRIPTION_ID,
     authSecret: parsed.AZURE_PUBLISH_AUTH_SECRET,
