@@ -79,6 +79,8 @@ model AppRequest {
   azureDefaultHostName  String?
   azureKeyVaultName     String?
   azureKeyVaultUri      String?
+  azureManagedIdentityName String?
+  azureManagedIdentityClientId String?
   customDomain          String?
   primaryPublishUrl     String?
   isPubliclyListed Boolean            @default(false)

@@ -9,6 +9,7 @@ type PublishTargetNames = {
   webAppName: string;
   databaseName: string;
   federatedCredentialName: string;
+  managedIdentityName: string;
   keyVaultName: string;
   azureDefaultHostName: string;
   primaryPublishUrl: string;
@@ -103,6 +104,12 @@ export function buildPublishTargetNames({
     suffix: shortRequestId,
     maxLength: 120,
   });
+  const managedIdentityName = buildNameWithSuffix({
+    prefix: "id-",
+    slug,
+    suffix: shortRequestId,
+    maxLength: 128,
+  });
   const keyVaultName = buildNameWithSuffix({
     prefix: "kv-",
     slug,
@@ -117,6 +124,7 @@ export function buildPublishTargetNames({
     webAppName,
     databaseName,
     federatedCredentialName,
+    managedIdentityName,
     keyVaultName,
     azureDefaultHostName,
     primaryPublishUrl: `https://${azureDefaultHostName}`,
