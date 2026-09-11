@@ -131,7 +131,6 @@ function createDeps(
       postgresAdminPassword: "secret",
       location: "eastus",
       runtimeStack: "NODE|24-lts" as const,
-      azureClientId: "azure-client-id",
       azureTenantId: "tenant-id",
       azureSubscriptionId: "sub-id",
       authSecret: "auth-secret",
@@ -167,18 +166,33 @@ function createDeps(
         },
       }),
       putAppSettings: vi.fn(),
+      webAppId: vi.fn(
+        (resourceGroup: string, name: string) =>
+          `/subscriptions/sub-id/resourceGroups/${resourceGroup}/providers/Microsoft.Web/sites/${name}`,
+      ),
+      putUserAssignedIdentity: vi.fn().mockResolvedValue({
+        clientId: "identity-client-id",
+        principalId: "identity-principal",
+      }),
+      getUserAssignedIdentity: vi.fn().mockResolvedValue({
+        exists: true,
+        clientId: "identity-client-id",
+        principalId: "identity-principal",
+      }),
+      putRoleAssignment: vi.fn(),
+      listFederatedIdentityCredentials: vi.fn().mockResolvedValue([
+        {
+          name: "github-campus-dashboard-req123",
+          issuer: "https://token.actions.githubusercontent.com",
+          subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+          audiences: ["api://AzureADTokenExchange"],
+        },
+      ]),
+      ensureFederatedIdentityCredential: vi.fn(),
     },
     graph: {
       hasRedirectUri: vi.fn().mockResolvedValue({ exists: true }),
       ensureRedirectUri: vi.fn(),
-      listFederatedCredentials: vi.fn().mockResolvedValue([
-        {
-          id: "credential-id",
-          name: "github-campus-dashboard-req123",
-          subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
-        },
-      ]),
-      replaceFederatedCredential: vi.fn(),
     },
     github: {
       getRepositoryOidcIdentity: vi.fn().mockResolvedValue({
@@ -274,7 +288,7 @@ describe("publishing setup service", () => {
     expect(deps.arm.putWebApp).not.toHaveBeenCalled();
     expect(deps.arm.putAppSettings).not.toHaveBeenCalled();
     expect(deps.graph.ensureRedirectUri).not.toHaveBeenCalled();
-    expect(deps.graph.replaceFederatedCredential).not.toHaveBeenCalled();
+    expect(deps.arm.ensureFederatedIdentityCredential).not.toHaveBeenCalled();
     expect(deps.github.deleteActionsSecret).not.toHaveBeenCalled();
     expect(deps.github.setActionsSecret).not.toHaveBeenCalled();
   });
@@ -282,14 +296,15 @@ describe("publishing setup service", () => {
   it("accepts the expected subject when the credential has a different name", async () => {
     const baseDeps = createDeps();
     const deps = createDeps({
-      graph: {
-        ...baseDeps.graph,
-        listFederatedCredentials: vi.fn().mockResolvedValue([
+      arm: {
+        ...baseDeps.arm,
+        listFederatedIdentityCredentials: vi.fn().mockResolvedValue([
           {
-            id: "matching-credential-id",
             name: "manually-repaired-campus-dashboard",
+            issuer: "https://token.actions.githubusercontent.com",
             subject:
               "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+            audiences: ["api://AzureADTokenExchange"],
           },
         ]),
       },
@@ -309,6 +324,76 @@ describe("publishing setup service", () => {
           metadata: expect.objectContaining({
             credentialName: "manually-repaired-campus-dashboard",
           }),
+        }),
+      }),
+    );
+  });
+
+  it("marks setup needs repair when the deploy identity is missing", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        getUserAssignedIdentity: vi.fn().mockResolvedValue({ exists: false }),
+      },
+    });
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(deps.arm.listFederatedIdentityCredentials).not.toHaveBeenCalled();
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        publishingSetupStatus: "NEEDS_REPAIR",
+        publishingSetupErrorSummary: "Deployment identity is missing.",
+      }),
+    });
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "github_federated_credential",
+          status: "FAIL",
+          metadata: {
+            managedIdentityName: "id-campus-dashboard-req123",
+            credentialName: "github-campus-dashboard-req123",
+            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+            repairable: true,
+          },
+        }),
+      }),
+    );
+  });
+
+  it("marks setup needs repair when the deploy identity credential is stale", async () => {
+    const baseDeps = createDeps();
+    const deps = createDeps({
+      arm: {
+        ...baseDeps.arm,
+        listFederatedIdentityCredentials: vi.fn().mockResolvedValue([
+          {
+            name: "github-campus-dashboard-req123",
+            issuer: "https://token.actions.githubusercontent.com",
+            subject: "repo:cedarville-it/old-name:ref:refs/heads/main",
+            audiences: ["api://AzureADTokenExchange"],
+          },
+        ]),
+      },
+    });
+
+    await preflightPublishingSetup("req_123", deps);
+
+    expect(prisma.publishSetupCheck.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          checkKey: "github_federated_credential",
+          status: "FAIL",
+          message: "GitHub OIDC federated credential is missing or stale.",
+          metadata: {
+            managedIdentityName: "id-campus-dashboard-req123",
+            credentialName: "github-campus-dashboard-req123",
+            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+            repairable: true,
+          },
         }),
       }),
     );
@@ -450,16 +535,6 @@ describe("publishing setup service", () => {
             ENABLE_ORYX_BUILD: "true",
           },
         }),
-      },
-      graph: {
-        ...baseDeps.graph,
-        listFederatedCredentials: vi.fn().mockResolvedValue([
-          {
-            id: "credential-id",
-            name: "github-campus-api-req123",
-            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
-          },
-        ]),
       },
     });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
@@ -900,11 +975,31 @@ describe("publishing setup service", () => {
         expect.objectContaining({ secretName }),
       );
     }
-    expect(deps.graph.replaceFederatedCredential).toHaveBeenCalledWith(
+    expect(deps.arm.putUserAssignedIdentity).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      name: "id-campus-dashboard-req123",
+      location: "eastus",
+      tags: expect.objectContaining({
+        managedBy: "cu-app-portal",
+        appRequestId: "req_123",
+      }),
+    });
+    expect(deps.arm.putRoleAssignment).toHaveBeenCalledWith({
+      scope:
+        "/subscriptions/sub-id/resourceGroups/rg-cu-apps-published/providers/Microsoft.Web/sites/app-campus-dashboard-req123",
+      roleDefinitionId: "de139f84-1756-47ae-9be6-808fbbe84772",
+      principalId: "identity-principal",
+    });
+    expect(deps.arm.ensureFederatedIdentityCredential).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      identityName: "id-campus-dashboard-req123",
+      name: "github-campus-dashboard-req123",
+      subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+    });
+    expect(deps.github.setActionsSecret).toHaveBeenCalledWith(
       expect.objectContaining({
-        applicationAppId: "azure-client-id",
-        subject:
-          "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
+        secretName: "AZURE_CLIENT_ID",
+        secretValue: "identity-client-id",
       }),
     );
     expect(deps.arm.putWebApp).toHaveBeenCalledWith(
@@ -913,6 +1008,13 @@ describe("publishing setup service", () => {
         startupCommand: "npm start",
       }),
     );
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "req_123" },
+      data: expect.objectContaining({
+        azureManagedIdentityName: "id-campus-dashboard-req123",
+        azureManagedIdentityClientId: "identity-client-id",
+      }),
+    });
     expect("dispatchWorkflow" in deps.github).toBe(false);
     expect(prisma.appRequest.update).toHaveBeenLastCalledWith({
       where: { id: "req_123" },
@@ -1068,8 +1170,9 @@ describe("publishing setup service", () => {
 
     await repairPublishingSetup("req_123", deps);
 
-    expect(deps.graph.replaceFederatedCredential).toHaveBeenCalledWith({
-      applicationAppId: "azure-client-id",
+    expect(deps.arm.ensureFederatedIdentityCredential).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      identityName: "id-campus-dashboard-req123",
       name: "github-campus-dashboard-req123",
       subject:
         "repo:cu-app-portal-repos@280105215/slide-show-inator@1330196457:ref:refs/heads/main",
@@ -1184,16 +1287,6 @@ describe("publishing setup service", () => {
               WEBSITE_RUN_FROM_PACKAGE: "1",
             },
           }),
-      },
-      graph: {
-        ...baseDeps.graph,
-        listFederatedCredentials: vi.fn().mockResolvedValue([
-          {
-            id: "credential-id",
-            name: "github-campus-static-site-req123",
-            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
-          },
-        ]),
       },
     });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
@@ -1401,16 +1494,6 @@ describe("publishing setup service", () => {
               EXISTING_CUSTOM_SETTING: "keep-me",
             },
           }),
-      },
-      graph: {
-        ...baseDeps.graph,
-        listFederatedCredentials: vi.fn().mockResolvedValue([
-          {
-            id: "credential-id",
-            name: "github-campus-api-req123",
-            subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
-          },
-        ]),
       },
     });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(

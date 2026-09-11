@@ -9,7 +9,10 @@ import {
 } from "@/features/publishing/github-oidc";
 import { getTemplateBySlug } from "@/features/templates/catalog";
 import type { DatabaseProvider, PortalTemplate } from "@/features/templates/types";
-import { createAzureArmClient } from "@/features/publishing/azure/arm-client";
+import {
+  WEBSITE_CONTRIBUTOR_ROLE_DEFINITION_ID,
+  createAzureArmClient,
+} from "@/features/publishing/azure/arm-client";
 import {
   applyAppServiceDeploymentSettings,
   appServiceDeploymentSettings,
@@ -145,6 +148,35 @@ export type PublishingSetupServiceDeps = {
       name: string;
       settings: Record<string, string>;
     }): Promise<void>;
+    webAppId(resourceGroup: string, name: string): string;
+    putUserAssignedIdentity(input: {
+      resourceGroup: string;
+      name: string;
+      location: string;
+      tags: Record<string, string>;
+    }): Promise<{ clientId: string; principalId: string }>;
+    getUserAssignedIdentity(input: {
+      resourceGroup: string;
+      name: string;
+    }): Promise<
+      | { exists: false }
+      | { exists: true; clientId: string; principalId: string }
+    >;
+    putRoleAssignment(input: {
+      scope: string;
+      roleDefinitionId: string;
+      principalId: string;
+    }): Promise<void>;
+    listFederatedIdentityCredentials(input: {
+      resourceGroup: string;
+      identityName: string;
+    }): Promise<Array<{ name: string; subject: string }>>;
+    ensureFederatedIdentityCredential(input: {
+      resourceGroup: string;
+      identityName: string;
+      name: string;
+      subject: string;
+    }): Promise<void>;
   };
   graph: {
     hasRedirectUri(input: {
@@ -154,14 +186,6 @@ export type PublishingSetupServiceDeps = {
     ensureRedirectUri(input: {
       applicationObjectId: string;
       redirectUri: string;
-    }): Promise<void>;
-    listFederatedCredentials(input: {
-      applicationAppId: string;
-    }): Promise<Array<{ id: string; name: string; subject?: string }>>;
-    replaceFederatedCredential(input: {
-      applicationAppId: string;
-      name: string;
-      subject: string;
     }): Promise<void>;
   };
   github: {
@@ -453,9 +477,13 @@ function buildDatabaseUrl(config: AzurePublishConfig, databaseName: string) {
   return `postgresql://${config.postgresAdminUser}:${password}@${config.postgresServer}.postgres.database.azure.com:5432/${databaseName}?sslmode=require`;
 }
 
-function buildSecretValues(config: AzurePublishConfig, webAppName: string) {
+function buildSecretValues(
+  config: AzurePublishConfig,
+  webAppName: string,
+  deployIdentityClientId: string,
+) {
   return {
-    AZURE_CLIENT_ID: config.azureClientId,
+    AZURE_CLIENT_ID: deployIdentityClientId,
     AZURE_TENANT_ID: config.azureTenantId,
     AZURE_SUBSCRIPTION_ID: config.azureSubscriptionId,
     AZURE_WEBAPP_NAME: webAppName,
@@ -1049,6 +1077,57 @@ function hasTopLevelWorkflowDispatchTrigger(workflow: string) {
   return false;
 }
 
+async function checkDeployIdentityCredential({
+  deps,
+  managedIdentityName,
+  credentialName,
+  expectedSubject,
+}: {
+  deps: PublishingSetupServiceDeps;
+  managedIdentityName: string;
+  credentialName: string;
+  expectedSubject: string;
+}) {
+  const metadata = {
+    managedIdentityName,
+    credentialName,
+    subject: expectedSubject,
+  };
+  const identity = await deps.arm.getUserAssignedIdentity({
+    resourceGroup: deps.config.resourceGroup,
+    name: managedIdentityName,
+  });
+
+  if (!identity.exists) {
+    return fail("github_federated_credential", "Deployment identity is missing.", {
+      ...metadata,
+      repairable: true,
+    });
+  }
+
+  const credentials = await deps.arm.listFederatedIdentityCredentials({
+    resourceGroup: deps.config.resourceGroup,
+    identityName: managedIdentityName,
+  });
+  const credential = credentials.find(
+    (item) => item.subject === expectedSubject,
+  );
+
+  if (credential) {
+    return pass(
+      "github_federated_credential",
+      "GitHub OIDC federated credential is present.",
+      { ...metadata, credentialName: credential.name },
+    );
+  }
+
+  return fail(
+    "github_federated_credential",
+    "GitHub OIDC federated credential is missing or stale.",
+    { ...metadata, repairable: true },
+  );
+}
+
 async function runPreflightChecks(
   appRequest: SetupAppRequest,
   deps: PublishingSetupServiceDeps,
@@ -1105,25 +1184,13 @@ async function runPreflightChecks(
     );
   }
 
-  const credentials = await deps.graph.listFederatedCredentials({
-    applicationAppId: deps.config.azureClientId,
-  });
-  const credentialName = federatedCredentialName(appRequest);
-  const credential = credentials.find(
-    (item) => item.subject === expectedSubject,
-  );
   checks.push(
-    credential
-      ? pass(
-          "github_federated_credential",
-          "GitHub OIDC federated credential is present.",
-          { credentialName: credential.name, subject: expectedSubject },
-        )
-      : fail(
-          "github_federated_credential",
-          "GitHub OIDC federated credential is missing or stale.",
-          { credentialName, subject: expectedSubject, repairable: true },
-        ),
+    await checkDeployIdentityCredential({
+      deps,
+      managedIdentityName: names.managedIdentityName,
+      credentialName: federatedCredentialName(appRequest),
+      expectedSubject,
+    }),
   );
 
   checks.push(
@@ -1245,6 +1312,20 @@ export async function repairPublishingSetup(
     const azurePublishUrl = `https://${azureDefaultHostName}`;
     const effectivePublishUrl = appRequest.primaryPublishUrl ?? azurePublishUrl;
 
+    await options.authorizeProviderMutation?.();
+    const deployIdentity = await deps.arm.putUserAssignedIdentity({
+      resourceGroup: deps.config.resourceGroup,
+      name: names.managedIdentityName,
+      location: deps.config.location,
+      tags,
+    });
+    await options.authorizeProviderMutation?.();
+    await deps.arm.putRoleAssignment({
+      scope: deps.arm.webAppId(deps.config.resourceGroup, names.webAppName),
+      roleDefinitionId: WEBSITE_CONTRIBUTOR_ROLE_DEFINITION_ID,
+      principalId: deployIdentity.principalId,
+    });
+
     repairStep = "azure_app_settings";
     const existingAppSettings = await deps.arm.getAppSettings({
       resourceGroup: deps.config.resourceGroup,
@@ -1284,8 +1365,9 @@ export async function repairPublishingSetup(
       name: repo.name,
     });
     await options.authorizeProviderMutation?.();
-    await deps.graph.replaceFederatedCredential({
-      applicationAppId: deps.config.azureClientId,
+    await deps.arm.ensureFederatedIdentityCredential({
+      resourceGroup: deps.config.resourceGroup,
+      identityName: names.managedIdentityName,
       name: federatedCredentialName(appRequest),
       subject: buildGitHubFederatedCredentialSubject({
         identity: oidcIdentity,
@@ -1293,7 +1375,11 @@ export async function repairPublishingSetup(
       }),
     });
 
-    const secretValues = buildSecretValues(deps.config, names.webAppName);
+    const secretValues = buildSecretValues(
+      deps.config,
+      names.webAppName,
+      deployIdentity.clientId,
+    );
 
     repairStep = "github_actions_secrets";
     for (const secretName of REQUIRED_PORTAL_MANAGED_SECRETS) {
@@ -1324,6 +1410,8 @@ export async function repairPublishingSetup(
         azurePostgresServer: deps.config.postgresServer,
         azureDatabaseName:
           databaseProvider === "postgresql" ? names.databaseName : null,
+        azureManagedIdentityName: names.managedIdentityName,
+        azureManagedIdentityClientId: deployIdentity.clientId,
         azureDefaultHostName,
         primaryPublishUrl: effectivePublishUrl,
         publishingSetupRepairedAt: new Date(),

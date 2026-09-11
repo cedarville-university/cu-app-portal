@@ -21,6 +21,7 @@ const SAFE_METADATA_KEYS = new Set([
   "resourcegroup",
   "secretname",
   "secretnames",
+  "managedidentityname",
   "missingsettingnames",
   "mismatchedsettingnames",
   "settingnames",
