@@ -261,7 +261,7 @@ const CHECK_KEY_LABELS: Record<string, string> = {
   azure_resource_access: "Azure hosting access",
   azure_app_settings: "Azure app configuration",
   entra_redirect_uri: "Login configuration",
-  github_federated_credential: "GitHub publish credential",
+  github_federated_credential: "GitHub publish identity",
   github_actions_secrets: "GitHub publish secrets",
   github_workflow_file: "GitHub workflow file",
   github_workflow_dispatch: "GitHub workflow trigger",

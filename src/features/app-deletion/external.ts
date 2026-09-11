@@ -26,6 +26,7 @@ export type DeleteAzureDeploymentInput = {
   repositoryName?: string | null;
   repositoryDefaultBranch?: string | null;
   keyVaultName?: string | null;
+  managedIdentityName?: string | null;
 };
 
 type AzureDeletionDeps = {
@@ -41,6 +42,10 @@ type AzureDeletionDeps = {
       databaseName: string;
     }): Promise<void>;
     deleteKeyVault(input: {
+      resourceGroup: string;
+      name: string;
+    }): Promise<void>;
+    deleteUserAssignedIdentity(input: {
       resourceGroup: string;
       name: string;
     }): Promise<void>;
@@ -129,6 +134,13 @@ export async function deleteAzureDeployment(
     await deps.arm.deleteKeyVault({
       resourceGroup,
       name: input.keyVaultName,
+    });
+  }
+
+  if (input.managedIdentityName) {
+    await deps.arm.deleteUserAssignedIdentity({
+      resourceGroup,
+      name: input.managedIdentityName,
     });
   }
 }

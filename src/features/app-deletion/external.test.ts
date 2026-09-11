@@ -12,6 +12,7 @@ function createArm() {
     deleteWebApp: vi.fn().mockResolvedValue(undefined),
     deletePostgresDatabase: vi.fn().mockResolvedValue(undefined),
     deleteKeyVault: vi.fn().mockResolvedValue(undefined),
+    deleteUserAssignedIdentity: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -51,5 +52,47 @@ describe("deleteAzureDeployment", () => {
     );
 
     expect(arm.deleteKeyVault).not.toHaveBeenCalled();
+  });
+
+  it("deletes the deploy identity after the web app when the app has one", async () => {
+    const arm = createArm();
+
+    await deleteAzureDeployment(
+      {
+        resourceGroup: "rg-cu-apps-published",
+        webAppName: "app-campus-dashboard-clx9abc1",
+        postgresServer: "psql-cu-apps-published",
+        databaseName: null,
+        keyVaultName: null,
+        managedIdentityName: "id-campus-dashboard-clx9abc1",
+      },
+      { config, arm },
+    );
+
+    expect(arm.deleteUserAssignedIdentity).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      name: "id-campus-dashboard-clx9abc1",
+    });
+    expect(arm.deleteWebApp.mock.invocationCallOrder[0]).toBeLessThan(
+      arm.deleteUserAssignedIdentity.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("skips identity deletion for apps published before per-app identities", async () => {
+    const arm = createArm();
+
+    await deleteAzureDeployment(
+      {
+        resourceGroup: "rg-cu-apps-published",
+        webAppName: "app-campus-dashboard-clx9abc1",
+        postgresServer: "psql-cu-apps-published",
+        databaseName: null,
+        keyVaultName: null,
+        managedIdentityName: null,
+      },
+      { config, arm },
+    );
+
+    expect(arm.deleteUserAssignedIdentity).not.toHaveBeenCalled();
   });
 });

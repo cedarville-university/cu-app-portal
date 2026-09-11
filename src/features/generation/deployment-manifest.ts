@@ -46,6 +46,7 @@ export type DeploymentManifest = {
         webAppNamePattern: string;
         databaseNamePattern?: string;
         federatedCredentialNamePattern: string;
+        managedIdentityNamePattern: string;
       };
       database?: {
         provider: "postgresql";
@@ -177,6 +178,7 @@ export function buildDeploymentManifest(
         perApp: {
           webAppNamePattern: `app-${appSlug}-<short-request-id>`,
           federatedCredentialNamePattern: `github-${appSlug}-<short-request-id>`,
+          managedIdentityNamePattern: `id-${appSlug}-<short-request-id>`,
           ...(hasDatabase
             ? {
                 databaseNamePattern: `db_${databaseNameSegment}_<short_request_id>`,

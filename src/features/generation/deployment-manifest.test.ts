@@ -49,6 +49,7 @@ describe("buildDeploymentManifest", () => {
             databaseNamePattern: "db_campus_hub_<short_request_id>",
             federatedCredentialNamePattern:
               "github-campus-hub-<short-request-id>",
+            managedIdentityNamePattern: "id-campus-hub-<short-request-id>",
           },
           database: {
             provider: "postgresql",
@@ -133,6 +134,7 @@ describe("buildDeploymentManifest", () => {
             databaseNamePattern: "db_app_<short_request_id>",
             federatedCredentialNamePattern:
               "github-app-<short-request-id>",
+            managedIdentityNamePattern: "id-app-<short-request-id>",
           },
           database: {
             provider: "postgresql",

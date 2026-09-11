@@ -186,6 +186,8 @@ async function markExternalDeletions(
       primaryPublishUrl: null,
       azureKeyVaultName: null,
       azureKeyVaultUri: null,
+      azureManagedIdentityName: null,
+      azureManagedIdentityClientId: null,
     });
   }
 
@@ -256,6 +258,7 @@ async function deleteApp(requestId: string, formData: FormData) {
       repositoryName: appRequest.repositoryName,
       repositoryDefaultBranch: appRequest.repositoryDefaultBranch ?? null,
       keyVaultName: appRequest.azureKeyVaultName ?? null,
+      managedIdentityName: appRequest.azureManagedIdentityName ?? null,
     };
   }
 
