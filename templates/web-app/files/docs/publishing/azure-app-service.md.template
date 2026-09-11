@@ -22,7 +22,7 @@ Portal-managed publishing uses shared Cedarville Azure infrastructure:
 - App Service plan: `asp-cu-apps-published`
 - PostgreSQL flexible server: `psql-cu-apps-published`
 
-Each app gets its own Azure Web App, PostgreSQL database on the shared server, GitHub OIDC federated credential, and App Service settings. The portal's configured `AZURE_PUBLISH_*` values are authoritative if they differ from the generated fallback manifest.
+Each app gets its own Azure Web App, PostgreSQL database on the shared server, user-assigned managed identity (holding the GitHub OIDC federated credential and scoped to deploy only to that Web App), and App Service settings. The portal's configured `AZURE_PUBLISH_*` values are authoritative if they differ from the generated fallback manifest.
 
 ## Fallback Path
 
@@ -33,8 +33,8 @@ If automation is blocked, complete the publish manually with the same manifest a
 3. Save `DATABASE_URL` in the Azure App Service app settings.
 4. Save `AUTH_URL`, `NEXTAUTH_URL`, `AUTH_SECRET`, and the `AUTH_MICROSOFT_ENTRA_ID_*` settings in the Azure App Service app settings using the public Azure hostname.
 5. Add the public callback URL to the shared generated-app Entra registration.
-6. Create or select the Azure identity used by GitHub Actions.
-7. Add the Azure identity secrets to GitHub.
+6. Create or select the Azure identity used by GitHub Actions. The portal model is one user-assigned managed identity per app with Website Contributor on that app's Web App and a GitHub OIDC federated credential for the default branch.
+7. Add the Azure identity secrets to GitHub (`AZURE_CLIENT_ID` is that identity's client ID).
 8. Trigger the workflow manually with `workflow_dispatch`. After the portal or an operator enables push-to-deploy, future pushes to the default branch can deploy automatically.
 9. Record any manual changes or blockers in `docs/publishing/lessons-learned.md`.
 

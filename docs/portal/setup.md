@@ -122,7 +122,6 @@ To enable portal-managed Azure publishing for generated user apps, configure the
 - `AZURE_PUBLISH_POSTGRES_ADMIN_PASSWORD`
 - `AZURE_PUBLISH_LOCATION`
 - `AZURE_PUBLISH_RUNTIME_STACK=NODE|24-lts`
-- `AZURE_PUBLISH_CLIENT_ID`
 - `AZURE_PUBLISH_TENANT_ID`
 - `AZURE_PUBLISH_SUBSCRIPTION_ID`
 - `AZURE_PUBLISH_AUTH_SECRET`
@@ -137,6 +136,7 @@ Current v1 design decisions:
 - Generated user apps share one App Service Plan: `asp-cu-apps-published`.
 - Generated user apps share one PostgreSQL flexible server: `psql-cu-apps-published`.
 - Each published app gets its own Azure Web App. When PostgreSQL is selected for that app, it also gets its own PostgreSQL database on the shared server.
+- Each published app gets its own user-assigned managed identity (`id-{slug}-{shortRequestId}`) that holds the app's GitHub OIDC federated credential and is assigned **Website Contributor** on that app's Web App only. The repository's `AZURE_CLIENT_ID` secret is this identity's client ID, so a repository can deploy to its own app and nothing else. Microsoft caps an identity at 20 federated credentials; one identity per app keeps the portal clear of that limit.
 - `AZURE_PUBLISH_RUNTIME_STACK=NODE|24-lts` remains the current default for the legacy/imported Node publishing path.
 - Runtime-specific generated templates and prepared imported apps carry their App Service runtime stack in the deployment manifest. The portal-managed publisher uses that runtime when creating the Web App.
 - FastAPI Web Apps use Azure App Service build automation: `SCM_DO_BUILD_DURING_DEPLOYMENT=true` and `ENABLE_ORYX_BUILD=true`. The portal removes `WEBSITE_RUN_FROM_PACKAGE` for FastAPI because Python App Service does not support that mode. Generated and prepared FastAPI workflows deploy source, and Oryx installs dependencies from the root `requirements.txt` or supported `pyproject.toml` configuration.
@@ -146,41 +146,53 @@ Current v1 design decisions:
 Deletion behavior:
 
 - `My Apps` deletion is scoped. Users can delete the portal record, the managed GitHub repository, and the Azure deployment independently.
-- Azure deletion removes the selected app's Azure Web App and, if one was provisioned, the selected app's PostgreSQL database on the shared server.
+- Azure deletion removes the selected app's Azure Web App, its deploy identity, and, if provisioned, the selected app's PostgreSQL database and Key Vault.
 - Azure deletion never deletes the shared PostgreSQL flexible server.
 - If a user leaves GitHub or Azure unchecked while deleting the portal record, those resources must be deleted manually later because the portal record will no longer appear in `My Apps`.
 
-### Azure Permissions for App Env Vars and Secrets
+### Azure Permissions for the Portal Runtime Identity
 
-User-managed environment variables store secret values in one Key Vault per
-published app (`kv-{slug}-{shortRequestId}` in the publish resource group).
-Secrets reach the running app through Key Vault references resolved by the
-web app's system-assigned managed identity.
-
-The portal's publishing service principal (`AZURE_PUBLISH_CLIENT_ID`) needs,
+The portal authenticates to Azure with `DefaultAzureCredential`. The identity
+it resolves to (a managed identity on the portal's App Service, or a service
+principal in local development) is the **portal runtime identity**. It needs,
 scoped to the publish resource group:
 
-1. **Contributor** (already required for publishing) — creates/deletes
-   vaults and enables web app managed identities.
+1. **Contributor** — creates and deletes Web Apps, databases, Key Vaults,
+   and each app's user-assigned managed identity with its federated
+   credential; enables web app system-assigned identities.
 2. **Key Vault Secrets Officer** — sets and deletes secret values in the
-   RBAC-mode vaults.
+   RBAC-mode vaults that back user-managed environment variables
+   (`kv-{slug}-{shortRequestId}`). Secrets reach the running app through Key
+   Vault references resolved by the web app's system-assigned identity.
 3. **Role Based Access Control Administrator** — grants each web app's
-   managed identity `Key Vault Secrets User` on its own vault. Constrain it
-   with an ABAC condition so it can only assign that one role.
+   system-assigned identity `Key Vault Secrets User` on its own vault, and
+   grants each app's deploy identity `Website Contributor` on its own Web
+   App. Constrain it with an ABAC condition so it can assign only those two
+   roles.
+
+Set `PORTAL_RUNTIME_CLIENT_ID` to the client ID of the portal runtime
+identity before running the commands below.
 
 ```bash
 az role assignment create \
-  --assignee "$AZURE_PUBLISH_CLIENT_ID" \
+  --assignee "$PORTAL_RUNTIME_CLIENT_ID" \
   --role "Key Vault Secrets Officer" \
   --scope "/subscriptions/$SUB_ID/resourceGroups/rg-cu-apps-published"
 
 az role assignment create \
-  --assignee "$AZURE_PUBLISH_CLIENT_ID" \
+  --assignee "$PORTAL_RUNTIME_CLIENT_ID" \
   --role "Role Based Access Control Administrator" \
   --scope "/subscriptions/$SUB_ID/resourceGroups/rg-cu-apps-published" \
-  --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {4633458b-17de-408a-b874-0445c86b69e6})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {4633458b-17de-408a-b874-0445c86b69e6}))" \
+  --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {4633458b-17de-408a-b874-0445c86b69e6, de139f84-1756-47ae-9be6-808fbbe84772})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {4633458b-17de-408a-b874-0445c86b69e6, de139f84-1756-47ae-9be6-808fbbe84772}))" \
   --condition-version "2.0"
 ```
+
+`4633458b-17de-408a-b874-0445c86b69e6` is Key Vault Secrets User and
+`de139f84-1756-47ae-9be6-808fbbe84772` is Website Contributor. If an existing
+assignment still carries the single-GUID condition, update it in place before
+deploying a portal build that creates per-app deploy identities; otherwise
+provisioning fails at the role assignment and the app shows `BLOCKED` with an
+Azure permission message.
 
 Deleted vaults soft-delete for 90 days; the portal never purges them.
 
