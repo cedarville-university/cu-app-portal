@@ -20,7 +20,7 @@ function text(body: string, init: ResponseInit) {
 describe("createMicrosoftGraphClient", () => {
   it("adds a redirect uri only when it is missing", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(json({ web: { redirectUris: ["https://old/cb"] } }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     const client = createMicrosoftGraphClient({
@@ -52,7 +52,7 @@ describe("createMicrosoftGraphClient", () => {
 
   it("does not patch when the redirect uri already exists", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(
         json({
           web: {
@@ -82,7 +82,7 @@ describe("createMicrosoftGraphClient", () => {
 
   it("checks whether a redirect uri exists", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(
         json({
           web: {
@@ -108,7 +108,7 @@ describe("createMicrosoftGraphClient", () => {
 
   it("throws the Graph response status and text for non-JSON error bodies", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(text("plain Graph failure", { status: 500 }));
     const client = createMicrosoftGraphClient({
       tokenProvider: async () => "token",
@@ -130,7 +130,7 @@ describe("createMicrosoftGraphClient", () => {
     "throws the Graph response status and text when PATCH returns %s",
     async (status) => {
       const fetchImpl = vi
-        .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+        .fn<typeof fetch>()
         .mockResolvedValueOnce(json({ web: { redirectUris: [] } }))
         .mockResolvedValueOnce(text("unexpected patch status", { status }));
       const client = createMicrosoftGraphClient({

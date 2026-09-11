@@ -23,7 +23,7 @@ function text(body: string, init: ResponseInit) {
 describe("createAzureArmClient", () => {
   it("creates or updates a web app with app settings and startup command", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(json({ id: "resource-id", properties: {} }));
     const client = createAzureArmClient({
       subscriptionId: "sub",
@@ -72,7 +72,7 @@ describe("createAzureArmClient", () => {
 
   it("creates or updates a PostgreSQL database on the shared server", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(json({ id: "database-id" }));
     const client = createAzureArmClient({
       subscriptionId: "sub",
@@ -109,7 +109,7 @@ describe("createAzureArmClient", () => {
 
   it("creates or updates web app settings", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(json({ properties: {} }));
     const client = createAzureArmClient({
       subscriptionId: "sub",
@@ -142,7 +142,7 @@ describe("createAzureArmClient", () => {
 
   it("reads existing web app settings without exposing a missing app as an exception", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(
         json({
           properties: {
@@ -186,7 +186,7 @@ describe("createAzureArmClient", () => {
 
   it("throws the ARM response status and text when app settings cannot be read", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(text("forbidden", { status: 403 }));
     const client = createAzureArmClient({
       subscriptionId: "sub",
@@ -204,7 +204,7 @@ describe("createAzureArmClient", () => {
 
   it("deletes the app web app and only the selected PostgreSQL database", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(new Response(null, { status: 202 }));
     const client = createAzureArmClient({
       subscriptionId: "sub",
@@ -240,7 +240,7 @@ describe("createAzureArmClient", () => {
 
   it("throws the ARM response status and text for non-JSON error bodies", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(text("plain ARM failure", { status: 400 }));
     const client = createAzureArmClient({
       subscriptionId: "sub",
@@ -264,7 +264,7 @@ describe("createAzureArmClient", () => {
 
   it("creates an rbac key vault and returns its uri", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(
         json({
           properties: { vaultUri: "https://kv-campus-dashb-clx9abc1.vault.azure.net/" },
@@ -306,7 +306,7 @@ describe("createAzureArmClient", () => {
 
   it("retries with createMode recover when the vault name is soft-deleted", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(text("VaultAlreadyExists", { status: 409 }))
       .mockResolvedValueOnce(
         json({
@@ -352,7 +352,7 @@ describe("createAzureArmClient", () => {
 
   it("deletes a key vault and tolerates a missing vault", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(null, { status: 200 }))
       .mockResolvedValueOnce(text("not found", { status: 404 }));
     const client = createAzureArmClient({
@@ -379,7 +379,7 @@ describe("createAzureArmClient", () => {
 
   it("creates a role assignment with a deterministic name and treats conflicts as success", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(json({ id: "assignment-id" }))
       .mockResolvedValueOnce(text("RoleAssignmentExists", { status: 409 }));
     const client = createAzureArmClient({
@@ -433,7 +433,7 @@ describe("createAzureArmClient", () => {
 
   it("ensures a system-assigned identity and returns the principal id", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(json({ identity: { principalId: "principal-guid" } }));
     const client = createAzureArmClient({
       subscriptionId: "sub",
@@ -459,7 +459,7 @@ describe("createAzureArmClient", () => {
 
   it("retries a role assignment when the principal has not replicated yet", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(
         json(
           {
@@ -508,7 +508,7 @@ describe("createAzureArmClient", () => {
 
   it("creates a user-assigned identity and returns its client and principal ids", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(
         json(
           {
@@ -554,7 +554,7 @@ describe("createAzureArmClient", () => {
 
   it("reads a user-assigned identity and reports when it is missing", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(
         json({
           properties: { clientId: "client-guid", principalId: "principal-guid" },
@@ -587,7 +587,7 @@ describe("createAzureArmClient", () => {
 
   it("deletes a user-assigned identity and tolerates a missing identity", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValueOnce(text("", { status: 200 }))
       .mockResolvedValueOnce(text("ResourceNotFound", { status: 404 }));
     const client = createAzureArmClient({
@@ -611,7 +611,7 @@ describe("createAzureArmClient", () => {
 
   it("lists federated identity credentials on a user-assigned identity", async () => {
     const fetchImpl = vi
-      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .fn<typeof fetch>()
       .mockResolvedValue(
         json({
           value: [
@@ -674,7 +674,7 @@ describe("createAzureArmClient", () => {
 
     it("leaves a matching credential untouched", async () => {
       const fetchImpl = vi
-        .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+        .fn<typeof fetch>()
         .mockResolvedValueOnce(
           json({
             value: [credential("github-campus-dashboard-clx9abc1", expectedSubject)],
@@ -697,7 +697,7 @@ describe("createAzureArmClient", () => {
 
     it("replaces a same-named credential whose subject changed", async () => {
       const fetchImpl = vi
-        .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+        .fn<typeof fetch>()
         .mockResolvedValueOnce(
           json({
             value: [
@@ -739,7 +739,7 @@ describe("createAzureArmClient", () => {
 
     it("deletes credentials the portal did not name before creating its own", async () => {
       const fetchImpl = vi
-        .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+        .fn<typeof fetch>()
         .mockResolvedValueOnce(
           json({ value: [credential("someone-else", expectedSubject)] }),
         )
@@ -771,7 +771,7 @@ describe("createAzureArmClient", () => {
 
     it("retries after a concurrent-write conflict", async () => {
       const fetchImpl = vi
-        .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+        .fn<typeof fetch>()
         .mockResolvedValueOnce(json({ value: [] }))
         .mockResolvedValueOnce(text("Conflict", { status: 409 }))
         .mockResolvedValueOnce(json({ name: "github-campus-dashboard-clx9abc1" }));
