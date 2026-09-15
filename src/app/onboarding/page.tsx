@@ -52,7 +52,7 @@ export default async function OnboardingStartPage({
               <span className="card__title">I need a new app</span>
               <span className="card__desc">Start with a Cedarville-approved template. The portal will set up a private online space for your app.</span>
             </Link>
-            <Link className="card card--interactive card--gold-border wizard-choice" href="/onboarding?start=existing">
+            <Link className="card card--interactive card--gold-border wizard-choice" href="/apps/add?source=github">
               <span className="wizard-choice__step">Option 2</span>
               <span className="card__title">My app is already on GitHub</span>
               <span className="card__desc">Bring an app you have already saved online into the portal.</span>
@@ -107,7 +107,6 @@ export default async function OnboardingStartPage({
         </section>
       )}
 
-      <p className="wizard-back"><Link href="/onboarding">Choose a different starting point</Link></p>
     </main>
   );
 }

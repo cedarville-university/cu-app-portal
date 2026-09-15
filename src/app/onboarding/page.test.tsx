@@ -19,10 +19,13 @@ describe("OnboardingStartPage", () => {
     );
     expect(
       screen.getByRole("link", { name: /my app is already on github/i }),
-    ).toHaveAttribute("href", "/onboarding?start=existing");
+    ).toHaveAttribute("href", "/apps/add?source=github");
     expect(
       screen.getByText(/bring an app you have already saved online into the portal/i),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /choose a different starting point/i }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/portal-managed publishing workflow/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/connect and push/i)).not.toBeInTheDocument();
   });
