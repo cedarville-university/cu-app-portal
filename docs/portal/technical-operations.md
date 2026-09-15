@@ -216,7 +216,7 @@ Keep the local callback only when local normal-auth development is required. Aft
 
 For collaboration-invite validation, the directory application needs Microsoft Graph permission to read users and alias evidence. The expected application permission is `User.Read.All` unless Cedarville has approved a narrower alternative.
 
-For managed publishing, the portal runtime identity uses Microsoft Graph to add redirect URIs to the shared generated-app registration and to manage federated identity credentials on the publisher application. A Graph `403 Authorization_RequestDenied` normally means expired/rotated configured credentials or missing Graph permissions; capture the Graph request ID shown in publishing setup status and escalate to the Entra/Azure administrator.
+For managed publishing, the portal runtime identity uses Microsoft Graph only to add redirect URIs to the shared generated-app registration. GitHub deploy credentials live on each app's own user-assigned managed identity and are managed through Azure Resource Manager, not Graph. A Graph `403 Authorization_RequestDenied` normally means expired/rotated configured credentials or missing Graph permissions; capture the Graph request ID shown in publishing setup status and escalate to the Entra/Azure administrator.
 
 ## GitHub App Administration
 
@@ -240,7 +240,7 @@ Managed apps use `.github/workflows/deploy-azure-app-service.yml`. The portal ma
 - `AZURE_SUBSCRIPTION_ID`
 - `AZURE_WEBAPP_NAME`
 
-The portal also manages a GitHub OIDC federated credential for the app. Repositories may use the older name-based subject or the immutable subject introduced for repositories created after July 15, 2026. The portal reads the repository's OIDC subject configuration and identity before preflight, publish, and repair; do not manually replace the credential without first recording the existing subject.
+`AZURE_CLIENT_ID` is the client ID of the app's own deploy identity (`id-*`), not a shared publisher identity. The portal manages one GitHub OIDC federated credential on that identity. Repositories may use the older name-based subject or the immutable subject introduced for repositories created after July 15, 2026. The portal reads the repository's OIDC subject configuration and identity before preflight, publish, and repair; do not manually replace the credential without first recording the existing subject. Repair removes any credential on the identity that the portal did not name.
 
 ## Managed App Azure Publishing
 
@@ -250,20 +250,32 @@ The portal creates or configures each managed app in the publish resource group:
 
 - One shared App Service plan and one shared PostgreSQL flexible server.
 - One Azure Web App per app request.
+- One user-assigned managed identity per app request. It holds the app's GitHub OIDC federated credential and is assigned **Website Contributor** on that app's Web App only, so a repository can deploy to its own app and nothing else.
 - One PostgreSQL database per app only when PostgreSQL is selected.
 - One RBAC-mode Key Vault per app that uses secret user-managed environment variables.
 
-Names are deterministic from the app name and the first eight normalized characters of the request ID: Web Apps begin with `app-`, Key Vaults with `kv-`, databases with `db_`, and federated credential names with `github-`. Every portal-created resource is tagged `managedBy=cu-app-portal` and includes the app request ID and support reference. The portal will refuse to treat an existing, untagged resource as its own.
+Names are deterministic from the app name and the first eight normalized characters of the request ID: Web Apps begin with `app-`, managed identities with `id-`, Key Vaults with `kv-`, databases with `db_`, and federated credential names with `github-`. Every portal-created resource is tagged `managedBy=cu-app-portal` and includes the app request ID and support reference. The portal will refuse to treat an existing, untagged resource as its own.
+
+The app record stores the identity name and client ID (`azureManagedIdentityName`, `azureManagedIdentityClientId`). Scoped Azure deletion removes the identity after the Web App.
 
 ### Required Azure permissions
 
-The portal publishing identity (`AZURE_PUBLISH_CLIENT_ID`) requires scoped permissions on the publish resource group:
+The portal runtime identity (the identity `DefaultAzureCredential` resolves to) requires scoped permissions on the publish resource group:
 
-- **Contributor** to create/configure Web Apps, databases, Key Vaults, and managed identities.
+- **Contributor** to create/configure Web Apps, databases, Key Vaults, user-assigned managed identities, and their federated credentials.
 - **Key Vault Secrets Officer** to set and delete secrets in RBAC-mode Key Vaults.
-- **Role Based Access Control Administrator**, constrained by ABAC to assigning only **Key Vault Secrets User**, so the portal can grant a Web App's system-assigned identity read access to its own vault.
+- **Role Based Access Control Administrator**, constrained by ABAC to assigning only **Key Vault Secrets User** and **Website Contributor**, so the portal can grant a Web App's system-assigned identity read access to its own vault and grant an app's deploy identity deploy rights on its own Web App.
 
-The `docs/portal/setup.md` file contains the approved role-assignment shape and ABAC condition. Key Vaults soft-delete for 90 days; the portal never purges them.
+The `docs/portal/setup.md` file contains the approved role-assignment shape and ABAC condition. An Azure `403` during publishing setup marks the app `BLOCKED` with "Azure permission is missing for publishing setup."; the usual cause is an ABAC condition that still allows only the Key Vault role. Key Vaults soft-delete for 90 days; the portal never purges them.
+
+### Migrating apps published before per-app identities
+
+Apps published before per-app deploy identities still hold a federated credential on the former shared publisher application and a repository `AZURE_CLIENT_ID` pointing at it. Their next preflight reports **GitHub publish identity** as "Deployment identity is missing." and the app moves to `NEEDS_REPAIR`. Push-to-deploy keeps working until the old credential is removed.
+
+1. Confirm the updated ABAC condition from `docs/portal/setup.md` is in place.
+2. For each published app, run **Repair Publishing Setup**. This creates the identity, assigns Website Contributor on the app's Web App, writes the credential, and rewrites the repository secrets.
+3. Confirm one deployment succeeds (**Retry Publish** or a push to the default branch).
+4. In Entra, remove that app's `github-*` federated credential from the former shared publisher application. Once every app is repaired, no `github-*` credentials should remain there.
 
 ### Publishing setup states and safe response
 
@@ -274,17 +286,17 @@ The `docs/portal/setup.md` file contains the approved role-assignment shape and 
 | `BLOCKED` | A prerequisite is not repairable by the portal. | Escalate with support reference; do not advise repeated retries. | Correct Azure/Graph/GitHub permissions or external state, then run repair. |
 | `NOT_CHECKED` / `CHECKING` / `REPAIRING` | Status is not final. | Wait for the action to finish; avoid duplicate actions. | Check audit records/provider availability if it remains stuck. |
 
-**Repair Publishing Setup** refreshes only portal-managed GitHub Actions secrets and OIDC/federated credentials, plus necessary portal-managed Azure/Entra setup. It does not delete repositories or Azure resources and does not dispatch a deployment. Use **Retry Publish** when setup is already healthy and the goal is to rerun the workflow.
+**Repair Publishing Setup** refreshes only portal-managed GitHub Actions secrets, the app's deploy identity and its OIDC/federated credential, plus necessary portal-managed Azure/Entra setup. It does not delete repositories or Azure resources and does not dispatch a deployment. Use **Retry Publish** when setup is already healthy and the goal is to rerun the workflow.
 
 FastAPI apps are runtime-built by Azure App Service. Their expected settings are `SCM_DO_BUILD_DURING_DEPLOYMENT=true` and `ENABLE_ORYX_BUILD=true`, with `WEBSITE_RUN_FROM_PACKAGE` absent. If a FastAPI container reports `ModuleNotFoundError` for a dependency declared in `requirements.txt` or a supported `pyproject.toml` configuration, run **Repair Publishing Setup** to restore those settings, then use **Retry Publish** to dispatch a fresh deployment. Node and static apps retain the portal's ready-to-run package settings.
 
 ### Per-app publishing triage
 
 1. Verify that the app record has a managed repository in `READY` state and a default branch.
-2. Read the publishing setup checks on the app details page. Note the failed check key: Azure resource access, app settings, Entra redirect URI, GitHub federated credential, GitHub Actions secrets, workflow file, or workflow dispatch.
+2. Read the publishing setup checks on the app details page. Note the failed check key: Azure resource access, app settings, Entra redirect URI, GitHub publish identity (the deploy identity and its federated credential), GitHub Actions secrets, workflow file, or workflow dispatch.
 3. For `NEEDS_REPAIR`, run repair once after confirming the portal's Azure/Entra/GitHub credentials are current.
 4. For GitHub workflow failures, open the workflow run linked from the portal and diagnose build/deploy errors in the managed repository. The portal only dispatches and tracks the run; application source errors belong to the managed repository.
-5. For `Authorization_RequestDenied`, first verify that the `AZURE_PUBLISH_*` credentials have not expired or rotated. Then verify Graph permissions for shared app-registration redirect URI and federated-credential updates.
+5. For `Authorization_RequestDenied`, first verify that the `AZURE_PUBLISH_*` credentials have not expired or rotated. Then verify Graph permission for shared app-registration redirect URI updates. For an Azure `403` (`BLOCKED`, "Azure permission is missing"), verify the portal runtime identity's Contributor and constrained RBAC Administrator assignments, including Website Contributor in the ABAC condition.
 6. If the resource exists but repair reports it is not portal managed, compare its tags with the app request ID. Do not overwrite or delete an untagged resource; it may belong to another workload.
 
 ## Common Incidents

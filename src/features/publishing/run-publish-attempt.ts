@@ -21,6 +21,8 @@ export type ProvisionedPublishTarget = {
   azureDatabaseName: string | null;
   azureKeyVaultName: string | null;
   azureKeyVaultUri: string | null;
+  azureManagedIdentityName: string;
+  azureManagedIdentityClientId: string;
   azureDefaultHostName: string;
   primaryPublishUrl: string;
 };

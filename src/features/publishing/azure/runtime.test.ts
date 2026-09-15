@@ -10,7 +10,6 @@ const config = {
   postgresAdminPassword: "secret",
   location: "eastus2",
   runtimeStack: "NODE|24-lts",
-  azureClientId: "client-id",
   azureTenantId: "tenant-id",
   azureSubscriptionId: "sub-id",
   authSecret: "auth-secret",
@@ -163,10 +162,23 @@ function createDeps({
     ensureSystemAssignedIdentity: vi
       .fn()
       .mockResolvedValue({ principalId: "webapp-principal" }),
+    webAppId: vi.fn(
+      (resourceGroup: string, name: string) =>
+        `/subscriptions/sub-id/resourceGroups/${resourceGroup}/providers/Microsoft.Web/sites/${name}`,
+    ),
+    putUserAssignedIdentity: vi.fn().mockResolvedValue({
+      clientId: "identity-client-id",
+      principalId: "identity-principal",
+    }),
+    getUserAssignedIdentity: vi.fn().mockResolvedValue({
+      exists: true,
+      clientId: "identity-client-id",
+      principalId: "identity-principal",
+    }),
+    ensureFederatedIdentityCredential: vi.fn().mockResolvedValue(undefined),
   };
   const graph = {
     ensureRedirectUri: vi.fn().mockResolvedValue(undefined),
-    ensureFederatedCredential: vi.fn().mockResolvedValue(undefined),
   };
   const github = {
     getRepositoryOidcIdentity: vi.fn().mockResolvedValue({
@@ -237,9 +249,32 @@ describe("createAzurePublishRuntime", () => {
         azureResourceGroup: "rg-cu-apps-published",
         azureWebAppName: "app-campus-dashboard-clx9abc1",
         azureDatabaseName: "db_campus_dashboard_clx9abc1",
+        azureManagedIdentityName: "id-campus-dashboard-clx9abc1",
+        azureManagedIdentityClientId: "identity-client-id",
         primaryPublishUrl:
           "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
       }),
+    );
+    expect(arm.putUserAssignedIdentity).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      name: "id-campus-dashboard-clx9abc1",
+      location: "eastus2",
+      tags: expect.objectContaining({
+        managedBy: "cu-app-portal",
+        appRequestId: "clx9abc123zzzzzzzzzz",
+      }),
+    });
+    expect(arm.putRoleAssignment).toHaveBeenCalledWith({
+      scope:
+        "/subscriptions/sub-id/resourceGroups/rg-cu-apps-published/providers/Microsoft.Web/sites/app-campus-dashboard-clx9abc1",
+      roleDefinitionId: "de139f84-1756-47ae-9be6-808fbbe84772",
+      principalId: "identity-principal",
+    });
+    expect(arm.putWebApp.mock.invocationCallOrder[0]).toBeLessThan(
+      arm.putUserAssignedIdentity.mock.invocationCallOrder[0],
+    );
+    expect(arm.putUserAssignedIdentity.mock.invocationCallOrder[0]).toBeLessThan(
+      arm.putRoleAssignment.mock.invocationCallOrder[0],
     );
     expect(arm.putPostgresDatabase).toHaveBeenCalledWith({
       resourceGroup: "rg-cu-apps-published",
@@ -283,14 +318,18 @@ describe("createAzurePublishRuntime", () => {
       redirectUri:
         "https://app-campus-dashboard-clx9abc1.azurewebsites.net/api/auth/callback/microsoft-entra-id",
     });
-    expect(graph.ensureFederatedCredential).toHaveBeenCalledWith({
-      applicationAppId: "client-id",
+    expect(arm.ensureFederatedIdentityCredential).toHaveBeenCalledWith({
+      resourceGroup: "rg-cu-apps-published",
+      identityName: "id-campus-dashboard-clx9abc1",
       name: "github-campus-dashboard-clx9abc1",
       subject: "repo:cedarville-it/campus-dashboard:ref:refs/heads/main",
     });
     expect(github.setActionsSecret).toHaveBeenCalledTimes(4);
     expect(github.setActionsSecret).toHaveBeenCalledWith(
-      expect.objectContaining({ secretName: "AZURE_CLIENT_ID" }),
+      expect.objectContaining({
+        secretName: "AZURE_CLIENT_ID",
+        secretValue: "identity-client-id",
+      }),
     );
     expect(github.setActionsSecret).toHaveBeenCalledWith(
       expect.objectContaining({ secretName: "AZURE_TENANT_ID" }),
@@ -649,7 +688,7 @@ describe("createAzurePublishRuntime", () => {
   it("reports setup-sensitive deploy steps before dispatch", async () => {
     const setupSteps: string[] = [];
     const onSetupStep = vi.fn((step: string) => setupSteps.push(step));
-    const { deps, graph, github } = createDeps();
+    const { deps, arm, github } = createDeps();
     const runtime = createAzurePublishRuntime(deps);
 
     await runtime.deployRepository("clx9abc123zzzzzzzzzz", {
@@ -661,7 +700,7 @@ describe("createAzurePublishRuntime", () => {
       "github_actions_secrets",
     ]);
     expect(onSetupStep.mock.invocationCallOrder[0]).toBeLessThan(
-      graph.ensureFederatedCredential.mock.invocationCallOrder[0],
+      arm.ensureFederatedIdentityCredential.mock.invocationCallOrder[0],
     );
     expect(onSetupStep.mock.invocationCallOrder[1]).toBeLessThan(
       github.setActionsSecret.mock.invocationCallOrder[0],
@@ -674,8 +713,8 @@ describe("createAzurePublishRuntime", () => {
   it("does not invoke the workflow dispatched hook when pre-dispatch setup fails", async () => {
     const onWorkflowDispatched = vi.fn();
     const onSetupStep = vi.fn();
-    const { deps, graph, github } = createDeps();
-    graph.ensureFederatedCredential.mockRejectedValue(
+    const { deps, arm, github } = createDeps();
+    arm.ensureFederatedIdentityCredential.mockRejectedValue(
       new Error("federated credential denied"),
     );
     const runtime = createAzurePublishRuntime(deps);
@@ -689,6 +728,21 @@ describe("createAzurePublishRuntime", () => {
 
     expect(onSetupStep).toHaveBeenCalledWith("github_federated_credential");
     expect(onWorkflowDispatched).not.toHaveBeenCalled();
+    expect(github.dispatchWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("fails deployment clearly when the app's deploy identity is missing", async () => {
+    const { deps, arm, github } = createDeps();
+    arm.getUserAssignedIdentity.mockResolvedValue({ exists: false });
+    const runtime = createAzurePublishRuntime(deps);
+
+    await expect(
+      runtime.deployRepository("clx9abc123zzzzzzzzzz"),
+    ).rejects.toThrow(
+      "Deployment identity id-campus-dashboard-clx9abc1 is missing. Run Repair Publishing Setup.",
+    );
+
+    expect(github.setActionsSecret).not.toHaveBeenCalled();
     expect(github.dispatchWorkflow).not.toHaveBeenCalled();
   });
 
@@ -883,7 +937,11 @@ describe("createAzurePublishRuntime", () => {
       }),
     );
     expect(arm.putKeyVault).not.toHaveBeenCalled();
-    expect(arm.putRoleAssignment).not.toHaveBeenCalled();
+    expect(arm.putRoleAssignment).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        roleDefinitionId: "4633458b-17de-408a-b874-0445c86b69e6",
+      }),
+    );
     expect(target).toEqual(
       expect.objectContaining({
         azureKeyVaultName: null,

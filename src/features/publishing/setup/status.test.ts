@@ -57,8 +57,25 @@ describe("classifyPublishingSetupError", () => {
       setupStatus: "BLOCKED",
       summary: "Microsoft Graph permission is missing for Entra publishing setup.",
       operatorDetail:
-        "Grant the portal runtime identity permission to update the shared app registration redirect URIs and the publisher application's federated identity credentials, then run Repair Publishing Setup.",
+        "Grant the portal runtime identity permission to update the shared app registration redirect URIs, then run Repair Publishing Setup.",
       providerRequestId: "graph-request-123",
+    });
+  });
+
+  it("classifies Azure ARM 403 responses as blocked", () => {
+    const result = classifyPublishingSetupError({
+      step: "azure_resource_access",
+      error: new Error(
+        'Azure ARM request failed: 403 {"error":{"code":"AuthorizationFailed","message":"The client does not have authorization to perform action Microsoft.Authorization/roleAssignments/write."}}',
+      ),
+    });
+
+    expect(result).toEqual({
+      setupStatus: "BLOCKED",
+      summary: "Azure permission is missing for publishing setup.",
+      operatorDetail:
+        "Grant the portal runtime identity Contributor and the constrained Role Based Access Control Administrator role (allowing Key Vault Secrets User and Website Contributor) on the publish resource group, then run Repair Publishing Setup.",
+      providerRequestId: null,
     });
   });
 

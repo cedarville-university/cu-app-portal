@@ -19,6 +19,7 @@ describe("buildPublishTargetNames", () => {
       webAppName: "app-campus-dashboard-clx9abc1",
       databaseName: "db_campus_dashboard_clx9abc1",
       federatedCredentialName: "github-campus-dashboard-clx9abc1",
+      managedIdentityName: "id-campus-dashboard-clx9abc1",
       keyVaultName: "kv-campus-dashb-clx9abc1",
       azureDefaultHostName:
         "app-campus-dashboard-clx9abc1.azurewebsites.net",
@@ -59,6 +60,18 @@ describe("buildPublishTargetNames", () => {
     expect(names.keyVaultName).toBe("kv-campus-dashb-clx9abc1");
     expect(names.keyVaultName.length).toBeLessThanOrEqual(24);
     expect(names.keyVaultName).toMatch(/^kv-[a-z0-9][a-z0-9-]*[a-z0-9]$/);
+  });
+
+  it("builds a managed identity name within the azure 128-character limit", () => {
+    const names = buildPublishTargetNames({
+      requestId: "clx9abc123zzzzzzzzzz",
+      appName:
+        "This App Name Is So Long That Azure Web App Names Need Truncation And Then Some More Words To Push Past The Managed Identity Limit Too",
+    });
+
+    expect(names.managedIdentityName.length).toBeLessThanOrEqual(128);
+    expect(names.managedIdentityName.endsWith("-clx9abc1")).toBe(true);
+    expect(names.managedIdentityName).toMatch(/^id-[a-z0-9][a-z0-9-]*[a-z0-9]$/);
   });
 
   it("maps env var keys to key vault secret names", () => {
