@@ -11,10 +11,11 @@ const PREVIOUS_COMPATIBILITY_GUIDANCE = `2. Determine whether it is already one 
 const PREVIOUS_HEALTH_GUIDANCE = "- Keep the exact `GET /api/health` endpoint public and returning HTTP 200 when the app process is healthy. Never protect, remove, rename, or make that endpoint depend on an allow list, session, database, or external service; CU Launch uses it to verify deployments.\n";
 const PREVIOUS_AUDIENCE_GUIDANCE = "- Treat a request to limit the app audience as an authentication change. Use the CU Launch-managed Cedarville Microsoft Entra login screen and a verified Entra session before showing protected app content, then enforce the requested email, group, or role restriction server-side. Do not rely on a standalone allow list or client-side-only check. Keep only the exact public health endpoint plus the framework's required Entra sign-in and callback routes anonymous.\n";
 const PREVIOUS_CUSTOM_SIGN_IN_GUIDANCE = "- When adding a custom sign-in route, leave that exact route and the required Entra callback route anonymous. CU Launch must not depend on that route's path for deployment verification.\n";
+const PREVIOUS_IMPORTED_HEALTH_GUIDANCE = "- For an imported app that lacks this endpoint, add it before publishing. Use the app's existing supported server or framework and preserve its behavior. For a plain static import, use the portal-provided runner only after the portal has prepared the repository.\n";
 
 export function buildImmediatelyPreviousManagedAppPortalSkillForTest() {
   return buildManagedAppPortalSkill().replace(
-    PREVIOUS_CUSTOM_SIGN_IN_GUIDANCE,
+    PREVIOUS_IMPORTED_HEALTH_GUIDANCE,
     "",
   );
 }
@@ -31,6 +32,9 @@ export function buildPreviousManagedAppPortalSkillForTest() {
   }
 
   return `${currentSkill.slice(0, currentStart)}${PREVIOUS_COMPATIBILITY_GUIDANCE}${currentSkill.slice(currentEnd + currentEndText.length)}`.replace(
+    PREVIOUS_IMPORTED_HEALTH_GUIDANCE,
+    "",
+  ).replace(
     PREVIOUS_CUSTOM_SIGN_IN_GUIDANCE,
     "",
   ).replace(

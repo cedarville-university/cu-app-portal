@@ -14,6 +14,7 @@ const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
   "6bdfc28ae8effeaedc2fa18a98ac07d74013b6f0efce882631bdfdeb7bd9318d",
   "a0a5a753da489fa07e03ce41a1366a0e3ae062db8a45c616aa70daa0105cd394",
   "bad0c401c18f1d1b28d38edcf636f7645d5876e724b9d286e587018ad22ddfc3",
+  "fabc5dd8dca217ab59455725615105598b1d2f3c791be121f10064d3f2a47c54",
 ]);
 
 export function buildManagedAppPortalSkill() {
@@ -101,6 +102,7 @@ When the app is already on GitHub:
 - Treat a request to limit the app audience as an authentication change. Use the CU Launch-managed Cedarville Microsoft Entra login screen and a verified Entra session before showing protected app content, then enforce the requested email, group, or role restriction server-side. Do not rely on a standalone allow list or client-side-only check. Keep only the exact public health endpoint plus the framework's required Entra sign-in and callback routes anonymous.
 - When adding a custom sign-in route, leave that exact route and the required Entra callback route anonymous. CU Launch must not depend on that route's path for deployment verification.
 - Keep the exact \`GET /api/health\` endpoint public and returning HTTP 200 when the app process is healthy. Never protect, remove, rename, or make that endpoint depend on an allow list, session, database, or external service; CU Launch uses it to verify deployments.
+- For an imported app that lacks this endpoint, add it before publishing. Use the app's existing supported server or framework and preserve its behavior. For a plain static import, use the portal-provided runner only after the portal has prepared the repository.
 - Record manual fixes, blockers, and recovery steps in \`docs/publishing/lessons-learned.md\`.
 `;
 }
