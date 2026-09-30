@@ -241,6 +241,20 @@ If Microsoft Graph returns `Authorization_RequestDenied`, first check whether th
 - `npm test`
 - `npm run build`
 
+### Repository import worker deployment
+
+External GitHub repositories are mirrored by a dedicated Azure Container Apps Job, not by the portal App Service. Provision its ACR, Service Bus queue, identities, Key Vault, logs, and alerts from `infra/repository-import-worker/` after reviewing an Azure what-if. Populate the generated vault's `repository-import-database-url` and `github-app-private-key` secrets outside CI.
+
+The `Deploy Repository Import Worker` workflow authenticates to Azure with GitHub OIDC, runs the full tests and Prisma validation, builds and smoke-tests one image, blocks on high or critical vulnerability findings, pushes only the commit-SHA tag, resolves its ACR content digest, and updates the job to `repository@sha256:...`. Configure repository variables `REPOSITORY_IMPORT_ACR_NAME` and `REPOSITORY_IMPORT_JOB_NAME`; reuse the existing Azure OIDC secrets used by portal deployment.
+
+The portal App Service deployment remains independent: it neither installs Git nor builds or deploys the worker image. Production portal settings use `REPOSITORY_IMPORT_TRANSPORT=service-bus` plus the Bicep outputs `REPOSITORY_IMPORT_SERVICE_BUS_NAMESPACE` and `REPOSITORY_IMPORT_SERVICE_BUS_QUEUE`.
+
+For local development, use `REPOSITORY_IMPORT_TRANSPORT=inline`; this invokes the same persisted-attempt runner in process and requires local Git. Never use inline mode in production. To stop new import dispatch during rollback, set `REPOSITORY_IMPORT_TRANSPORT=disabled`; requests receive a durable safe failure instead of running Git in App Service.
+
+Promote only the SHA-tagged image that passed the offline container smoke test and vulnerability scan. The workflow resolves ACR's digest and deploys `repository@sha256:...`, never a mutable tag. Rotate `repository-import-database-url` or `github-app-private-key` by adding a new Key Vault secret version, validate a fresh job execution, and retain the previous version until the controlled smoke import succeeds.
+
+The portal's public `GET /api/health` remains independent of the background worker. A healthy portal response proves the web control plane can serve requests; it does not prove Service Bus delivery, worker execution, Git availability, or repository mirroring.
+
 ### User documentation
 
 The Markdown files in `docs/user/` are the source of truth for the portal Help pages and downloadable PDFs. After changing them, install `scripts/docs/requirements.txt`, run `npm run docs:pdf`, and commit the regenerated files in both `output/pdf/` and `public/docs/`. The PDF build fails if the Quick Start no longer fits on one US Letter page.

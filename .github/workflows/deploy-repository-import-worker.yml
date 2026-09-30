@@ -1,0 +1,118 @@
+name: Deploy Repository Import Worker
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/deploy-repository-import-worker.yml"
+      - "infra/repository-import-worker/**"
+      - "prisma/**"
+      - "scripts/repository-imports/**"
+      - "src/features/repository-imports/**"
+      - "src/features/repositories/**"
+      - "src/workers/repository-import/**"
+      - "workers/repository-import/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsup.repository-import.config.ts"
+
+env:
+  AZURE_RESOURCE_GROUP: rg-cu-app-portal
+  IMAGE_REPOSITORY: repository-import-worker
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit and contract tests
+        run: npm test
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+        env:
+          DATABASE_URL: postgresql://validation:validation@127.0.0.1:5432/validation
+
+      - name: Compile repository import worker
+        run: npm run build:repository-import-worker
+
+      - name: Azure login with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve deployment resource names
+        env:
+          ACR_NAME: ${{ vars.REPOSITORY_IMPORT_ACR_NAME }}
+          JOB_NAME: ${{ vars.REPOSITORY_IMPORT_JOB_NAME }}
+        run: |
+          ACR_LOGIN_SERVER="$(az acr show --name "$ACR_NAME" --query loginServer --output tsv)"
+          echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
+          echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
+          echo "JOB_NAME=$JOB_NAME" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY:${{ github.sha }}" >> "$GITHUB_ENV"
+
+      - name: Build immutable candidate image
+        run: docker build -f workers/repository-import/Dockerfile -t "$IMAGE_REF" .
+
+      - name: Smoke test the candidate image
+        run: npm run test:repository-import-container -- "$IMAGE_REF"
+
+      - name: Scan the candidate image
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Push SHA-tagged image
+        run: |
+          az acr login --name "$ACR_NAME"
+          docker push "$IMAGE_REF"
+
+      - name: Resolve pushed content digest
+        run: |
+          DIGEST="$(az acr repository show --name "$ACR_NAME" --image "$IMAGE_REPOSITORY:${{ github.sha }}" --query digest --output tsv)"
+          test "${DIGEST#sha256:}" != "$DIGEST"
+          echo "DIGEST=$DIGEST" >> "$GITHUB_ENV"
+          echo "PINNED_IMAGE=$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY@$DIGEST" >> "$GITHUB_ENV"
+
+      - name: Deploy job by digest
+        run: |
+          az containerapp job update \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$JOB_NAME" \
+            --image "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY@${DIGEST}" \
+            --set-env-vars "APP_COMMIT_SHA=${{ github.sha }}" "CONTAINER_IMAGE_DIGEST=${DIGEST}"
+
+      - name: Wait for the job update
+        run: |
+          JOB_ID="$(az containerapp job show --resource-group "$AZURE_RESOURCE_GROUP" --name "$JOB_NAME" --query id --output tsv)"
+          az resource wait --updated --ids "$JOB_ID" --interval 10 --timeout 600
+
+      - name: Record deployed digest
+        run: |
+          echo "### Repository import worker" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Image: \`$PINNED_IMAGE\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Job: \`$JOB_NAME\`" >> "$GITHUB_STEP_SUMMARY"

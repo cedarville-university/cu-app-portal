@@ -34,6 +34,7 @@ vi.mock("@/features/repositories/actions", () => ({
 
 vi.mock("@/features/repository-imports/actions", () => ({
   prepareExistingAppAction: vi.fn(),
+  retryRepositoryImportAction: vi.fn(),
   verifyExistingAppPreparationAction: vi.fn(),
 }));
 
@@ -605,6 +606,30 @@ describe("AppOnboardingPage generated apps", () => {
 });
 
 describe("AppOnboardingPage imported and local preparation", () => {
+  it.each([
+    ["PENDING", /your app is queued to be copied/i, /waiting for a protected worker/i],
+    ["RUNNING", /your app is being copied/i, /copying the repository history/i],
+  ])("shows %s import progress without a retry", async (importStatus, heading, copy) => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryStatus: "PENDING",
+        repositoryUrl: null,
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          importStatus,
+          preparationStatus: "NOT_STARTED",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
+    expect(screen.getByText(copy)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/checks import progress/i);
+    expect(screen.queryByRole("button", { name: /try import again/i })).not.toBeInTheDocument();
+  });
+
   it("asks a local-app user about GitHub before showing the username field", async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({
       githubUsername: null,
@@ -944,7 +969,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(screen.getAllByRole("button")).toHaveLength(2);
   });
 
-  it("restarts a failed import from the original source without reusing its partial target", async () => {
+  it("does not offer failed-import retry to a collaborator", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       importedApp({
         repositoryStatus: "FAILED",
@@ -964,15 +989,33 @@ describe("AppOnboardingPage imported and local preparation", () => {
       /managed copy did not finish/i,
     );
     expect(document.body).not.toHaveTextContent(/github stopped the repository copy/i);
-    expect(
-      screen.getByRole("link", {
-        name: "Start again with this repository",
-      }),
-    ).toHaveAttribute(
-      "href",
-      "/apps/add?source=github&repositoryUrl=https%3A%2F%2Fgithub.com%2Fexternal-org%2Fcampus-dashboard&appName=Campus%20Dashboard",
-    );
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("offers append-only retry to the failed import owner", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("owner-123");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      githubUsername: "owner-name",
+    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryStatus: "FAILED",
+        repositoryUrl: null,
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          importStatus: "FAILED",
+          importErrorSummary: "GitHub stopped the repository copy.",
+          preparationStatus: "BLOCKED",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("button", { name: "Try import again" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /start again/i })).not.toBeInTheDocument();
   });
 });
 

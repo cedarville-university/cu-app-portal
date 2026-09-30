@@ -19,3 +19,6 @@ test-results
 dontpublish
 .idea
 tmp/pdfs
+workers/repository-import/dist
+infra/repository-import-worker/main.bicepparam
+infra/repository-import-worker/main.json

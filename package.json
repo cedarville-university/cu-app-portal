@@ -5,11 +5,15 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:repository-import-worker": "tsup --config tsup.repository-import.config.ts",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:setup": "vitest run src/test/setup.test.ts",
     "test:e2e": "playwright test",
+    "repository-import:worker": "tsx src/workers/repository-import/main.ts",
+    "repository-import:reconcile-dead-letter": "tsx scripts/repository-imports/reconcile-dead-letter.ts",
+    "test:repository-import-container": "sh scripts/repository-imports/container-smoke.sh",
     "docs:pdf": "python3 scripts/docs/build_pdfs.py",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
@@ -21,6 +25,7 @@
   },
   "dependencies": {
     "@azure/identity": "^4.13.1",
+    "@azure/service-bus": "^7.9.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@prisma/client": "^6.19.3",
     "jose": "^6.2.10",
@@ -46,8 +51,10 @@
     "@types/react-dom": "^19.0.2",
     "jsdom": "^24.1.3",
     "prisma": "^6.0.0",
+    "tsup": "^8.5.0",
     "tsx": "^4.21.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "yaml": "^2.8.3"
   }
 }

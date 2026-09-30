@@ -78,6 +78,47 @@ afterEach(() => {
 });
 
 describe("MyAppsPage", () => {
+  it("shows a queued external import as in setup without provider details", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
+      {
+        id: "req_pending_import",
+        appName: "Queued Existing App",
+        createdAt: new Date("2025-05-01T12:00:00.000Z"),
+        updatedAt: new Date("2025-05-12T12:00:00.000Z"),
+        generationStatus: "SUCCEEDED",
+        sourceOfTruth: "IMPORTED_REPOSITORY",
+        repositoryStatus: "PENDING",
+        repositoryAccessStatus: "NOT_REQUESTED",
+        repositoryAccessNote: null,
+        publishStatus: "NOT_STARTED",
+        publishingSetupStatus: "NOT_CHECKED",
+        repositoryUrl: null,
+        publishUrl: null,
+        primaryPublishUrl: null,
+        repositoryImport: {
+          importStatus: "PENDING",
+          importErrorSummary: "provider token=must-not-render",
+          compatibilityStatus: "NOT_SCANNED",
+          preparationStatus: "NOT_STARTED",
+          preparationErrorSummary: null,
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
+
+    render(await MyAppsPage());
+
+    const row = screen
+      .getByRole("heading", { name: "Queued Existing App" })
+      .closest("li")!;
+    expect(within(row).getByText("In setup")).toBeInTheDocument();
+    expect(within(row).getByRole("link", { name: /continue setup/i })).toHaveAttribute(
+      "href",
+      "/onboarding/req_pending_import",
+    );
+    expect(row).not.toHaveTextContent(/provider token|must-not-render/i);
+  });
+
   it("renders the page heading and launch actions for an empty app list", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue(

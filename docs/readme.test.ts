@@ -190,6 +190,27 @@ describe("portal setup docs", () => {
     expect(setup).toContain("Azure App Service publishing");
   });
 
+  it("documents repository import worker operation and rollback boundaries", () => {
+    const operations = [
+      readFileSync("README.md", "utf8"),
+      readFileSync("docs/portal/setup.md", "utf8"),
+      readFileSync("docs/portal/technical-operations.md", "utf8"),
+    ].join("\n");
+
+    for (const required of [
+      "REPOSITORY_IMPORT_TRANSPORT=inline",
+      "REPOSITORY_IMPORT_TRANSPORT=service-bus",
+      "REPOSITORY_IMPORT_TRANSPORT=disabled",
+      "dead-letter",
+      "repository@sha256:",
+      "Key Vault rotation",
+      "controlled smoke import",
+      "`GET /api/health` remains independent",
+    ]) {
+      expect(operations).toContain(required);
+    }
+  });
+
   it("documents recommended template presets", () => {
     const templateAuthoring = readFileSync(
       "docs/portal/template-authoring.md",

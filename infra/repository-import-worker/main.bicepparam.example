@@ -1,0 +1,12 @@
+using './main.bicep'
+
+param namePrefix = 'cula-prod'
+param portalPrincipalId = '00000000-0000-0000-0000-000000000000'
+param imageDigest = 'sha256:0000000000000000000000000000000000000000000000000000000000000000'
+param githubAppId = '000000'
+param githubAllowedOrgs = 'cedarville-it'
+param githubDefaultOrg = 'cedarville-it'
+param githubInstallationsJson = '{"cedarville-it":"00000000"}'
+
+// Set this only when the Container Apps environment must join an existing subnet.
+param infrastructureSubnetResourceId = ''

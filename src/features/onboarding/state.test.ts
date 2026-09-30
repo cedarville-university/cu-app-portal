@@ -258,6 +258,14 @@ describe("deriveOnboardingState generated apps", () => {
 
 describe("deriveOnboardingState workflow states", () => {
   it.each([
+    [
+      imported({ importStatus: "PENDING", repositoryStatus: "PENDING" }),
+      "IMPORT_PENDING",
+    ],
+    [
+      imported({ importStatus: "RUNNING", repositoryStatus: "PENDING" }),
+      "IMPORT_PENDING",
+    ],
     [imported({ importStatus: "FAILED" }), "IMPORT_FAILED"],
     [
       imported({ preparationStatus: "PENDING_USER_CHOICE" }),
@@ -324,6 +332,19 @@ describe("deriveOnboardingState workflow states", () => {
       expect(deriveOnboardingState(input).kind).toBe(expected);
     },
   );
+
+  it("distinguishes queued and actively running imports", () => {
+    expect(
+      deriveOnboardingState(
+        imported({ importStatus: "PENDING", repositoryStatus: "PENDING" }),
+      ),
+    ).toEqual({ kind: "IMPORT_PENDING", phase: "QUEUED" });
+    expect(
+      deriveOnboardingState(
+        imported({ importStatus: "RUNNING", repositoryStatus: "PENDING" }),
+      ),
+    ).toEqual({ kind: "IMPORT_PENDING", phase: "RUNNING" });
+  });
 
   it("keeps preparation retry mode in the state", () => {
     expect(

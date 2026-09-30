@@ -1,14 +1,15 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { GitHubRepoVisibility } from "@/features/repositories/config";
 
-type RepositoryMetadata = {
+export type RepositoryMetadata = {
   owner: string;
   name: string;
   url: string;
   defaultBranch: string;
+  description?: string | null;
 };
 
 type RepositoryImportStage =
@@ -19,63 +20,80 @@ type RepositoryImportStage =
   | "push"
   | "set-default-branch";
 
-type GitExec = (
+export type GitExec = (
   command: string,
   args: string[],
-  options: { cwd: string; stdio: "ignore" },
+  options: { cwd: string; stdio: "ignore"; signal?: AbortSignal },
 ) => Promise<void>;
 
-type ImportRepositoryWithHistoryInput = {
+type TargetGitHubClient = {
+  createInstallationTokenForGit: () => Promise<string>;
+  createRepository: (input: {
+    owner: string;
+    name: string;
+    visibility: GitHubRepoVisibility;
+    files: Record<string, string>;
+    defaultBranch: string;
+    autoInit: false;
+    reuseIfAlreadyExists: true;
+    ownershipMarker: { description: string };
+  }) => Promise<RepositoryMetadata>;
+  updateRepositoryDefaultBranch: (input: {
+    owner: string;
+    name: string;
+    defaultBranch: string;
+  }) => Promise<RepositoryMetadata>;
+};
+
+type SourceGitHubClient = {
+  createInstallationTokenForGit: () => Promise<string>;
+};
+
+export type ImportRepositoryWithHistoryInput = {
+  appRequestId: string;
   source: RepositoryMetadata;
   target: {
     owner: string;
     name: string;
     visibility: GitHubRepoVisibility;
   };
-  github: {
-    createInstallationTokenForGit: () => Promise<string>;
-    createRepository: (input: {
-      owner: string;
-      name: string;
-      visibility: GitHubRepoVisibility;
-      files: Record<string, string>;
-      defaultBranch: string;
-      autoInit: false;
-      reuseIfAlreadyExists: false;
-    }) => Promise<RepositoryMetadata>;
-    updateRepositoryDefaultBranch: (input: {
-      owner: string;
-      name: string;
-      defaultBranch: string;
-    }) => Promise<RepositoryMetadata>;
-  };
-  sourceGithub?: {
-    createInstallationTokenForGit: () => Promise<string>;
-  };
+  github: TargetGitHubClient;
+  sourceGithub?: SourceGitHubClient;
+  onTargetReady?: (repository: RepositoryMetadata) => Promise<void>;
+  limits?: { timeoutMs: number; maxBytes: number };
   exec?: GitExec;
+};
+
+const DEFAULT_LIMITS = {
+  timeoutMs: 30 * 60 * 1000,
+  maxBytes: 2 * 1024 * 1024 * 1024,
 };
 
 export class RepositoryImportError extends Error {
   readonly stage: RepositoryImportStage;
   readonly targetRepository?: RepositoryMetadata;
   readonly code?: "TARGET_REPOSITORY_ALREADY_EXISTS";
+  readonly cause?: unknown;
 
   constructor({
     message,
     stage,
     targetRepository,
     code,
+    cause,
   }: {
     message: string;
     stage: RepositoryImportStage;
     targetRepository?: RepositoryMetadata;
     code?: "TARGET_REPOSITORY_ALREADY_EXISTS";
+    cause?: unknown;
   }) {
     super(message);
     this.name = "RepositoryImportError";
     this.stage = stage;
     this.targetRepository = targetRepository;
     this.code = code;
+    this.cause = cause;
   }
 }
 
@@ -97,15 +115,30 @@ class GitCommandError extends Error {
   }
 }
 
+class GitMirrorTimeoutError extends Error {
+  constructor() {
+    super("Repository import exceeded its time limit.");
+    this.name = "GitMirrorTimeoutError";
+  }
+}
+
+class GitMirrorSizeError extends Error {
+  constructor() {
+    super("Repository import exceeded its size limit.");
+    this.name = "GitMirrorSizeError";
+  }
+}
+
 function defaultExec(
   command: string,
   args: string[],
-  options: { cwd: string; stdio: "ignore" },
+  options: { cwd: string; stdio: "ignore"; signal?: AbortSignal },
 ) {
   return new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       stdio: ["ignore", "ignore", "pipe"],
+      signal: options.signal,
     });
     let stderr = "";
 
@@ -156,6 +189,13 @@ function isPossibleTargetCollision(error: unknown) {
   }
 
   if (
+    error.message ===
+    "The existing managed repository does not belong to this app request."
+  ) {
+    return true;
+  }
+
+  if (
     "errors" in error &&
     Array.isArray(error.errors) &&
     error.errors.some((detail) => {
@@ -196,6 +236,10 @@ function summarizeImportError({
   error: unknown;
   stage: RepositoryImportStage;
 }) {
+  if (error instanceof GitMirrorTimeoutError || error instanceof GitMirrorSizeError) {
+    return error.message;
+  }
+
   if (stage === "clone") {
     return appendGitErrorDetail(
       "Repository import failed while cloning source repository",
@@ -223,6 +267,71 @@ function summarizeImportError({
   }
 
   return "Repository import failed while mirroring git history.";
+}
+
+async function measureDirectoryBytes(path: string, maxBytes: number) {
+  let total = 0;
+
+  async function visit(directory: string): Promise<void> {
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+        return;
+      }
+      throw error;
+    }
+
+    for (const entry of entries) {
+      const entryPath = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(entryPath);
+      } else {
+        total += (await stat(entryPath)).size;
+        if (total > maxBytes) {
+          throw new GitMirrorSizeError();
+        }
+      }
+    }
+  }
+
+  await visit(path);
+  return total;
+}
+
+function createBoundedGitExec({
+  exec,
+  timeoutMs,
+}: {
+  exec: GitExec;
+  timeoutMs: number;
+}) {
+  const deadline = Date.now() + timeoutMs;
+
+  return async (args: string[], cwd: string) => {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      throw new GitMirrorTimeoutError();
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), remainingMs);
+    try {
+      await exec("git", args, {
+        cwd,
+        stdio: "ignore",
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (controller.signal.aborted || (error instanceof Error && error.name === "AbortError")) {
+        throw new GitMirrorTimeoutError();
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 }
 
 function appendGitErrorDetail(message: string, error: unknown) {
@@ -274,20 +383,19 @@ function isHiddenRefPushFailure(error: unknown) {
 }
 
 async function pushDefaultBranch({
-  exec,
+  runGit,
   mirrorDir,
   targetCredentialsPath,
   repository,
   defaultBranch,
 }: {
-  exec: GitExec;
+  runGit: (args: string[], cwd: string) => Promise<void>;
   mirrorDir: string;
   targetCredentialsPath: string;
   repository: RepositoryMetadata;
   defaultBranch: string;
 }) {
-  await exec(
-    "git",
+  await runGit(
     [
       ...credentialHelperArgs(targetCredentialsPath),
       "push",
@@ -297,7 +405,7 @@ async function pushDefaultBranch({
       }),
       `refs/heads/${defaultBranch}:refs/heads/${defaultBranch}`,
     ],
-    { cwd: mirrorDir, stdio: "ignore" },
+    mirrorDir,
   );
 }
 
@@ -315,6 +423,7 @@ function toImportError({
       message: "Target repository already exists.",
       stage,
       code: "TARGET_REPOSITORY_ALREADY_EXISTS",
+      cause: error,
     });
   }
 
@@ -322,18 +431,23 @@ function toImportError({
     message: summarizeImportError({ error, stage }),
     stage,
     targetRepository,
+    cause: error,
   });
 }
 
 export async function importRepositoryWithHistory({
+  appRequestId,
   source,
   target,
   github,
   sourceGithub,
+  onTargetReady,
+  limits = DEFAULT_LIMITS,
   exec = defaultExec,
 }: ImportRepositoryWithHistoryInput) {
   const tempRoot = await mkdtemp(join(tmpdir(), "portal-repository-import-"));
   let repository: RepositoryMetadata | undefined;
+  const runGit = createBoundedGitExec({ exec, timeoutMs: limits.timeoutMs });
 
   try {
     try {
@@ -344,11 +458,16 @@ export async function importRepositoryWithHistory({
         files: {},
         defaultBranch: source.defaultBranch,
         autoInit: false,
-        reuseIfAlreadyExists: false,
+        reuseIfAlreadyExists: true,
+        ownershipMarker: {
+          description: `CU Launch import request:${appRequestId}`,
+        },
       });
     } catch (error) {
       throw toImportError({ error, stage: "create-target" });
     }
+
+    await onTargetReady?.(repository);
 
     let targetToken: string;
     let sourceToken: string | null;
@@ -385,8 +504,7 @@ export async function importRepositoryWithHistory({
     const mirrorDir = join(tempRoot, "source.git");
 
     try {
-      await exec(
-        "git",
+      await runGit(
         [
           ...(sourceToken
             ? credentialHelperArgs(join(tempRoot, "source-credentials"))
@@ -396,15 +514,15 @@ export async function importRepositoryWithHistory({
           createRemote({ owner: source.owner, name: source.name }),
           mirrorDir,
         ],
-        { cwd: tempRoot, stdio: "ignore" },
+        tempRoot,
       );
+      await measureDirectoryBytes(mirrorDir, limits.maxBytes);
     } catch (error) {
       throw toImportError({ error, stage: "clone", targetRepository: repository });
     }
 
     try {
-      await exec(
-        "git",
+      await runGit(
         [
           ...credentialHelperArgs(targetCredentialsPath),
           "push",
@@ -414,7 +532,7 @@ export async function importRepositoryWithHistory({
             name: repository.name,
           }),
         ],
-        { cwd: mirrorDir, stdio: "ignore" },
+        mirrorDir,
       );
     } catch (error) {
       if (!isHiddenRefPushFailure(error)) {
@@ -423,7 +541,7 @@ export async function importRepositoryWithHistory({
 
       try {
         await pushDefaultBranch({
-          exec,
+          runGit,
           mirrorDir,
           targetCredentialsPath,
           repository,

@@ -1,0 +1,10 @@
+.git
+.worktrees
+.next
+node_modules
+workers/repository-import/dist
+.env
+.env.*
+playwright-report
+test-results
+coverage

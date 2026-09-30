@@ -28,8 +28,17 @@ import {
   repositoryImportInputError,
 } from "./errors";
 import { importRepositoryWithHistory } from "./import-repository";
+import { createImportAttempt } from "./attempts";
 import { prepareImportedRepository } from "./prepare-repository";
 import { verifyImportedPublishReadiness } from "./publish-readiness";
+import {
+  createRepositoryImportQueue,
+  type RepositoryImportQueue,
+} from "./queue";
+import {
+  finalizeRepositoryImportEnqueueFailure,
+  queueExternalRepositoryImport,
+} from "./queue-import";
 import { parseGitHubRepositoryUrl } from "./repo-url";
 import { buildSharedOrgTargetName, isRepositoryInOrg } from "./target-name";
 
@@ -56,6 +65,7 @@ type AddExistingAppDeps = {
   };
   publicRepositoryFetch?: typeof fetch;
   importRepository?: typeof importRepositoryWithHistory;
+  queue?: RepositoryImportQueue;
 };
 
 type PrepareExistingAppDeps = {
@@ -437,6 +447,31 @@ export async function addExistingAppAction(
         sourceName: repository.name,
         existingNames: [],
       });
+
+  if (
+    !isSharedOrgRepo &&
+    (deps.queue !== undefined ||
+      deps.importRepository === undefined ||
+      process.env.NODE_ENV === "production")
+  ) {
+    const result = await queueExternalRepositoryImport(
+      {
+        userId,
+        appName: parsed.appName,
+        description: parsed.description ?? "",
+        source: repository,
+        targetOwner: defaultOrg,
+        targetName,
+        targetVisibility: repositoryVisibility,
+        supportReference,
+      },
+      deps.queue ? { queue: deps.queue } : undefined,
+    );
+
+    revalidatePath("/apps");
+    return { requestId: result.requestId };
+  }
+
   let targetRepository = repository;
   let repositoryStatus: "READY" | "FAILED" = "READY";
   let importStatus: "NOT_REQUIRED" | "SUCCEEDED" | "FAILED" = isSharedOrgRepo
@@ -461,6 +496,7 @@ export async function addExistingAppAction(
 
         try {
           targetRepository = await (deps.importRepository ?? importRepositoryWithHistory)({
+            appRequestId: supportReference,
             source: repository,
             target: {
               owner: defaultOrg,
@@ -591,6 +627,98 @@ export async function addExistingAppAction(
   revalidatePath("/apps");
 
   return { requestId: request.id };
+}
+
+export async function retryRepositoryImport(
+  requestId: string,
+  deps: { queue?: RepositoryImportQueue; now?: () => Date } = {},
+) {
+  const userId = await resolveCurrentUserId();
+  const isAdmin = await userHasAdminRole(userId);
+  const app = await prisma.appRequest.findFirst({
+    where: isAdmin ? { id: requestId } : { id: requestId, userId },
+    include: { repositoryImport: true },
+  });
+
+  if (!app) {
+    throw new Error("App not found.");
+  }
+  if (!app.repositoryImport || app.sourceOfTruth !== "IMPORTED_REPOSITORY") {
+    throw new Error("This app does not have a repository import to retry.");
+  }
+  if (app.repositoryImport.activeAttemptId) {
+    throw new Error("A repository import attempt is already active.");
+  }
+  if (
+    app.repositoryStatus !== "FAILED" ||
+    app.repositoryImport.importStatus !== "FAILED"
+  ) {
+    throw new Error("Repository import retry requires a failed import.");
+  }
+
+  const now = deps.now ?? (() => new Date());
+  const queuedAt = now();
+  const attempt = await prisma.$transaction(async (tx) => {
+    const resetImport = await tx.repositoryImport.updateMany({
+      where: {
+        id: app.repositoryImport!.id,
+        activeAttemptId: null,
+        importStatus: "FAILED",
+      },
+      data: {
+        importStatus: "PENDING",
+        importErrorSummary: null,
+        preparationStatus: "NOT_STARTED",
+        preparationErrorSummary: null,
+      },
+    });
+    if (resetImport.count !== 1) {
+      throw new Error("A repository import attempt is already active.");
+    }
+
+    const resetRequest = await tx.appRequest.updateMany({
+      where: { id: app.id, repositoryStatus: "FAILED" },
+      data: { repositoryStatus: "PENDING", publishErrorSummary: null },
+    });
+    if (resetRequest.count !== 1) {
+      throw new Error("Repository import retry state changed. Refresh and try again.");
+    }
+
+    return createImportAttempt(tx, {
+      repositoryImportId: app.repositoryImport!.id,
+      now: queuedAt,
+    });
+  });
+
+  const queue = deps.queue ?? createRepositoryImportQueue();
+  let queued = true;
+  try {
+    await queue.send({ attemptId: attempt.attemptId });
+  } catch {
+    queued = !(await finalizeRepositoryImportEnqueueFailure(
+      {
+        requestId: app.id,
+        repositoryImportId: app.repositoryImport.id,
+        attemptId: attempt.attemptId,
+        userId,
+        sourceOwner: app.repositoryImport.sourceRepositoryOwner,
+        sourceName: app.repositoryImport.sourceRepositoryName,
+        targetOwner: app.repositoryImport.targetRepositoryOwner,
+        targetName: app.repositoryImport.targetRepositoryName,
+      },
+      { now },
+    ));
+  }
+
+  revalidateImportedRepositoryViews(requestId);
+  return { requestId, queued };
+}
+
+export async function retryRepositoryImportAction(
+  requestId: string,
+  _formData: FormData,
+): Promise<void> {
+  await retryRepositoryImport(requestId);
 }
 
 export type AddExistingAppFormState = {

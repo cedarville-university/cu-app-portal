@@ -267,9 +267,34 @@ model RepositoryImport {
   preparationBranch             String?
   preparationPullRequestUrl     String?
   preparationErrorSummary       String?
+  activeAttemptId               String?                       @unique
   createdAt                     DateTime                      @default(now())
   updatedAt                     DateTime                      @updatedAt
   appRequest                    AppRequest                    @relation(fields: [appRequestId], references: [id], onDelete: Cascade)
+  attempts                      RepositoryImportAttempt[]     @relation("RepositoryImportAttempts")
+  activeAttempt                 RepositoryImportAttempt?      @relation("ActiveRepositoryImportAttempt", fields: [activeAttemptId], references: [id], onDelete: SetNull)
+}
+
+model RepositoryImportAttempt {
+  id                  String                       @id @default(cuid())
+  repositoryImportId  String
+  status              RepositoryImportAttemptStatus
+  stage               RepositoryImportAttemptStage
+  errorSummary        String?
+  queuedAt            DateTime
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  workerExecutionName String?
+  leaseExpiresAt      DateTime?
+  lastHeartbeatAt     DateTime?
+  lastDeliveryCount   Int                          @default(0)
+  createdAt           DateTime                     @default(now())
+  updatedAt           DateTime                     @updatedAt
+  repositoryImport    RepositoryImport             @relation("RepositoryImportAttempts", fields: [repositoryImportId], references: [id], onDelete: Cascade)
+  activeForImport     RepositoryImport?            @relation("ActiveRepositoryImportAttempt")
+
+  @@index([repositoryImportId, createdAt])
+  @@index([status, leaseExpiresAt])
 }
 
 model PortalApiOperation {
@@ -409,6 +434,25 @@ enum RepositoryImportStatus {
   SUCCEEDED
   FAILED
   BLOCKED
+}
+
+enum RepositoryImportAttemptStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum RepositoryImportAttemptStage {
+  ENQUEUE
+  CLAIM
+  CREATE_TARGET
+  TARGET_TOKEN
+  SOURCE_TOKEN
+  CLONE
+  PUSH
+  SET_DEFAULT_BRANCH
+  COMPLETE
 }
 
 enum RepositoryCompatibilityStatus {
