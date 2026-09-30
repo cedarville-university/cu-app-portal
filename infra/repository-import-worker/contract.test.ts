@@ -75,6 +75,14 @@ describe("repository import worker infrastructure contract", () => {
     expect(source).not.toMatch(/Microsoft\.App\/jobs\/\*/);
   });
 
+  it("grants the GitHub deployment identity only discovery, image-push, and job-update roles", () => {
+    const source = all();
+    expect(read("main.bicep")).toContain("param deploymentPrincipalId string = ''");
+    expect(source).toContain("acdd72a7-3385-48ef-bd42-f606fba81ae7");
+    expect(source).toContain("8311e382-0749-4cb8-b61a-304f252e45ec");
+    expect(source).toContain("4e3d2b60-56ae-4dc6-a233-09c8e5a82e68");
+  });
+
   it("accepts no secret values and emits deployment handoff outputs", () => {
     const main = read("main.bicep");
     expect(main).not.toMatch(/@secure\(\)\s*param/);

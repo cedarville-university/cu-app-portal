@@ -17,7 +17,10 @@ param githubAllowedOrgs string
 param githubDefaultOrg string
 param githubInstallationsJson string
 param applicationCommit string
+param deploymentPrincipalId string = ''
 param tags object = {}
+
+var jobContributorRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4e3d2b60-56ae-4dc6-a233-09c8e5a82e68')
 
 resource workspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' existing = {
   name: logAnalyticsWorkspaceName
@@ -132,6 +135,16 @@ resource job 'Microsoft.App/jobs@2025-01-01' = {
         }
       ]
     }
+  }
+}
+
+resource deploymentJobContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deploymentPrincipalId)) {
+  name: guid(job.id, deploymentPrincipalId, jobContributorRoleDefinitionId)
+  scope: job
+  properties: {
+    roleDefinitionId: jobContributorRoleDefinitionId
+    principalId: deploymentPrincipalId
+    principalType: 'ServicePrincipal'
   }
 }
 

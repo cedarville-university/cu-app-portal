@@ -5,6 +5,8 @@ targetScope = 'resourceGroup'
 param namePrefix string
 param location string = resourceGroup().location
 param portalPrincipalId string
+@description('Object ID of the GitHub Actions OIDC service principal. Leave empty when CI deployment is not configured.')
+param deploymentPrincipalId string = ''
 @description('Image content digest in sha256:<64 hex> form.')
 param imageDigest string
 param imageRepository string = 'repository-import-worker'
@@ -34,12 +36,23 @@ var keyVaultName = take('${safePrefix}-${suffix}-kv', 24)
 var workspaceName = take('${namePrefix}-import-logs', 63)
 var environmentName = take('${namePrefix}-import-env', 60)
 var jobName = take('${namePrefix}-import-job', 31)
+var readerRoleDefinitionId = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
+
+resource deploymentReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deploymentPrincipalId)) {
+  name: guid(resourceGroup().id, deploymentPrincipalId, readerRoleDefinitionId)
+  properties: {
+    roleDefinitionId: readerRoleDefinitionId
+    principalId: deploymentPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
 
 module registry 'modules/registry.bicep' = {
   name: 'repository-import-registry'
   params: {
     name: registryName
     location: location
+    deploymentPrincipalId: deploymentPrincipalId
     tags: tags
   }
 }
@@ -101,6 +114,7 @@ module job 'modules/job.bicep' = if (deployJob) {
     githubDefaultOrg: githubDefaultOrg
     githubInstallationsJson: githubInstallationsJson
     applicationCommit: applicationCommit
+    deploymentPrincipalId: deploymentPrincipalId
     tags: tags
   }
 }
