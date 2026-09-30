@@ -210,6 +210,112 @@ describe("createGitHubAppClient", () => {
     });
   });
 
+  it("reuses an existing repository only when its ownership marker matches", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const validationErrors = [
+      {
+        resource: "Repository",
+        field: "name",
+        code: "custom",
+        message: "name already exists on this account",
+      },
+    ];
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
+      .mockResolvedValueOnce(
+        createJsonResponse(
+          { message: "Repository creation failed.", errors: validationErrors },
+          { status: 422, statusText: "Unprocessable Entity" },
+        ),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          html_url: "https://github.com/cedarville-it/campus-dashboard",
+          default_branch: "main",
+          name: "campus-dashboard",
+          description: "CU Launch import request:req-123",
+          owner: { login: "cedarville-it" },
+        }),
+      );
+    const client = createGitHubAppClient({
+      appId: "12345",
+      privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      installationId: "111",
+      fetchImpl,
+    });
+
+    await expect(
+      client.createRepository({
+        owner: "cedarville-it",
+        name: "campus-dashboard",
+        visibility: "private",
+        files: {},
+        defaultBranch: "main",
+        autoInit: false,
+        reuseIfAlreadyExists: true,
+        ownershipMarker: {
+          description: "CU Launch import request:req-123",
+        },
+      }),
+    ).resolves.toMatchObject({
+      name: "campus-dashboard",
+    });
+  });
+
+  it("refuses to reuse an unmarked repository", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const fetchImpl = vi
+      .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
+      .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
+      .mockResolvedValueOnce(
+        createJsonResponse(
+          {
+            message: "Repository creation failed.",
+            errors: [
+              {
+                resource: "Repository",
+                field: "name",
+                code: "custom",
+                message: "name already exists on this account",
+              },
+            ],
+          },
+          { status: 422, statusText: "Unprocessable Entity" },
+        ),
+      )
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          html_url: "https://github.com/cedarville-it/campus-dashboard",
+          default_branch: "main",
+          name: "campus-dashboard",
+          description: null,
+          owner: { login: "cedarville-it" },
+        }),
+      );
+    const client = createGitHubAppClient({
+      appId: "12345",
+      privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
+      installationId: "111",
+      fetchImpl,
+    });
+
+    await expect(
+      client.createRepository({
+        owner: "cedarville-it",
+        name: "campus-dashboard",
+        visibility: "private",
+        files: {},
+        defaultBranch: "main",
+        autoInit: false,
+        reuseIfAlreadyExists: true,
+        ownershipMarker: {
+          description: "CU Launch import request:req-123",
+        },
+      }),
+    ).rejects.toThrow(/does not belong to this app request/i);
+  });
+
   it("updates repository default branches after a mirror import", async () => {
     const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
     const fetchImpl = vi
@@ -742,6 +848,7 @@ describe("createGitHubAppClient", () => {
           html_url: "https://github.com/cedarville-it/campus-dashboard",
           default_branch: "main",
           name: "campus-dashboard",
+          description: "CU Launch import request:req-123",
           owner: { login: "cedarville-it" },
           private: true,
         }),
@@ -763,6 +870,7 @@ describe("createGitHubAppClient", () => {
       owner: "cedarville-it",
       name: "campus-dashboard",
       defaultBranch: "main",
+      description: "CU Launch import request:req-123",
     });
     await expect(
       client.readRepositoryTextFiles({

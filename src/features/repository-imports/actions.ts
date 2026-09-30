@@ -494,6 +494,7 @@ export async function addExistingAppAction(
 
         try {
           targetRepository = await (deps.importRepository ?? importRepositoryWithHistory)({
+            appRequestId: supportReference,
             source: repository,
             target: {
               owner: defaultOrg,

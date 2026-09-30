@@ -22,8 +22,8 @@ type CreateRepositoryInput = {
   reuseIfAlreadyExists?: boolean;
   ownershipMarker?: {
     description: string;
-    path: string;
-    content: string;
+    path?: string;
+    content?: string;
   };
 };
 
@@ -604,6 +604,7 @@ export function createGitHubAppClient({
         name: repository.name,
         url: repository.html_url,
         defaultBranch: repository.default_branch,
+        description: repository.description ?? null,
         private: Boolean(repository.private),
       };
     },
@@ -836,7 +837,7 @@ export function createGitHubAppClient({
       }
 
       if (!autoInit) {
-        const sourceFiles = ownershipMarker
+        const sourceFiles = ownershipMarker?.path && ownershipMarker.content !== undefined
           ? {
               ...files,
               [ownershipMarker.path]: ownershipMarker.content,
@@ -876,7 +877,7 @@ export function createGitHubAppClient({
             ),
           );
 
-          const sourceFiles = ownershipMarker
+          const sourceFiles = ownershipMarker?.path && ownershipMarker.content !== undefined
             ? {
                 ...files,
                 [ownershipMarker.path]: ownershipMarker.content,

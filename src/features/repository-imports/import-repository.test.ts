@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,7 +15,9 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   return {
     ...actual,
     mkdtemp: vi.fn(),
+    readdir: vi.fn(),
     rm: vi.fn(),
+    stat: vi.fn(),
     writeFile: vi.fn(),
   };
 });
@@ -23,13 +25,19 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 describe("importRepositoryWithHistory", () => {
   beforeEach(() => {
     vi.mocked(mkdtemp).mockReset();
+    vi.mocked(readdir).mockReset();
+    vi.mocked(readdir).mockRejectedValue(
+      Object.assign(new Error("not materialized by fake exec"), { code: "ENOENT" }),
+    );
     vi.mocked(rm).mockReset();
+    vi.mocked(stat).mockReset();
     vi.mocked(writeFile).mockReset();
   });
 
   it("creates an empty target repository and mirrors public source history into it", async () => {
     const tempRoot = join(tmpdir(), "portal-import-test");
     const exec = vi.fn().mockResolvedValue(undefined);
+    const onTargetReady = vi.fn().mockResolvedValue(undefined);
     const github = {
       createInstallationTokenForGit: vi.fn().mockResolvedValue("target-token"),
       createRepository: vi.fn().mockResolvedValue({
@@ -48,6 +56,7 @@ describe("importRepositoryWithHistory", () => {
     vi.mocked(mkdtemp).mockResolvedValue(tempRoot);
 
     const repository = await importRepositoryWithHistory({
+      appRequestId: "req-123",
       source: {
         owner: "external-org",
         name: "Campus-Dashboard",
@@ -60,6 +69,7 @@ describe("importRepositoryWithHistory", () => {
         visibility: "private",
       },
       github,
+      onTargetReady,
       exec,
     });
 
@@ -76,8 +86,17 @@ describe("importRepositoryWithHistory", () => {
       files: {},
       defaultBranch: "trunk",
       autoInit: false,
-      reuseIfAlreadyExists: false,
+      reuseIfAlreadyExists: true,
+      ownershipMarker: {
+        description: "CU Launch import request:req-123",
+      },
     });
+    expect(onTargetReady).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "campus-dashboard" }),
+    );
+    expect(onTargetReady.mock.invocationCallOrder[0]).toBeLessThan(
+      exec.mock.invocationCallOrder[0],
+    );
     expect(exec).toHaveBeenNthCalledWith(1, "git", [
       "clone",
       "--mirror",
@@ -86,6 +105,7 @@ describe("importRepositoryWithHistory", () => {
     ], {
       cwd: tempRoot,
       stdio: "ignore",
+      signal: expect.any(AbortSignal),
     });
     expect(exec).toHaveBeenNthCalledWith(2, "git", [
       "-c",
@@ -96,6 +116,7 @@ describe("importRepositoryWithHistory", () => {
     ], {
       cwd: join(tempRoot, "source.git"),
       stdio: "ignore",
+      signal: expect.any(AbortSignal),
     });
     expect(github.updateRepositoryDefaultBranch).toHaveBeenCalledWith({
       owner: "cedarville-it",
@@ -129,6 +150,7 @@ describe("importRepositoryWithHistory", () => {
     vi.mocked(mkdtemp).mockResolvedValue(tempRoot);
 
     await importRepositoryWithHistory({
+      appRequestId: "req-123",
       source: {
         owner: "external-org",
         name: "Private-Dashboard",
@@ -155,6 +177,7 @@ describe("importRepositoryWithHistory", () => {
     ], {
       cwd: tempRoot,
       stdio: "ignore",
+      signal: expect.any(AbortSignal),
     });
     expect(exec).toHaveBeenNthCalledWith(2, "git", [
       "-c",
@@ -165,6 +188,7 @@ describe("importRepositoryWithHistory", () => {
     ], {
       cwd: join(tempRoot, "source.git"),
       stdio: "ignore",
+      signal: expect.any(AbortSignal),
     });
     expect(exec.mock.calls.flatMap(([, args]) => args).join(" ")).not.toContain(
       "source-token",
@@ -200,6 +224,7 @@ describe("importRepositoryWithHistory", () => {
     vi.mocked(mkdtemp).mockResolvedValue(tempRoot);
 
     const failure = await importRepositoryWithHistory({
+      appRequestId: "req-123",
       source: {
         owner: "external-org",
         name: "Campus-Dashboard",
@@ -256,6 +281,7 @@ describe("importRepositoryWithHistory", () => {
     vi.mocked(mkdtemp).mockResolvedValue(tempRoot);
 
     const failure = await importRepositoryWithHistory({
+      appRequestId: "req-123",
       source: {
         owner: "external-org",
         name: "Campus-Dashboard",
@@ -311,6 +337,7 @@ describe("importRepositoryWithHistory", () => {
     vi.mocked(mkdtemp).mockResolvedValue(tempRoot);
 
     const repository = await importRepositoryWithHistory({
+      appRequestId: "req-123",
       source: {
         owner: "external-org",
         name: "Campus-Dashboard",
@@ -341,6 +368,7 @@ describe("importRepositoryWithHistory", () => {
     ], {
       cwd: join(tempRoot, "source.git"),
       stdio: "ignore",
+      signal: expect.any(AbortSignal),
     });
     expect(github.updateRepositoryDefaultBranch).toHaveBeenCalledWith({
       owner: "cedarville-it",
@@ -367,6 +395,7 @@ describe("importRepositoryWithHistory", () => {
     vi.mocked(mkdtemp).mockResolvedValue(tempRoot);
 
     const failure = await importRepositoryWithHistory({
+      appRequestId: "req-123",
       source: {
         owner: "external-org",
         name: "Campus-Dashboard",
@@ -419,6 +448,7 @@ describe("importRepositoryWithHistory", () => {
     vi.mocked(mkdtemp).mockResolvedValue(tempRoot);
 
     const failure = await importRepositoryWithHistory({
+      appRequestId: "req-123",
       source: {
         owner: "external-org",
         name: "Private-Dashboard",
@@ -476,6 +506,7 @@ describe("importRepositoryWithHistory", () => {
 
     await expect(
       importRepositoryWithHistory({
+        appRequestId: "req-123",
         source: {
           owner: "external-org",
           name: "Campus-Dashboard",
@@ -515,6 +546,7 @@ describe("importRepositoryWithHistory", () => {
 
     await expect(
       importRepositoryWithHistory({
+        appRequestId: "req-123",
         source: {
           owner: "external-org",
           name: "Campus-Dashboard",
@@ -539,5 +571,200 @@ describe("importRepositoryWithHistory", () => {
         defaultBranch: "main",
       },
     });
+  });
+
+  it("recovers after a simulated death immediately after target creation", async () => {
+    const tempRoot = join(tmpdir(), "portal-import-recovery");
+    const repository = {
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      url: "https://github.com/cedarville-it/campus-dashboard",
+      defaultBranch: "main",
+      description: "CU Launch import request:req-123",
+    };
+    const github = {
+      createInstallationTokenForGit: vi.fn().mockResolvedValue("target-token"),
+      createRepository: vi.fn().mockResolvedValue(repository),
+      updateRepositoryDefaultBranch: vi.fn().mockResolvedValue(repository),
+    };
+    const exec = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(mkdtemp).mockResolvedValue(tempRoot);
+
+    await expect(
+      importRepositoryWithHistory({
+        appRequestId: "req-123",
+        source: {
+          owner: "external-org",
+          name: "Campus-Dashboard",
+          url: "https://github.com/external-org/Campus-Dashboard",
+          defaultBranch: "main",
+        },
+        target: {
+          owner: "cedarville-it",
+          name: "campus-dashboard",
+          visibility: "private",
+        },
+        github,
+        onTargetReady: vi.fn().mockRejectedValue(new Error("simulated death")),
+        exec,
+      }),
+    ).rejects.toThrow("simulated death");
+    expect(exec).not.toHaveBeenCalled();
+
+    await expect(
+      importRepositoryWithHistory({
+        appRequestId: "req-123",
+        source: {
+          owner: "external-org",
+          name: "Campus-Dashboard",
+          url: "https://github.com/external-org/Campus-Dashboard",
+          defaultBranch: "main",
+        },
+        target: {
+          owner: "cedarville-it",
+          name: "campus-dashboard",
+          visibility: "private",
+        },
+        github,
+        exec,
+      }),
+    ).resolves.toMatchObject({ name: "campus-dashboard" });
+    expect(github.createRepository).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        reuseIfAlreadyExists: true,
+        ownershipMarker: {
+          description: "CU Launch import request:req-123",
+        },
+      }),
+    );
+  });
+
+  it("turns an ownership-marker mismatch into a safe target collision", async () => {
+    const github = {
+      createInstallationTokenForGit: vi.fn(),
+      createRepository: vi
+        .fn()
+        .mockRejectedValue(
+          new Error(
+            "The existing managed repository does not belong to this app request.",
+          ),
+        ),
+      updateRepositoryDefaultBranch: vi.fn(),
+    };
+    vi.mocked(mkdtemp).mockResolvedValue(join(tmpdir(), "portal-import-marker"));
+
+    await expect(
+      importRepositoryWithHistory({
+        appRequestId: "req-123",
+        source: {
+          owner: "external-org",
+          name: "Campus-Dashboard",
+          url: "https://github.com/external-org/Campus-Dashboard",
+          defaultBranch: "main",
+        },
+        target: {
+          owner: "cedarville-it",
+          name: "campus-dashboard",
+          visibility: "private",
+        },
+        github,
+        exec: vi.fn(),
+      }),
+    ).rejects.toMatchObject({
+      code: "TARGET_REPOSITORY_ALREADY_EXISTS",
+      stage: "create-target",
+    });
+  });
+
+  it("aborts Git when the mirror exceeds its time limit", async () => {
+    const repository = {
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      url: "https://github.com/cedarville-it/campus-dashboard",
+      defaultBranch: "main",
+    };
+    const github = {
+      createInstallationTokenForGit: vi.fn().mockResolvedValue("target-token"),
+      createRepository: vi.fn().mockResolvedValue(repository),
+      updateRepositoryDefaultBranch: vi.fn(),
+    };
+    const exec = vi.fn(
+      async (_command: string, _args: string[], options: { signal?: AbortSignal }) =>
+        new Promise<void>((_resolve, reject) => {
+          options.signal?.addEventListener("abort", () => {
+            reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          });
+        }),
+    );
+    vi.mocked(mkdtemp).mockResolvedValue(join(tmpdir(), "portal-import-timeout"));
+
+    await expect(
+      importRepositoryWithHistory({
+        appRequestId: "req-123",
+        source: {
+          owner: "external-org",
+          name: "Campus-Dashboard",
+          url: "https://github.com/external-org/Campus-Dashboard",
+          defaultBranch: "main",
+        },
+        target: {
+          owner: "cedarville-it",
+          name: "campus-dashboard",
+          visibility: "private",
+        },
+        github,
+        exec,
+        limits: { timeoutMs: 5, maxBytes: 1024 * 1024 },
+      }),
+    ).rejects.toMatchObject({
+      stage: "clone",
+      message: expect.stringMatching(/time limit/i),
+    });
+    expect(exec.mock.calls[0]?.[2].signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("stops before push when the mirror exceeds its byte limit", async () => {
+    const repository = {
+      owner: "cedarville-it",
+      name: "campus-dashboard",
+      url: "https://github.com/cedarville-it/campus-dashboard",
+      defaultBranch: "main",
+    };
+    const github = {
+      createInstallationTokenForGit: vi.fn().mockResolvedValue("target-token"),
+      createRepository: vi.fn().mockResolvedValue(repository),
+      updateRepositoryDefaultBranch: vi.fn(),
+    };
+    const exec = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(mkdtemp).mockResolvedValue(join(tmpdir(), "portal-import-size"));
+    vi.mocked(readdir).mockResolvedValue([
+      { name: "packfile", isDirectory: () => false },
+    ] as never);
+    vi.mocked(stat).mockResolvedValue({ size: 2048 } as never);
+
+    await expect(
+      importRepositoryWithHistory({
+        appRequestId: "req-123",
+        source: {
+          owner: "external-org",
+          name: "Campus-Dashboard",
+          url: "https://github.com/external-org/Campus-Dashboard",
+          defaultBranch: "main",
+        },
+        target: {
+          owner: "cedarville-it",
+          name: "campus-dashboard",
+          visibility: "private",
+        },
+        github,
+        exec,
+        limits: { timeoutMs: 60_000, maxBytes: 1024 },
+      }),
+    ).rejects.toMatchObject({
+      stage: "clone",
+      message: expect.stringMatching(/size limit/i),
+    });
+    expect(exec).toHaveBeenCalledOnce();
   });
 });

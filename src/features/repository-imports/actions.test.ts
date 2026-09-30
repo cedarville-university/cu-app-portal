@@ -587,6 +587,7 @@ describe("repository import actions", () => {
     });
 
     expect(importRepositoryWithHistory).toHaveBeenCalledWith({
+      appRequestId: "SUP-123",
       source: {
         owner: "external-org",
         name: "Campus-Dashboard",
