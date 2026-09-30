@@ -10,6 +10,8 @@
     "test:watch": "vitest",
     "test:setup": "vitest run src/test/setup.test.ts",
     "test:e2e": "playwright test",
+    "repository-import:worker": "tsx src/workers/repository-import/main.ts",
+    "repository-import:reconcile-dead-letter": "tsx scripts/repository-imports/reconcile-dead-letter.ts",
     "docs:pdf": "python3 scripts/docs/build_pdfs.py",
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
