@@ -19,3 +19,4 @@ test-results
 dontpublish
 .idea
 tmp/pdfs
+workers/repository-import/dist

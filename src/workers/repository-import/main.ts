@@ -82,7 +82,11 @@ async function main() {
   await runRepositoryImportWorker();
 }
 
-if (process.argv[1]?.endsWith("src/workers/repository-import/main.ts")) {
+if (
+  process.argv[1]?.endsWith("src/workers/repository-import/main.ts") ||
+  process.argv[1]?.endsWith("workers/repository-import/dist/main.js") ||
+  process.argv[1]?.endsWith("/app/dist/main.js")
+) {
   void main().catch((error) => {
     console.error(
       "Repository import worker failed.",
