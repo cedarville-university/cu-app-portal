@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { LaunchRocketIcon } from "@/components/launch-rocket-icon";
 import { getActiveTemplateGroups } from "@/features/templates/catalog";
 
 export default async function CreatePage() {
@@ -37,6 +38,7 @@ export default async function CreatePage() {
                     <span className="badge badge--default">Access: Choose sign-in or public</span>
                   </div>
                   <Link href={`/create/${template.slug}`} className="btn btn--primary-solid btn--sm">
+                    <LaunchRocketIcon />
                     Launch App
                   </Link>
                 </div>

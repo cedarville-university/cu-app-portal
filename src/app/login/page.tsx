@@ -24,7 +24,7 @@ export default async function LoginPage({
           <form action={loginAction}>
             <input type="hidden" name="redirectTo" value={redirectTo} />
             <button type="submit" className="btn btn--primary-solid btn--full">
-              Sign in with Microsoft Entra
+              Sign in with Microsoft
             </button>
           </form>
           <Link href="/" className="btn btn--ghost btn--full">

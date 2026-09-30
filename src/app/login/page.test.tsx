@@ -15,7 +15,7 @@ describe("LoginPage", () => {
       screen.getByRole("heading", { name: "CU Launch" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /sign in with microsoft entra/i }),
+      screen.getByRole("button", { name: /sign in with microsoft/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /cancel and return home/i }),

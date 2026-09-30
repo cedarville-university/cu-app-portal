@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MyAppsPage from "./page";
 
@@ -78,38 +78,28 @@ afterEach(() => {
 });
 
 describe("MyAppsPage", () => {
-  it("renders breadcrumb links for returning home or launching another app", async () => {
+  it("renders the page heading and launch actions for an empty app list", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue(
       [] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>,
     );
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      githubUsername: null,
-    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
-
     render(await MyAppsPage());
 
-    const breadcrumb = screen.getByRole("navigation", {
-      name: /breadcrumb/i,
-    });
-    expect(
-      within(breadcrumb).getByRole("link", { name: /home/i }),
-    ).toHaveAttribute("href", "/");
-    expect(
-      within(breadcrumb).getByRole("link", { name: "Launch New App" }),
-    ).toHaveAttribute("href", "/create");
-    expect(within(breadcrumb).getByText("My Apps")).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(screen.getByRole("heading", { name: "My Apps" })).toBeInTheDocument();
+    expect(screen.getByText("No apps yet")).toBeInTheDocument();
+    for (const launchLink of screen.getAllByRole("link", { name: "Launch New App" })) {
+      expect(launchLink).toHaveAttribute("href", "/create");
+    }
   });
 
-  it("keeps each app card high-level with status and app links only", async () => {
+  it("renders a compact app row with setup status and management links", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
       {
         id: "req_123",
         appName: "Campus Dashboard",
+        createdAt: new Date("2025-05-01T12:00:00.000Z"),
+        updatedAt: new Date("2025-05-12T12:00:00.000Z"),
         generationStatus: "SUCCEEDED",
         sourceOfTruth: "IMPORTED_REPOSITORY",
         repositoryStatus: "READY",
@@ -165,28 +155,26 @@ describe("MyAppsPage", () => {
     expect(appCard).not.toBeNull();
 
     const card = appCard as HTMLElement;
-    expect(within(card).getByText(/created:\s*succeeded/i)).toBeInTheDocument();
-    expect(within(card).getByText(/repository:\s*ready/i)).toBeInTheDocument();
-    expect(within(card).getByText(/published:\s*failed/i)).toBeInTheDocument();
-    expect(within(card).getByText(/code access:\s*granted/i)).toBeInTheDocument();
+    expect(within(card).getByText("Needs attention")).toBeInTheDocument();
+    expect(within(card).getByText(/updated may 12, 2025/i)).toBeInTheDocument();
+    fireEvent.click(
+      within(card).getByLabelText("More options for Campus Dashboard"),
+    );
     expect(
-      within(card).getByText(/pub\. config:\s*needs repair/i),
-    ).toBeInTheDocument();
-    expect(
-      within(card).getByRole("link", { name: "cedarville-it/campus-dashboard" }),
+      within(card).getByRole("link", { name: "GitHub repository" }),
     ).toHaveAttribute(
       "href",
       "https://github.com/cedarville-it/campus-dashboard",
     );
     expect(
-      within(card).getByRole("link", { name: "https://dashboard.example.edu" }),
+      within(card).getByRole("link", { name: "Published app URL" }),
     ).toHaveAttribute("href", "https://dashboard.example.edu");
     expect(
       within(card).getByRole("link", { name: /continue setup/i }),
     ).toHaveAttribute("href", "/onboarding/req_123");
     expect(
-      within(card).getByRole("link", { name: "Campus Dashboard" }),
-    ).toHaveAttribute("href", "/onboarding/req_123");
+      within(card).getByRole("link", { name: "App details" }),
+    ).toHaveAttribute("href", "/download/req_123");
 
     expect(
       within(card).queryByRole("button", { name: /retry publish/i }),
@@ -212,34 +200,24 @@ describe("MyAppsPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows actor-specific GitHub access instead of the stale request status", async () => {
+  it("shows a live link and published state for successfully published apps", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      githubUsername: "portalstaff",
-    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
-    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({
-      event: "REPOSITORY_ACCESS_SUCCEEDED",
-      details: {
-        requestId: "req_actor_access",
-        actorUserId: "user-123",
-        githubUsername: "portalstaff",
-        accessStatus: "GRANTED",
-      },
-    } as Awaited<ReturnType<typeof prisma.auditLog.findFirst>>);
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
       {
         id: "req_actor_access",
         appName: "Actor Access App",
+        createdAt: new Date("2025-05-01T12:00:00.000Z"),
+        updatedAt: new Date("2025-05-08T12:00:00.000Z"),
         generationStatus: "SUCCEEDED",
         sourceOfTruth: "PORTAL_MANAGED_REPO",
         repositoryStatus: "READY",
         repositoryAccessStatus: "NOT_REQUESTED",
         repositoryAccessNote: null,
-        publishStatus: "NOT_STARTED",
+        publishStatus: "SUCCEEDED",
         publishingSetupStatus: "NOT_CHECKED",
         repositoryUrl:
           "https://github.com/cedarville-it/actor-access-app",
-        publishUrl: null,
+        publishUrl: "https://actor-access.example.edu",
         primaryPublishUrl: null,
         repositoryImport: null,
       },
@@ -252,25 +230,17 @@ describe("MyAppsPage", () => {
       .closest("li");
 
     expect(appCard).not.toBeNull();
+    expect(within(appCard as HTMLElement).getByText("Live")).toBeInTheDocument();
     expect(
-      within(appCard as HTMLElement).getByText(/code access:\s*granted/i),
-    ).toBeInTheDocument();
-    expect(
-      within(appCard as HTMLElement).queryByText(
-        /code access:\s*not requested/i,
-      ),
-    ).not.toBeInTheDocument();
+      within(appCard as HTMLElement).getByRole("link", { name: "Open app" }),
+    ).toHaveAttribute("href", "https://actor-access.example.edu");
   });
 
-  it("fetches only list data and the actor username needed for access status", async () => {
+  it("fetches apps scoped to the signed-in owner and collaborators", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue(
       [] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>,
     );
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      githubUsername: null,
-    } as Awaited<ReturnType<typeof prisma.user.findUnique>>);
-
     render(await MyAppsPage());
 
     expect(prisma.appRequest.findMany).toHaveBeenCalledWith(
@@ -285,15 +255,9 @@ describe("MyAppsPage", () => {
             },
           ],
         },
-        include: {
-          repositoryImport: true,
-        },
       }),
     );
-    expect(prisma.user.findUnique).toHaveBeenCalledWith({
-      where: { id: "user-123" },
-      select: { githubUsername: true },
-    });
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
   it("does not widen my apps results just because the user is an admin", async () => {
@@ -327,12 +291,14 @@ describe("MyAppsPage", () => {
     );
   });
 
-  it("shows legacy published apps with unchecked publishing setup as ready", async () => {
+  it("shows legacy published apps as live when setup has not been checked", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
       {
         id: "req_legacy_published",
         appName: "Campus Dashboard",
+        createdAt: new Date("2025-05-01T12:00:00.000Z"),
+        updatedAt: new Date("2025-05-08T12:00:00.000Z"),
         generationStatus: "SUCCEEDED",
         sourceOfTruth: "PORTAL_MANAGED_REPO",
         repositoryStatus: "READY",
@@ -354,22 +320,15 @@ describe("MyAppsPage", () => {
 
     expect(appCard).not.toBeNull();
     expect(
-      within(appCard as HTMLElement).getByText(/pub\. config:\s*ready/i),
-    ).toBeInTheDocument();
-    expect(
-      within(appCard as HTMLElement).queryByText(
-        /pub\. config:\s*not checked/i,
-      ),
-    ).not.toBeInTheDocument();
-    expect(
       within(appCard as HTMLElement).getByRole("link", {
-        name: /manage app/i,
+        name: /open app/i,
       }),
-    ).toHaveAttribute("href", "/download/req_legacy_published");
+    ).toHaveAttribute("href", "https://app-campus-dashboard.azurewebsites.net");
     expect(
       within(appCard as HTMLElement).getByRole("link", {
         name: "Campus Dashboard",
       }),
     ).toHaveAttribute("href", "/download/req_legacy_published");
+    expect(within(appCard as HTMLElement).getByText("Live")).toBeInTheDocument();
   });
 });

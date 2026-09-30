@@ -1,67 +1,66 @@
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { LaunchRocketIcon } from "@/components/launch-rocket-icon";
 import { appListWhereForUser } from "@/features/app-requests/access";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/status";
-import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
 import { prisma } from "@/lib/db";
 
-type BadgeVariant = "success" | "error" | "warning" | "info" | "default";
+function appInitials(appName: string) {
+  return appName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
 
-function statusBadge(
-  status: string | null | undefined,
-): { label: string; variant: BadgeVariant } {
-  if (!status) return { label: "Not checked", variant: "default" };
+function appStatus(publishStatus: string, publishingSetupStatus: string) {
+  if (publishStatus === "SUCCEEDED") {
+    return { label: "Live", variant: "live" } as const;
+  }
 
-  const s = status.toLowerCase();
+  const setupStatus = getEffectivePublishingSetupStatus({
+    publishStatus,
+    publishingSetupStatus,
+  });
+
   if (
-    s === "ready" ||
-    s === "succeeded" ||
-    s === "granted" ||
-    s === "completed"
+    publishStatus === "FAILED" ||
+    setupStatus === "NEEDS_REPAIR" ||
+    setupStatus === "BLOCKED"
   ) {
-    return { label: formatStatus(status), variant: "success" };
+    return { label: "Needs attention", variant: "attention" } as const;
   }
-  if (s === "failed") return { label: "Failed", variant: "error" };
-  if (s === "blocked") return { label: "Blocked", variant: "error" };
-  if (s === "needs_repair") return { label: "Needs repair", variant: "warning" };
-  if (s === "checking" || s === "repairing") {
-    return { label: formatStatus(status), variant: "warning" };
-  }
-  if (s === "deleted") return { label: "Deleted", variant: "default" };
-  if (s === "not_started") return { label: "Not started", variant: "default" };
-  if (s === "not_checked") return { label: "Not checked", variant: "default" };
-  if (s === "invited") return { label: "Invited", variant: "info" };
-  return { label: formatStatus(status), variant: "info" };
+
+  return { label: "In setup", variant: "setup" } as const;
 }
 
-function formatStatus(status: string) {
-  return status.toLowerCase().replaceAll("_", " ");
+function formatUpdatedDate(date: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "America/New_York",
+  }).format(date);
 }
 
-function getDisplayPublishUrl(
-  primaryPublishUrl: string | null,
-  publishUrl: string | null,
-) {
-  return publishUrl ?? primaryPublishUrl;
-}
-
-function StatusBadge({
-  label,
-  status,
-  title,
-}: {
-  label: string;
-  status: string | null | undefined;
-  title: string;
-}) {
-  const badge = statusBadge(status);
-
+function ExternalLinkIcon() {
   return (
-    <span className={`badge badge--${badge.variant}`} title={title}>
-      {label}: {badge.label}
-    </span>
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+    >
+      <path d="M9 2h5v5M14 2 7 9" />
+      <path d="M12 9v4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h4" />
+    </svg>
   );
 }
 
@@ -72,62 +71,21 @@ export default async function MyAppsPage() {
     redirect("/");
   }
 
-  const [appRequests, actorUser] = await Promise.all([
-    prisma.appRequest.findMany({
-      where: appListWhereForUser(userId),
-      orderBy: { createdAt: "desc" },
-      include: {
-        repositoryImport: true,
-      },
-    }),
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { githubUsername: true },
-    }),
-  ]);
-
-  const actorRepositoryAccess = await Promise.all(
-    appRequests.map((request) =>
-      resolveRepositoryAccessForActor({
-        requestId: request.id,
-        actorUserId: userId,
-        githubUsername: actorUser?.githubUsername ?? null,
-        legacyStatus: request.repositoryAccessStatus,
-        legacyNote: request.repositoryAccessNote,
-      }),
-    ),
-  );
+  const appRequests = await prisma.appRequest.findMany({
+    where: appListWhereForUser(userId),
+    orderBy: { createdAt: "desc" },
+  });
 
   return (
-    <main>
-      <nav aria-label="Breadcrumb" className="breadcrumb">
-        <Link href="/">Home</Link>
-        <span className="breadcrumb__sep" aria-hidden="true">
-          /
-        </span>
-        <Link href="/create">Launch New App</Link>
-        <span className="breadcrumb__sep" aria-hidden="true">
-          /
-        </span>
-        <span aria-current="page">My Apps</span>
-      </nav>
-
-      <div
-        className="page-header"
-        style={{
-          display: "flex",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "1rem",
-        }}
-      >
+    <main className="my-apps-page">
+      <div className="page-header my-apps-page__header">
         <div>
           <h1>My Apps</h1>
-          <p>Review app status and open the links you need most often.</p>
+          <p>Manage and monitor your launched applications.</p>
         </div>
-        <Link href="/create" className="btn btn--primary-solid btn--sm">
-          + Launch New App
+        <Link href="/create" className="btn btn--primary-solid my-apps-page__launch">
+          <LaunchRocketIcon />
+          Launch New App
         </Link>
       </div>
 
@@ -139,125 +97,96 @@ export default async function MyAppsPage() {
             Launch your first CU Launch app to get started.
           </p>
           <Link href="/create" className="btn btn--primary-solid">
+            <LaunchRocketIcon />
             Launch New App
           </Link>
         </div>
       ) : (
-        <ul
-          className="grid grid--2"
-          style={{ gap: "1.25rem", listStyle: "none", padding: 0, margin: 0 }}
-        >
-          {appRequests.map((request, index) => {
-            const displayPublishUrl = getDisplayPublishUrl(
-              request.primaryPublishUrl,
-              request.publishUrl,
+        <ul className="my-apps-list">
+          {appRequests.map((request) => {
+            const publishUrl = request.publishUrl ?? request.primaryPublishUrl;
+            const status = appStatus(
+              request.publishStatus,
+              request.publishingSetupStatus,
             );
-            const repositoryImport = request.repositoryImport;
-            const isPublished = request.publishStatus === "SUCCEEDED";
-            const destination = isPublished
-              ? `/download/${request.id}`
-              : `/onboarding/${request.id}`;
-            const actionLabel = isPublished ? "Manage App" : "Continue Setup";
+            const actionHref =
+              request.publishStatus === "SUCCEEDED"
+                ? `/download/${request.id}`
+                : `/onboarding/${request.id}`;
 
             return (
-              <li key={request.id} className="app-card">
-                <div className="app-card__header">
-                  <h2 className="app-card__name">
-                    <Link
-                      href={destination}
-                      className="app-card__name-link"
-                    >
-                      {request.appName}
-                    </Link>
+              <li className="my-app-row" key={request.id}>
+                <span className="my-app-row__icon" aria-hidden="true">
+                  {appInitials(request.appName)}
+                </span>
+                <div className="my-app-row__details">
+                  <h2 className="my-app-row__name">
+                    <Link href={`/download/${request.id}`}>{request.appName}</Link>
                   </h2>
+                  {publishUrl ? (
+                    <a
+                      className="my-app-row__url"
+                      aria-label="Published app URL"
+                      href={publishUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {publishUrl}
+                    </a>
+                  ) : (
+                    <span className="my-app-row__url my-app-row__url--empty">
+                      App URL available after publishing
+                    </span>
+                  )}
+                  <p className="my-app-row__updated">
+                    Updated {formatUpdatedDate(request.updatedAt)}
+                  </p>
                 </div>
-
-                <div className="app-card__body">
-                  <div className="app-card__statuses">
-                    <StatusBadge
-                      label="Created"
-                      status={request.generationStatus}
-                      title="Whether your app files have been generated"
-                    />
-                    <StatusBadge
-                      label="Repository"
-                      status={request.repositoryStatus}
-                      title="Whether your GitHub code repository is set up"
-                    />
-                    <StatusBadge
-                      label="Published"
-                      status={request.publishStatus}
-                      title="Whether your app has been deployed to Azure"
-                    />
-                    <StatusBadge
-                      label="Code access"
-                      status={actorRepositoryAccess[index]?.status}
-                      title="Whether Codex has been invited to your code repository"
-                    />
-                    <StatusBadge
-                      label="Pub. config"
-                      status={getEffectivePublishingSetupStatus({
-                        publishStatus: request.publishStatus,
-                        publishingSetupStatus: request.publishingSetupStatus,
-                      })}
-                      title="Whether Azure, login, and GitHub publishing settings are ready"
-                    />
-                    {repositoryImport ? (
-                      <>
-                        <StatusBadge
-                          label="Import"
-                          status={repositoryImport.importStatus}
-                          title="Whether the source repository was copied into the managed organization"
-                        />
-                        <StatusBadge
-                          label="Preparation"
-                          status={repositoryImport.preparationStatus}
-                          title="Whether repository publishing setup has been prepared"
-                        />
-                      </>
-                    ) : null}
-                  </div>
-
-                  <div className="status-table">
-                    {request.repositoryUrl ? (
-                      <div className="status-row">
-                        <span className="status-row__label">Repository</span>
+                <span
+                  className={`my-app-row__status my-app-row__status--${status.variant}`}
+                  aria-label={`Status: ${status.label}`}
+                >
+                  <span aria-hidden="true" className="my-app-row__status-dot" />
+                  {status.label}
+                </span>
+                <div className="my-app-row__actions">
+                  {request.publishStatus === "SUCCEEDED" && publishUrl ? (
+                    <a
+                      className="btn btn--ghost my-app-row__open"
+                      href={publishUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open app <ExternalLinkIcon />
+                    </a>
+                  ) : (
+                    <Link
+                      className="btn btn--ghost my-app-row__open"
+                      href={actionHref}
+                    >
+                      {request.publishStatus === "SUCCEEDED"
+                        ? "Manage App"
+                        : "Continue Setup"}
+                    </Link>
+                  )}
+                  <details className="my-app-row__menu">
+                    <summary aria-label={`More options for ${request.appName}`}>
+                      <span aria-hidden="true">···</span>
+                    </summary>
+                    <div className="my-app-row__menu-items">
+                      <Link href={`/download/${request.id}`}>App details</Link>
+                      {request.repositoryUrl ? (
                         <a
+                          aria-label="GitHub repository"
                           href={request.repositoryUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="meta-link"
                         >
-                          {request.repositoryUrl.replace(
-                            "https://github.com/",
-                            "",
-                          )}
+                          GitHub repository
                         </a>
-                      </div>
-                    ) : null}
-                    {displayPublishUrl ? (
-                      <div className="status-row">
-                        <span className="status-row__label">Published app</span>
-                        <a
-                          href={displayPublishUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="meta-link"
-                        >
-                          {displayPublishUrl}
-                        </a>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="app-card__actions">
-                    <Link
-                      href={destination}
-                      className="btn btn--ghost btn--sm"
-                    >
-                      {actionLabel}
-                    </Link>
-                  </div>
+                      ) : null}
+                    </div>
+                  </details>
                 </div>
               </li>
             );

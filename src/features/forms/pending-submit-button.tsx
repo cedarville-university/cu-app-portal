@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useFormStatus } from "react-dom";
+import { LaunchRocketIcon } from "@/components/launch-rocket-icon";
 
 export function PendingSubmitButton({
   idleLabel,
@@ -32,6 +33,7 @@ export function PendingSubmitButton({
 }) {
   const { pending } = useFormStatus();
   const sizeClass = size ? ` btn--${size}` : "";
+  const isLaunchAction = /^launch/i.test(idleLabel);
 
   return (
     <>
@@ -44,6 +46,7 @@ export function PendingSubmitButton({
         title={title}
         aria-label={ariaLabel}
       >
+        {isLaunchAction ? <LaunchRocketIcon /> : null}
         {pending ? (
           <>
             <span style={{ display: "inline-block", width: "14px", height: "14px", border: "2px solid currentColor", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} aria-hidden="true" />
