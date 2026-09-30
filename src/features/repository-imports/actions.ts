@@ -450,7 +450,9 @@ export async function addExistingAppAction(
 
   if (
     !isSharedOrgRepo &&
-    (deps.queue !== undefined || process.env.NODE_ENV === "production")
+    (deps.queue !== undefined ||
+      deps.importRepository === undefined ||
+      process.env.NODE_ENV === "production")
   ) {
     const result = await queueExternalRepositoryImport(
       {

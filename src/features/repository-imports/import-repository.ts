@@ -73,23 +73,27 @@ export class RepositoryImportError extends Error {
   readonly stage: RepositoryImportStage;
   readonly targetRepository?: RepositoryMetadata;
   readonly code?: "TARGET_REPOSITORY_ALREADY_EXISTS";
+  readonly cause?: unknown;
 
   constructor({
     message,
     stage,
     targetRepository,
     code,
+    cause,
   }: {
     message: string;
     stage: RepositoryImportStage;
     targetRepository?: RepositoryMetadata;
     code?: "TARGET_REPOSITORY_ALREADY_EXISTS";
+    cause?: unknown;
   }) {
     super(message);
     this.name = "RepositoryImportError";
     this.stage = stage;
     this.targetRepository = targetRepository;
     this.code = code;
+    this.cause = cause;
   }
 }
 
@@ -419,6 +423,7 @@ function toImportError({
       message: "Target repository already exists.",
       stage,
       code: "TARGET_REPOSITORY_ALREADY_EXISTS",
+      cause: error,
     });
   }
 
@@ -426,6 +431,7 @@ function toImportError({
     message: summarizeImportError({ error, stage }),
     stage,
     targetRepository,
+    cause: error,
   });
 }
 

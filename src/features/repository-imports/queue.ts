@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { TokenCredential } from "@azure/core-auth";
 import { DefaultAzureCredential } from "@azure/identity";
 import {
@@ -8,6 +9,7 @@ import {
   loadRepositoryImportTransportConfig,
   type RepositoryImportTransportConfig,
 } from "./transport-config";
+import { runRepositoryImportAttempt } from "./run-import-attempt";
 
 export type RepositoryImportQueue = {
   send(input: { attemptId: string }): Promise<void>;
@@ -62,6 +64,8 @@ export function createServiceBusRepositoryImportQueue(input: {
 
 export function createRepositoryImportQueue(input: {
   config?: RepositoryImportTransportConfig;
+  runAttempt?: typeof runRepositoryImportAttempt;
+  createExecutionName?: () => string;
 } = {}): RepositoryImportQueue {
   const config = input.config ?? loadRepositoryImportTransportConfig();
 
@@ -77,9 +81,17 @@ export function createRepositoryImportQueue(input: {
     };
   }
 
+  const runAttempt = input.runAttempt ?? runRepositoryImportAttempt;
+  const createExecutionName =
+    input.createExecutionName ?? (() => `inline-${randomUUID()}`);
+
   return {
-    async send() {
-      throw new Error("Inline repository import execution is not configured.");
+    async send({ attemptId }) {
+      await runAttempt({
+        attemptId,
+        workerExecutionName: createExecutionName(),
+        deliveryCount: 1,
+      });
     },
   };
 }

@@ -578,6 +578,7 @@ describe("repository import actions", () => {
 
     await addExistingAppAction(formData, {
       defaultOrg: "cedarville-it",
+      importRepository: importRepositoryWithHistory,
       repository: {
         owner: "external-org",
         name: "Campus-Dashboard",
@@ -662,6 +663,7 @@ describe("repository import actions", () => {
 
     await addExistingAppAction(formData, {
       publicRepositoryFetch,
+      importRepository: importRepositoryWithHistory,
     });
 
     expect(publicRepositoryFetch).toHaveBeenCalledWith(
@@ -740,7 +742,9 @@ describe("repository import actions", () => {
     formData.set("repositoryUrl", "https://github.com/external-org/Private-Dashboard");
     formData.set("appName", "Private Dashboard");
 
-    await addExistingAppAction(formData);
+    await addExistingAppAction(formData, {
+      importRepository: importRepositoryWithHistory,
+    });
 
     expect(importRepositoryWithHistory).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -780,6 +784,7 @@ describe("repository import actions", () => {
 
     await addExistingAppAction(formData, {
       defaultOrg: "cedarville-it",
+      importRepository: importRepositoryWithHistory,
       repository: {
         owner: "external-org",
         name: "Campus-Dashboard",
@@ -833,6 +838,7 @@ describe("repository import actions", () => {
     await expect(
       addExistingAppAction(formData, {
         defaultOrg: "cedarville-it",
+        importRepository: importRepositoryWithHistory,
         repository: {
           owner: "external-org",
           name: "Campus-Dashboard",
@@ -900,6 +906,7 @@ describe("repository import actions", () => {
     await expect(
       addExistingAppAction(formData, {
         defaultOrg: "cedarville-it",
+        importRepository: importRepositoryWithHistory,
         repository: {
           owner: "external-org",
           name: "Campus-Dashboard",
@@ -973,6 +980,7 @@ describe("repository import actions", () => {
 
     await addExistingAppAction(formData, {
       defaultOrg: "cedarville-it",
+      importRepository: importRepositoryWithHistory,
       repository: {
         owner: "external-org",
         name: "Campus-Dashboard",

@@ -74,4 +74,24 @@ describe("repository import queue", () => {
       "Repository import is currently unavailable.",
     );
   });
+
+  it("runs inline imports through the durable attempt runner", async () => {
+    const runAttempt = vi.fn().mockResolvedValue({
+      disposition: "complete",
+      result: "succeeded",
+    });
+    const queue = createRepositoryImportQueue({
+      config: { transport: "inline" },
+      runAttempt,
+      createExecutionName: () => "inline-execution-1",
+    });
+
+    await queue.send({ attemptId: "attempt-123" });
+
+    expect(runAttempt).toHaveBeenCalledWith({
+      attemptId: "attempt-123",
+      workerExecutionName: "inline-execution-1",
+      deliveryCount: 1,
+    });
+  });
 });
