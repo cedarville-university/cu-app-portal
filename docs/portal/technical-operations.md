@@ -65,6 +65,7 @@ Keep production values in Azure App Service application settings or the approved
 | GitHub App | `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_ALLOWED_ORGS`, `GITHUB_DEFAULT_ORG`, `GITHUB_DEFAULT_REPO_VISIBILITY`, plus `GITHUB_APP_INSTALLATION_ID` or `GITHUB_APP_INSTALLATIONS_JSON` | Repository creation/import, collaborators, Actions secrets, dispatch, and managed-repository deletion. |
 | Managed app publishing | all `AZURE_PUBLISH_*` variables in `.env.example` | Shared Azure target, portal runtime identity, generated-app authentication, and Microsoft Graph updates. |
 | Codex workspace-plugin MCP API | `PORTAL_MCP_ENABLED`, `PORTAL_MCP_RESOURCE_URL`, `PORTAL_MCP_ENTRA_TENANT_ID`, `PORTAL_MCP_ENTRA_ISSUER`, `PORTAL_MCP_ENTRA_AUDIENCE`, `PORTAL_MCP_ENTRA_SCOPE`, and optional `PORTAL_MCP_RATE_*_MAX` settings | A disabled-by-default delegated bearer-token API at `/api/mcp`. It is distinct from Auth.js browser sign-in and requires the separate Entra and workspace rollout described in [Codex workspace plugin operations](codex-workspace-plugin.md). |
+| Repository import transport | `REPOSITORY_IMPORT_TRANSPORT`; in production, `REPOSITORY_IMPORT_SERVICE_BUS_NAMESPACE` and `REPOSITORY_IMPORT_SERVICE_BUS_QUEUE` | Durable external-repository imports. Production must use `service-bus` or the rollback value `disabled`; `inline` is local/test only. |
 
 The complete variable list and expected defaults are maintained in [`.env.example`](../../.env.example). Validation logic is in `src/lib/env.ts`, `src/features/repositories/config.ts`, `src/features/notifications/config.ts`, `src/features/directory/config.ts`, and `src/features/publishing/azure/config.ts`.
 
@@ -102,6 +103,44 @@ npm run test:e2e
 The Playwright suite sets `E2E_AUTH_BYPASS=true`. This is narrowly scoped test infrastructure that bypasses Entra configuration and supplies a test user; it must never be enabled in production.
 
 When reproducing a problem, use a fresh local app record or a non-production database. Do not point a local process at production Azure publishing credentials unless the change is an approved production operation.
+
+Use `REPOSITORY_IMPORT_TRANSPORT=inline` for local external-import work. It persists and claims the same attempt state as production but invokes the runner in the local process, so `git --version` must succeed locally. It does not require Service Bus or Azure Container Apps.
+
+## Repository Import Worker Operations
+
+### Production topology and promotion
+
+Production uses `REPOSITORY_IMPORT_TRANSPORT=service-bus`. The portal App Service has queue-scoped Service Bus Data Sender; the worker identity has queue-scoped Data Receiver and Key Vault Secrets User; a separate image-pull identity has AcrPull. The portal sends only `{attemptId}`. The Container Apps Job receives one message per execution, renews the broker lock, claims a database lease, mirrors with bounded time and size, and settles the message from the durable result.
+
+Provision and preview `infra/repository-import-worker/main.bicep` as documented in its README. The worker workflow builds one image, runs tests and the offline non-root Git smoke test, scans it, pushes the commit SHA, resolves the ACR digest, and updates the job to `repository@sha256:...`. Never promote `latest` or rebuild between test and push.
+
+After promotion, perform one controlled smoke import from a disposable repository containing a branch and tag. Confirm the portal changes from queued to ready, the managed target owns the exact request marker, history and refs are present, the attempt reaches `SUCCEEDED/COMPLETE`, and no credentials or raw provider errors appear in logs. This is separate from the offline container smoke test.
+
+### Dead-letter response
+
+Service Bus dead-letters malformed messages, terminal import results, and transient results at delivery five. Record the support reference, attempt ID, delivery count, worker execution name, image digest, and sanitized reason. Never copy the message body, credentials, environment, or raw provider exception into a ticket.
+
+After correcting the underlying problem, reconcile exactly one attempt:
+
+```bash
+npm run repository-import:reconcile-dead-letter -- <attempt-id>
+```
+
+The command atomically fails an active pending/running attempt once so the owner can use **Try import again**, which creates a new append-only attempt. Missing or terminal attempts are no-ops. There is intentionally no bulk reconciliation mode.
+
+### Key Vault rotation
+
+For Key Vault rotation, add a new version of `repository-import-database-url` or `github-app-private-key`; do not put values in Bicep, CI, shell history, or documentation. Start a new job execution, verify it resolves the new version, and complete a controlled smoke import. Keep the previous enabled version until verification succeeds, then disable it under the approved change record. A rotation does not authorize repository retries or portal publishing.
+
+### Rollback
+
+1. Set the portal App Service to `REPOSITORY_IMPORT_TRANSPORT=disabled` to stop new queue dispatch. Do not switch production to `inline` and do not install Git in App Service.
+2. Let active executions finish or explicitly account for their attempt/lease state. Inspect the dead-letter queue and durable attempts.
+3. Update the Container Apps Job to the last known-good `repository@sha256:...` digest. Never roll back with a mutable tag.
+4. Run the offline container smoke test and one controlled smoke import.
+5. Restore `REPOSITORY_IMPORT_TRANSPORT=service-bus` only after the queue, job, database, GitHub App access, and logs are healthy.
+
+The portal's public `GET /api/health` remains independent of the worker. It is valid portal availability evidence only; it does not validate queue delivery, Container Apps execution, Git, or an import result.
 
 ### Safe reset boundary
 

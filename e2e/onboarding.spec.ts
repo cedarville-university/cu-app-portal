@@ -9,6 +9,7 @@ const prisma = new PrismaClient({ datasourceUrl: databaseUrl });
 const fixtureIds = {
   unpublished: "e2e-onboarding-unpublished",
   published: "e2e-onboarding-published",
+  pendingImport: "e2e-onboarding-pending-import",
 };
 const createdAppNamePrefix = "E2E Created Starter";
 const createdAppName = `${createdAppNamePrefix} Handoff`;
@@ -80,6 +81,26 @@ test.describe("novice onboarding", () => {
           publishStatus: "NOT_STARTED",
         },
         {
+          id: fixtureIds.pendingImport,
+          userId: user.id,
+          templateId: template.id,
+          templateVersion: template.version,
+          appName: "E2E Existing App Import",
+          submittedConfig: { templateSlug: "imported-web-app" },
+          generationStatus: "SUCCEEDED",
+          supportReference: "E2E-PENDING-IMPORT",
+          deploymentTarget: "Azure App Service",
+          sourceOfTruth: "IMPORTED_REPOSITORY",
+          repositoryProvider: "GITHUB",
+          repositoryOwner: "cedarville-e2e",
+          repositoryName: "existing-app-import",
+          repositoryVisibility: "private",
+          repositoryStatus: "PENDING",
+          repositoryAccessStatus: "NOT_REQUESTED",
+          publishingSetupStatus: "NOT_CHECKED",
+          publishStatus: "NOT_STARTED",
+        },
+        {
           id: fixtureIds.published,
           userId: user.id,
           templateId: template.id,
@@ -108,6 +129,21 @@ test.describe("novice onboarding", () => {
           lastPublishedAt: new Date(),
         },
       ],
+    });
+    await prisma.repositoryImport.create({
+      data: {
+        appRequestId: fixtureIds.pendingImport,
+        sourceRepositoryUrl: "https://github.com/example/existing-app",
+        sourceRepositoryOwner: "example",
+        sourceRepositoryName: "existing-app",
+        sourceRepositoryDefaultBranch: "main",
+        targetRepositoryOwner: "cedarville-e2e",
+        targetRepositoryName: "existing-app-import",
+        importStatus: "PENDING",
+        compatibilityStatus: "NOT_SCANNED",
+        compatibilityFindings: [],
+        preparationStatus: "NOT_STARTED",
+      },
     });
   });
 
@@ -167,6 +203,18 @@ test.describe("novice onboarding", () => {
     await expect(page).toHaveURL(/\/apps\/add\?source=local$/);
     await expect(page.getByRole("heading", { name: "Only on my computer" })).toBeVisible();
     await expect(page.getByLabel("Local App Name")).toBeVisible();
+  });
+
+  test("existing app import stays queued without Azure or GitHub provider calls", async ({
+    page,
+  }) => {
+    await page.goto(`/onboarding/${fixtureIds.pendingImport}`);
+    await expect(
+      page.getByRole("heading", { name: /your app is queued to be copied/i }),
+    ).toBeVisible();
+    await expect(page.getByText(/waiting for a protected worker/i)).toBeVisible();
+    await expect(page.getByRole("status")).toContainText(/checks import progress/i);
+    await expect(page.getByRole("button", { name: /try import again/i })).toHaveCount(0);
   });
 
   test("submits a generated create form and hands the saved request to the wizard", async ({

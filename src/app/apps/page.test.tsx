@@ -78,6 +78,44 @@ afterEach(() => {
 });
 
 describe("MyAppsPage", () => {
+  it("shows an external import as in setup without exposing provider details", async () => {
+    vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ githubUsername: null } as never);
+    vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
+      {
+        id: "req_pending_import",
+        appName: "Queued Existing App",
+        generationStatus: "SUCCEEDED",
+        sourceOfTruth: "IMPORTED_REPOSITORY",
+        repositoryStatus: "PENDING",
+        repositoryAccessStatus: "NOT_REQUESTED",
+        repositoryAccessNote: null,
+        publishStatus: "NOT_STARTED",
+        publishingSetupStatus: "NOT_CHECKED",
+        repositoryUrl: null,
+        publishUrl: null,
+        primaryPublishUrl: null,
+        repositoryImport: {
+          importStatus: "PENDING",
+          importErrorSummary: "provider token=must-not-render",
+          compatibilityStatus: "NOT_SCANNED",
+          preparationStatus: "NOT_STARTED",
+          preparationErrorSummary: null,
+        },
+      },
+    ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
+
+    render(await MyAppsPage());
+
+    const card = screen.getByRole("heading", { name: "Queued Existing App" }).closest("li")!;
+    expect(within(card).getByText(/import:\s*pending/i)).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /continue setup/i })).toHaveAttribute(
+      "href",
+      "/onboarding/req_pending_import",
+    );
+    expect(card).not.toHaveTextContent(/provider token|must-not-render/i);
+  });
+
   it("renders breadcrumb links for returning home or launching another app", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue(
