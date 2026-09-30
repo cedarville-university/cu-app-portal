@@ -42,6 +42,7 @@ describe("repository import worker deployment workflow", () => {
       expect(index, command).toBeGreaterThan(last);
       last = index;
     }
+    expect(source).toContain("aquasecurity/trivy-action@v0.36.0");
   });
 
   it("uses OIDC, SHA tags, digest resolution, and digest-pinned job updates", () => {
