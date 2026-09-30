@@ -260,7 +260,12 @@ export async function runRepositoryImportAttempt(
         stage: currentStage,
         error: errorSummary,
       });
-      deps.log("released", { ...logDetails, stage: currentStage, errorSummary });
+      deps.log("released", {
+        ...logDetails,
+        stage: currentStage,
+        errorSummary,
+        errorDiagnostics: safeErrorDiagnostics(error),
+      });
       return { disposition: "abandon", errorSummary };
     }
 
@@ -286,7 +291,12 @@ export async function runRepositoryImportAttempt(
         directRecipientUserIds: [context.repositoryImport.appRequest.userId],
       });
     }
-    deps.log("failed", { ...logDetails, stage: currentStage, errorSummary });
+    deps.log("failed", {
+      ...logDetails,
+      stage: currentStage,
+      errorSummary,
+      errorDiagnostics: safeErrorDiagnostics(error),
+    });
     return { disposition: "dead-letter", errorSummary };
   }
 }
@@ -478,6 +488,25 @@ function errorChain(error: unknown) {
       current instanceof Error && "cause" in current ? current.cause : undefined;
   }
   return chain;
+}
+
+function safeErrorDiagnostics(error: unknown) {
+  return errorChain(error).map((item) => {
+    const record = item && typeof item === "object" ? item : null;
+    const status = record && "status" in record ? Number(record.status) : Number.NaN;
+    const rawCode = record && "code" in record ? String(record.code) : "";
+    const code = /^[A-Za-z0-9_.-]{1,64}$/.test(rawCode) ? rawCode : undefined;
+    const rawName = item instanceof Error ? item.name : "UnknownError";
+    const name = /^[A-Za-z0-9_.-]{1,64}$/.test(rawName)
+      ? rawName
+      : "UnknownError";
+
+    return {
+      name,
+      ...(Number.isFinite(status) ? { status } : {}),
+      ...(code ? { code } : {}),
+    };
+  });
 }
 
 function isTransientError(error: unknown) {

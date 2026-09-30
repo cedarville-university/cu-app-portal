@@ -332,6 +332,37 @@ describe("runRepositoryImportAttempt", () => {
     expect(deps.recordAuditEvent).toHaveBeenCalledOnce();
   });
 
+  it("logs safe error status and code diagnostics without the raw message", async () => {
+    const deps = createDependencies();
+    vi.mocked(deps.importRepository).mockRejectedValue(
+      Object.assign(new Error("forbidden token=secret"), {
+        status: 403,
+        code: "GITHUB_DENIED",
+      }),
+    );
+
+    await runRepositoryImportAttempt(
+      {
+        attemptId: "attempt-123",
+        workerExecutionName: "job-execution-7",
+        deliveryCount: 1,
+      },
+      deps,
+    );
+
+    expect(deps.log).toHaveBeenCalledWith(
+      "failed",
+      expect.objectContaining({
+        errorDiagnostics: [
+          { name: "Error", status: 403, code: "GITHUB_DENIED" },
+        ],
+      }),
+    );
+    expect(JSON.stringify(vi.mocked(deps.log).mock.calls)).not.toContain(
+      "forbidden token=secret",
+    );
+  });
+
   it("logs identifiers and build metadata without raw errors or configuration", async () => {
     const deps = createDependencies();
 
