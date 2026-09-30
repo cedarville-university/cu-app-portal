@@ -11,12 +11,20 @@ param pullIdentityId string
 param keyVaultUri string
 param databaseSecretName string
 param githubPrivateKeySecretName string
+param smtpPasswordSecretName string
 param serviceBusNamespace string
 param queueName string
 param githubAppId string
 param githubAllowedOrgs string
 param githubDefaultOrg string
 param githubInstallationsJson string
+param portalAppUrl string
+param smtpHost string
+param smtpPort int
+param smtpUsername string
+param smtpFrom string
+param smtpReplyTo string
+param smtpTlsMode string
 param applicationCommit string
 param deploymentPrincipalId string = ''
 param tags object = {}
@@ -108,6 +116,11 @@ resource job 'Microsoft.App/jobs@2025-01-01' = {
           keyVaultUrl: '${keyVaultUri}secrets/${githubPrivateKeySecretName}'
           identity: workerIdentityId
         }
+        {
+          name: 'smtp-password'
+          keyVaultUrl: '${keyVaultUri}secrets/${smtpPasswordSecretName}'
+          identity: workerIdentityId
+        }
       ]
     }
     template: {
@@ -128,6 +141,14 @@ resource job 'Microsoft.App/jobs@2025-01-01' = {
             { name: 'GITHUB_DEFAULT_ORG', value: githubDefaultOrg }
             { name: 'GITHUB_DEFAULT_REPO_VISIBILITY', value: 'private' }
             { name: 'GITHUB_APP_INSTALLATIONS_JSON', value: githubInstallationsJson }
+            { name: 'PORTAL_APP_URL', value: portalAppUrl }
+            { name: 'SMTP_HOST', value: smtpHost }
+            { name: 'SMTP_PORT', value: string(smtpPort) }
+            { name: 'SMTP_USERNAME', value: smtpUsername }
+            { name: 'SMTP_PASSWORD', secretRef: 'smtp-password' }
+            { name: 'SMTP_TLS_MODE', value: smtpTlsMode }
+            { name: 'SMTP_FROM', value: smtpFrom }
+            { name: 'SMTP_REPLY_TO', value: smtpReplyTo }
             { name: 'REPOSITORY_IMPORT_TRANSPORT', value: 'service-bus' }
             { name: 'REPOSITORY_IMPORT_SERVICE_BUS_NAMESPACE', value: '${serviceBusNamespace}.servicebus.windows.net' }
             { name: 'REPOSITORY_IMPORT_SERVICE_BUS_QUEUE', value: queueName }

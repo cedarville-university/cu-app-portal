@@ -6,9 +6,9 @@ The portal identity receives Service Bus Data Sender only on the queue. The work
 
 Set `deploymentPrincipalId` to the object ID of the GitHub Actions OIDC service principal. The template grants that identity resource-group Reader for tag-based discovery, AcrPush on only this registry, and Container Apps Jobs Contributor on only this job. Leave the parameter empty when CI deployment is not configured.
 
-Before deployment, an administrator must create an ignored parameter file from `main.bicepparam.example` and ensure the PostgreSQL network path accepts traffic from the optional Container Apps infrastructure subnet. Required secret names default to `repository-import-database-url` and `github-app-private-key`.
+Before deployment, an administrator must create an ignored parameter file from `main.bicepparam.example` and ensure the PostgreSQL network path accepts traffic from the optional Container Apps infrastructure subnet. Required secret names default to `repository-import-database-url`, `github-app-private-key`, and `smtp-password`.
 
-For a new environment, deploy in two phases. First set `deployJob = false` and deploy the supporting resources. A vault administrator then grants the operator narrowly scoped, temporary secret-write access, populates the two named secrets without printing their values, and removes that temporary access. Finally set `deployJob = true` and deploy again. Container Apps validates Key Vault references while creating the job, so a one-phase first deployment cannot succeed before those secrets exist. Subsequent idempotent deployments keep `deployJob = true`.
+For a new environment, deploy in two phases. First set `deployJob = false` and deploy the supporting resources. A vault administrator then grants the operator narrowly scoped, temporary secret-write access, populates the three named secrets without printing their values, and removes that temporary access. Finally set `deployJob = true` and deploy again. Container Apps validates Key Vault references while creating the job, so a one-phase first deployment cannot succeed before those secrets exist. Subsequent idempotent deployments keep `deployJob = true`.
 
 Validate without changing Azure:
 

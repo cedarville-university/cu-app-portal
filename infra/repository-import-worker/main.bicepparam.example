@@ -9,6 +9,13 @@ param githubAppId = '000000'
 param githubAllowedOrgs = 'cedarville-it'
 param githubDefaultOrg = 'cedarville-it'
 param githubInstallationsJson = '{"cedarville-it":"00000000"}'
+param portalAppUrl = 'https://launch.cedarville.edu'
+param smtpHost = 'smtp.example.edu'
+param smtpPort = 587
+param smtpUsername = 'cu-launch@example.edu'
+param smtpFrom = 'CU Launch <cu-launch@example.edu>'
+param smtpReplyTo = 'support@example.edu'
+param smtpTlsMode = 'starttls'
 
 // Set this only when the Container Apps environment must join an existing subnet.
 param infrastructureSubnetResourceId = ''

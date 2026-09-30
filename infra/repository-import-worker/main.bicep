@@ -19,6 +19,19 @@ param githubDefaultOrg string
 param githubInstallationsJson string
 param databaseSecretName string = 'repository-import-database-url'
 param githubPrivateKeySecretName string = 'github-app-private-key'
+param smtpPasswordSecretName string = 'smtp-password'
+param portalAppUrl string
+param smtpHost string
+param smtpPort int = 587
+param smtpUsername string
+param smtpFrom string
+param smtpReplyTo string
+@allowed([
+  'none'
+  'starttls'
+  'ssl'
+])
+param smtpTlsMode string = 'starttls'
 param applicationCommit string = 'unknown'
 param tags object = {
   workload: 'repository-import-worker'
@@ -108,12 +121,20 @@ module job 'modules/job.bicep' = if (deployJob) {
     keyVaultUri: identity.outputs.keyVaultUri
     databaseSecretName: databaseSecretName
     githubPrivateKeySecretName: githubPrivateKeySecretName
+    smtpPasswordSecretName: smtpPasswordSecretName
     serviceBusNamespace: messaging.outputs.namespaceName
     queueName: messaging.outputs.queueName
     githubAppId: githubAppId
     githubAllowedOrgs: githubAllowedOrgs
     githubDefaultOrg: githubDefaultOrg
     githubInstallationsJson: githubInstallationsJson
+    portalAppUrl: portalAppUrl
+    smtpHost: smtpHost
+    smtpPort: smtpPort
+    smtpUsername: smtpUsername
+    smtpFrom: smtpFrom
+    smtpReplyTo: smtpReplyTo
+    smtpTlsMode: smtpTlsMode
     applicationCommit: applicationCommit
     deploymentPrincipalId: deploymentPrincipalId
     tags: tags

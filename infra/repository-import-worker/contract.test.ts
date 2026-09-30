@@ -92,6 +92,14 @@ describe("repository import worker infrastructure contract", () => {
     );
   });
 
+  it("supplies worker notifications with non-secret settings and a Key Vault password", () => {
+    const job = read("modules/job.bicep");
+    expect(job).toContain("name: 'smtp-password'");
+    expect(job).toContain("keyVaultUrl: '${keyVaultUri}secrets/${smtpPasswordSecretName}'");
+    expect(job).toContain("{ name: 'PORTAL_APP_URL', value: portalAppUrl }");
+    expect(job).toContain("{ name: 'SMTP_PASSWORD', secretRef: 'smtp-password' }");
+  });
+
   it("accepts no secret values and emits deployment handoff outputs", () => {
     const main = read("main.bicep");
     expect(main).not.toMatch(/@secure\(\)\s*param/);
