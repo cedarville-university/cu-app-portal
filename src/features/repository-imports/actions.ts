@@ -30,6 +30,8 @@ import {
 import { importRepositoryWithHistory } from "./import-repository";
 import { prepareImportedRepository } from "./prepare-repository";
 import { verifyImportedPublishReadiness } from "./publish-readiness";
+import type { RepositoryImportQueue } from "./queue";
+import { queueExternalRepositoryImport } from "./queue-import";
 import { parseGitHubRepositoryUrl } from "./repo-url";
 import { buildSharedOrgTargetName, isRepositoryInOrg } from "./target-name";
 
@@ -56,6 +58,7 @@ type AddExistingAppDeps = {
   };
   publicRepositoryFetch?: typeof fetch;
   importRepository?: typeof importRepositoryWithHistory;
+  queue?: RepositoryImportQueue;
 };
 
 type PrepareExistingAppDeps = {
@@ -437,6 +440,29 @@ export async function addExistingAppAction(
         sourceName: repository.name,
         existingNames: [],
       });
+
+  if (
+    !isSharedOrgRepo &&
+    (deps.queue !== undefined || process.env.NODE_ENV === "production")
+  ) {
+    const result = await queueExternalRepositoryImport(
+      {
+        userId,
+        appName: parsed.appName,
+        description: parsed.description ?? "",
+        source: repository,
+        targetOwner: defaultOrg,
+        targetName,
+        targetVisibility: repositoryVisibility,
+        supportReference,
+      },
+      deps.queue ? { queue: deps.queue } : undefined,
+    );
+
+    revalidatePath("/apps");
+    return { requestId: result.requestId };
+  }
+
   let targetRepository = repository;
   let repositoryStatus: "READY" | "FAILED" = "READY";
   let importStatus: "NOT_REQUIRED" | "SUCCEEDED" | "FAILED" = isSharedOrgRepo

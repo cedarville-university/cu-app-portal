@@ -21,6 +21,7 @@ import {
 } from "./compatibility";
 import { importRepositoryWithHistory } from "./import-repository";
 import { prepareImportedRepository } from "./prepare-repository";
+import { queueExternalRepositoryImport } from "./queue-import";
 
 const readyPackageJson = JSON.stringify({
   scripts: {
@@ -173,6 +174,10 @@ vi.mock("./import-repository", () => ({
   importRepositoryWithHistory: vi.fn(),
 }));
 
+vi.mock("./queue-import", () => ({
+  queueExternalRepositoryImport: vi.fn(),
+}));
+
 describe("repository import actions", () => {
   beforeEach(() => {
     vi.mocked(revalidatePath).mockReset();
@@ -222,6 +227,12 @@ describe("repository import actions", () => {
     );
     vi.mocked(prepareImportedRepository).mockReset();
     vi.mocked(importRepositoryWithHistory).mockReset();
+    vi.mocked(queueExternalRepositoryImport).mockReset();
+    vi.mocked(queueExternalRepositoryImport).mockResolvedValue({
+      requestId: "req_queued",
+      attemptId: "attempt-123",
+      queued: true,
+    });
     vi.mocked(preflightPublishingSetup).mockReset();
     vi.mocked(preflightPublishingSetup).mockResolvedValue([]);
   });
@@ -296,6 +307,53 @@ describe("repository import actions", () => {
       directRecipientUserIds: ["user-123"],
     });
     expect(importRepositoryWithHistory).not.toHaveBeenCalled();
+    expect(queueExternalRepositoryImport).not.toHaveBeenCalled();
+  });
+
+  it("queues an external repository after resolving source access", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    const queue = { send: vi.fn() };
+    const formData = new FormData();
+    formData.set(
+      "repositoryUrl",
+      "https://github.com/external-org/Campus-Dashboard",
+    );
+    formData.set("appName", "Campus Dashboard");
+    formData.set("description", "Existing dashboard.");
+
+    await expect(
+      addExistingAppAction(formData, {
+        defaultOrg: "cedarville-it",
+        repository: {
+          owner: "external-org",
+          name: "Campus-Dashboard",
+          url: "https://github.com/external-org/Campus-Dashboard",
+          defaultBranch: "trunk",
+        },
+        queue,
+      }),
+    ).resolves.toEqual({ requestId: "req_queued" });
+
+    expect(queueExternalRepositoryImport).toHaveBeenCalledWith(
+      {
+        userId: "user-123",
+        appName: "Campus Dashboard",
+        description: "Existing dashboard.",
+        source: {
+          owner: "external-org",
+          name: "Campus-Dashboard",
+          url: "https://github.com/external-org/Campus-Dashboard",
+          defaultBranch: "trunk",
+        },
+        targetOwner: "cedarville-it",
+        targetName: "campus-dashboard",
+        targetVisibility: "private",
+        supportReference: "SUP-123",
+      },
+      { queue },
+    );
+    expect(importRepositoryWithHistory).not.toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith("/apps");
   });
 
   it("creates a managed repository with the app-local portal skill for a local Codex app", async () => {
