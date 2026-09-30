@@ -42,6 +42,11 @@ describe("repository import worker infrastructure contract", () => {
     expect(registry).not.toContain("retentionPolicy:");
   });
 
+  it("does not use the reserved Service Bus namespace suffix", () => {
+    const main = read("main.bicep");
+    expect(main).toContain("var namespaceName = take('${namePrefix}-sb-${suffix}', 50)");
+  });
+
   it("bounds queue delivery and job concurrency/resources", () => {
     const source = all();
     expect(source).toMatch(/maxDeliveryCount:\s*5/);
