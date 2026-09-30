@@ -57,6 +57,14 @@ describe("repository import worker deployment workflow", () => {
     expect(source).not.toMatch(/:latest\b|IMAGE_(REF|TAG)[^\n]*latest/i);
   });
 
+  it("discovers tagged Azure resources without repository variables", () => {
+    const source = readFileSync(workerPath, "utf8");
+    expect(source).not.toContain("vars.REPOSITORY_IMPORT_");
+    expect(source).toContain("tags.workload=='repository-import-worker'");
+    expect(source).toContain("az acr list");
+    expect(source).toContain("az containerapp job list");
+  });
+
   it("keeps the portal deployment independent of Git and the worker image", () => {
     const portal = readFileSync(portalPath, "utf8");
     expect(portal).not.toContain("workers/repository-import");

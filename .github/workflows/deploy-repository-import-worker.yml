@@ -60,10 +60,11 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Resolve deployment resource names
-        env:
-          ACR_NAME: ${{ vars.REPOSITORY_IMPORT_ACR_NAME }}
-          JOB_NAME: ${{ vars.REPOSITORY_IMPORT_JOB_NAME }}
         run: |
+          ACR_NAME="$(az acr list --resource-group "$AZURE_RESOURCE_GROUP" --query "[?tags.workload=='repository-import-worker'].name | [0]" --output tsv)"
+          JOB_NAME="$(az containerapp job list --resource-group "$AZURE_RESOURCE_GROUP" --query "[?tags.workload=='repository-import-worker'].name | [0]" --output tsv)"
+          test -n "$ACR_NAME"
+          test -n "$JOB_NAME"
           ACR_LOGIN_SERVER="$(az acr show --name "$ACR_NAME" --query loginServer --output tsv)"
           echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
           echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
