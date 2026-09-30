@@ -31,6 +31,7 @@ export type OnboardingStateInput = {
 export type OnboardingState =
   | { kind: "REPOSITORY_PENDING" }
   | { kind: "REPOSITORY_FAILED" }
+  | { kind: "IMPORT_PENDING"; phase: "QUEUED" | "RUNNING" }
   | { kind: "IMPORT_FAILED" }
   | { kind: "GENERATED_PATH_CHOICE" }
   | {
@@ -104,6 +105,12 @@ export function deriveOnboardingState(
       input.publishStatus satisfies never;
   }
 
+  if (input.importStatus === "PENDING") {
+    return { kind: "IMPORT_PENDING", phase: "QUEUED" };
+  }
+  if (input.importStatus === "RUNNING") {
+    return { kind: "IMPORT_PENDING", phase: "RUNNING" };
+  }
   if (input.importStatus === "FAILED") return { kind: "IMPORT_FAILED" };
 
   switch (input.repositoryStatus) {

@@ -28,6 +28,7 @@ import {
 import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
 import {
   prepareExistingAppAction,
+  retryRepositoryImportAction,
   verifyExistingAppPreparationAction,
 } from "@/features/repository-imports/actions";
 import {
@@ -402,6 +403,32 @@ export default async function AppOnboardingPage({
     />
   );
 
+  if (state.kind === "IMPORT_PENDING") {
+    const isQueued = state.phase === "QUEUED";
+    return (
+      <main>
+        <OnboardingStepShell
+          appName={app.appName}
+          currentStage="Develop"
+          title={
+            isQueued
+              ? "Your app is queued to be copied"
+              : "Your app is being copied"
+          }
+          explanation={
+            isQueued
+              ? "The saved import is waiting for a protected worker. No action is needed while it waits."
+              : "The protected worker is copying the repository history into its managed Cedarville code home."
+          }
+          next="This page will move to preparation automatically when the managed copy is ready."
+          details={publishingTechnicalDetails}
+        >
+          <OnboardingProgressRefresh statusText="The portal checks import progress automatically. You can leave this page open." />
+        </OnboardingStepShell>
+      </main>
+    );
+  }
+
   if (state.kind === "REPOSITORY_PENDING") {
     return (
       <main>
@@ -451,9 +478,7 @@ export default async function AppOnboardingPage({
   }
 
   if (state.kind === "IMPORT_FAILED" && app.repositoryImport) {
-    const restartHref = `/apps/add?source=github&repositoryUrl=${encodeURIComponent(
-      app.repositoryImport.sourceRepositoryUrl,
-    )}&appName=${encodeURIComponent(app.appName)}`;
+    const canRetryImport = app.userId === userId || isAdmin;
 
     return (
       <main>
@@ -462,7 +487,11 @@ export default async function AppOnboardingPage({
           currentStage="Develop"
           title="We couldn't copy your app yet"
           explanation="The portal did not finish making a managed Cedarville copy. It left this request unchanged so it will not overwrite or delete any repository files."
-          next="Start a new import from the original GitHub repository. The portal will choose a fresh managed repository name instead of reusing the partial copy."
+          next={
+            canRetryImport
+              ? "Try the saved import again. The portal records a new attempt and safely resumes the same managed target."
+              : "Ask the app owner or a portal administrator to retry the saved import."
+          }
           supportReference={app.supportReference}
         >
           <div className="wizard-actions">
@@ -473,9 +502,16 @@ export default async function AppOnboardingPage({
                   : "The managed copy did not finish. Start again from the saved source repository."}
               </p>
             ) : null}
-            <Link className="btn btn--primary-solid" href={restartHref}>
-              Start again with this repository
-            </Link>
+            {canRetryImport ? (
+              <form action={retryRepositoryImportAction.bind(null, app.id)}>
+                <PendingSubmitButton
+                  idleLabel="Try import again"
+                  pendingLabel="Starting another import..."
+                  statusText="Creating a new protected import attempt without deleting the saved request."
+                  variant="primary-solid"
+                />
+              </form>
+            ) : null}
           </div>
         </OnboardingStepShell>
       </main>

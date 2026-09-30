@@ -33,6 +33,17 @@ export type QueueExternalRepositoryImportInput = {
 
 type QueueImportDb = Pick<typeof prisma, "$transaction">;
 
+type EnqueueFailureInput = {
+  requestId: string;
+  repositoryImportId: string;
+  attemptId: string;
+  userId: string;
+  sourceOwner: string;
+  sourceName: string;
+  targetOwner: string;
+  targetName: string;
+};
+
 export async function queueExternalRepositoryImport(
   input: QueueExternalRepositoryImportInput,
   deps: {
@@ -124,66 +135,19 @@ export async function queueExternalRepositoryImport(
       queued: true,
     };
   } catch {
-    const failedAt = now();
-    const failed = await db.$transaction(async (tx) => {
-      const attempt = await tx.repositoryImportAttempt.updateMany({
-        where: {
-          id: created.attemptId,
-          status: "PENDING",
-          repositoryImport: { activeAttemptId: created.attemptId },
-        },
-        data: {
-          status: "FAILED",
-          stage: "ENQUEUE",
-          errorSummary: ENQUEUE_FAILURE_SUMMARY,
-          finishedAt: failedAt,
-        },
-      });
-
-      if (attempt.count !== 1) {
-        return false;
-      }
-
-      await tx.repositoryImport.updateMany({
-        where: {
-          id: created.repositoryImportId,
-          activeAttemptId: created.attemptId,
-        },
-        data: {
-          activeAttemptId: null,
-          importStatus: "FAILED",
-          importErrorSummary: ENQUEUE_FAILURE_SUMMARY,
-          preparationStatus: "BLOCKED",
-          preparationErrorSummary: ENQUEUE_FAILURE_SUMMARY,
-        },
-      });
-      await tx.appRequest.updateMany({
-        where: {
-          id: created.requestId,
-          repositoryStatus: "PENDING",
-        },
-        data: {
-          repositoryStatus: "FAILED",
-          publishErrorSummary: ENQUEUE_FAILURE_SUMMARY,
-        },
-      });
-      return true;
-    });
-
-    if (failed) {
-      await recordAuditEvent("EXISTING_APP_IMPORT_FAILED", {
+    const failed = await finalizeRepositoryImportEnqueueFailure(
+      {
         requestId: created.requestId,
-        sourceRepository: `${input.source.owner}/${input.source.name}`,
-        targetRepository: `${input.targetOwner}/${input.targetName}`,
-        error: ENQUEUE_FAILURE_SUMMARY,
-      });
-      await safeNotifyAppEvent({
-        appRequestId: created.requestId,
-        eventKey: "REPOSITORY_FAILED",
-        actorUserId: input.userId,
-        directRecipientUserIds: [input.userId],
-      });
-    }
+        repositoryImportId: created.repositoryImportId,
+        attemptId: created.attemptId,
+        userId: input.userId,
+        sourceOwner: input.source.owner,
+        sourceName: input.source.name,
+        targetOwner: input.targetOwner,
+        targetName: input.targetName,
+      },
+      { db, now },
+    );
 
     return {
       requestId: created.requestId,
@@ -191,6 +155,72 @@ export async function queueExternalRepositoryImport(
       queued: !failed,
     };
   }
+}
+
+export async function finalizeRepositoryImportEnqueueFailure(
+  input: EnqueueFailureInput,
+  deps: { db?: QueueImportDb; now?: () => Date } = {},
+) {
+  const db = deps.db ?? prisma;
+  const failedAt = (deps.now ?? (() => new Date()))();
+  const failed = await db.$transaction(async (tx) => {
+    const attempt = await tx.repositoryImportAttempt.updateMany({
+      where: {
+        id: input.attemptId,
+        status: "PENDING",
+        repositoryImport: { activeAttemptId: input.attemptId },
+      },
+      data: {
+        status: "FAILED",
+        stage: "ENQUEUE",
+        errorSummary: ENQUEUE_FAILURE_SUMMARY,
+        finishedAt: failedAt,
+      },
+    });
+
+    if (attempt.count !== 1) {
+      return false;
+    }
+
+    await tx.repositoryImport.updateMany({
+      where: {
+        id: input.repositoryImportId,
+        activeAttemptId: input.attemptId,
+      },
+      data: {
+        activeAttemptId: null,
+        importStatus: "FAILED",
+        importErrorSummary: ENQUEUE_FAILURE_SUMMARY,
+        preparationStatus: "BLOCKED",
+        preparationErrorSummary: ENQUEUE_FAILURE_SUMMARY,
+      },
+    });
+    await tx.appRequest.updateMany({
+      where: { id: input.requestId, repositoryStatus: "PENDING" },
+      data: {
+        repositoryStatus: "FAILED",
+        publishErrorSummary: ENQUEUE_FAILURE_SUMMARY,
+      },
+    });
+    return true;
+  });
+
+  if (failed) {
+    await recordAuditEvent("EXISTING_APP_IMPORT_FAILED", {
+      requestId: input.requestId,
+      sourceRepository: `${input.sourceOwner}/${input.sourceName}`,
+      targetRepository: `${input.targetOwner}/${input.targetName}`,
+      error: ENQUEUE_FAILURE_SUMMARY,
+    });
+    await safeNotifyAppEvent({
+      appRequestId: input.requestId,
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: input.userId,
+      directRecipientUserIds: [input.userId],
+    });
+  }
+
+  return failed;
 }
 
 async function upsertImportedTemplate(tx: Prisma.TransactionClient) {

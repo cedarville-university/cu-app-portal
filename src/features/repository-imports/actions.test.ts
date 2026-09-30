@@ -12,8 +12,10 @@ import {
   addExistingAppFormAction,
   createManagedRepositoryForLocalAppAction,
   prepareExistingAppAction,
+  retryRepositoryImportAction,
   verifyExistingAppPreparationAction,
 } from "./actions";
+import { createImportAttempt } from "./attempts";
 import {
   IMPORTED_NEXT_RUNTIME,
   PUBLISHING_BUNDLE_PATHS,
@@ -21,7 +23,10 @@ import {
 } from "./compatibility";
 import { importRepositoryWithHistory } from "./import-repository";
 import { prepareImportedRepository } from "./prepare-repository";
-import { queueExternalRepositoryImport } from "./queue-import";
+import {
+  finalizeRepositoryImportEnqueueFailure,
+  queueExternalRepositoryImport,
+} from "./queue-import";
 
 const readyPackageJson = JSON.stringify({
   scripts: {
@@ -154,7 +159,12 @@ vi.mock("@/lib/db", () => ({
   prisma: (() => {
     const prismaMock = {
       template: { upsert: vi.fn() },
-      appRequest: { create: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+      appRequest: {
+        create: vi.fn(),
+        findFirst: vi.fn(),
+        update: vi.fn(),
+        updateMany: vi.fn(),
+      },
       repositoryImport: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
       user: { findUnique: vi.fn() },
       userRole: { findFirst: vi.fn() },
@@ -175,7 +185,12 @@ vi.mock("./import-repository", () => ({
 }));
 
 vi.mock("./queue-import", () => ({
+  finalizeRepositoryImportEnqueueFailure: vi.fn(),
   queueExternalRepositoryImport: vi.fn(),
+}));
+
+vi.mock("./attempts", () => ({
+  createImportAttempt: vi.fn(),
 }));
 
 describe("repository import actions", () => {
@@ -208,6 +223,8 @@ describe("repository import actions", () => {
     vi.mocked(prisma.appRequest.create).mockReset();
     vi.mocked(prisma.appRequest.findFirst).mockReset();
     vi.mocked(prisma.appRequest.update).mockReset();
+    vi.mocked(prisma.appRequest.updateMany).mockReset();
+    vi.mocked(prisma.appRequest.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.repositoryImport.create).mockReset();
     vi.mocked(prisma.repositoryImport.update).mockReset();
     vi.mocked(prisma.repositoryImport.updateMany).mockReset();
@@ -232,6 +249,12 @@ describe("repository import actions", () => {
       requestId: "req_queued",
       attemptId: "attempt-123",
       queued: true,
+    });
+    vi.mocked(finalizeRepositoryImportEnqueueFailure).mockReset();
+    vi.mocked(finalizeRepositoryImportEnqueueFailure).mockResolvedValue(true);
+    vi.mocked(createImportAttempt).mockReset();
+    vi.mocked(createImportAttempt).mockResolvedValue({
+      attemptId: "attempt-retry",
     });
     vi.mocked(preflightPublishingSetup).mockReset();
     vi.mocked(preflightPublishingSetup).mockResolvedValue([]);
@@ -354,6 +377,80 @@ describe("repository import actions", () => {
     );
     expect(importRepositoryWithHistory).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
+  });
+
+  it.each([
+    ["owner-123", false],
+    ["admin-123", true],
+  ])("allows %s to retry a terminal import", async (actorUserId, isAdmin) => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue(actorUserId);
+    vi.mocked(prisma.userRole.findFirst).mockResolvedValue(
+      isAdmin ? ({ id: "role-123" } as never) : null,
+    );
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_failed",
+      userId: "owner-123",
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      repositoryStatus: "FAILED",
+      repositoryImport: {
+        id: "import-123",
+        activeAttemptId: null,
+        importStatus: "FAILED",
+        sourceRepositoryOwner: "external-org",
+        sourceRepositoryName: "Campus-Dashboard",
+        targetRepositoryOwner: "cedarville-it",
+        targetRepositoryName: "campus-dashboard",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    const queue = { send: vi.fn().mockResolvedValue(undefined) };
+
+    await expect(
+      retryRepositoryImportAction("req_failed", { queue }),
+    ).resolves.toEqual({ requestId: "req_failed", queued: true });
+
+    expect(createImportAttempt).toHaveBeenCalledWith(
+      prisma,
+      expect.objectContaining({ repositoryImportId: "import-123" }),
+    );
+    expect(queue.send).toHaveBeenCalledWith({ attemptId: "attempt-retry" });
+  });
+
+  it("rejects retry while an import attempt is active", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("owner-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_failed",
+      userId: "owner-123",
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      repositoryStatus: "FAILED",
+      repositoryImport: {
+        id: "import-123",
+        activeAttemptId: "attempt-active",
+        importStatus: "FAILED",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+
+    await expect(
+      retryRepositoryImportAction("req_failed", {
+        queue: { send: vi.fn() },
+      }),
+    ).rejects.toThrow(/already active/i);
+    expect(createImportAttempt).not.toHaveBeenCalled();
+  });
+
+  it("rejects retry for a collaborator", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("collaborator-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(null);
+
+    await expect(
+      retryRepositoryImportAction("req_failed", {
+        queue: { send: vi.fn() },
+      }),
+    ).rejects.toThrow(/not found/i);
+    expect(prisma.appRequest.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "req_failed", userId: "collaborator-123" },
+      }),
+    );
   });
 
   it("creates a managed repository with the app-local portal skill for a local Codex app", async () => {
