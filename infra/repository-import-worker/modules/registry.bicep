@@ -7,7 +7,7 @@ resource registry 'Microsoft.ContainerRegistry/registries@2025-04-01' = {
   location: location
   tags: tags
   sku: {
-    name: 'Standard'
+    name: 'Basic'
   }
   properties: {
     adminUserEnabled: false
@@ -16,7 +16,6 @@ resource registry 'Microsoft.ContainerRegistry/registries@2025-04-01' = {
     publicNetworkAccess: 'Enabled'
     policies: {
       quarantinePolicy: { status: 'disabled' }
-      retentionPolicy: { days: 7, status: 'enabled' }
       trustPolicy: { type: 'Notary', status: 'disabled' }
     }
   }

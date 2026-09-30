@@ -36,6 +36,12 @@ describe("repository import worker infrastructure contract", () => {
     }
   });
 
+  it("uses the subscription-supported basic registry without premium retention", () => {
+    const registry = read("modules/registry.bicep");
+    expect(registry).toContain("name: 'Basic'");
+    expect(registry).not.toContain("retentionPolicy:");
+  });
+
   it("bounds queue delivery and job concurrency/resources", () => {
     const source = all();
     expect(source).toMatch(/maxDeliveryCount:\s*5/);
