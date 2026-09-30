@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@azure/identity": "^4.13.1",
+    "@azure/service-bus": "^7.9.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@prisma/client": "^6.19.3",
     "jose": "^6.2.10",
