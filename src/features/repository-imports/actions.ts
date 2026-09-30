@@ -629,7 +629,7 @@ export async function addExistingAppAction(
   return { requestId: request.id };
 }
 
-export async function retryRepositoryImportAction(
+export async function retryRepositoryImport(
   requestId: string,
   deps: { queue?: RepositoryImportQueue; now?: () => Date } = {},
 ) {
@@ -712,6 +712,13 @@ export async function retryRepositoryImportAction(
 
   revalidateImportedRepositoryViews(requestId);
   return { requestId, queued };
+}
+
+export async function retryRepositoryImportAction(
+  requestId: string,
+  _formData: FormData,
+): Promise<void> {
+  await retryRepositoryImport(requestId);
 }
 
 export type AddExistingAppFormState = {

@@ -12,7 +12,7 @@ import {
   addExistingAppFormAction,
   createManagedRepositoryForLocalAppAction,
   prepareExistingAppAction,
-  retryRepositoryImportAction,
+  retryRepositoryImport,
   verifyExistingAppPreparationAction,
 } from "./actions";
 import { createImportAttempt } from "./attempts";
@@ -405,7 +405,7 @@ describe("repository import actions", () => {
     const queue = { send: vi.fn().mockResolvedValue(undefined) };
 
     await expect(
-      retryRepositoryImportAction("req_failed", { queue }),
+      retryRepositoryImport("req_failed", { queue }),
     ).resolves.toEqual({ requestId: "req_failed", queued: true });
 
     expect(createImportAttempt).toHaveBeenCalledWith(
@@ -430,7 +430,7 @@ describe("repository import actions", () => {
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
 
     await expect(
-      retryRepositoryImportAction("req_failed", {
+      retryRepositoryImport("req_failed", {
         queue: { send: vi.fn() },
       }),
     ).rejects.toThrow(/already active/i);
@@ -442,7 +442,7 @@ describe("repository import actions", () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(null);
 
     await expect(
-      retryRepositoryImportAction("req_failed", {
+      retryRepositoryImport("req_failed", {
         queue: { send: vi.fn() },
       }),
     ).rejects.toThrow(/not found/i);
