@@ -26,6 +26,12 @@ describe("repository import worker container contract", () => {
     expect(dockerfile).toContain("/tmp/repository-import");
   });
 
+  it("removes unused npm tooling from the final runtime image", () => {
+    const dockerfile = read("workers/repository-import/Dockerfile");
+    expect(dockerfile).toContain("rm -rf /usr/local/lib/node_modules/npm");
+    expect(dockerfile).toContain("/usr/local/bin/npm /usr/local/bin/npx");
+  });
+
   it("runs a compiled worker entry point instead of tsx", () => {
     const dockerfile = read("workers/repository-import/Dockerfile");
     expect(dockerfile).toContain('["node", "dist/main.js"]');
