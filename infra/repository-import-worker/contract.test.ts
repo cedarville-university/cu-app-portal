@@ -83,6 +83,15 @@ describe("repository import worker infrastructure contract", () => {
     expect(source).toContain("4e3d2b60-56ae-4dc6-a233-09c8e5a82e68");
   });
 
+  it("selects the worker identity when the job has multiple managed identities", () => {
+    expect(read("modules/identity.bicep")).toContain(
+      "output workerClientId string = workerIdentity.properties.clientId",
+    );
+    expect(read("modules/job.bicep")).toContain(
+      "{ name: 'AZURE_CLIENT_ID', value: workerIdentityClientId }",
+    );
+  });
+
   it("accepts no secret values and emits deployment handoff outputs", () => {
     const main = read("main.bicep");
     expect(main).not.toMatch(/@secure\(\)\s*param/);

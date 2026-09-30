@@ -6,6 +6,7 @@ param infrastructureSubnetResourceId string = ''
 param image string
 param acrLoginServer string
 param workerIdentityId string
+param workerIdentityClientId string
 param pullIdentityId string
 param keyVaultUri string
 param databaseSecretName string
@@ -119,6 +120,7 @@ resource job 'Microsoft.App/jobs@2025-01-01' = {
             memory: '2Gi'
           }
           env: [
+            { name: 'AZURE_CLIENT_ID', value: workerIdentityClientId }
             { name: 'DATABASE_URL', secretRef: 'database-url' }
             { name: 'GITHUB_APP_PRIVATE_KEY', secretRef: 'github-app-private-key' }
             { name: 'GITHUB_APP_ID', value: githubAppId }

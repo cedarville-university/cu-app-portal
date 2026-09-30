@@ -64,6 +64,7 @@ resource pullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 
 output workerIdentityId string = workerIdentity.id
 output workerPrincipalId string = workerIdentity.properties.principalId
+output workerClientId string = workerIdentity.properties.clientId
 output pullIdentityId string = pullIdentity.id
 output pullPrincipalId string = pullIdentity.properties.principalId
 output keyVaultId string = vault.id

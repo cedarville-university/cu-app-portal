@@ -103,6 +103,7 @@ module job 'modules/job.bicep' = if (deployJob) {
     image: '${registry.outputs.loginServer}/${imageRepository}@${imageDigest}'
     acrLoginServer: registry.outputs.loginServer
     workerIdentityId: identity.outputs.workerIdentityId
+    workerIdentityClientId: identity.outputs.workerClientId
     pullIdentityId: identity.outputs.pullIdentityId
     keyVaultUri: identity.outputs.keyVaultUri
     databaseSecretName: databaseSecretName
