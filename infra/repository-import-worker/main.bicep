@@ -8,6 +8,8 @@ param portalPrincipalId string
 @description('Image content digest in sha256:<64 hex> form.')
 param imageDigest string
 param imageRepository string = 'repository-import-worker'
+@description('Set false for the first deployment so Key Vault secrets can be populated before Container Apps validates their references.')
+param deployJob bool = true
 param infrastructureSubnetResourceId string = ''
 param githubAppId string
 param githubAllowedOrgs string
@@ -77,7 +79,7 @@ module monitoring 'modules/monitoring.bicep' = {
   }
 }
 
-module job 'modules/job.bicep' = {
+module job 'modules/job.bicep' = if (deployJob) {
   name: 'repository-import-job'
   params: {
     environmentName: environmentName
@@ -106,7 +108,7 @@ module job 'modules/job.bicep' = {
 output serviceBusNamespace string = messaging.outputs.fullyQualifiedNamespace
 output serviceBusQueue string = messaging.outputs.queueName
 output acrLoginServer string = registry.outputs.loginServer
-output jobName string = job.outputs.jobName
+output jobName string = jobName
 output workerIdentityId string = identity.outputs.workerIdentityId
 output pullIdentityId string = identity.outputs.pullIdentityId
 output keyVaultUri string = identity.outputs.keyVaultUri

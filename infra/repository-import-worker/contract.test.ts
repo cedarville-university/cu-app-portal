@@ -47,6 +47,13 @@ describe("repository import worker infrastructure contract", () => {
     expect(main).toContain("var namespaceName = take('${namePrefix}-sb-${suffix}', 50)");
   });
 
+  it("supports a two-phase bootstrap before Key Vault references are validated", () => {
+    const main = read("main.bicep");
+    expect(main).toContain("param deployJob bool = true");
+    expect(main).toContain("module job 'modules/job.bicep' = if (deployJob)");
+    expect(main).toContain("output jobName string = jobName");
+  });
+
   it("bounds queue delivery and job concurrency/resources", () => {
     const source = all();
     expect(source).toMatch(/maxDeliveryCount:\s*5/);

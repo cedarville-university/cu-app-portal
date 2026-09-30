@@ -4,7 +4,9 @@ This deployment creates a dedicated Azure Container Apps Job and its least-privi
 
 The portal identity receives Service Bus Data Sender only on the queue. The worker identity receives Data Receiver only on that queue and Secrets User only on this vault. A separate pull identity receives AcrPull only on this registry. The template intentionally contains no secret values.
 
-Before deployment, an administrator must create an ignored parameter file from `main.bicepparam.example`, populate the named Key Vault secrets after the vault exists, and ensure the PostgreSQL network path accepts traffic from the optional Container Apps infrastructure subnet. Required secret names default to `repository-import-database-url` and `github-app-private-key`.
+Before deployment, an administrator must create an ignored parameter file from `main.bicepparam.example` and ensure the PostgreSQL network path accepts traffic from the optional Container Apps infrastructure subnet. Required secret names default to `repository-import-database-url` and `github-app-private-key`.
+
+For a new environment, deploy in two phases. First set `deployJob = false` and deploy the supporting resources. A vault administrator then grants the operator narrowly scoped, temporary secret-write access, populates the two named secrets without printing their values, and removes that temporary access. Finally set `deployJob = true` and deploy again. Container Apps validates Key Vault references while creating the job, so a one-phase first deployment cannot succeed before those secrets exist. Subsequent idempotent deployments keep `deployJob = true`.
 
 Validate without changing Azure:
 
