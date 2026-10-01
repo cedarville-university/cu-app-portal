@@ -30,6 +30,42 @@ type PublishingBundlePlan = {
   filesToWrite: Record<string, string>;
 };
 
+const AZURE_LOGIN_WITH_READINESS_RETRY = `      - name: Azure login (attempt 1)
+        id: azure_login_first
+        continue-on-error: true
+        uses: azure/login@v2
+        with:
+          client-id: \${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Wait for Azure RBAC propagation
+        if: steps.azure_login_first.outcome == 'failure'
+        run: sleep 30
+
+      - name: Azure login (attempt 2)
+        id: azure_login_second
+        if: steps.azure_login_first.outcome == 'failure'
+        continue-on-error: true
+        uses: azure/login@v2
+        with:
+          client-id: \${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Wait for Azure RBAC propagation
+        if: steps.azure_login_first.outcome == 'failure' && steps.azure_login_second.outcome == 'failure'
+        run: sleep 60
+
+      - name: Azure login (attempt 3)
+        if: steps.azure_login_first.outcome == 'failure' && steps.azure_login_second.outcome == 'failure'
+        uses: azure/login@v2
+        with:
+          client-id: \${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+`;
+
 const NEXT_DEPLOY_WORKFLOW = `name: Deploy to Azure App Service
 
 on:
@@ -86,12 +122,7 @@ jobs:
             fi
           done
 
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: \${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+${AZURE_LOGIN_WITH_READINESS_RETRY}
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
@@ -134,12 +165,7 @@ jobs:
             npm install
           fi
 
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: \${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+${AZURE_LOGIN_WITH_READINESS_RETRY}
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
@@ -205,12 +231,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: \${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+${AZURE_LOGIN_WITH_READINESS_RETRY}
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
@@ -247,12 +268,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: \${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: \${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: \${{ secrets.AZURE_SUBSCRIPTION_ID }}
+${AZURE_LOGIN_WITH_READINESS_RETRY}
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
