@@ -443,6 +443,55 @@ describe("AppOnboardingPage generated apps", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("guides a published starter through GitHub access before showing app details", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      generatedApp({
+        publishStatus: "SUCCEEDED",
+        primaryPublishUrl: "https://campus-dashboard.azurewebsites.net",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /give codex access to your app code/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("GitHub username")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /your app is online/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the Codex handoff after GitHub access without offering another publish", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      generatedApp({
+        publishStatus: "SUCCEEDED",
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote:
+          "GitHub access is ready for @collaborator-name.",
+        primaryPublishUrl: "https://campus-dashboard.azurewebsites.net",
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", { name: /customize your app with codex/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/your app is already online/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open your app" })).toHaveAttribute(
+      "href",
+      "https://campus-dashboard.azurewebsites.net",
+    );
+    expect(screen.getByRole("link", { name: "Open app details" })).toHaveAttribute(
+      "href",
+      "/download/req_123",
+    );
+    expect(screen.queryByRole("button", { name: "Publish to Azure" })).not.toBeInTheDocument();
+  });
+
   it("ignores unsupported generated path values", async () => {
     await renderPage({ path: "surprise" });
 

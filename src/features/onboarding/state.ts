@@ -90,6 +90,12 @@ export function deriveOnboardingState(
 ): OnboardingState {
   switch (input.publishStatus) {
     case "SUCCEEDED":
+      if (
+        input.sourceOfTruth === "PORTAL_MANAGED_REPO" &&
+        !input.isLocalSource
+      ) {
+        return githubAccessState(input, "customize");
+      }
       return { kind: "PUBLISHED" };
     case "DELETED":
       return { kind: "PUBLISH_DELETED" };

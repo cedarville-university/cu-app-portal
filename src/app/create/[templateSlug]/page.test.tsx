@@ -91,6 +91,8 @@ describe("TemplatePage", () => {
     expect(
       screen.getByText(/launch the starter now/i),
     ).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /app setup progress/i }))
+      .toHaveTextContent("StartDevelopPreparePublish");
   });
 
   it("treats disabled templates as not found", async () => {

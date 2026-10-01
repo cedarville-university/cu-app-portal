@@ -248,6 +248,29 @@ describe("deriveOnboardingState generated apps", () => {
       },
       "CODEX_CUSTOMIZATION",
     ],
+    [
+      {
+        ...generatedReady,
+        publishStatus: "SUCCEEDED",
+      },
+      "GITHUB_ACCOUNT_REQUIRED",
+    ],
+    [
+      {
+        ...generatedReady,
+        publishStatus: "SUCCEEDED",
+        repositoryAccessStatus: "INVITED",
+      },
+      "GITHUB_INVITATION_PENDING",
+    ],
+    [
+      {
+        ...generatedReady,
+        publishStatus: "SUCCEEDED",
+        repositoryAccessStatus: "GRANTED",
+      },
+      "CODEX_CUSTOMIZATION",
+    ],
   ] satisfies Array<[OnboardingStateInput, string]>)(
     "maps %# to %s",
     (input, expected) => {
@@ -324,7 +347,7 @@ describe("deriveOnboardingState workflow states", () => {
     [generated({ publishStatus: "PROVISIONING" }), "PUBLISHING"],
     [generated({ publishStatus: "DEPLOYING" }), "PUBLISHING"],
     [generated({ publishStatus: "FAILED" }), "PUBLISH_FAILED"],
-    [generated({ publishStatus: "SUCCEEDED" }), "PUBLISHED"],
+    [generated({ publishStatus: "SUCCEEDED" }), "GITHUB_ACCOUNT_REQUIRED"],
     [generated({ publishStatus: "DELETED" }), "PUBLISH_DELETED"],
   ] satisfies Array<[OnboardingStateInput, string]>)(
     "maps workflow state %# to %s",

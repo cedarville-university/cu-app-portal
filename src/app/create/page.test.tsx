@@ -110,4 +110,15 @@ describe("CreatePage", () => {
 
     expect(screen.queryByText("What is GitHub?")).not.toBeInTheDocument();
   });
+
+  it("keeps the shared onboarding progress visible while choosing a template", async () => {
+    render(await CreatePage());
+
+    const progress = screen.getByRole("list", { name: /app setup progress/i });
+    expect(progress).toHaveTextContent("StartDevelopPreparePublish");
+    expect(within(progress).getByText("Start")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+  });
 });

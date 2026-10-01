@@ -1,8 +1,44 @@
 import React, { type ReactNode } from "react";
 
-const stages = ["Start", "Develop", "Prepare", "Publish"] as const;
+export const onboardingStages = [
+  "Start",
+  "Develop",
+  "Prepare",
+  "Publish",
+] as const;
 
-type OnboardingStage = (typeof stages)[number];
+export type OnboardingStage = (typeof onboardingStages)[number];
+
+export function OnboardingProgress({
+  currentStage,
+}: {
+  currentStage: OnboardingStage;
+}) {
+  const currentStageIndex = onboardingStages.indexOf(currentStage);
+
+  return (
+    <ol className="onboarding-progress" aria-label="App setup progress">
+      {onboardingStages.map((stage, index) => {
+        const status = index < currentStageIndex
+          ? "complete"
+          : index === currentStageIndex
+            ? "current"
+            : "future";
+
+        return (
+          <li
+            key={stage}
+            className={`onboarding-progress__stage onboarding-progress__stage--${status}`}
+            aria-current={status === "current" ? "step" : undefined}
+            aria-disabled={status === "future" ? true : undefined}
+          >
+            {stage}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
 type OnboardingStepShellProps = {
   appName: string;
@@ -25,37 +61,18 @@ export function OnboardingStepShell({
   details,
   children,
 }: OnboardingStepShellProps) {
-  const currentStageIndex = stages.indexOf(currentStage);
+  const currentStageIndex = onboardingStages.indexOf(currentStage);
 
   return (
     <section className="onboarding-step-shell" aria-labelledby="onboarding-step-title">
       <header className="onboarding-step-shell__header">
         <p className="eyebrow">Setting up {appName}</p>
         <p className="onboarding-step-shell__step-count">
-          Step {currentStageIndex + 1} of {stages.length}
+          Step {currentStageIndex + 1} of {onboardingStages.length}
         </p>
       </header>
 
-      <ol className="onboarding-progress" aria-label="App setup progress">
-        {stages.map((stage, index) => {
-          const status = index < currentStageIndex
-            ? "complete"
-            : index === currentStageIndex
-              ? "current"
-              : "future";
-
-          return (
-            <li
-              key={stage}
-              className={`onboarding-progress__stage onboarding-progress__stage--${status}`}
-              aria-current={status === "current" ? "step" : undefined}
-              aria-disabled={status === "future" ? true : undefined}
-            >
-              {stage}
-            </li>
-          );
-        })}
-      </ol>
+      <OnboardingProgress currentStage={currentStage} />
 
       <div className="onboarding-step-shell__content">
         <h1 id="onboarding-step-title">{title}</h1>

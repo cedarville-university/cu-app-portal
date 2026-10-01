@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { LaunchRocketIcon } from "@/components/launch-rocket-icon";
+import { OnboardingProgress } from "@/features/onboarding/step-shell";
 import { getActiveTemplateGroups } from "@/features/templates/catalog";
 
 export default async function CreatePage() {
@@ -18,6 +19,8 @@ export default async function CreatePage() {
         <h1>Launch New App</h1>
         <p>Choose a template to launch your CU Launch app.</p>
       </div>
+
+      <OnboardingProgress currentStage="Start" />
 
       <div className="form-stack">
         {templateGroups.map((group) => (

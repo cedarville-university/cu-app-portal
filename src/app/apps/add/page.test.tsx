@@ -1,11 +1,5 @@
 import React from "react";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AddExistingAppPage from "./page";
 
@@ -81,7 +75,7 @@ describe("AddExistingAppPage", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/");
   });
 
-  it("renders breadcrumb navigation and the repository analysis form", async () => {
+  it("renders breadcrumb navigation and only the GitHub repository form by default", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(createManagedRepositoryForLocalAppAction).mockResolvedValue({
       requestId: "req_local_app",
@@ -128,32 +122,20 @@ describe("AddExistingAppPage", () => {
     expect(
       screen.getByRole("button", { name: /check repository/i }),
     ).toHaveAttribute("type", "submit");
+    expect(
+      screen.queryByRole("heading", { name: /only on my computer/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /app setup progress/i }))
+      .toHaveTextContent("StartDevelopPreparePublish");
   });
 
-  it("shows an expandable GitHub explanation help box", async () => {
+  it("shows compatibility guidance instead of explaining GitHub", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
 
     render(await AddExistingAppPage(emptyPageProps));
 
-    const helpToggle = screen.getByText("What is GitHub?");
-    const helpBox = helpToggle.closest("details");
-
-    expect(helpBox).not.toBeNull();
-    expect(helpBox).not.toHaveAttribute("open");
-
-    fireEvent.click(helpToggle);
-
-    expect(helpBox).toHaveAttribute("open");
-    expect(
-      within(helpBox as HTMLElement).getByText(
-        /github is a secure website where app files can be saved/i,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(helpBox as HTMLElement).getByText(
-        /online folder that holds an app is called a repository/i,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText("What is GitHub?")).not.toBeInTheDocument();
+    expect(screen.getByText(/what kinds of apps can i add/i)).toBeInTheDocument();
   });
 
   it("keeps compatibility jargon inside optional help", async () => {
@@ -176,7 +158,9 @@ describe("AddExistingAppPage", () => {
       requestId: "req_local_app",
     });
 
-    const page = await AddExistingAppPage(emptyPageProps);
+    const page = await AddExistingAppPage({
+      searchParams: Promise.resolve({ source: "local" }),
+    });
     render(page);
 
     expect(
@@ -189,6 +173,8 @@ describe("AddExistingAppPage", () => {
     expect(
       screen.getByRole("button", { name: /create online home/i }),
     ).toHaveAttribute("type", "submit");
+    expect(screen.queryByText("What is GitHub?")).not.toBeInTheDocument();
+    expect(screen.getByText(/what kinds of apps can i add/i)).toBeInTheDocument();
 
     const forms = findElementsByType(page, "form");
     const localFormAction = forms[0]?.props.action as (
@@ -207,7 +193,7 @@ describe("AddExistingAppPage", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/onboarding/req_local_app");
   });
 
-  it("puts the GitHub form first and marks it as the current step when selected", async () => {
+  it("renders only the GitHub form when selected", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
 
     render(
@@ -216,12 +202,10 @@ describe("AddExistingAppPage", () => {
       }),
     );
 
-    const headings = screen.getAllByRole("heading", { level: 2 });
-    expect(headings[0]).toHaveAccessibleName(/already on github/i);
-    expect(headings[1]).toHaveAccessibleName(/only on my computer/i);
+    expect(screen.getByRole("heading", { name: /already on github/i })).toBeInTheDocument();
     expect(
-      headings[0].closest(".card"),
-    ).toHaveTextContent(/current step/i);
+      screen.queryByRole("heading", { name: /only on my computer/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("prefills a failed import restart from the original request values", async () => {
@@ -246,7 +230,7 @@ describe("AddExistingAppPage", () => {
     );
   });
 
-  it("puts the computer-only form first and marks it as the current step when selected", async () => {
+  it("renders only the computer-only form when selected", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
 
     render(
@@ -255,13 +239,13 @@ describe("AddExistingAppPage", () => {
       }),
     );
 
-    const headings = screen.getAllByRole("heading", { level: 2 });
-    expect(headings[0]).toHaveAccessibleName(/only on my computer/i);
-    expect(headings[1]).toHaveAccessibleName(/already on github/i);
     expect(
-      headings[0].closest(".card"),
-    ).toHaveTextContent(/current step/i);
-    expect(screen.getByLabelText(/github repository url/i)).toBeInTheDocument();
+      screen.getByRole("heading", { name: /only on my computer/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: /already on github/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/github repository url/i)).not.toBeInTheDocument();
   });
 
   it("disables repository analysis and shows live status while pending", async () => {

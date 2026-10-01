@@ -666,6 +666,7 @@ export default async function AppOnboardingPage({
   }
 
   if (state.kind === "CODEX_CUSTOMIZATION" && app.repositoryUrl) {
+    const isAlreadyPublished = app.publishStatus === "SUCCEEDED";
     const prompt = buildCodexHandoffPrompt(
       app.repositoryUrl,
       app.appName,
@@ -679,8 +680,16 @@ export default async function AppOnboardingPage({
           appName={app.appName}
           currentStage="Develop"
           title="Customize your app with Codex"
-          explanation="Codex is an assistant that can make and verify app changes for you. Create a local Codex project first, then use the prompt below from inside that project so Codex works in the correct folder."
-          next="After Codex says the finished changes were pushed successfully, return here and publish the app to Azure."
+          explanation={
+            isAlreadyPublished
+              ? "Your app is already online. Codex can make and verify later changes for you. Create a local Codex project first, then use the prompt below from inside that project so Codex works in the correct folder."
+              : "Codex is an assistant that can make and verify app changes for you. Create a local Codex project first, then use the prompt below from inside that project so Codex works in the correct folder."
+          }
+          next={
+            isAlreadyPublished
+              ? "After Codex says the finished changes were pushed successfully, open app details to publish those changes when you are ready."
+              : "After Codex says the finished changes were pushed successfully, return here and publish the app to Azure."
+          }
           supportReference={app.supportReference}
           details={repositoryDetails}
         >
@@ -697,7 +706,25 @@ export default async function AppOnboardingPage({
               Follow only the sign-in or invitation steps Codex cannot complete
               for you. Do not share passwords or secret values.
             </p>
-            <PublishForm requestId={app.id} />
+            {isAlreadyPublished ? (
+              <>
+                {app.publishUrl ?? app.primaryPublishUrl ? (
+                  <a
+                    className="btn btn--primary-solid"
+                    href={app.publishUrl ?? app.primaryPublishUrl ?? undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open your app
+                  </a>
+                ) : null}
+                <Link className="btn btn--secondary" href={`/download/${app.id}`}>
+                  Open app details
+                </Link>
+              </>
+            ) : (
+              <PublishForm requestId={app.id} />
+            )}
           </div>
         </OnboardingStepShell>
       </main>

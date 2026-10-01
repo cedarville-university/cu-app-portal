@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TemplateForm } from "@/features/create-app/template-form";
 import { getActiveTemplateBySlug } from "@/features/templates/catalog";
+import { OnboardingProgress } from "@/features/onboarding/step-shell";
 
 export default async function TemplatePage({
   params,
@@ -30,6 +31,8 @@ export default async function TemplatePage({
         <h1>{template.name}</h1>
         <p>{template.description}</p>
       </div>
+
+      <OnboardingProgress currentStage="Start" />
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.5rem", maxWidth: "640px" }}>
         <section aria-label="Template summary">
