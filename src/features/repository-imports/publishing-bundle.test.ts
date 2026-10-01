@@ -24,6 +24,50 @@ const HTTP_SERVER_RUNTIME = {
 } as const;
 
 describe("planPublishingBundle", () => {
+  it("adds Azure OIDC readiness retries to every imported-app deployment workflow", () => {
+    const plans = [
+      planPublishingBundle({
+        appName: "Campus Dashboard",
+        repositoryOwner: "cedarville-it",
+        repositoryName: "campus-dashboard",
+        runtime: IMPORTED_NEXT_RUNTIME,
+        files: { "package.json": "{}" },
+      }),
+      planPublishingBundle({
+        appName: "Campus Server",
+        repositoryOwner: "cedarville-it",
+        repositoryName: "campus-server",
+        runtime: IMPORTED_EXPRESS_RUNTIME,
+        files: { "package.json": "{}" },
+      }),
+      planPublishingBundle({
+        appName: "Reports API",
+        repositoryOwner: "cedarville-it",
+        repositoryName: "reports-api",
+        runtime: FASTAPI_RUNTIME,
+        files: { "requirements.txt": "fastapi==0.115.0" },
+      }),
+      planPublishingBundle({
+        appName: "Campus Static Site",
+        repositoryOwner: "cedarville-it",
+        repositoryName: "campus-static-site",
+        runtime: HTTP_SERVER_RUNTIME,
+        files: { "index.html": "<main>Campus</main>" },
+      }),
+    ];
+
+    for (const plan of plans) {
+      const workflow =
+        plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"];
+
+      expect(workflow).toContain("Azure login (attempt 1)");
+      expect(workflow).toContain("Azure login (attempt 2)");
+      expect(workflow).toContain("Azure login (attempt 3)");
+      expect(workflow).toContain("run: sleep 30");
+      expect(workflow).toContain("run: sleep 60");
+    }
+  });
+
   it("adds publishing files and narrow package.json changes", () => {
     const plan = planPublishingBundle({
       appName: "Campus Dashboard",

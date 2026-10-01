@@ -342,6 +342,41 @@ describe("buildSourceSnapshot", () => {
     ).not.toContain("pip install");
   });
 
+  it("generates deployment workflows that retry the Azure OIDC readiness probe", async () => {
+    const buildSourceSnapshot = await loadBuildSourceSnapshot();
+    const [webAppFiles, fastApiFiles] = await Promise.all([
+      buildSourceSnapshot({
+        templateSlug: "web-app",
+        appName: "Campus Dashboard",
+        description: "Campus metrics",
+        hostingTarget: "Azure App Service",
+        databaseProvider: "none",
+        entraLogin: false,
+      }),
+      buildSourceSnapshot({
+        templateSlug: "python-fastapi",
+        appName: "Reports API",
+        description: "Department reports",
+        hostingTarget: "Azure App Service",
+        databaseProvider: "none",
+        entraLogin: false,
+      }),
+    ]);
+
+    for (const files of [webAppFiles, fastApiFiles]) {
+      const workflow = files[".github/workflows/deploy-azure-app-service.yml"];
+
+      expect(workflow).toContain("Azure login (attempt 1)");
+      expect(workflow).toContain("Azure login (attempt 2)");
+      expect(workflow).toContain("Azure login (attempt 3)");
+      expect(workflow).toContain(
+        "if: steps.azure_login_first.outcome == 'failure'",
+      );
+      expect(workflow).toContain("run: sleep 30");
+      expect(workflow).toContain("run: sleep 60");
+    }
+  });
+
   it("generates recommended presets from the shared web app source", async () => {
     const buildSourceSnapshot = await loadBuildSourceSnapshot();
     const files = await buildSourceSnapshot({
