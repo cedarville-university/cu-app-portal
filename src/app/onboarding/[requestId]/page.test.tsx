@@ -816,6 +816,45 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
 
+  it("highlights an unsupported GitHub repository as a blocking compatibility issue", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      importedApp({
+        repositoryImport: {
+          ...importedApp().repositoryImport,
+          compatibilityStatus: "UNSUPPORTED",
+          preparationStatus: "FAILED",
+          preparationMode: "DIRECT_COMMIT",
+          preparationErrorSummary:
+            "Repository is not compatible with v1 Azure publishing. Fastify repositories are not currently supported.",
+        },
+      }),
+    );
+
+    await renderPage();
+
+    expect(
+      screen.getByRole("heading", {
+        name: "This repository is not compatible with managed publishing",
+      }),
+    ).toBeInTheDocument();
+    const compatibilityAlert = screen.getByRole("alert");
+    expect(compatibilityAlert).toHaveClass("error-box");
+    expect(
+      within(compatibilityAlert).getByRole("heading", {
+        name: "Publishing compatibility issue",
+      }),
+    ).toBeInTheDocument();
+    expect(compatibilityAlert).toHaveTextContent(
+      "Fastify repositories are not currently supported.",
+    );
+    expect(compatibilityAlert).toHaveTextContent(
+      /change the repository before trying preparation again/i,
+    );
+    expect(
+      screen.getByRole("button", { name: "Try preparation again" }),
+    ).toBeInTheDocument();
+  });
+
   it("does not offer a pull-request retry using another actor's GitHub access", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       importedApp({

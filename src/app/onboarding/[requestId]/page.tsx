@@ -852,19 +852,52 @@ export default async function AppOnboardingPage({
   }
 
   if (state.kind === "PREPARATION_FAILED") {
+    const isUnsupportedCompatibility =
+      app.repositoryImport?.compatibilityStatus === "UNSUPPORTED";
+
     return (
       <main>
         <OnboardingStepShell
           appName={app.appName}
           currentStage="Prepare"
-          title="Preparation needs another try"
-          explanation="The app is still safe. The portal saved the preparation method you chose and will use that same method for this retry."
-          next="Try again once. If the same message returns, share the support reference with the portal support team."
+          title={
+            isUnsupportedCompatibility
+              ? "This repository is not compatible with managed publishing"
+              : "Preparation needs another try"
+          }
+          explanation={
+            isUnsupportedCompatibility
+              ? "The repository copy is safe, but CU Launch cannot add its managed Azure publishing files until the app uses a supported structure."
+              : "The app is still safe. The portal saved the preparation method you chose and will use that same method for this retry."
+          }
+          next={
+            isUnsupportedCompatibility
+              ? "Update the repository to address the compatibility issue, then try preparation again. If you need help, share the support reference with the portal support team."
+              : "Try again once. If the same message returns, share the support reference with the portal support team."
+          }
           supportReference={app.supportReference}
           details={repositoryDetails}
         >
           <div className="wizard-actions">
-            {app.repositoryImport?.preparationErrorSummary ? (
+            {isUnsupportedCompatibility ? (
+              <section
+                className="error-box compatibility-error"
+                role="alert"
+                aria-labelledby="compatibility-error-heading"
+              >
+                <h2 id="compatibility-error-heading">
+                  Publishing compatibility issue
+                </h2>
+                <p>
+                  {app.repositoryImport?.preparationErrorSummary ??
+                    "This repository does not match a supported managed publishing runtime."}
+                </p>
+                <p>
+                  Change the repository before trying preparation again. CU
+                  Launch has not overwritten or deleted any repository files.
+                </p>
+              </section>
+            ) : app.repositoryImport?.preparationErrorSummary ? (
               <p role="alert">
                 {isAdmin
                   ? app.repositoryImport.preparationErrorSummary

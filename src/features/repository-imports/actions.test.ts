@@ -1933,6 +1933,55 @@ describe("repository import actions", () => {
     );
   });
 
+  it("returns an incompatible GitHub import to the onboarding page without throwing", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_github_incompatible",
+      userId: "user-123",
+      appName: "Campus Dashboard",
+      submittedConfig: {},
+      repositoryOwner: "cedarville-it",
+      repositoryName: "campus-dashboard",
+      repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "GRANTED",
+      repositoryAccessNote: "GitHub access is ready for @portalstaff.",
+      repositoryImport: {
+        id: "import_github_incompatible",
+        compatibilityStatus: "NOT_SCANNED",
+        preparationMode: null,
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prepareImportedRepository).mockRejectedValue(
+      Object.assign(
+        new Error(
+          "Repository is not compatible with v1 Azure publishing. Fastify repositories are not currently supported.",
+        ),
+        { name: "RepositoryCompatibilityError" },
+      ),
+    );
+
+    const formData = new FormData();
+    formData.set("preparationMode", "DIRECT_COMMIT");
+
+    await expect(
+      prepareExistingAppAction("req_github_incompatible", formData),
+    ).resolves.toBeUndefined();
+    expect(prisma.repositoryImport.update).toHaveBeenCalledWith({
+      where: { id: "import_github_incompatible" },
+      data: {
+        preparationMode: "DIRECT_COMMIT",
+        compatibilityStatus: "UNSUPPORTED",
+        preparationStatus: "FAILED",
+        preparationErrorSummary:
+          "Repository is not compatible with v1 Azure publishing. Fastify repositories are not currently supported.",
+      },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith(
+      "/onboarding/req_github_incompatible",
+    );
+  });
+
   it("re-confirms repaired local code and clears the incompatible state", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({

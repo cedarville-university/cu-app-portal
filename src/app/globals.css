@@ -804,6 +804,21 @@ select.form-control {
   color: var(--status-error);
 }
 
+.compatibility-error {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.compatibility-error h2,
+.compatibility-error p {
+  margin: 0;
+}
+
+.compatibility-error h2 {
+  font-size: 1rem;
+  color: var(--status-error);
+}
+
 .success-box {
   background: var(--status-success-bg);
   border: 1px solid var(--status-success-border);

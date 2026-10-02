@@ -1030,9 +1030,10 @@ export async function prepareExistingAppAction(
     }
   } catch (error) {
     const isPublishingConflict = isPublishingFileConflictError(error);
+    const isCompatibilityFailure = isRepositoryCompatibilityError(error);
     const isLocalCompatibilityFailure =
       hasLocalOnlySource(appRequest.submittedConfig) &&
-      isRepositoryCompatibilityError(error);
+      isCompatibilityFailure;
     const isGitHubAuthFailure = isGitHubAuthenticationError(error);
     const isGitHubPermissionFailure =
       isGitHubIntegrationPermissionError(error);
@@ -1046,7 +1047,7 @@ export async function prepareExistingAppAction(
         preparationMode: mode,
         ...(isPublishingConflict
           ? { compatibilityStatus: "CONFLICTED" as const }
-          : isLocalCompatibilityFailure
+          : isCompatibilityFailure
             ? { compatibilityStatus: "UNSUPPORTED" as const }
           : {}),
         preparationStatus: isPublishingConflict
@@ -1073,7 +1074,7 @@ export async function prepareExistingAppAction(
 
     if (
       isPublishingConflict ||
-      isLocalCompatibilityFailure ||
+      isCompatibilityFailure ||
       isGitHubAuthFailure ||
       isGitHubPermissionFailure
     ) {
