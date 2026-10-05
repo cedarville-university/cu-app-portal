@@ -6,6 +6,7 @@
 - Dedicated identity `cu-launch-publish-worker`, Service Bus `publishing` queue, and separate event and scheduled recovery jobs created in `rg-cu-app-portal`.
 - Worker uses the existing import-worker environment, registry, pull identity, and vault. Publishing secrets were copied from the current portal values with explicit approval. Temporary per-secret setup permissions and the temporary database firewall rule were removed.
 - Worker ownership of the shared `cu-apps-published-auth` registration is assigned.
+- Portal deployment and the Next.js cache fix are live; portal health, FRED health, and the image optimizer return HTTP 200.
 - Recovery verified FRED App's recorded GitHub run `37061385383` and public health endpoint. App `cmupylzvc000tr4h7l48mw4j8`, attempt `cmurf7o89003dnvh8f73xdekc`, support reference `SUP-20261001-0011E9F4` now record successful completion.
 
 ## Administrator grants still required
