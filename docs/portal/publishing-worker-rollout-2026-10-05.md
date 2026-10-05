@@ -9,9 +9,9 @@
 - Portal deployment and the Next.js cache fix are live; portal health, FRED health, and the image optimizer return HTTP 200.
 - Recovery verified FRED App's recorded GitHub run `37061385383` and public health endpoint. App `cmupylzvc000tr4h7l48mw4j8`, attempt `cmurf7o89003dnvh8f73xdekc`, support reference `SUP-20261001-0011E9F4` now record successful completion.
 
-## Administrator grants still required
+## Administrator grants verified
 
-The administrator's Microsoft Graph `Application.ReadWrite.OwnedBy` grant is verified. Azure roles in `rg-cu-apps-published` remain pending. New publishing is explicitly disabled with `PUBLISH_TRANSPORT=disabled` until the Azure grants are verified. Recovery remains active every five minutes.
+The administrator's Microsoft Graph `Application.ReadWrite.OwnedBy` grant and Azure Contributor plus constrained Role Based Access Control Administrator assignments in `rg-cu-apps-published` are verified. Publishing is enabled with `PUBLISH_TRANSPORT=service-bus`. Portal health returned HTTP 200 after enabling it, the event worker reports successful provisioning, and the three most recent scheduled recovery executions succeeded. Recovery remains active every five minutes. A new controlled publish and portal-restart verification remain outstanding.
 
 Worker principal: `7bc4c952-3eb8-40b2-bbb6-651f0edb32b4`  
 Worker client ID: `500632af-c130-45e1-ae9b-858c6c7a2cf8`
