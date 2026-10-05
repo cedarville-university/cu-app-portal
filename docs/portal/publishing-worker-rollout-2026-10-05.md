@@ -11,15 +11,16 @@
 
 ## Administrator grants still required
 
-The rollout account could not grant Microsoft Graph application permission or assign Azure roles in `rg-cu-apps-published`. New publishing is explicitly disabled with `PUBLISH_TRANSPORT=disabled` until both grants are verified. Recovery remains active every five minutes.
+The administrator's Microsoft Graph `Application.ReadWrite.OwnedBy` grant is verified. Azure roles in `rg-cu-apps-published` remain pending. New publishing is explicitly disabled with `PUBLISH_TRANSPORT=disabled` until the Azure grants are verified. Recovery remains active every five minutes.
 
 Worker principal: `7bc4c952-3eb8-40b2-bbb6-651f0edb32b4`  
 Worker client ID: `500632af-c130-45e1-ae9b-858c6c7a2cf8`
 
-An administrator with permission to assign roles in the target publishing group should run this from the repository:
+The target group exists in subscription `33e13fd4-7e2f-4be5-a1ec-c4ae6e1c1ecc` (tenant `81c32413-015d-4ba8-a93b-e1c28e355738`). Specify the subscription explicitly to avoid `ResourceGroupNotFound` when the administrator's default subscription differs. An administrator with permission to assign roles in the target publishing group should run this from the repository:
 
 ```sh
 az deployment group create \
+  --subscription 33e13fd4-7e2f-4be5-a1ec-c4ae6e1c1ecc \
   --resource-group rg-cu-apps-published \
   --name publish-worker-target-permissions \
   --template-file infra/publish-worker/publishing-permissions.bicep \
@@ -28,7 +29,7 @@ az deployment group create \
 
 This grants Contributor in that group and Role Based Access Control Administrator constrained to delegating only Key Vault Secrets User and Website Contributor.
 
-An Entra Privileged Role Administrator or Global Administrator should grant the approved `Application.ReadWrite.OwnedBy` permission. Cloud Application Administrator cannot grant Microsoft Graph application permissions.
+The following Graph grant command is retained for reference; the administrator already completed it, so do not rerun it. It requires an Entra Privileged Role Administrator or Global Administrator. Cloud Application Administrator cannot grant Microsoft Graph application permissions.
 
 ```sh
 cat > /tmp/cu-publish-worker-graph-grant.json <<'JSON'
@@ -47,6 +48,7 @@ After verifying both assignments and allowing identity permission propagation, e
 
 ```sh
 az webapp config appsettings set \
+  --subscription 33e13fd4-7e2f-4be5-a1ec-c4ae6e1c1ecc \
   --resource-group rg-cu-app-portal \
   --name cu-app-portal \
   --settings PUBLISH_TRANSPORT=service-bus \
