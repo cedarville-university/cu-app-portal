@@ -18,7 +18,7 @@ test-results
 .claude/worktrees
 dontpublish
 .idea
-tmp/pdfs
+tmp
 workers/repository-import/dist
 infra/repository-import-worker/main.bicepparam
 infra/repository-import-worker/main.json

@@ -80,6 +80,22 @@ describe("AdminEventsPage", () => {
     expect(screen.getByText(/"entraOid": "oid-1"/)).toBeInTheDocument();
   });
 
+  it("offers Eastern time and preserves it when paging", async () => {
+    vi.mocked(searchAuditLog).mockResolvedValue({ entries: [], totalCount: 30 });
+
+    render(
+      await AdminEventsPage({
+        searchParams: Promise.resolve({ timezone: "eastern" }),
+      }),
+    );
+
+    expect(screen.getByLabelText("Timezone")).toHaveValue("eastern");
+    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
+      "href",
+      "/admin/events?timezone=eastern&page=2",
+    );
+  });
+
   it("resolves and links user and app references in the event details", async () => {
     vi.mocked(searchAuditLog).mockResolvedValue({
       entries: [

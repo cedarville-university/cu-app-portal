@@ -57,14 +57,17 @@ export default async function PublicAppsPage() {
                 <p style={{ color: "var(--text-secondary)", margin: 0 }}>
                   {app.description ?? "No description provided."}
                 </p>
+                <p style={{ color: "var(--text-secondary)", margin: "0.5rem 0 0.75rem" }}>
+                  By: <a href={`mailto:${app.ownerEmail}`}>{app.ownerName}</a>
+                </p>
                 {app.url ? (
                   <a
                     href={app.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="meta-link"
+                    className="btn btn--primary-solid"
                   >
-                    {app.url}
+                    Go to app
                   </a>
                 ) : (
                   <span style={{ color: "var(--text-secondary)" }}>

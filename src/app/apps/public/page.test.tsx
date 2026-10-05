@@ -25,7 +25,7 @@ afterEach(() => {
 });
 
 describe("PublicAppsPage", () => {
-  it("lists public apps with name, description, and link", async () => {
+  it("lists public apps with name, description, app button, and owner email", async () => {
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue([
       {
         id: "req-1",
@@ -33,6 +33,7 @@ describe("PublicAppsPage", () => {
         submittedConfig: { description: "Live campus stats." },
         publishUrl: "https://dashboard.example.edu",
         primaryPublishUrl: null,
+        user: { displayName: "Jordan Lee", email: "jlee@example.edu" },
       },
     ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
 
@@ -53,9 +54,13 @@ describe("PublicAppsPage", () => {
     ).toBeInTheDocument();
     expect(
       within(appCard).getByRole("link", {
-        name: "https://dashboard.example.edu",
+        name: "Go to app",
       }),
     ).toHaveAttribute("href", "https://dashboard.example.edu");
+    expect(within(appCard).getByText("By:")).toBeInTheDocument();
+    expect(
+      within(appCard).getByRole("link", { name: "Jordan Lee" }),
+    ).toHaveAttribute("href", "mailto:jlee@example.edu");
   });
 
   it("renders apps without a description or link gracefully", async () => {
@@ -66,6 +71,7 @@ describe("PublicAppsPage", () => {
         submittedConfig: null,
         publishUrl: null,
         primaryPublishUrl: null,
+        user: { displayName: "Taylor Reed", email: "treed@example.edu" },
       },
     ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
 
@@ -74,7 +80,9 @@ describe("PublicAppsPage", () => {
     const appCard = screen
       .getByRole("heading", { name: /intramural scores/i })
       .closest("li") as HTMLElement;
-    expect(within(appCard).queryByRole("link")).not.toBeInTheDocument();
+    expect(
+      within(appCard).queryByRole("link", { name: "Go to app" }),
+    ).not.toBeInTheDocument();
     expect(within(appCard).getByText(/not published yet/i)).toBeInTheDocument();
   });
 

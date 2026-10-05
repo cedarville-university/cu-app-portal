@@ -117,6 +117,24 @@ describe("AdminUsersPage", () => {
     expect(findManyArgs).toMatchObject({ skip: 0, take: 25 });
   });
 
+  it("sorts by email and preserves search in sortable headers", async () => {
+    mockUsers();
+
+    render(
+      await AdminUsersPage({
+        searchParams: Promise.resolve({ q: "ada", sort: "email", direction: "desc" }),
+      }),
+    );
+
+    expect(prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { email: "desc" } }),
+    );
+    expect(screen.getByRole("link", { name: "Email ↓" })).toHaveAttribute(
+      "href",
+      "/admin/users?q=ada&sort=email&direction=asc",
+    );
+  });
+
   it("shows an empty state when no users match", async () => {
     vi.mocked(prisma.user.count).mockResolvedValue(0);
     vi.mocked(prisma.user.findMany).mockResolvedValue([]);

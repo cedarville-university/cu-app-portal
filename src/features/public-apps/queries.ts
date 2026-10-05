@@ -5,6 +5,8 @@ export type PublicAppListItem = {
   name: string;
   description: string | null;
   url: string | null;
+  ownerName: string;
+  ownerEmail: string;
 };
 
 function getSubmittedDescription(submittedConfig: unknown): string | null {
@@ -37,6 +39,7 @@ export async function listPublicApps(): Promise<PublicAppListItem[]> {
       submittedConfig: true,
       publishUrl: true,
       primaryPublishUrl: true,
+      user: { select: { displayName: true, email: true } },
     },
   });
 
@@ -45,5 +48,7 @@ export async function listPublicApps(): Promise<PublicAppListItem[]> {
     name: appRequest.appName,
     description: getSubmittedDescription(appRequest.submittedConfig),
     url: appRequest.publishUrl ?? appRequest.primaryPublishUrl,
+    ownerName: appRequest.user.displayName,
+    ownerEmail: appRequest.user.email,
   }));
 }

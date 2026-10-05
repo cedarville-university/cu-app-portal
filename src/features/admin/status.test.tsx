@@ -59,4 +59,10 @@ describe("labels and dates", () => {
     );
     expect(formatDateTime(new Date("2026-07-06T13:05:00"))).toContain("1:05");
   });
+
+  it("formats a date and time in the requested timezone", () => {
+    expect(
+      formatDateTime(new Date("2026-07-06T13:05:00Z"), "America/New_York"),
+    ).toContain("9:05");
+  });
 });

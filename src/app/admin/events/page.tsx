@@ -96,6 +96,10 @@ export default async function AdminEventsPage({
   const from = parseDateFilter(params.from, "start");
   const to = parseDateFilter(params.to, "end");
   const search = parseSearch(params.q);
+  const requestedTimezone = Array.isArray(params.timezone)
+    ? params.timezone[0]
+    : params.timezone;
+  const timezone = requestedTimezone === "eastern" ? "eastern" : "local";
   const filters = { event, from, to, search };
   const requestedPage = parsePage(params.page);
 
@@ -139,6 +143,7 @@ export default async function AdminEventsPage({
   if (typeof params.from === "string" && from) preservedParams.from = params.from;
   if (typeof params.to === "string" && to) preservedParams.to = params.to;
   if (search) preservedParams.q = search;
+  if (timezone === "eastern") preservedParams.timezone = timezone;
 
   return (
     <>
@@ -175,6 +180,17 @@ export default async function AdminEventsPage({
                 {name}
               </option>
             ))}
+          </select>
+        </label>
+        <label className="form-group">
+          <span className="form-label">Timezone</span>
+          <select
+            className="form-control"
+            name="timezone"
+            defaultValue={timezone}
+          >
+            <option value="local">Server time</option>
+            <option value="eastern">Eastern time</option>
           </select>
         </label>
         <label className="form-group">
@@ -253,7 +269,10 @@ export default async function AdminEventsPage({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {formatDateTime(entry.createdAt)}
+                    {formatDateTime(
+                      entry.createdAt,
+                      timezone === "eastern" ? "America/New_York" : undefined,
+                    )}
                   </span>
                   <span className="badge badge--info">{entry.event}</span>
                   <span

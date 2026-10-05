@@ -15,6 +15,28 @@ import {
 import { AdminSearchForm } from "@/features/admin/search-form";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
+
+type SortKey = "name" | "email" | "github" | "owned" | "collaborating" | "role";
+
+function sortableHeader(
+  key: SortKey,
+  label: string,
+  currentSort: SortKey,
+  direction: "asc" | "desc",
+  q: string,
+) {
+  const nextDirection = currentSort === key && direction === "asc" ? "desc" : "asc";
+  const query = new URLSearchParams();
+  if (q) query.set("q", q);
+  query.set("sort", key);
+  query.set("direction", nextDirection);
+  return (
+    <Link href={`/admin/users?${query.toString()}`}>
+      {label}{currentSort === key ? (direction === "asc" ? " ↑" : " ↓") : ""}
+    </Link>
+  );
+}
 
 export default async function AdminUsersPage({
   searchParams,
@@ -28,7 +50,23 @@ export default async function AdminUsersPage({
   }
 
   const params = await searchParams;
-  const q = parseSearch(params.q);
+  const q = parseSearch(params.q) ?? "";
+  const sortOptions = {
+    name: true,
+    email: true,
+    github: true,
+    owned: true,
+    collaborating: true,
+    role: true,
+  } as const;
+  const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
+  const sort = Object.hasOwn(sortOptions, requestedSort ?? "")
+    ? (requestedSort as SortKey)
+    : "name";
+  const requestedDirection = Array.isArray(params.direction)
+    ? params.direction[0]
+    : params.direction;
+  const direction = requestedDirection === "desc" ? "desc" : "asc";
   const where = q
     ? {
         OR: [
@@ -41,9 +79,21 @@ export default async function AdminUsersPage({
 
   const totalCount = await prisma.user.count({ where });
   const page = clampPage(parsePage(params.page), totalCount);
+  const orderBy: Prisma.UserOrderByWithRelationInput | Prisma.UserOrderByWithRelationInput[] =
+    sort === "name"
+      ? [{ displayName: direction }, { email: "asc" as const }]
+      : sort === "email"
+        ? { email: direction }
+        : sort === "github"
+          ? { githubUsername: direction }
+          : sort === "owned"
+            ? { appRequests: { _count: direction } }
+            : sort === "collaborating"
+              ? { appAccess: { _count: direction } }
+              : { roles: { _count: direction } };
   const users = await prisma.user.findMany({
     where,
-    orderBy: [{ displayName: "asc" }, { email: "asc" }],
+    orderBy,
     skip: (page - 1) * ADMIN_PAGE_SIZE,
     take: ADMIN_PAGE_SIZE,
     include: {
@@ -79,12 +129,12 @@ export default async function AdminUsersPage({
           <table className="data-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>GitHub</th>
-                <th>Owned</th>
-                <th>Collaborating</th>
-                <th>Role</th>
+                <th>{sortableHeader("name", "Name", sort, direction, q)}</th>
+                <th>{sortableHeader("email", "Email", sort, direction, q)}</th>
+                <th>{sortableHeader("github", "GitHub", sort, direction, q)}</th>
+                <th>{sortableHeader("owned", "Owned", sort, direction, q)}</th>
+                <th>{sortableHeader("collaborating", "Collaborating", sort, direction, q)}</th>
+                <th>{sortableHeader("role", "Role", sort, direction, q)}</th>
                 <th></th>
               </tr>
             </thead>
@@ -140,7 +190,7 @@ export default async function AdminUsersPage({
         page={page}
         totalCount={totalCount}
         basePath="/admin/users"
-        params={q ? { q } : {}}
+        params={{ ...(q ? { q } : {}), sort, direction }}
       />
     </>
   );

@@ -12,6 +12,27 @@ import { AdminSearchForm } from "@/features/admin/search-form";
 import { createdDate, StatusBadge, userLabel } from "@/features/admin/status";
 import { prisma } from "@/lib/db";
 
+type SortKey = "app" | "owner" | "status" | "created";
+
+function sortableHeader(
+  key: SortKey,
+  label: string,
+  currentSort: SortKey,
+  direction: "asc" | "desc",
+  q: string,
+) {
+  const nextDirection = currentSort === key && direction === "asc" ? "desc" : "asc";
+  const query = new URLSearchParams();
+  if (q) query.set("q", q);
+  query.set("sort", key);
+  query.set("direction", nextDirection);
+  return (
+    <Link href={`/admin/apps?${query.toString()}`}>
+      {label}{currentSort === key ? (direction === "asc" ? " ↑" : " ↓") : ""}
+    </Link>
+  );
+}
+
 export default async function AdminAppsPage({
   searchParams,
 }: {
@@ -24,7 +45,29 @@ export default async function AdminAppsPage({
   }
 
   const params = await searchParams;
-  const q = parseSearch(params.q);
+  const q = parseSearch(params.q) ?? "";
+  const sortOptions = {
+    app: true,
+    owner: true,
+    status: true,
+    created: true,
+  } as const;
+  const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
+  const sort = Object.hasOwn(sortOptions, requestedSort ?? "")
+    ? (requestedSort as SortKey)
+    : "created";
+  const requestedDirection = Array.isArray(params.direction)
+    ? params.direction[0]
+    : params.direction;
+  const direction = requestedDirection === "asc" ? "asc" : "desc";
+  const orderBy =
+    sort === "app"
+      ? { appName: direction as "asc" | "desc" }
+      : sort === "owner"
+        ? { user: { displayName: direction as "asc" | "desc" } }
+        : sort === "status"
+          ? { generationStatus: direction as "asc" | "desc" }
+          : { createdAt: direction as "asc" | "desc" };
   const where = q
     ? {
         OR: [
@@ -43,7 +86,7 @@ export default async function AdminAppsPage({
   const page = clampPage(parsePage(params.page), totalCount);
   const appRequests = await prisma.appRequest.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy,
     skip: (page - 1) * ADMIN_PAGE_SIZE,
     take: ADMIN_PAGE_SIZE,
     select: {
@@ -86,10 +129,10 @@ export default async function AdminAppsPage({
           <table className="data-table">
             <thead>
               <tr>
-                <th>App</th>
-                <th>Owner</th>
-                <th>Status</th>
-                <th>Created</th>
+                <th>{sortableHeader("app", "App", sort, direction, q)}</th>
+                <th>{sortableHeader("owner", "Owner", sort, direction, q)}</th>
+                <th>{sortableHeader("status", "Status", sort, direction, q)}</th>
+                <th>{sortableHeader("created", "Created", sort, direction, q)}</th>
               </tr>
             </thead>
             <tbody>

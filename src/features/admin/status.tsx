@@ -55,12 +55,13 @@ export function createdDate(date: Date) {
   }).format(date);
 }
 
-export function formatDateTime(date: Date) {
+export function formatDateTime(date: Date, timeZone?: string) {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
   }).format(date);
 }

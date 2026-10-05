@@ -87,6 +87,24 @@ describe("AdminAppsPage", () => {
     });
   });
 
+  it("sorts by owner and preserves the search query in sortable headers", async () => {
+    mockApps();
+
+    render(
+      await AdminAppsPage({
+        searchParams: Promise.resolve({ q: "dash", sort: "owner", direction: "asc" }),
+      }),
+    );
+
+    expect(prisma.appRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { user: { displayName: "asc" } } }),
+    );
+    expect(screen.getByRole("link", { name: "Owner ↑" })).toHaveAttribute(
+      "href",
+      "/admin/apps?q=dash&sort=owner&direction=desc",
+    );
+  });
+
   it("shows an empty state when no apps match", async () => {
     vi.mocked(prisma.appRequest.count).mockResolvedValue(0);
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue([]);
