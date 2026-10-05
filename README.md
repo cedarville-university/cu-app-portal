@@ -84,3 +84,11 @@ setting.
 ### Publishing worker and recovery
 
 Azure publishing runs in a separate durable worker. For local development, run `npm run publish:worker` in a second terminal alongside `npm run dev`. Production requires the Service Bus transport and the event-triggered publishing and scheduled recovery Container Apps Jobs. Admin app details include publishing reconciliation, interrupted-attempt closure, setup repair-state correction, and error-note controls. See [the publishing worker runbook](docs/portal/publishing-worker.md) for migration and rollout instructions.
+
+## Editing app environment variables
+
+On an app's management page, edit existing values directly, add variables with **Add Variable**, and mark deletions with **Delete**. Nothing is submitted until you select **Save Changes**. **Undo** cancels a staged deletion; **Discard Changes** restores the last saved values and removes draft additions.
+
+Saved secret values remain hidden. Leave a replacement field blank to keep the saved secret, or enter a new value to replace it. Existing variable names and secret storage choices are fixed; delete and save a variable before adding it again with a different name or storage choice.
+
+For published apps, each submission applies the edited settings together and briefly restarts the app. Failed submissions keep your draft. Azure, Key Vault, and the portal database do not share a transaction, so a service failure can leave some changes applied; retry the retained draft to finish.

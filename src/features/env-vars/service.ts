@@ -169,68 +169,71 @@ async function applyLiveSetting(
   });
 }
 
-export async function saveEnvironmentVariable(
+export type EnvVarChange =
+  | { operation: "set"; key: string; value: string; isSecret: boolean }
+  | { operation: "delete"; key: string };
+
+export async function saveEnvironmentVariables(
   deps: EnvVarServiceDeps,
-  input: {
-    appRequest: EnvVarAppRequest;
-    key: string;
-    value: string;
-    isSecret: boolean;
-  },
-) {
-  const keyCheck = validateEnvVarKey(input.key);
-
-  if (!keyCheck.ok) {
-    throw new Error(keyCheck.error);
-  }
-
-  const valueCheck = validateEnvVarValue(input.value, input.isSecret);
-
-  if (!valueCheck.ok) {
-    throw new Error(valueCheck.error);
-  }
+  input: { appRequest: EnvVarAppRequest; changes: EnvVarChange[] },
+): Promise<Array<{ operation: "set" | "delete"; key: string; isSecret: boolean }>> {
+  if (!input.changes.length) return [];
 
   const existing = await deps.prisma.appEnvironmentVariable.findMany({
     where: { appRequestId: input.appRequest.id },
   });
-  const clash = existing.find(
-    (variable) =>
-      variable.key !== input.key &&
-      normalizeEnvVarKey(variable.key) === normalizeEnvVarKey(input.key),
+  const seen = new Set<string>();
+
+  // Validate the entire batch before changing Azure, Key Vault, or database rows.
+  for (const change of input.changes) {
+    const keyCheck = validateEnvVarKey(change.key);
+    if (!keyCheck.ok) throw new Error(keyCheck.error);
+    const normalized = normalizeEnvVarKey(change.key);
+    if (seen.has(normalized)) {
+      throw new Error(`Duplicate variable name "${change.key}" in these changes.`);
+    }
+    seen.add(normalized);
+    const current = existing.find((variable) => variable.key === change.key);
+    if (change.operation === "delete") {
+      continue;
+    }
+    const valueCheck = validateEnvVarValue(change.value, change.isSecret);
+    if (!valueCheck.ok) throw new Error(valueCheck.error);
+    const clash = existing.find((variable) =>
+      variable.key !== change.key && normalizeEnvVarKey(variable.key) === normalized,
+    );
+    if (clash) {
+      throw new Error(`A variable with this name already exists as "${clash.key}".`);
+    }
+    if (current && current.isSecret !== change.isSecret) {
+      throw new Error(`"${change.key}" already exists as a ${current.isSecret ? "secret" : "non-secret"} variable. Delete it first to change how it is stored.`);
+    }
+  }
+
+  // A previous attempt may have saved a deletion before a later operation failed.
+  // Treat already-deleted rows as complete so the remaining draft can be retried.
+  const changes = input.changes.filter((change) =>
+    change.operation === "set" || existing.some((variable) => variable.key === change.key),
   );
+  if (!changes.length) return [];
 
-  if (clash) {
-    throw new Error(
-      `A variable with this name already exists as "${clash.key}".`,
-    );
-  }
-
-  const current = existing.find((variable) => variable.key === input.key);
-
-  if (current && current.isSecret !== input.isSecret) {
-    throw new Error(
-      `"${input.key}" already exists as a ${
-        current.isSecret ? "secret" : "non-secret"
-      } variable. Delete it first to change how it is stored.`,
-    );
-  }
-
-  let vaultUri: string | null = input.appRequest.azureKeyVaultUri;
-
-  if (input.isSecret) {
+  const secretChanges = changes.filter(
+    (change): change is Extract<EnvVarChange, { operation: "set" }> =>
+      change.operation === "set" && change.isSecret,
+  );
+  let vaultUri = input.appRequest.azureKeyVaultUri;
+  if (secretChanges.length) {
     const vault = await ensureKeyVault(deps, input.appRequest);
-
     vaultUri = vault.uri;
-    await deps
-      .createKeyVaultClient(vault.uri)
-      .setSecret({ name: toKeyVaultSecretName(input.key), value: input.value });
-
+    const client = deps.createKeyVaultClient(vault.uri);
+    for (const change of secretChanges) {
+      await client.setSecret({ name: toKeyVaultSecretName(change.key), value: change.value });
+    }
     if (input.appRequest.azureWebAppName) {
       const { principalId } = await deps.arm.ensureSystemAssignedIdentity({
         resourceGroup: deps.config.resourceGroup,
         name: input.appRequest.azureWebAppName,
       });
-
       await deps.arm.putRoleAssignment({
         scope: deps.arm.keyVaultId(deps.config.resourceGroup, vault.name),
         roleDefinitionId: KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID,
@@ -240,34 +243,46 @@ export async function saveEnvironmentVariable(
   }
 
   if (input.appRequest.azureWebAppName) {
-    await applyLiveSetting(
-      deps,
-      input.appRequest.azureWebAppName,
-      (settings) => {
-        settings[input.key] = input.isSecret
-          ? keyVaultReference(vaultUri as string, input.key)
-          : input.value;
-      },
-    );
+    await applyLiveSetting(deps, input.appRequest.azureWebAppName, (settings) => {
+      for (const change of changes) {
+        if (change.operation === "delete") delete settings[change.key];
+        else settings[change.key] = change.isSecret
+          ? keyVaultReference(vaultUri as string, change.key)
+          : change.value;
+      }
+    });
   }
 
-  await deps.prisma.appEnvironmentVariable.upsert({
-    where: {
-      appRequestId_key: {
-        appRequestId: input.appRequest.id,
-        key: input.key,
-      },
-    },
-    create: {
-      appRequestId: input.appRequest.id,
-      key: input.key,
-      isSecret: input.isSecret,
-      value: input.isSecret ? null : input.value,
-    },
-    update: {
-      isSecret: input.isSecret,
-      value: input.isSecret ? null : input.value,
-    },
+  const applied = [];
+  for (const change of changes) {
+    const where = { appRequestId_key: { appRequestId: input.appRequest.id, key: change.key } };
+    if (change.operation === "delete") {
+      const current = existing.find((variable) => variable.key === change.key)!;
+      if (current.isSecret && vaultUri) {
+        await deps.createKeyVaultClient(vaultUri).deleteSecret({ name: toKeyVaultSecretName(change.key) });
+      }
+      await deps.prisma.appEnvironmentVariable.delete({ where });
+      applied.push({ operation: change.operation, key: change.key, isSecret: current.isSecret });
+    } else {
+      const data = { isSecret: change.isSecret, value: change.isSecret ? null : change.value };
+      await deps.prisma.appEnvironmentVariable.upsert({
+        where,
+        create: { appRequestId: input.appRequest.id, key: change.key, ...data },
+        update: data,
+      });
+      applied.push({ operation: change.operation, key: change.key, isSecret: change.isSecret });
+    }
+  }
+  return applied;
+}
+
+export async function saveEnvironmentVariable(
+  deps: EnvVarServiceDeps,
+  input: { appRequest: EnvVarAppRequest; key: string; value: string; isSecret: boolean },
+) {
+  await saveEnvironmentVariables(deps, {
+    appRequest: input.appRequest,
+    changes: [{ operation: "set", key: input.key, value: input.value, isSecret: input.isSecret }],
   });
 }
 
@@ -275,39 +290,10 @@ export async function deleteEnvironmentVariable(
   deps: EnvVarServiceDeps,
   input: { appRequest: EnvVarAppRequest; key: string },
 ): Promise<{ isSecret: boolean }> {
-  const existing = await deps.prisma.appEnvironmentVariable.findMany({
-    where: { appRequestId: input.appRequest.id },
+  const [deleted] = await saveEnvironmentVariables(deps, {
+    appRequest: input.appRequest,
+    changes: [{ operation: "delete", key: input.key }],
   });
-  const row = existing.find((variable) => variable.key === input.key);
-
-  if (!row) {
-    throw new Error(`Variable "${input.key}" was not found.`);
-  }
-
-  if (input.appRequest.azureWebAppName) {
-    await applyLiveSetting(
-      deps,
-      input.appRequest.azureWebAppName,
-      (settings) => {
-        delete settings[input.key];
-      },
-    );
-  }
-
-  if (row.isSecret && input.appRequest.azureKeyVaultUri) {
-    await deps
-      .createKeyVaultClient(input.appRequest.azureKeyVaultUri)
-      .deleteSecret({ name: toKeyVaultSecretName(input.key) });
-  }
-
-  await deps.prisma.appEnvironmentVariable.delete({
-    where: {
-      appRequestId_key: {
-        appRequestId: input.appRequest.id,
-        key: input.key,
-      },
-    },
-  });
-
-  return { isSecret: row.isSecret };
+  if (!deleted) throw new Error(`Variable "${input.key}" was not found.`);
+  return { isSecret: deleted.isSecret };
 }

@@ -18,6 +18,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/audit", () => ({ recordAuditEvent: vi.fn() }));
 vi.mock("./service", () => ({
   createDefaultEnvVarServiceDeps: vi.fn().mockReturnValue({ deps: true }),
+  saveEnvironmentVariables: vi.fn(),
   saveEnvironmentVariable: vi.fn(),
   deleteEnvironmentVariable: vi.fn(),
 }));
@@ -27,9 +28,10 @@ import { userHasAdminRole } from "@/features/app-requests/access";
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
-import { deleteEnvVarFormAction, saveEnvVarFormAction } from "./actions";
+import { deleteEnvVarFormAction, saveEnvVarFormAction, saveEnvVarsFormAction } from "./actions";
 import {
   deleteEnvironmentVariable,
+  saveEnvironmentVariables,
   saveEnvironmentVariable,
 } from "./service";
 
@@ -184,5 +186,38 @@ describe("deleteEnvVarFormAction", () => {
     expect(state.error).toContain("503");
     expect(recordAuditEvent).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("saveEnvVarsFormAction", () => {
+  const changes = [
+    { operation: "set", key: "API_KEY", value: "s3cret", isSecret: true },
+    { operation: "delete", key: "OLD" },
+  ];
+  it("authorizes the app, submits the batch, audits without values, and revalidates", async () => {
+    vi.mocked(saveEnvironmentVariables).mockResolvedValueOnce([
+      { operation: "set", key: "API_KEY", isSecret: true },
+      { operation: "delete", key: "OLD", isSecret: false },
+    ]);
+    const state = await saveEnvVarsFormAction("req-1", { error: null, saved: false }, formDataOf({ changes: JSON.stringify(changes) }));
+    expect(state).toEqual({ error: null, saved: true });
+    expect(saveEnvironmentVariables).toHaveBeenCalledWith({ deps: true }, { appRequest: accessibleAppRequest, changes });
+    expect(recordAuditEvent).toHaveBeenCalledWith("ENV_VAR_DELETED", { requestId: "req-1", key: "OLD", isSecret: false });
+    expect(JSON.stringify(vi.mocked(recordAuditEvent).mock.calls)).not.toContain("s3cret");
+    expect(revalidatePath).toHaveBeenCalledWith("/download/req-1");
+  });
+  it("rejects inaccessible apps before sending changes to the service", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValueOnce(null);
+    const state = await saveEnvVarsFormAction("req-1", { error: null, saved: false }, formDataOf({ changes: JSON.stringify(changes) }));
+    expect(state.error).toBe("App request not found.");
+    expect(saveEnvironmentVariables).not.toHaveBeenCalled();
+  });
+  it.each(["not json", "{}", '[{"operation":"set","key":"API_KEY","value":42,"isSecret":true}]'])
+  ("rejects malformed batches (%s) before mutations", async (changes) => {
+    const state = await saveEnvVarsFormAction("req-1", { error: null, saved: false }, formDataOf({ changes }));
+    expect(state.saved).toBe(false);
+    expect(state.error).toBeTruthy();
+    expect(saveEnvironmentVariables).not.toHaveBeenCalled();
   });
 });

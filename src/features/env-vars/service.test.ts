@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  saveEnvironmentVariables,
   deleteEnvironmentVariable,
   saveEnvironmentVariable,
   type EnvVarAppRequest,
@@ -310,4 +311,83 @@ describe("deleteEnvironmentVariable", () => {
     expect(prisma.appEnvironmentVariable.delete).not.toHaveBeenCalled();
     expect(keyVault.deleteSecret).not.toHaveBeenCalled();
   });
+});
+
+
+describe("saveEnvironmentVariables", () => {
+  it("applies multiple edits and deletion with one live settings update", async () => {
+    const { deps, prisma, arm } = createDeps({ existingVariables: [
+      { key: "KEEP_ME", value: "yes", isSecret: false },
+    ] });
+    await saveEnvironmentVariables(deps, { appRequest: publishedAppRequest, changes: [
+      { operation: "set", key: "FIRST", value: "one", isSecret: false },
+      { operation: "set", key: "SECOND", value: "two", isSecret: false },
+      { operation: "delete", key: "KEEP_ME" },
+    ] });
+    expect(arm.putAppSettings).toHaveBeenCalledTimes(1);
+    expect(arm.putAppSettings).toHaveBeenCalledWith(expect.objectContaining({
+      settings: { NODE_ENV: "production", FIRST: "one", SECOND: "two" },
+    }));
+    expect(prisma.appEnvironmentVariable.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.appEnvironmentVariable.delete).toHaveBeenCalledTimes(1);
+  });
+
+  it("validates every edit before any external mutation", async () => {
+    const { deps, prisma, arm, keyVault } = createDeps();
+    await expect(saveEnvironmentVariables(deps, { appRequest: publishedAppRequest, changes: [
+      { operation: "set", key: "API_KEY", value: "secret", isSecret: true },
+      { operation: "set", key: "DATABASE_URL", value: "invalid", isSecret: false },
+    ] })).rejects.toThrow("reserved");
+    expect(arm.putKeyVault).not.toHaveBeenCalled();
+    expect(keyVault.setSecret).not.toHaveBeenCalled();
+    expect(prisma.appEnvironmentVariable.upsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate normalized keys within the batch", async () => {
+    const { deps, arm } = createDeps();
+    await expect(saveEnvironmentVariables(deps, { appRequest: publishedAppRequest, changes: [
+      { operation: "set", key: "API_KEY", value: "one", isSecret: false },
+      { operation: "set", key: "api_key", value: "two", isSecret: false },
+    ] })).rejects.toThrow(/duplicate/i);
+    expect(arm.putAppSettings).not.toHaveBeenCalled();
+  });
+
+  it("creates one vault for multiple secrets and never stores their values in the database", async () => {
+    const { deps, arm, keyVault, prisma } = createDeps();
+    await saveEnvironmentVariables(deps, { appRequest: publishedAppRequest, changes: [
+      { operation: "set", key: "FIRST", value: "secret1", isSecret: true },
+      { operation: "set", key: "SECOND", value: "secret2", isSecret: true },
+    ] });
+    expect(arm.putKeyVault).toHaveBeenCalledTimes(1);
+    expect(arm.putAppSettings).toHaveBeenCalledTimes(1);
+    expect(keyVault.setSecret).toHaveBeenCalledTimes(2);
+    for (const [input] of prisma.appEnvironmentVariable.upsert.mock.calls) {
+      expect(input.create.value).toBeNull();
+    }
+  });
+
+  it("does not persist any edits or delete secrets if the live settings update fails", async () => {
+    const { deps, arm, prisma, keyVault } = createDeps({ existingVariables: [
+      { key: "OLD_SECRET", value: null, isSecret: true },
+    ] });
+    arm.putAppSettings.mockRejectedValue(new Error("Azure failed"));
+    await expect(saveEnvironmentVariables(deps, { appRequest: publishedWithVault, changes: [
+      { operation: "set", key: "FIRST", value: "one", isSecret: false },
+      { operation: "delete", key: "OLD_SECRET" },
+    ] })).rejects.toThrow("Azure failed");
+    expect(prisma.appEnvironmentVariable.upsert).not.toHaveBeenCalled();
+    expect(prisma.appEnvironmentVariable.delete).not.toHaveBeenCalled();
+    expect(keyVault.deleteSecret).not.toHaveBeenCalled();
+  });
+});
+
+it("can retry a batch whose deletion was already persisted", async () => {
+  const { deps, arm } = createDeps();
+  await saveEnvironmentVariables(deps, { appRequest: publishedAppRequest, changes: [
+    { operation: "delete", key: "ALREADY_DELETED" },
+    { operation: "set", key: "REMAINING", value: "done", isSecret: false },
+  ] });
+  expect(arm.putAppSettings).toHaveBeenCalledWith(expect.objectContaining({
+    settings: { NODE_ENV: "production", KEEP_ME: "yes", REMAINING: "done" },
+  }));
 });

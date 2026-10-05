@@ -272,3 +272,11 @@ For managed repo bootstrap verification, confirm the GitHub App is installed on 
 ## Separate publishing worker
 
 Start `npm run publish:worker` in a second terminal before requesting a local publish. Development defaults to durable database polling in that separate process. Production requires `PUBLISH_TRANSPORT=service-bus`, `PUBLISH_SERVICE_BUS_NAMESPACE`, and `PUBLISH_SERVICE_BUS_QUEUE`; it never falls back to an inline worker. Apply the new publishing-worker Prisma migration before deploying either component. See [publishing worker setup and recovery](publishing-worker.md).
+
+## Managing an app's environment variables
+
+The app management page supports drafting multiple environment variable changes before submission. Existing names stay in place while their values can be edited. Use **Add Variable** for additional rows, **Delete** to stage removal, and **Undo** to cancel a staged removal. **Save Changes** submits all edits; **Discard Changes** returns to the last saved values.
+
+Saved secrets are never displayed. An empty replacement field keeps the existing secret unchanged. To change an existing variable's name or secret storage type, delete and save it first, then add its replacement.
+
+The server checks app access and validates the entire submitted batch before mutations, preserves portal-managed settings, and updates live Azure app settings once per submission. Secret updates use Key Vault. Saving live settings briefly restarts the app. Draft edits remain available after errors; partial service failures can affect Azure, Key Vault, or database state because these systems do not share a transaction. Retrying a draft tolerates deletions already completed by a prior attempt.

@@ -22,6 +22,7 @@ describe("listPublicApps", () => {
         submittedConfig: { description: "Live campus stats." },
         publishUrl: "https://dashboard.example.edu",
         primaryPublishUrl: "https://app-dashboard.azurewebsites.net",
+        user: { displayName: "Ada Admin", email: "ada@cedarville.edu" },
       },
     ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
 
@@ -38,6 +39,8 @@ describe("listPublicApps", () => {
         name: "Campus Dashboard",
         description: "Live campus stats.",
         url: "https://dashboard.example.edu",
+        ownerName: "Ada Admin",
+        ownerEmail: "ada@cedarville.edu",
       },
     ]);
   });
@@ -50,6 +53,7 @@ describe("listPublicApps", () => {
         submittedConfig: { description: "Sign up for chapel seats." },
         publishUrl: null,
         primaryPublishUrl: "https://app-chapel.azurewebsites.net",
+        user: { displayName: "Taylor Reed", email: "taylor@cedarville.edu" },
       },
     ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
 
@@ -66,6 +70,7 @@ describe("listPublicApps", () => {
         submittedConfig: null,
         publishUrl: null,
         primaryPublishUrl: null,
+        user: { displayName: "Jordan Lee", email: "jordan@cedarville.edu" },
       },
       {
         id: "req-4",
@@ -73,6 +78,7 @@ describe("listPublicApps", () => {
         submittedConfig: { description: "   " },
         publishUrl: null,
         primaryPublishUrl: null,
+        user: { displayName: "Morgan Smith", email: "morgan@cedarville.edu" },
       },
     ] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>);
 
