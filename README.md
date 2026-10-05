@@ -1,5 +1,7 @@
 # CU Launch
 
+Azure deployments keep the Next.js runtime cache in writable `/home/cu-app-portal/next-cache` storage. The deployment package links `.next/cache` there, and `npm start` creates the target before starting the server. See [technical operations](docs/portal/technical-operations.md) for deployment details.
+
 CU Launch is Cedarville's internal portal for staff to launch managed GitHub repositories from approved templates and publish them through CU Launch.
 
 ## What It Does
@@ -78,3 +80,7 @@ setting.
 - [Azure publishing](docs/publishing/azure-app-service.md)
 - [Portal-managed publishing design](docs/superpowers/specs/2026-04-28-portal-managed-publishing-design.md)
 - [Portal Azure publish runtime design](docs/superpowers/specs/2026-04-29-portal-azure-publish-runtime-design.md)
+
+### Publishing worker and recovery
+
+Azure publishing runs in a separate durable worker. For local development, run `npm run publish:worker` in a second terminal alongside `npm run dev`. Production requires the Service Bus transport and the event-triggered publishing and scheduled recovery Container Apps Jobs. Admin app details include publishing reconciliation, interrupted-attempt closure, setup repair-state correction, and error-note controls. See [the publishing worker runbook](docs/portal/publishing-worker.md) for migration and rollout instructions.

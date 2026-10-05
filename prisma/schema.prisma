@@ -228,7 +228,15 @@ model PublishAttempt {
   verifiedAt           DateTime?
   finishedAt   DateTime?
   createdAt    DateTime             @default(now())
+  actorUserId String?
+  workerToken String?
+  workerLeaseExpiresAt DateTime?
+  workerHeartbeatAt DateTime?
+  dispatchStartedAt DateTime?
   appRequest   AppRequest           @relation(fields: [appRequestId], references: [id])
+
+  @@index([status, workerLeaseExpiresAt])
+  @@index([appRequestId, createdAt])
 }
 
 model PublishSetupCheck {

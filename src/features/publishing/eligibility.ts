@@ -113,9 +113,13 @@ export function getPublishingSetupRepairEligibility(
 
   const canRepairFailedReadySetup =
     input.publishStatus === "FAILED" && input.publishingSetupStatus === "READY";
+  const canRepairPublishedReadySetup =
+    input.publishStatus === "SUCCEEDED" &&
+    input.publishingSetupStatus === "READY";
 
   return (
     canRepairFailedReadySetup ||
+    canRepairPublishedReadySetup ||
     ["NOT_CHECKED", "NEEDS_REPAIR", "BLOCKED"].includes(
       input.publishingSetupStatus,
     )

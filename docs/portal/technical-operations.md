@@ -180,6 +180,8 @@ Set the portal App Service startup command to:
 npm run prisma:migrate:deploy && npm start
 ```
 
+The deployment ZIP preserves a `.next/cache` symlink to `/home/cu-app-portal/next-cache`, outside the read-only Run-From-Package mount. `npm start` runs the packaged `prestart` script to create that writable target before Next.js starts. This stores the image cache under `/home/cu-app-portal/next-cache/images`; ordinary local builds retain `.next/cache`. Do not replace the symlink with a directory inside the package or bypass `npm start` with a direct `next start` command.
+
 Required portal App Service settings are the Core portal variables above, plus both `AUTH_URL` and `NEXTAUTH_URL` set to the exact public HTTPS origin. Production `DATABASE_URL` must use the Azure PostgreSQL endpoint with `sslmode=require`.
 
 Before deploying, complete application-setting changes and allow the SCM/Kudu container to settle. Rapid configuration changes followed immediately by ZIP deployment can restart SCM and abort the deployment. The historical operations notes also document an Azure quota issue and default `azurewebsites.net` Chrome reputation caveat; consult [publishing lessons learned](../publishing/lessons-learned.md).
@@ -402,3 +404,7 @@ After changes to templates, auth, repository setup, publishing, imports, or loca
 - [Template authoring](template-authoring.md) — template generation contract.
 - [Azure App Service deployment](../publishing/azure-app-service.md) — portal self-deployment details.
 - [Publishing lessons learned](../publishing/lessons-learned.md) — recorded production observations and recovery notes.
+
+## Publishing process recovery
+
+Publishing now uses a dedicated durable Container Apps Job with a persisted worker lease, plus a scheduled recovery job. Administrator app details provide explicit publishing recovery and setup-state correction controls. Deploy the schema migration, worker infrastructure, identity permissions, and portal transport configuration together in the order documented in [the publishing worker runbook](publishing-worker.md). A local build does not deploy the jobs or reconcile production attempts.

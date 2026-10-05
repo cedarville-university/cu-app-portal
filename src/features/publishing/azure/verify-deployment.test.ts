@@ -11,7 +11,7 @@ describe("verifyPublishedUrl", () => {
     ).resolves.toEqual({ verifiedAt: expect.any(Date) });
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://app.example.test/api/health",
-      { method: "GET", redirect: "manual" },
+      { method: "GET", redirect: "manual", cache: "no-store", signal: expect.any(AbortSignal) },
     );
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });

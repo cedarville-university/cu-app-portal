@@ -17,7 +17,7 @@ import {
   getPublishEligibility,
   type PublishEligibilityReason,
 } from "./eligibility";
-import { runPublishAttempt } from "./run-publish-attempt";
+import { createPublishQueue, type PublishQueue } from "./queue";
 
 type QueueablePublishStatus = "NOT_STARTED" | "SUCCEEDED" | "FAILED";
 type QueueablePublishingSetupStatus =
@@ -78,7 +78,7 @@ export type QueuePublishDependencies = {
   userHasAdminRole: typeof userHasAdminRole;
   getPublishEligibility: typeof getPublishEligibility;
   recordAuditEvent: typeof recordAuditEvent;
-  runPublishAttempt: typeof runPublishAttempt;
+  queue?: PublishQueue;
 };
 
 export const defaultQueuePublishDependencies: QueuePublishDependencies = {
@@ -87,7 +87,6 @@ export const defaultQueuePublishDependencies: QueuePublishDependencies = {
   userHasAdminRole,
   getPublishEligibility,
   recordAuditEvent,
-  runPublishAttempt,
 };
 
 type QueuePublishPolicy = {
@@ -112,26 +111,6 @@ const FAILED_RETRY_QUEUEABLE_SETUP_STATUSES: QueueablePublishingSetupStatus[] = 
 
 function logPublishWorker(event: string, details: Record<string, unknown>) {
   console.info("[publish-worker]", event, details);
-}
-
-export function startPublishWorker(
-  attemptId: string,
-  dependencies: Pick<QueuePublishDependencies, "runPublishAttempt"> =
-    defaultQueuePublishDependencies,
-  authorizeProviderMutation?: () => Promise<void>,
-) {
-  logPublishWorker("started", { publishAttemptId: attemptId });
-
-  void dependencies
-    .runPublishAttempt(attemptId, undefined, authorizeProviderMutation)
-    .then(() => {
-      logPublishWorker("completed", { publishAttemptId: attemptId });
-    })
-    .catch(() => {
-      console.error("[publish-worker]", "failed after queueing", {
-        publishAttemptId: attemptId,
-      });
-    });
 }
 
 async function loadAccessibleAppRequest(
@@ -271,6 +250,7 @@ export async function queuePublishAttemptForActor(
   policy: QueuePublishPolicy,
   dependencies: QueuePublishDependencies = defaultQueuePublishDependencies,
 ): Promise<QueuedPublishResult> {
+  const queue = dependencies.queue ?? createPublishQueue();
   const appRequest = await loadAccessibleAppRequest(input, dependencies);
   requirePublishEligibility(appRequest, policy, dependencies);
 
@@ -317,6 +297,7 @@ export async function queuePublishAttemptForActor(
     const attempt = await tx.publishAttempt.create({
       data: {
         appRequestId: input.requestId,
+        actorUserId: input.actorUserId,
         status: "QUEUED",
         stage: "QUEUED",
       },
@@ -328,7 +309,7 @@ export async function queuePublishAttemptForActor(
   await recordPublishRequested(input, attemptId, dependencies);
 
   // The queued claim proves the caller was allowed to request work; re-read
-  // access once more immediately before entering the provider orchestrator.
+  // access once more immediately before delivering to the separate worker.
   try {
     await loadAccessibleAppRequest(input, dependencies);
   } catch (error) {
@@ -345,13 +326,13 @@ export async function queuePublishAttemptForActor(
     requestId: input.requestId,
     publishAttemptId: attemptId,
   });
-  startPublishWorker(
-    attemptId,
-    dependencies,
-    async () => {
-      await loadAccessibleAppRequest(input, dependencies);
-    },
-  );
+  try {
+    await queue.send({ attemptId });
+  } catch {
+    // Keep the committed outbox entry. A scheduled recovery run will deliver it;
+    // a send timeout may also mean Service Bus already accepted the message.
+    console.error("[publish-worker] queue send deferred to recovery", { publishAttemptId: attemptId });
+  }
 
   return { attemptId, status: "QUEUED" };
 }

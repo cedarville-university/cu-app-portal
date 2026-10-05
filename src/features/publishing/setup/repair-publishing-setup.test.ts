@@ -439,7 +439,7 @@ describe("repairPublishingSetupForActor", () => {
       userHasAdminRole: vi.fn().mockResolvedValue(false),
       getPublishEligibility,
       recordAuditEvent: vi.fn().mockResolvedValue(undefined),
-      runPublishAttempt,
+      queue: { send: runPublishAttempt },
     } as unknown as QueuePublishDependencies;
     const repairDependencies = {
       prisma: {

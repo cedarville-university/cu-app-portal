@@ -22,3 +22,6 @@ tmp/pdfs
 workers/repository-import/dist
 infra/repository-import-worker/main.bicepparam
 infra/repository-import-worker/main.json
+workers/publish/dist
+infra/publish-worker/main.bicepparam
+infra/publish-worker/main.json

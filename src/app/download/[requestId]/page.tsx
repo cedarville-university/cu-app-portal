@@ -62,7 +62,9 @@ function publishBadge(status: string): { label: string; variant: BadgeVariant } 
       return { label: "Published", variant: "success" };
     case "FAILED":
       return { label: "Failed", variant: "error" };
-    case "IN_PROGRESS":
+    case "QUEUED":
+    case "PROVISIONING":
+    case "DEPLOYING":
       return { label: "In progress", variant: "info" };
     case "DELETED":
       return { label: "Deleted", variant: "default" };
@@ -709,6 +711,66 @@ function renderPublishAction({
   );
 }
 
+function renderPublishedRecoveryActions({
+  requestId,
+  sourceOfTruth,
+  repositoryStatus,
+  preparationStatus,
+  publishingSetupStatus,
+}: {
+  requestId: string;
+  sourceOfTruth: SourceOfTruth;
+  repositoryStatus: RepositoryStatus;
+  preparationStatus: RepositoryPreparationStatus | null | undefined;
+  publishingSetupStatus: PublishingSetupStatus | null | undefined;
+}) {
+  const eligibilityInput = {
+    repositoryStatus,
+    sourceOfTruth,
+    preparationStatus,
+    publishStatus: "SUCCEEDED" as const,
+    publishingSetupStatus: publishingSetupStatus ?? "NOT_CHECKED",
+  };
+  const retryEligibility = getPublishEligibility(eligibilityInput, {
+    allowedPublishStatuses: ["SUCCEEDED"],
+  });
+  const repairEligibility =
+    getPublishingSetupRepairEligibility(eligibilityInput);
+
+  if (!retryEligibility.eligible && !repairEligibility.eligible) return null;
+
+  return (
+    <div className="card card--gold-border">
+      <p className="section-title">Repair or retry publishing</p>
+      <p>Refresh publishing setup or start another Azure deployment.</p>
+      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        {repairEligibility.eligible ? (
+          <form action={repairPublishingSetupAction.bind(null, requestId)}>
+            <PendingSubmitButton
+              idleLabel="Repair Publishing Setup"
+              pendingLabel="Repairing Publishing Setup..."
+              statusText="Refreshing your Azure hosting, Microsoft login, and GitHub publishing settings."
+              variant="ghost"
+              title="Refreshes publishing credentials and settings without starting an Azure deployment"
+            />
+          </form>
+        ) : null}
+        {retryEligibility.eligible ? (
+          <form action={publishToAzureAction.bind(null, requestId)}>
+            <PendingSubmitButton
+              idleLabel="Retry Publish"
+              pendingLabel="Retrying Publish…"
+              statusText="Retrying publish to Azure…"
+              variant="primary"
+              title="Starts a new Azure deployment now"
+            />
+          </form>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function renderPushToDeployButton(request: {
   id: string;
   sourceOfTruth?: string | null;
@@ -1099,6 +1161,15 @@ export default async function DownloadPage({
         <details className="card">
           <summary className="section-title">Advanced options</summary>
           <div style={{ display: "grid", gap: "1.25rem", marginTop: "1.25rem" }}>
+        {appRequest.publishStatus === "SUCCEEDED"
+          ? renderPublishedRecoveryActions({
+              requestId,
+              sourceOfTruth: appRequest.sourceOfTruth,
+              repositoryStatus: appRequest.repositoryStatus,
+              preparationStatus: appRequest.repositoryImport?.preparationStatus,
+              publishingSetupStatus: effectivePublishingSetupStatus,
+            })
+          : null}
         {/* Codex workflow steps */}
         <div className="card">
           <p className="section-title">Codex Workflow</p>

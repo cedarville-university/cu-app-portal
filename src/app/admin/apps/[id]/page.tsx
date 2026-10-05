@@ -10,6 +10,7 @@ import { createdDate, StatusBadge, userLabel } from "@/features/admin/status";
 import { deleteAppFormAction } from "@/features/app-deletion/actions";
 import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
+import { PublishingRecoveryPanel } from "@/features/admin/publishing-recovery-panel";
 import { prisma } from "@/lib/db";
 
 export default async function AdminAppDetailPage({
@@ -28,6 +29,7 @@ export default async function AdminAppDetailPage({
     prisma.appRequest.findUnique({
       where: { id },
       include: {
+        publishAttempts: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 },
         user: {
           select: { id: true, displayName: true, email: true },
         },
@@ -142,6 +144,22 @@ export default async function AdminAppDetailPage({
             </div>
           ) : null}
         </div>
+      </section>
+
+      <section className="card" style={{ marginTop: "1rem" }}>
+        <h2>Publishing recovery</h2>
+        <div className="status-table" style={{ marginBottom: "1rem" }}>
+          <div className="status-row">Support reference: {request.supportReference}</div>
+          <div className="status-row">Publishing setup: {request.publishingSetupStatus}</div>
+          {request.publishAttempts?.[0] ? <>
+            <div className="status-row">Latest attempt: {request.publishAttempts[0].status} · {request.publishAttempts[0].stage}</div>
+            <div className="status-row">Started: {request.publishAttempts[0].startedAt?.toISOString() ?? "Not started"}</div>
+            <div className="status-row">Worker heartbeat: {request.publishAttempts[0].workerHeartbeatAt?.toISOString() ?? "No heartbeat recorded"}</div>
+            <div className="status-row">Worker lease expires: {request.publishAttempts[0].workerLeaseExpiresAt?.toISOString() ?? "No active lease recorded"}</div>
+            {request.publishAttempts[0].githubWorkflowRunUrl ? <a href={request.publishAttempts[0].githubWorkflowRunUrl} target="_blank" rel="noreferrer">View deployment run</a> : null}
+          </> : null}
+        </div>
+        <PublishingRecoveryPanel appRequestId={request.id} />
       </section>
 
       <div className="grid grid--2" style={{ gap: "1rem", marginTop: "1rem" }}>

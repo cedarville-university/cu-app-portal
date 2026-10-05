@@ -3,6 +3,7 @@
 .next
 node_modules
 workers/repository-import/dist
+workers/publish/dist
 .env
 .env.*
 playwright-report

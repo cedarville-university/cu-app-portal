@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:repository-import-worker": "tsup --config tsup.repository-import.config.ts",
+    "prestart": "node scripts/prepare-next-cache.mjs",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -21,7 +22,10 @@
     "db:up": "docker compose up -d postgres",
     "db:reset": "docker compose down -v",
     "db:down": "docker compose down",
-    "db:logs": "docker compose logs postgres"
+    "db:logs": "docker compose logs postgres",
+    "build:publish-worker": "tsup --config tsup.publish.config.ts",
+    "publish:worker": "node --env-file=.env --env-file-if-exists=.env.local --import tsx src/workers/publish/main.ts",
+    "publish:recover": "PUBLISH_WORKER_MODE=recovery node --env-file=.env --env-file-if-exists=.env.local --import tsx src/workers/publish/main.ts"
   },
   "dependencies": {
     "@azure/identity": "^4.13.1",

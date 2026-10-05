@@ -37,6 +37,10 @@ jobs:
           rm -rf "${{ env.DEPLOY_PACKAGE_PATH }}"
           mkdir -p "${{ env.DEPLOY_PACKAGE_PATH }}"
           cp -R .next "${{ env.DEPLOY_PACKAGE_PATH }}/.next"
+          rm -rf "${{ env.DEPLOY_PACKAGE_PATH }}/.next/cache"
+          ln -s /home/cu-app-portal/next-cache "${{ env.DEPLOY_PACKAGE_PATH }}/.next/cache"
+          mkdir -p "${{ env.DEPLOY_PACKAGE_PATH }}/scripts"
+          cp scripts/prepare-next-cache.mjs "${{ env.DEPLOY_PACKAGE_PATH }}/scripts/"
           cp -R node_modules "${{ env.DEPLOY_PACKAGE_PATH }}/node_modules"
           cp package.json package-lock.json next.config.ts next-env.d.ts prisma.config.ts "${{ env.DEPLOY_PACKAGE_PATH }}/"
           cp -R prisma "${{ env.DEPLOY_PACKAGE_PATH }}/prisma"
@@ -47,6 +51,9 @@ jobs:
           if [ -d public ]; then
             cp -R public "${{ env.DEPLOY_PACKAGE_PATH }}/public"
           fi
+          # Preserve the cache symlink instead of following its external target.
+          cd "${{ env.DEPLOY_PACKAGE_PATH }}"
+          zip --symlinks -qr ../release.zip .
 
       - name: Azure login
         uses: azure/login@v2
@@ -59,4 +66,4 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: ${{ env.DEPLOY_PACKAGE_PATH }}
+          package: release.zip

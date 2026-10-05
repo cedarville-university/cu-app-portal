@@ -1,5 +1,5 @@
 import React from "react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DownloadPage from "./page";
 
@@ -177,6 +177,23 @@ describe("DownloadPage navigation", () => {
       "https://campus-dashboard.azurewebsites.net",
     );
     expect(screen.getByText("Advanced options")).toBeInTheDocument();
+  });
+
+  it("offers repair and retry controls under advanced options for published apps", async () => {
+    await renderPage({
+      publishStatus: "SUCCEEDED",
+      publishingSetupStatus: "READY",
+    });
+
+    const advancedOptions = screen
+      .getByText("Advanced options")
+      .closest("details");
+    expect(advancedOptions).not.toBeNull();
+    for (const name of ["Repair Publishing Setup", "Retry Publish"]) {
+      expect(
+        within(advancedOptions!).getByRole("button", { name }),
+      ).toBeInTheDocument();
+    }
   });
 
   it("keeps published customization inside a local Codex project", async () => {

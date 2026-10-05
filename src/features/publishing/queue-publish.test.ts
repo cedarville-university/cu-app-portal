@@ -5,7 +5,6 @@ import { appAccessWhere } from "@/features/app-requests/access";
 import { PortalApiError } from "@/features/portal-api/errors";
 import { recordAuditEvent } from "@/lib/audit";
 import { getPublishEligibility } from "./eligibility";
-import { runPublishAttempt } from "./run-publish-attempt";
 import {
   queuePublishForActor,
   type QueuePublishDependencies,
@@ -43,7 +42,7 @@ function createDependencies(): QueuePublishDependencies {
     userHasAdminRole: vi.fn().mockResolvedValue(false),
     getPublishEligibility,
     recordAuditEvent: vi.fn(recordAuditEvent).mockResolvedValue(undefined),
-    runPublishAttempt: vi.fn(runPublishAttempt).mockResolvedValue(undefined),
+    queue: { send: vi.fn().mockResolvedValue(undefined) },
   } as unknown as QueuePublishDependencies;
 }
 
@@ -102,7 +101,7 @@ describe("queuePublishForActor", () => {
     expect(missing).toEqual(foreign);
     expect(missing).toEqual(new PortalApiError("NOT_FOUND", "App not found."));
     expect(dependencies.prisma.$transaction).not.toHaveBeenCalled();
-    expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+    expect(dependencies.queue!.send).not.toHaveBeenCalled();
   });
 
   it("allows generated apps to publish before setup has been checked", async () => {
@@ -210,7 +209,7 @@ describe("queuePublishForActor", () => {
     });
 
     expect(transactionClient.publishAttempt.create).not.toHaveBeenCalled();
-    expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+    expect(dependencies.queue!.send).not.toHaveBeenCalled();
   });
 
   it("returns setup-repair-required when publishing setup blocks the request", async () => {
@@ -259,7 +258,7 @@ describe("queuePublishForActor", () => {
     );
   });
 
-  it("starts the background worker only after the transaction commits", async () => {
+  it("delivers to the separate worker only after the transaction commits", async () => {
     const order: string[] = [];
     const transactionClient = await firstTransactionClient(dependencies);
     vi.mocked(dependencies.prisma.$transaction).mockImplementation(
@@ -270,7 +269,7 @@ describe("queuePublishForActor", () => {
         return result;
       },
     );
-    vi.mocked(dependencies.runPublishAttempt).mockImplementation(async () => {
+    vi.mocked(dependencies.queue!.send).mockImplementation(async () => {
       order.push("worker-started");
     });
 
@@ -308,10 +307,10 @@ describe("queuePublishForActor", () => {
 
     expect(dependencies.prisma.appRequest.findFirst).toHaveBeenCalledTimes(2);
     expect(dependencies.prisma.$transaction).not.toHaveBeenCalled();
-    expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+    expect(dependencies.queue!.send).not.toHaveBeenCalled();
   });
 
-  it("rechecks actor access again at the background provider boundary", async () => {
+  it("rechecks actor access again before queue delivery", async () => {
     vi.mocked(dependencies.prisma.appRequest.findFirst)
       .mockResolvedValueOnce(generatedRequest)
       .mockResolvedValueOnce(generatedRequest)
@@ -352,7 +351,7 @@ describe("queuePublishForActor", () => {
         publishErrorSummary: null,
       },
     });
-    expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+    expect(dependencies.queue!.send).not.toHaveBeenCalled();
   });
 
   it("settles the queued claim when the final access read fails", async () => {
@@ -386,11 +385,11 @@ describe("queuePublishForActor", () => {
         publishErrorSummary: null,
       },
     });
-    expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+    expect(dependencies.queue!.send).not.toHaveBeenCalled();
     expect((result as Error).message).not.toContain("database read sentinel");
   });
 
-  it("passes an actor-aware authorization guard into the publish worker", async () => {
+  it("persists the authorized actor for the separate worker", async () => {
     await queuePublishForActor(
       {
         requestId: "request-123",
@@ -400,11 +399,20 @@ describe("queuePublishForActor", () => {
       dependencies,
     );
 
-    expect(dependencies.runPublishAttempt).toHaveBeenCalledWith(
-      "attempt-123",
-      undefined,
-      expect.any(Function),
+    expect(dependencies.queue!.send).toHaveBeenCalledWith(
+      { attemptId: "attempt-123" },
     );
+    const transactionClient = await firstTransactionClient(dependencies);
+    expect(transactionClient.publishAttempt.create).toHaveBeenCalledWith({ data: {
+      appRequestId: "request-123", actorUserId: "collaborator-123", status: "QUEUED", stage: "QUEUED",
+    } });
+  });
+
+  it("preserves the queued outbox entry when Service Bus delivery fails", async () => {
+    vi.mocked(dependencies.queue!.send).mockRejectedValue(new Error("broker timeout"));
+    await expect(queuePublishForActor({ requestId: "request-123", actorUserId: "owner-123", source: "portal-ui" }, dependencies)).resolves.toEqual({ attemptId: "attempt-123", status: "QUEUED" });
+    const transactionClient = await firstTransactionClient(dependencies);
+    expect(transactionClient.publishAttempt.updateMany).not.toHaveBeenCalled();
   });
 });
 

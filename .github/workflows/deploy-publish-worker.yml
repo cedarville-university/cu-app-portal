@@ -1,0 +1,84 @@
+name: Deploy Publishing Worker
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-publish-worker.yml'
+      - 'src/features/publishing/**'
+      - 'src/features/repositories/**'
+      - 'src/features/app-requests/access.ts'
+      - 'src/features/notifications/**'
+      - 'src/lib/**'
+      - 'src/workers/publish/**'
+      - 'workers/publish/**'
+      - 'infra/publish-worker/**'
+      - 'prisma/**'
+      - 'tsup.publish.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+env:
+  AZURE_RESOURCE_GROUP: rg-cu-app-portal
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Validate worker build and migration schema
+        run: |
+          npx prisma validate
+          npm run build:publish-worker
+        env:
+          DATABASE_URL: postgresql://validation:validation@127.0.0.1:5432/validation
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Resolve registry and jobs
+        run: |
+          ACR_NAME="$(az acr list -g "$AZURE_RESOURCE_GROUP" --query "[?tags.workload=='repository-import-worker'].name | [0]" -o tsv)"
+          ACR_SERVER="$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)"
+          WORKER_JOB="$(az containerapp job list -g "$AZURE_RESOURCE_GROUP" --query "[?tags.workload=='publish-worker'].name | [0]" -o tsv)"
+          RECOVERY_JOB="$(az containerapp job list -g "$AZURE_RESOURCE_GROUP" --query "[?tags.workload=='publish-recovery'].name | [0]" -o tsv)"
+          test -n "$ACR_NAME" && test -n "$WORKER_JOB" && test -n "$RECOVERY_JOB"
+          echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
+          echo "ACR_SERVER=$ACR_SERVER" >> "$GITHUB_ENV"
+          echo "WORKER_JOB=$WORKER_JOB" >> "$GITHUB_ENV"
+          echo "RECOVERY_JOB=$RECOVERY_JOB" >> "$GITHUB_ENV"
+          echo "IMAGE_REF=$ACR_SERVER/publish-worker:${{ github.sha }}" >> "$GITHUB_ENV"
+      - name: Build and smoke test worker image
+        run: |
+          docker build -f workers/publish/Dockerfile -t "$IMAGE_REF" .
+          docker run --rm --entrypoint node "$IMAGE_REF" --input-type=module -e 'const m = await import("/app/dist/main.js"); if (typeof m.runPublishWorker !== "function") process.exit(1);'
+      - name: Scan candidate image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_REF }}
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+      - name: Push immutable image
+        run: |
+          az acr login -n "$ACR_NAME"
+          docker push "$IMAGE_REF"
+          DIGEST="$(az acr repository show -n "$ACR_NAME" --image "publish-worker:${{ github.sha }}" --query digest -o tsv)"
+          test "${DIGEST#sha256:}" != "$DIGEST"
+          echo "PINNED_IMAGE=$ACR_SERVER/publish-worker@$DIGEST" >> "$GITHUB_ENV"
+      - name: Deploy worker and recovery jobs
+        run: |
+          for JOB_NAME in "$WORKER_JOB" "$RECOVERY_JOB"; do
+            az containerapp job update -g "$AZURE_RESOURCE_GROUP" -n "$JOB_NAME" --image "$PINNED_IMAGE" --set-env-vars "APP_COMMIT_SHA=${{ github.sha }}"
+            JOB_ID="$(az containerapp job show -g "$AZURE_RESOURCE_GROUP" -n "$JOB_NAME" --query id -o tsv)"
+            az resource wait --updated --ids "$JOB_ID" --interval 10 --timeout 600
+          done
+          echo "Publishing and recovery deployed from ${{ github.sha }}: $PINNED_IMAGE" >> "$GITHUB_STEP_SUMMARY"

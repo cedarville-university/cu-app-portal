@@ -37,7 +37,7 @@ function createDependencies(): QueuePublishDependencies {
     userHasAdminRole: vi.fn().mockResolvedValue(false),
     getPublishEligibility,
     recordAuditEvent: vi.fn().mockResolvedValue(undefined),
-    runPublishAttempt: vi.fn().mockResolvedValue(undefined),
+    queue: { send: vi.fn().mockResolvedValue(undefined) },
   } as unknown as QueuePublishDependencies;
 }
 
@@ -62,10 +62,8 @@ describe("retryPublishForActor", () => {
 
     const transactionClient = await captureTransactionClient(dependencies);
     expect(transactionClient.publishAttempt.create).toHaveBeenCalledTimes(1);
-    expect(dependencies.runPublishAttempt).toHaveBeenCalledWith(
-      "attempt-456",
-      undefined,
-      expect.any(Function),
+    expect(dependencies.queue!.send).toHaveBeenCalledWith(
+      { attemptId: "attempt-456" },
     );
   });
 
@@ -87,7 +85,7 @@ describe("retryPublishForActor", () => {
     ).rejects.toThrow("Only failed publish attempts can be retried.");
 
     expect(dependencies.prisma.$transaction).not.toHaveBeenCalled();
-    expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+    expect(dependencies.queue!.send).not.toHaveBeenCalled();
   });
 
   it.each(["NEEDS_REPAIR", "BLOCKED"] as const)(
@@ -188,7 +186,7 @@ describe("retryPublishForActor", () => {
     ).rejects.toThrow("Publish request is already queued or running.");
 
     expect(transactionClient.publishAttempt.create).not.toHaveBeenCalled();
-    expect(dependencies.runPublishAttempt).not.toHaveBeenCalled();
+    expect(dependencies.queue!.send).not.toHaveBeenCalled();
   });
 });
 

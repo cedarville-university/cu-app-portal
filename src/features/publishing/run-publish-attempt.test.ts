@@ -4,6 +4,12 @@ import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { loadAzurePublishConfig } from "./azure/config";
 import { runPublishAttempt } from "./run-publish-attempt";
+import { persistPublishProgress } from "./worker-lease";
+
+vi.mock("./worker-lease", () => ({
+  persistPublishProgress: vi.fn().mockResolvedValue(undefined),
+  PublishClaimLostError: class extends Error {},
+}));
 
 vi.mock("@/lib/audit", () => ({
   recordAuditEvent: vi.fn(),
@@ -46,6 +52,22 @@ describe("runPublishAttempt", () => {
     vi.mocked(recordAuditEvent).mockReset();
     vi.mocked(safeNotifyAppEvent).mockReset();
     vi.mocked(loadAzurePublishConfig).mockReset();
+    vi.mocked(persistPublishProgress).mockClear();
+  });
+
+  it("leaves an uncertain dispatch active for recovery instead of making it retryable", async () => {
+    vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({ id: "attempt-123", appRequestId: "request-123", appRequest: { id: "request-123" } } as never);
+    const claim = { attemptId: "attempt-123", token: "worker" };
+    await expect(runPublishAttempt("attempt-123", {
+      provisionInfrastructure: vi.fn().mockResolvedValue({}),
+      deployRepository: vi.fn(async (_id, options) => {
+        await options?.onWorkflowDispatching?.();
+        throw new Error("dispatch response lost");
+      }),
+      verifyDeployment: vi.fn(),
+    }, undefined, claim)).rejects.toThrow("dispatch response lost");
+    expect(persistPublishProgress).toHaveBeenCalledWith(claim, "request-123", { dispatchStartedAt: expect.any(Date) }, undefined);
+    expect(vi.mocked(persistPublishProgress).mock.calls.some(([, , data]) => data.status === "FAILED")).toBe(false);
   });
 
   it("moves a queued publish attempt through provisioning, deploy, and success", async () => {

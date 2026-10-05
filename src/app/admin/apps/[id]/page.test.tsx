@@ -27,6 +27,10 @@ vi.mock("@/features/admin/actions", () => ({
   removeAppCollaboratorAction: vi.fn(),
 }));
 
+vi.mock("@/features/admin/publishing-actions", () => ({
+  updatePublishingStateAction: vi.fn(),
+}));
+
 vi.mock("@/features/app-deletion/actions", () => ({
   deleteAppFormAction: vi.fn(),
 }));
@@ -138,6 +142,10 @@ describe("AdminAppDetailPage", () => {
       screen.getByRole("button", { name: "Remove Norm Normal" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Delete selected resources")).toBeInTheDocument();
+    expect(screen.getByLabelText("Recovery action")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Check and recover publishing" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "End an abandoned publish as failed" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply Recovery Action" })).toBeInTheDocument();
 
     // returnTo points back at the admin apps list
     const returnTo = document.querySelector('input[name="returnTo"]');

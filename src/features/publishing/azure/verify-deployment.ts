@@ -10,6 +10,8 @@ async function verifyPublicHealthEndpoint(
   const response = await fetchImpl(healthUrl, {
     method: "GET",
     redirect: "manual",
+    signal: AbortSignal.timeout(30_000),
+    cache: "no-store",
   });
 
   if (response.status === 200) {

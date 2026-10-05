@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+import { persistPublishProgress, PublishClaimLostError, type PublishWorkerClaim } from "./worker-lease";
 import { DefaultAzureCredential } from "@azure/identity";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
@@ -43,6 +45,7 @@ export type DeployRepositoryOptions = {
   authorizeProviderMutation?: AuthorizeProviderMutation;
   onSetupStep?: (step: PublishingSetupCheckKey) => void;
   onWorkflowDispatched?: () => void;
+  onWorkflowDispatching?: () => Promise<void>;
 };
 
 export type VerificationResult = {
@@ -135,7 +138,8 @@ function guardedAuthorization(
   return async () => {
     try {
       await authorizeProviderMutation();
-    } catch {
+    } catch (error) {
+      if (error instanceof PublishClaimLostError) throw error;
       throw new PublishAuthorizationError();
     }
   };
@@ -145,6 +149,7 @@ export async function runPublishAttempt(
   attemptId: string,
   runtime?: PublishRuntime,
   authorizeProviderMutation?: AuthorizeProviderMutation,
+  workerClaim?: PublishWorkerClaim,
 ) {
   const attempt = await prisma.publishAttempt.findUnique({
     where: { id: attemptId },
@@ -157,22 +162,22 @@ export async function runPublishAttempt(
     throw new Error(`Publish attempt "${attemptId}" was not found.`);
   }
 
-  await prisma.publishAttempt.update({
-    where: { id: attemptId },
-    data: {
-      status: "RUNNING",
-      stage: "PROVISIONING",
-      startedAt: new Date(),
-    },
-  });
+  const persist = async (
+    attemptData: Prisma.PublishAttemptUpdateManyMutationInput,
+    appData?: Prisma.AppRequestUpdateManyMutationInput,
+  ) => {
+    if (workerClaim) {
+      await persistPublishProgress(workerClaim, attempt.appRequestId, attemptData, appData);
+    } else {
+      await prisma.publishAttempt.update({ where: { id: attemptId }, data: attemptData });
+      if (appData) await prisma.appRequest.update({ where: { id: attempt.appRequestId }, data: appData });
+    }
+  };
 
-  await prisma.appRequest.update({
-    where: { id: attempt.appRequestId },
-    data: {
-      publishStatus: "PROVISIONING",
-      publishErrorSummary: null,
-    },
-  });
+  await persist(
+    { status: "RUNNING", stage: "PROVISIONING", startedAt: attempt.startedAt ?? new Date() },
+    { publishStatus: "PROVISIONING", publishErrorSummary: null },
+  );
 
   logPublishWorker("started", {
     publishAttemptId: attemptId,
@@ -205,24 +210,8 @@ export async function runPublishAttempt(
       primaryPublishUrl: publishTarget.primaryPublishUrl,
     });
 
-    await prisma.appRequest.update({
-      where: { id: attempt.appRequestId },
-      data: publishTarget,
-    });
-
-    await prisma.publishAttempt.update({
-      where: { id: attemptId },
-      data: {
-        stage: "DEPLOYING",
-      },
-    });
-
-    await prisma.appRequest.update({
-      where: { id: attempt.appRequestId },
-      data: {
-        publishStatus: "DEPLOYING",
-      },
-    });
+    await persist({}, publishTarget);
+    await persist({ stage: "DEPLOYING" }, { publishStatus: "DEPLOYING" });
 
     logPublishWorker("deployment started", {
       publishAttemptId: attemptId,
@@ -237,11 +226,17 @@ export async function runPublishAttempt(
         onSetupStep: (step) => {
           currentSetupStep = step;
         },
+        onWorkflowDispatching: async () => {
+          await persist({ dispatchStartedAt: new Date() });
+          deploymentDispatchMayHaveStarted = true;
+        },
         onWorkflowDispatched: () => {
           deploymentDispatchMayHaveStarted = true;
         },
       },
     );
+
+    deploymentDispatchMayHaveStarted = true;
 
     logPublishWorker("deployment completed", {
       publishAttemptId: attemptId,
@@ -251,21 +246,12 @@ export async function runPublishAttempt(
       githubWorkflowRunUrl: deployment.githubWorkflowRunUrl,
     });
 
-    await prisma.publishAttempt.update({
-      where: { id: attemptId },
-      data: {
-        githubWorkflowRunId: deployment.githubWorkflowRunId,
-        githubWorkflowRunUrl: deployment.githubWorkflowRunUrl,
-        deploymentStartedAt: new Date(),
-      },
+    await persist({
+      githubWorkflowRunId: deployment.githubWorkflowRunId,
+      githubWorkflowRunUrl: deployment.githubWorkflowRunUrl,
+      deploymentStartedAt: new Date(),
     });
-
-    await prisma.publishAttempt.update({
-      where: { id: attemptId },
-      data: {
-        stage: "VERIFYING",
-      },
-    });
+    await persist({ stage: "VERIFYING" });
 
     logPublishWorker("verification started", {
       publishAttemptId: attemptId,
@@ -285,27 +271,14 @@ export async function runPublishAttempt(
 
     const completedAt = new Date();
 
-    await prisma.publishAttempt.update({
-      where: { id: attemptId },
-      data: {
-        status: "SUCCEEDED",
-        stage: "COMPLETED",
-        finishedAt: completedAt,
-        verifiedAt: verification.verifiedAt,
+    await persist(
+      { status: "SUCCEEDED", stage: "COMPLETED", finishedAt: completedAt, verifiedAt: verification.verifiedAt },
+      {
+        publishStatus: "SUCCEEDED", publishUrl: deployment.publishUrl,
+        publishErrorSummary: null, publishingSetupStatus: "READY",
+        publishingSetupErrorSummary: null, lastPublishedAt: completedAt,
       },
-    });
-
-    await prisma.appRequest.update({
-      where: { id: attempt.appRequestId },
-      data: {
-        publishStatus: "SUCCEEDED",
-        publishUrl: deployment.publishUrl,
-        publishErrorSummary: null,
-        publishingSetupStatus: "READY",
-        publishingSetupErrorSummary: null,
-        lastPublishedAt: completedAt,
-      },
-    });
+    );
 
     logPublishWorker("succeeded", {
       publishAttemptId: attemptId,
@@ -323,6 +296,11 @@ export async function runPublishAttempt(
       eventKey: "PUBLISH_SUCCEEDED",
     });
   } catch (error) {
+    if (error instanceof PublishClaimLostError) throw error;
+    // A provider timeout can occur after GitHub accepted the dispatch. Keep the
+    // durable attempt active so recovery can inspect its run rather than allow
+    // another deployment to be dispatched immediately.
+    if (workerClaim && deploymentDispatchMayHaveStarted) throw error;
     const authorizationFailed = error instanceof PublishAuthorizationError;
     const setupFailure = deploymentDispatchMayHaveStarted || authorizationFailed
       ? null
@@ -354,20 +332,10 @@ export async function runPublishAttempt(
       errorSummary: safeErrorSummary,
     });
 
-    await prisma.publishAttempt.update({
-      where: { id: attemptId },
-      data: {
-        status: "FAILED",
-        stage: "FAILED",
-        errorSummary: safeErrorSummary,
-        finishedAt,
-      },
-    });
-
-    await prisma.appRequest.update({
-      where: { id: attempt.appRequestId },
-      data: appRequestFailureData,
-    });
+    await persist(
+      { status: "FAILED", stage: "FAILED", errorSummary: safeErrorSummary, finishedAt },
+      appRequestFailureData,
+    );
 
     await recordAuditEvent("PUBLISH_FAILED", {
       requestId: attempt.appRequestId,

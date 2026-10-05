@@ -733,6 +733,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       };
       const previousRun = await getLatestWorkflowRunOrNull(workflowRunInput);
       await options?.authorizeProviderMutation?.();
+      await options?.onWorkflowDispatching?.();
       await deps.github.dispatchWorkflow({
         owner,
         name,

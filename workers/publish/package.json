@@ -1,0 +1,12 @@
+{
+  "name": "@cu-launch/publish-worker-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@azure/identity": "4.13.1",
+    "@azure/service-bus": "7.9.5",
+    "@prisma/client": "6.19.3",
+    "nodemailer": "10.0.13"
+  }
+}

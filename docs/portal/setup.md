@@ -268,3 +268,7 @@ For managed repo bootstrap verification, confirm the GitHub App is installed on 
 
 - The portal does not retain generated source archives; source is sent directly to GitHub during repository bootstrap.
 - The Playwright onboarding flow uses a test-only auth bypass so entry routes, template selection, form focus, the generated create-to-wizard handoff, generated-starter resume, and My Apps routing can be exercised without Cedarville SSO. Generated form submission uses a narrowly scoped local repository-bootstrap substitute under that bypass, and the remaining fixture records are written directly to local PostgreSQL, so the suite does not call live GitHub or Azure providers. Request-specific publish and recovery branches remain covered by server-rendered page tests.
+
+## Separate publishing worker
+
+Start `npm run publish:worker` in a second terminal before requesting a local publish. Development defaults to durable database polling in that separate process. Production requires `PUBLISH_TRANSPORT=service-bus`, `PUBLISH_SERVICE_BUS_NAMESPACE`, and `PUBLISH_SERVICE_BUS_QUEUE`; it never falls back to an inline worker. Apply the new publishing-worker Prisma migration before deploying either component. See [publishing worker setup and recovery](publishing-worker.md).
