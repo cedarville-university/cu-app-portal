@@ -2,6 +2,8 @@
 
 Publishing is executed by a separate worker, not by an untracked promise in Next.js. The web process records the requesting actor and a queued PublishAttempt in one transaction, then sends the attempt ID to Service Bus. A committed queued attempt is also an outbox entry: the recovery job redelivers it if sending or receiving was interrupted. A queue-send timeout never rolls the claim back, because the broker may already have accepted the message.
 
+Guarded progress writes always update the attempt heartbeat, including when only app resource details change. An empty Prisma `updateMany` returns zero updates and must not be used to check worker ownership. A worker repeatedly logging provisioning completion followed by “no longer owns this attempt” before deployment can indicate this bug in an older image; deploy the corrected image and let recovery redeliver the existing attempt.
+
 ## Worker and recovery behavior
 
 The event-triggered Azure Container Apps Job consumes the `publishing` queue. Its database lease lasts two minutes and renews every 20 seconds. Progress and terminal updates check the lease token and the latest attempt before updating either record. The original actor's app access and repository preparation are rechecked before provider mutations. Lost or replaced leases prevent a late worker from rewriting recovery results.

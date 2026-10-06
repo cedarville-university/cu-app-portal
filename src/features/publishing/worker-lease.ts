@@ -60,7 +60,9 @@ export async function persistPublishProgress(
     if (latest?.id !== claim.attemptId) throw new PublishClaimLostError();
     const updated = await tx.publishAttempt.updateMany({
       where: { id: claim.attemptId, workerToken: claim.token, workerLeaseExpiresAt: { gt: new Date() }, status: { in: ["QUEUED", "RUNNING"] } },
-      data: attemptData,
+      // Prisma returns count: 0 for an empty update, even with a matching lease.
+      // App-only progress must still perform a real fenced attempt write.
+      data: { ...attemptData, workerHeartbeatAt: new Date() },
     });
     if (updated.count !== 1) throw new PublishClaimLostError();
     if (appData) {
