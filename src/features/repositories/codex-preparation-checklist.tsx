@@ -19,9 +19,9 @@ export function CodexPreparationChecklist({
         <li>
           <strong>Make sure Git is installed.</strong> On Windows, open{" "}
           <strong>Company Portal</strong>, search for <strong>Git</strong>, and
-          select Install. On macOS, open <strong>CedarNet 2.0</strong>, search
-          for <strong>Git</strong>, and select Install. If Git is already
-          installed, you can continue.
+          select Install. On macOS, Git should be installed automatically by
+          Cedarville login scripts. If Git is unavailable, contact Cedarville
+          IT for help. If Git is already installed, you can continue.
         </li>
         <li>
           After installing Git, completely quit and reopen Codex so it can find

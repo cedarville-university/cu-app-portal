@@ -69,7 +69,7 @@ GitHub is the managed online location for the app's code. It records changes and
 
 Git is the tool that keeps change history in the app folder on your computer. Before opening a Codex handoff:
 
-1. On Windows, open **Company Portal**, search for **Git**, and select Install. On macOS, open **CedarNet 2.0**, search for **Git**, and select Install.
+1. On Windows, open **Company Portal**, search for **Git**, and select Install. On macOS, Git should be installed automatically by Cedarville login scripts. If Git is unavailable, contact Cedarville IT for help.
 2. When installation finishes, completely quit and reopen Codex.
 3. Make a new empty folder named for a generated app. For an app already on your computer, keep using the folder that already contains it.
 4. In Codex, open Projects and create a **local Codex project** using that folder. Make it the primary folder, which tells Codex where the app's files belong.

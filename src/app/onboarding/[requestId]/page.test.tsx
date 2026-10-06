@@ -623,7 +623,7 @@ describe("AppOnboardingPage generated apps", () => {
       name: "Before opening Codex",
     });
     expect(within(checklist).getByText(/company portal/i)).toBeInTheDocument();
-    expect(within(checklist).getByText(/cedarnet 2\.0/i)).toBeInTheDocument();
+    expect(within(checklist).getByText(/Cedarville login scripts/i)).toBeInTheDocument();
     expect(
       within(checklist).getByText(
         (_, element) =>
@@ -980,7 +980,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
       name: "Before opening Codex",
     });
     expect(within(checklist).getByText(/company portal/i)).toBeInTheDocument();
-    expect(within(checklist).getByText(/cedarnet 2\.0/i)).toBeInTheDocument();
+    expect(within(checklist).getByText(/Cedarville login scripts/i)).toBeInTheDocument();
     expect(
       within(checklist).getByText(/folder that already contains your app/i),
     ).toBeInTheDocument();

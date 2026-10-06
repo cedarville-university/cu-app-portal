@@ -125,14 +125,14 @@ describe("README", () => {
 
     for (const source of sources) {
       expect(source).toContain("Company Portal");
-      expect(source).toContain("CedarNet 2.0");
+      expect(source).toContain("Cedarville login scripts");
       expect(source).toContain("local Codex project");
       expect(source).toContain("Quick chat");
     }
 
     const readme = readFileSync("README.md", "utf8");
     expect(readme).toContain("Company Portal");
-    expect(readme).toContain("CedarNet 2.0");
+    expect(readme).toContain("Cedarville login scripts");
     expect(readme).toContain("local Codex project");
     expect(readme).toContain("Quick chat");
 

@@ -26,7 +26,7 @@ function expectManagedGitReadiness(prompt: string) {
   expect(prompt).toContain("standalone task");
   expect(prompt).toContain("git --version");
   expect(prompt).toContain("Company Portal");
-  expect(prompt).toContain("CedarNet 2.0");
+  expect(prompt).toContain("Cedarville login scripts");
   expect(prompt).toContain("Completely quit and reopen Codex");
   expect(prompt).toContain("Do not attempt to install Git");
   expect(prompt).toContain("stop and wait");

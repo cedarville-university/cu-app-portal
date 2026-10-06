@@ -45,7 +45,7 @@ A named runtime setting supplied outside the app's code. It may contain a normal
 
 ## Git
 
-The software that records a history of changes in the app folder on your computer. For portal work, install it from Company Portal on Windows or CedarNet 2.0 on macOS. Codex runs the Git commands for you.
+The software that records a history of changes in the app folder on your computer. For portal work, install it from Company Portal on Windows. On macOS, Git should be installed automatically by Cedarville login scripts; if it is unavailable, contact Cedarville IT for help. Codex runs the Git commands for you.
 
 ## GitHub
 

@@ -45,7 +45,7 @@ Not to publish an unchanged generated starter. You need one when Codex or a pers
 
 ## What do I need before using Codex?
 
-Install Git from **Company Portal** on Windows or **CedarNet 2.0** on macOS, then completely quit and reopen Codex. For a generated app, make a new empty folder. For an app already on your computer, use its existing folder. In Codex, create a **local Codex project** from that folder and make it primary. Start the task inside the project; do not use Quick chat or a standalone task. The portal prompt handles Git commands and uses secure browser sign-in for GitHub. Never provide a password, personal access token, or SSH key.
+On Windows, install Git from **Company Portal**. On macOS, Git should be installed automatically by Cedarville login scripts; if Git is unavailable, contact Cedarville IT for help. After Git is installed, completely quit and reopen Codex. For a generated app, make a new empty folder. For an app already on your computer, use its existing folder. In Codex, create a **local Codex project** from that folder and make it primary. Start the task inside the project; do not use Quick chat or a standalone task. The portal prompt handles Git commands and uses secure browser sign-in for GitHub. Never provide a password, personal access token, or SSH key.
 
 ## What should I do when Codex asks for permission?
 

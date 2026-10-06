@@ -203,7 +203,7 @@ describe("DownloadPage navigation", () => {
       screen.getByRole("heading", { name: "Before opening Codex" }),
     ).toBeInTheDocument();
     expect(screen.getByText(/company portal/i)).toBeInTheDocument();
-    expect(screen.getByText(/cedarnet 2\.0/i)).toBeInTheDocument();
+    expect(screen.getByText(/Cedarville login scripts/i)).toBeInTheDocument();
     expect(screen.getAllByText(/local codex project/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/make it the primary folder/i)).toBeInTheDocument();
     expect(screen.getByText(/do not use quick chat/i)).toBeInTheDocument();

@@ -9,7 +9,7 @@ owner: Cedarville IT
 
 Start with the row that most closely matches what you see. Read the full on-screen message before retrying. Avoid repeatedly selecting an action while it is still running.
 
-For every Codex handoff, first open a **local Codex project** whose primary folder is the app folder. Do not use Quick chat or a standalone task. Git comes from **Company Portal** on Windows or **CedarNet 2.0** on macOS.
+For every Codex handoff, first open a **local Codex project** whose primary folder is the app folder. Do not use Quick chat or a standalone task. Windows users install Git from **Company Portal**. On macOS, Git should be installed automatically by Cedarville login scripts; if Git is unavailable, contact Cedarville IT for help.
 
 | What you see | What it usually means | What to do |
 | --- | --- | --- |
@@ -20,7 +20,7 @@ For every Codex handoff, first open a **local Codex project** whose primary fold
 | Repository setup failed | GitHub could not create or import the managed repository. | Follow the offered restart or retry once. Confirm the repository address is correct and accessible. Then provide the displayed support reference to support. |
 | A GitHub invitation is pending | GitHub access was requested but has not been accepted. | Sign in to the correct GitHub account, check notifications and email, and accept the repository invitation. |
 | The portal does not know your GitHub username | Your portal profile is missing the account name used on GitHub. | If needed, create the account from the wizard first. Enter the name after `github.com/` in your profile address, not your email address or display name, then save it and return to the app. |
-| Codex says Git is not available | Git is not installed, or Codex was open during installation and cannot see it yet. | Do not let Codex install anything. Install Git from **Company Portal** on Windows or **CedarNet 2.0** on macOS. Completely quit and reopen Codex, reopen the local project, and return to the same task. |
+| Codex says Git is not available | Git is not installed, or Codex was open during installation and cannot see it yet. | Do not let Codex install anything. On Windows, install Git from **Company Portal**. On macOS, Git should be installed automatically by Cedarville login scripts; if Git is unavailable, contact Cedarville IT for help. Completely quit and reopen Codex, reopen the local project, and return to the same task. |
 | Codex is in Quick chat or the wrong folder | The handoff was started outside the app's local project. | Stop without changing files. Create or open the **local Codex project**, make the app folder primary, and start the task inside it. For a generated app, use a new empty folder; for an existing local app, use its current folder. |
 | GitHub sign-in does not open or fails | Git could not complete its secure browser or operating-system sign-in. | Stop and contact Cedarville IT. Do not give Codex a password, personal access token, or SSH key, and do not switch to the GitHub plugin or GitHub CLI. |
 | Codex asks for a permission you do not recognize | The task may be requesting more access than the current app work needs. | Read the request. Use **Allow once** if available for the selected app folder, normal development commands, or secure sign-in you complete yourself. Decline unrelated folders or applications and contact Cedarville IT if unsure. |
