@@ -6,6 +6,7 @@ const DEPLOYMENT_SETTING_NAMES = [
   "SCM_DO_BUILD_DURING_DEPLOYMENT",
   "ENABLE_ORYX_BUILD",
   "WEBSITE_RUN_FROM_PACKAGE",
+  "SCM_MAX_ZIP_PACKAGE_COUNT",
 ] as const;
 
 export function appServiceDeploymentSettings(
@@ -15,6 +16,7 @@ export function appServiceDeploymentSettings(
     return {
       SCM_DO_BUILD_DURING_DEPLOYMENT: "true",
       ENABLE_ORYX_BUILD: "true",
+      SCM_MAX_ZIP_PACKAGE_COUNT: "2",
     };
   }
 
@@ -22,6 +24,7 @@ export function appServiceDeploymentSettings(
     SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
     ENABLE_ORYX_BUILD: "false",
     WEBSITE_RUN_FROM_PACKAGE: "1",
+    SCM_MAX_ZIP_PACKAGE_COUNT: "2",
   };
 }
 

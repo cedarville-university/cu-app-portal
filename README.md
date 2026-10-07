@@ -87,6 +87,8 @@ Azure publishing runs in a separate durable worker. For local development, run `
 
 ## Editing app environment variables
 
+Managed Azure apps receive `SCM_MAX_ZIP_PACKAGE_COUNT=2` during provisioning and publishing repair. Azure trims older deployment ZIPs during deployments, limiting retained packages to two per app; this is not an immediate cleanup job. App Service storage is shared across all apps in the same plan.
+
 On an app's management page, edit existing values directly, add variables with **Add Variable**, and mark deletions with **Delete**. Nothing is submitted until you select **Save Changes**. **Undo** cancels a staged deletion; **Discard Changes** restores the last saved values and removes draft additions.
 
 Saved secret values remain hidden. Leave a replacement field blank to keep the saved secret, or enter a new value to replace it. Existing variable names and secret storage choices are fixed; delete and save a variable before adding it again with a different name or storage choice.

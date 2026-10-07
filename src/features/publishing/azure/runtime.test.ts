@@ -310,6 +310,7 @@ describe("createAzurePublishRuntime", () => {
           SCM_DO_BUILD_DURING_DEPLOYMENT: "false",
           ENABLE_ORYX_BUILD: "false",
           WEBSITE_RUN_FROM_PACKAGE: "1",
+          SCM_MAX_ZIP_PACKAGE_COUNT: "2",
         }),
       }),
     );
@@ -423,6 +424,7 @@ describe("createAzurePublishRuntime", () => {
     expect(settings).toMatchObject({
       SCM_DO_BUILD_DURING_DEPLOYMENT: "true",
       ENABLE_ORYX_BUILD: "true",
+      SCM_MAX_ZIP_PACKAGE_COUNT: "2",
     });
     expect(settings).not.toHaveProperty("WEBSITE_RUN_FROM_PACKAGE");
   });

@@ -132,6 +132,8 @@ To enable portal-managed Azure publishing for generated user apps, configure the
 
 Current v1 design decisions:
 
+- Provisioning and Repair Publishing Setup enforce `SCM_MAX_ZIP_PACKAGE_COUNT=2` on each managed Web App, including imported runtimes. This limits retained deployment ZIPs during Azure deployments; setting it does not immediately delete existing packages. The limit is per app, while the plan's storage quota is shared. Apply the same setting to existing Web Apps when rolling out this change.
+
 - Generated user apps share one Azure resource group: `rg-cu-apps-published`.
 - Generated user apps share one App Service Plan: `asp-cu-apps-published`.
 - Generated user apps share one PostgreSQL flexible server: `psql-cu-apps-published`.
