@@ -278,3 +278,29 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     );
   });
 });
+
+
+describe("Git commit author identity", () => {
+  it("includes the acting user's identity in customization and local upload prompts", () => {
+    const gitAuthor = { githubUsername: "cedar-developer", email: "developer@cedarville.edu" };
+    const prompts = [
+      buildCodexHandoffPrompt("https://github.com/cedarville/app", "App", "request", { gitAuthor }),
+      buildLocalCodexGitSetupPrompt({ repositoryUrl: "https://github.com/cedarville/app", appName: "App", requestId: "request", gitAuthor }),
+    ];
+    for (const prompt of prompts) {
+      expect(prompt).toContain('Git user.name: "cedar-developer"');
+      expect(prompt).toContain('Git user.email: "developer@cedarville.edu"');
+      expect(prompt).toContain("git config --local");
+      expect(prompt).toContain("before any commit or pull that may create a merge commit");
+      expect(prompt).toContain("Do not change global Git settings");
+      expect(prompt).toContain("they do not authenticate GitHub pushes");
+    }
+  });
+
+  it("asks for missing author details instead of inventing them", () => {
+    const prompt = buildCodexHandoffPrompt("https://github.com/cedarville/app", "App", "request");
+    expect(prompt).toContain("Git user.name: null");
+    expect(prompt).toContain("Git user.email: null");
+    expect(prompt).toContain("do not invent a value");
+  });
+});

@@ -24,11 +24,11 @@ export default async function PublicAppsPage() {
         <span className="breadcrumb__sep" aria-hidden="true">
           /
         </span>
-        <span aria-current="page">Public Apps</span>
+        <span aria-current="page">Cedarville Apps</span>
       </nav>
 
       <div className="page-header">
-        <h1>Public Apps</h1>
+        <h1>Cedarville Apps</h1>
         <p>
           Apps built by the Cedarville community that their owners have chosen
           to share with everyone.

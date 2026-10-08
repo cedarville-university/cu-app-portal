@@ -24,7 +24,7 @@ export async function SiteHeader() {
           <div className="site-header__nav-links">
             <Link href="/">Home</Link>
             <Link href="/apps">My Apps</Link>
-            <Link href="/apps/public">Public Apps</Link>
+            <Link href="/apps/public">Cedarville Apps</Link>
             <Link href="/help">Help</Link>
             {isAdmin ? <Link href="/admin">Admin</Link> : null}
           </div>

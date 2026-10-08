@@ -491,8 +491,8 @@ function renderImportedRepositoryStatus({
       </div>
       {hasPublishingFileConflict ? (
         <div className="warning-box" style={{ marginBottom: "1rem" }}>
-          Your repository already contains publishing configuration files. The
-          portal can open a review page on GitHub so you can approve the
+          Your repository already contains publishing configuration files.
+          CU Launch can open a review page on GitHub so you can approve the
           changes, or you can resolve them manually and confirm readiness here.
         </div>
       ) : null}
@@ -658,7 +658,7 @@ function renderPublishAction({
               pendingLabel="Retrying Publish…"
               statusText="Retrying publish to Azure…"
               variant="primary"
-              title="Starts a new Azure deployment now and refreshes portal-managed publishing credentials if needed"
+              title="Starts a new Azure deployment now and refreshes CU Launch-managed publishing credentials if needed"
             />
           </form>
         ) : null}
@@ -835,7 +835,7 @@ function renderDeletePanel(request: {
             <legend>Resources to delete</legend>
             <label>
               <input name="deletePortal" type="checkbox" />
-              Remove this app from the portal
+              Remove this app from CU Launch
             </label>
             {canDeleteGitHub ? (
               <label>
@@ -985,7 +985,7 @@ export default async function DownloadPage({
 
   const currentUser = await prisma.user.findUnique({
     where: { id: userId },
-    select: { githubUsername: true },
+    select: { githubUsername: true, email: true },
   });
   const actorRepositoryAccess = await resolveRepositoryAccessForActor({
     requestId: appRequest.id,
@@ -1018,6 +1018,7 @@ export default async function DownloadPage({
           appName: appRequest.appName,
           requestId,
           defaultBranch: appRequest.repositoryDefaultBranch,
+          gitAuthor: currentUser ?? {},
         })
       : appRequest.repositoryUrl
         ? buildCodexHandoffPrompt(
@@ -1025,6 +1026,7 @@ export default async function DownloadPage({
             appRequest.appName,
             requestId,
             {
+              gitAuthor: currentUser ?? {},
               defaultBranch:
                 importedRepositoryRemoteWorkflow?.defaultBranch ??
                 appRequest.repositoryDefaultBranch,
@@ -1065,7 +1067,7 @@ export default async function DownloadPage({
           <h1>{isImportedApp ? "Imported App Details" : "Your App Is Ready"}</h1>
           <p>
             {isImportedApp
-              ? `The portal tracks ${appRequest.appName} for Azure publishing.`
+              ? `CU Launch tracks ${appRequest.appName} for Azure publishing.`
               : `${appRequest.appName} — Set up Codex, and publish to Azure.`}
           </p>
         </div>
@@ -1210,7 +1212,7 @@ export default async function DownloadPage({
               >
                 Create a free GitHub account
               </a>
-              , then enter your username below. The portal will send you an invite to the repository.
+              , then enter your username below. CU Launch will send you an invite to the repository.
             </p>
             {actorRepositoryAccess.note ? (
               <div
@@ -1274,7 +1276,7 @@ export default async function DownloadPage({
             <p className="section-title">Use Codex to sync your imported app</p>
             <p>
               Keep the app connected to its original GitHub home and let Codex
-              add the portal-managed repository as a separate publishing
+              add the CU Launch-managed repository as a separate publishing
               destination. Create the local Codex project described above,
               then copy the complete prompt under Your Code Repository into a
               task inside that project.
@@ -1314,7 +1316,7 @@ export default async function DownloadPage({
           ) : appRequest.repositoryStatus === "FAILED" ? (
             <div className="error-box">
               Repository setup failed.
-              A portal administrator may need to fix the configuration before publishing can continue.
+              A CU Launch administrator may need to fix the configuration before publishing can continue.
             </div>
           ) : (
             <div className="info-box">

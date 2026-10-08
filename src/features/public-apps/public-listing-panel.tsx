@@ -10,10 +10,10 @@ export function PublicListingPanel({
   isPubliclyListed: boolean;
 }) {
   return (
-    <section aria-label="Share in Portal" className="card">
-      <p className="section-title">Share in Portal</p>
+    <section aria-label="Share with Cedarville" className="card">
+      <p className="section-title">Share with Cedarville</p>
       <p style={{ color: "var(--text-secondary)", marginTop: 0 }}>
-        Sharing in the portal lets Cedarville people who sign in to the portal
+        Sharing with Cedarville lets people who sign in to CU Launch
         see this app&apos;s name, description, and link. It does not change who can
         open your published app.
       </p>
@@ -24,7 +24,7 @@ export function PublicListingPanel({
         <div className="status-row">
           <span className="status-row__label">Status</span>
           {isPubliclyListed ? (
-            <span className="badge badge--success">Shared in portal</span>
+            <span className="badge badge--success">Shared with Cedarville</span>
           ) : (
             <span className="badge badge--default">Not shared</span>
           )}
@@ -39,17 +39,17 @@ export function PublicListingPanel({
       >
         {isPubliclyListed ? (
           <PendingSubmitButton
-            idleLabel="Remove from Portal sharing"
+            idleLabel="Remove from Cedarville Sharing"
             pendingLabel="Removing..."
-            statusText="Removing the app from Portal sharing."
+            statusText="Removing the app from Cedarville Sharing."
             variant="ghost"
             size="sm"
           />
         ) : (
           <PendingSubmitButton
-            idleLabel="Share in Portal"
+            idleLabel="Share with Cedarville"
             pendingLabel="Sharing..."
-            statusText="Sharing the app in the portal."
+            statusText="Sharing the app with Cedarville."
             variant="primary-solid"
             size="sm"
           />

@@ -142,7 +142,7 @@ describe("SiteHeader", () => {
     render(await SiteHeader());
 
     expect(
-      screen.getByRole("link", { name: /public apps/i }),
+      screen.getByRole("link", { name: /Cedarville apps/i }),
     ).toHaveAttribute("href", "/apps/public");
   });
 

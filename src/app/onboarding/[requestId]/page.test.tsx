@@ -231,7 +231,7 @@ describe("AppOnboardingPage generated apps", () => {
     expect(screen.queryByDisplayValue("owner-name")).not.toBeInTheDocument();
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: "collaborator-123" },
-      select: { githubUsername: true },
+      select: { githubUsername: true, email: true },
     });
     expect(prisma.appRequest.findFirst).toHaveBeenCalledWith({
       where: {

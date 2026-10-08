@@ -34,16 +34,16 @@ describe("PublicListingPanel", () => {
 
     expect(screen.getByText(/not shared/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /share in portal/i }),
+      screen.getByRole("button", { name: /share with Cedarville/i }),
     ).toBeInTheDocument();
   });
 
   it("offers to remove a shared app from the portal", () => {
     render(<PublicListingPanel appRequestId="req-1" isPubliclyListed={true} />);
 
-    expect(screen.getByText(/shared in portal/i)).toBeInTheDocument();
+    expect(screen.getByText(/shared with Cedarville/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /remove from portal sharing/i }),
+      screen.getByRole("button", { name: /remove from Cedarville Sharing/i }),
     ).toBeInTheDocument();
   });
 });

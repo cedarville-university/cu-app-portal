@@ -351,7 +351,7 @@ export default async function AppOnboardingPage({
 
   const currentActor = await prisma.user.findUnique({
     where: { id: userId },
-    select: { githubUsername: true },
+    select: { githubUsername: true, email: true },
   });
   if (!currentActor) notFound();
 
@@ -671,7 +671,7 @@ export default async function AppOnboardingPage({
       app.repositoryUrl,
       app.appName,
       app.id,
-      { defaultBranch: app.repositoryDefaultBranch },
+      { defaultBranch: app.repositoryDefaultBranch, gitAuthor: currentActor },
     );
 
     return (
@@ -742,6 +742,7 @@ export default async function AppOnboardingPage({
       appName: app.appName,
       requestId: app.id,
       defaultBranch: app.repositoryDefaultBranch,
+      gitAuthor: currentActor,
       preparationErrorSummary: isRepair
         ? isAdmin
           ? app.repositoryImport?.preparationErrorSummary
