@@ -104,6 +104,13 @@ beforeEach(() => {
 });
 
 describe("getAccessibleAppSummary", () => {
+  it("includes a safe health warning for a published app", async () => {
+    const publishWarningSummary = "Published with a warning: the health check path /api/health is missing.";
+    mocks.appRequestFindFirst.mockResolvedValue(managedApp({ publishStatus: "SUCCEEDED", publishWarningSummary }));
+    const summary = await getAccessibleAppSummary(collaborator, "app-1");
+    expect(summary).toMatchObject({ publishStatus: "SUCCEEDED", publishWarningSummary });
+  });
+
   it("returns an authorized collaborator view with actor-specific repository access and safe actions", async () => {
     mocks.appRequestFindFirst.mockResolvedValue(managedApp());
 
@@ -142,6 +149,7 @@ describe("getAccessibleAppSummary", () => {
       "latestAttempt",
       "liveUrl",
       "publishStatus",
+      "publishWarningSummary",
       "publishingSetupStatus",
       "repository",
       "repositoryAccess",

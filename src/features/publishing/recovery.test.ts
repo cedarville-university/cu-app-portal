@@ -27,18 +27,26 @@ describe("interrupted publishing recovery", () => {
     vi.mocked(prisma.publishAttempt.findFirst).mockResolvedValue({ id: "attempt", status: "SUCCEEDED" } as never);
     vi.mocked(prisma.appRequest.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.$transaction).mockImplementation(async (callback: unknown) => (callback as (tx: unknown) => Promise<unknown>)(prisma) as never);
+    vi.mocked(evidence.health).mockResolvedValue({ verifiedAt: new Date(), warningSummary: "Health warning" });
     expect(await recoverPublishAttempt("attempt", {}, evidence)).toBe("succeeded");
     expect(evidence.workflow).toHaveBeenCalledWith(settled);
     expect(evidence.health).toHaveBeenCalled();
     expect(prisma.appRequest.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "app", publishStatus: "DEPLOYING", updatedAt: settled.appRequest.updatedAt },
-      data: expect.objectContaining({ publishStatus: "SUCCEEDED", lastPublishedAt: settled.finishedAt }),
+      data: expect.objectContaining({ publishStatus: "SUCCEEDED", lastPublishedAt: settled.finishedAt, publishWarningSummary: "Health warning" }),
     }));
   });
   it("requires a successful recorded workflow and current healthy URL before completing both records", async () => {
     expect(await reconcileClaimedPublish(attempt, claim, {}, evidence)).toBe("succeeded");
     expect(evidence.health).toHaveBeenCalledWith("https://app.azurewebsites.net");
     expect(persistPublishProgress).toHaveBeenCalledWith(claim, "app", expect.objectContaining({ status: "SUCCEEDED", stage: "COMPLETED", verifiedAt: expect.any(Date) }), expect.objectContaining({ publishStatus: "SUCCEEDED", publishingSetupStatus: "READY" }));
+  });
+  it("preserves the root fallback warning when recovering a successful deployment", async () => {
+    const warningSummary = "Published with a warning: /api/health is missing.";
+    vi.mocked(evidence.health).mockResolvedValue({ verifiedAt: new Date(), warningSummary });
+    expect(await reconcileClaimedPublish(attempt, claim, {}, evidence)).toBe("succeeded");
+    expect(persistPublishProgress).toHaveBeenCalledWith(claim, "app", expect.objectContaining({ status: "SUCCEEDED" }),
+      expect.objectContaining({ publishStatus: "SUCCEEDED", publishWarningSummary: warningSummary }));
   });
   it("does not treat an existing healthy deployment as success for a still-running workflow", async () => {
     vi.mocked(evidence.workflow).mockResolvedValue({ status: "in_progress", conclusion: null });

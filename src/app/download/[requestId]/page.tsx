@@ -1093,6 +1093,12 @@ export default async function DownloadPage({
           </a>
         ) : null}
 
+        {appRequest.publishStatus === "SUCCEEDED" && appRequest.publishWarningSummary ? (
+          <div className="warning-box" role="status">
+            {appRequest.publishWarningSummary}
+          </div>
+        ) : null}
+
         <PublicListingPanel
           appRequestId={appRequest.id}
           isPubliclyListed={appRequest.isPubliclyListed}

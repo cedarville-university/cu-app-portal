@@ -43,6 +43,7 @@ export type PortalAppSummary = {
   repositoryStatus: RepositoryStatus;
   publishingSetupStatus: PublishingSetupStatus;
   publishStatus: PublishStatus;
+  publishWarningSummary?: string | null;
   repositoryAccess: {
     status: RepositoryAccessStatus;
     note: string | null;
@@ -65,6 +66,7 @@ type PortalAppReadRecord = {
   repositoryUrl: string | null;
   repositoryDefaultBranch: string | null;
   publishStatus: PublishStatus;
+  publishWarningSummary?: string | null;
   publishingSetupStatus: PublishingSetupStatus;
   publishUrl: string | null;
   primaryPublishUrl: string | null;
@@ -162,6 +164,7 @@ export function summarizePortalApp(
       publishingSetupStatus: app.publishingSetupStatus,
     }),
     publishStatus: app.publishStatus,
+    publishWarningSummary: app.publishStatus === "SUCCEEDED" ? app.publishWarningSummary ?? null : null,
     repositoryAccess,
     repository: {
       url: app.repositoryUrl,

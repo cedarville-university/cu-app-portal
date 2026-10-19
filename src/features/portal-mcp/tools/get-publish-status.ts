@@ -50,6 +50,7 @@ export function registerGetPublishStatusTool(
             ...attempt,
             supportReference: app.supportReference,
             liveUrl: app.liveUrl,
+            publishWarningSummary: app.publishWarningSummary ?? null,
             allowedNextActions: app.allowedNextActions,
           },
           `Publish status: ${attempt.status}; stage: ${attempt.stage}.`,

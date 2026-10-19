@@ -1465,6 +1465,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       preparedImportedApp({
         publishingSetupStatus: "READY",
         publishStatus: "SUCCEEDED",
+        publishWarningSummary: "Published with a warning: /api/health is missing.",
         primaryPublishUrl: "https://campus-dashboard.azurewebsites.net",
       }),
     );
@@ -1481,6 +1482,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       "href",
       "https://campus-dashboard.azurewebsites.net",
     );
+    expect(screen.getByText("Published with a warning: /api/health is missing.")).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 

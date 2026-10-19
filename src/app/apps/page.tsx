@@ -138,6 +138,9 @@ export default async function MyAppsPage() {
                       App URL available after publishing
                     </span>
                   )}
+                  {request.publishStatus === "SUCCEEDED" && request.publishWarningSummary ? (
+                    <p className="warning-box">{request.publishWarningSummary}</p>
+                  ) : null}
                   <p className="my-app-row__updated">
                     Updated {formatUpdatedDate(request.updatedAt)}
                   </p>

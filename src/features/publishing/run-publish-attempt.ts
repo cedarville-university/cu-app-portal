@@ -50,6 +50,7 @@ export type DeployRepositoryOptions = {
 
 export type VerificationResult = {
   verifiedAt: Date;
+  warningSummary?: string;
 };
 
 export type PublishRuntime = {
@@ -275,7 +276,7 @@ export async function runPublishAttempt(
       { status: "SUCCEEDED", stage: "COMPLETED", finishedAt: completedAt, verifiedAt: verification.verifiedAt },
       {
         publishStatus: "SUCCEEDED", publishUrl: deployment.publishUrl,
-        publishErrorSummary: null, publishingSetupStatus: "READY",
+        publishErrorSummary: null, publishWarningSummary: verification.warningSummary ?? null, publishingSetupStatus: "READY",
         publishingSetupErrorSummary: null, lastPublishedAt: completedAt,
       },
     );

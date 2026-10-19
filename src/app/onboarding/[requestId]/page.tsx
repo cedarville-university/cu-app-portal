@@ -1258,6 +1258,9 @@ export default async function AppOnboardingPage({
           next="Open app details now. You can return there later from My Apps whenever you need to manage this app."
           details={publishingTechnicalDetails}
         >
+          {app.publishWarningSummary ? (
+            <div className="warning-box" role="status">{app.publishWarningSummary}</div>
+          ) : null}
           <div className="wizard-actions">
             {app.publishUrl ?? app.primaryPublishUrl ? (
               <a
