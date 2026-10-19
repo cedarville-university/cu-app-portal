@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import React from "react";
 import { AdminNotAuthorized, getAdminUserIdOrNull } from "@/features/admin/guard";
@@ -32,6 +33,8 @@ function sortableHeader(
     </Link>
   );
 }
+
+export const metadata: Metadata = { title: "Admin Apps" };
 
 export default async function AdminAppsPage({
   searchParams,

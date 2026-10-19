@@ -1,3 +1,4 @@
+import { getAppPageMetadata } from "@/features/navigation/page-metadata";
 import Link from "next/link";
 import React from "react";
 import {
@@ -12,6 +13,15 @@ import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { PublishingRecoveryPanel } from "@/features/admin/publishing-recovery-panel";
 import { prisma } from "@/lib/db";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return getAppPageMetadata(id, "admin");
+}
 
 export default async function AdminAppDetailPage({
   params,

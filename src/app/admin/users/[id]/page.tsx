@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import React from "react";
 import {
@@ -50,6 +51,20 @@ function AppSummaryList({
       ))}
     </div>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  if (!await getAdminUserIdOrNull()) return { title: "Admin User" };
+  const { id } = await params;
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { displayName: true },
+  });
+  return { title: user ? `${user.displayName} · Admin` : "Admin User" };
 }
 
 export default async function AdminUserDetailPage({

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,6 +13,8 @@ function getStartPath(value: string | string[] | undefined): StartPath {
     ? start
     : null;
 }
+
+export const metadata: Metadata = { title: "Launch Your App" };
 
 export default async function OnboardingStartPage({
   searchParams,

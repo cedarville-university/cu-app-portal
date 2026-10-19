@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { LaunchRocketIcon } from "@/components/launch-rocket-icon";
 import { OnboardingProgress } from "@/features/onboarding/step-shell";
 import { getActiveTemplateGroups } from "@/features/templates/catalog";
+
+export const metadata: Metadata = { title: "Launch New App" };
 
 export default async function CreatePage() {
   const templateGroups = getActiveTemplateGroups();

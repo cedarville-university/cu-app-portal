@@ -1,3 +1,4 @@
+import { getAppPageMetadata } from "@/features/navigation/page-metadata";
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -318,6 +319,15 @@ function stateInputForApp(
     isLocalSource: isLocalSource(app.submittedConfig),
     pathChoice,
   };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ requestId: string }>;
+}) {
+  const { requestId } = await params;
+  return getAppPageMetadata(requestId, "setup");
 }
 
 export default async function AppOnboardingPage({

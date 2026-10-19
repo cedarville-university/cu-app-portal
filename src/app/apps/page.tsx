@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -63,6 +64,8 @@ function ExternalLinkIcon() {
     </svg>
   );
 }
+
+export const metadata: Metadata = { title: "My Apps" };
 
 export default async function MyAppsPage() {
   const userId = await getCurrentUserIdOrNull();

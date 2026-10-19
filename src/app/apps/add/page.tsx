@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -43,6 +44,8 @@ function SupportedAppsHelp() {
     </details>
   );
 }
+
+export const metadata: Metadata = { title: "Add Existing App" };
 
 export default async function AddExistingAppPage({
   searchParams,

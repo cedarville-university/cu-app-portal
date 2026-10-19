@@ -1,9 +1,20 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TemplateForm } from "@/features/create-app/template-form";
 import { getActiveTemplateBySlug } from "@/features/templates/catalog";
 import { OnboardingProgress } from "@/features/onboarding/step-shell";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ templateSlug: string }>;
+}): Promise<Metadata> {
+  const { templateSlug } = await params;
+  const template = getActiveTemplateBySlug(templateSlug);
+  return { title: template ? `Create ${template.name}` : "Launch New App" };
+}
 
 export default async function TemplatePage({
   params,

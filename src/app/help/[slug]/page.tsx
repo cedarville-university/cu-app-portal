@@ -24,7 +24,7 @@ export async function generateMetadata({
   }
   const document = await getHelpDocument(slug);
   return {
-    title: `${document.title} | CU Launch`,
+    title: document.title,
     description: document.description,
   };
 }

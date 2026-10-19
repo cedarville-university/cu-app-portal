@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import React from "react";
 import { getServerSession, signIn } from "@/auth/session";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { acceptInviteFormAction } from "./actions";
 
 type FormAction = (formData: FormData) => void | Promise<void>;
+
+export const metadata: Metadata = { title: "Accept Collaboration Invite" };
 
 export default async function InviteAcceptPage({
   params,

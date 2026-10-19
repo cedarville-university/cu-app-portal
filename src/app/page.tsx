@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { CuLaunchBrand } from "@/components/cu-launch-brand";
 import { LaunchRocketIcon } from "@/components/launch-rocket-icon";
+
+export const metadata: Metadata = { title: { absolute: "Home | CU Launch" } };
 
 export default function HomePage() {
   return (
