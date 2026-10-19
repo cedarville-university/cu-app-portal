@@ -80,19 +80,22 @@ describe("AdminEventsPage", () => {
     expect(screen.getByText(/"entraOid": "oid-1"/)).toBeInTheDocument();
   });
 
-  it("offers Eastern time and preserves it when paging", async () => {
+  it.each([
+    { params: {}, timezone: "eastern" },
+    { params: { timezone: "local" }, timezone: "local" },
+  ])("defaults to Eastern time and preserves the selected timezone ($timezone) when paging", async ({ params, timezone }) => {
     vi.mocked(searchAuditLog).mockResolvedValue({ entries: [], totalCount: 30 });
 
     render(
       await AdminEventsPage({
-        searchParams: Promise.resolve({ timezone: "eastern" }),
+        searchParams: Promise.resolve(params),
       }),
     );
 
-    expect(screen.getByLabelText("Timezone")).toHaveValue("eastern");
+    expect(screen.getByLabelText("Timezone")).toHaveValue(timezone);
     expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
       "href",
-      "/admin/events?timezone=eastern&page=2",
+      `/admin/events?timezone=${timezone}&page=2`,
     );
   });
 

@@ -5,6 +5,10 @@ import { getAdminUserIdOrNull } from "@/features/admin/guard";
 import { prisma } from "@/lib/db";
 import AdminAppDetailPage from "./page";
 
+vi.mock("@/features/app-requests/current-user", () => ({
+  getCurrentUserIdOrNull: vi.fn(),
+}));
+
 const mockUseFormStatus = vi.hoisted(() => vi.fn());
 
 vi.mock("react-dom", async (importOriginal) => {

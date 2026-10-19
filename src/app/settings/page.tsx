@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import React from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
@@ -5,6 +6,8 @@ import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "@/features/notifications/preferences";
 import { updateNotificationPreferencesAction } from "@/features/settings/actions";
 import { prisma } from "@/lib/db";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const userId = await getCurrentUserIdOrNull();

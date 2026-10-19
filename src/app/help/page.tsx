@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { HelpDocumentContent } from "@/features/help/help-document";
@@ -25,6 +26,8 @@ const sections = [
     description: "Definitions for the technical terms used throughout the portal.",
   },
 ];
+
+export const metadata: Metadata = { title: "Help" };
 
 export default async function HelpPage() {
   const quickStart = await getHelpDocument("quick-start");

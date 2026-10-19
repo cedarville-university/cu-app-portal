@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import React from "react";
 import { searchAuditLog, summarizeDetails } from "@/features/admin/audit-log";
@@ -80,6 +81,8 @@ function collectEntryReferences(
   return result;
 }
 
+export const metadata: Metadata = { title: "Admin Audit Events" };
+
 export default async function AdminEventsPage({
   searchParams,
 }: {
@@ -99,7 +102,7 @@ export default async function AdminEventsPage({
   const requestedTimezone = Array.isArray(params.timezone)
     ? params.timezone[0]
     : params.timezone;
-  const timezone = requestedTimezone === "eastern" ? "eastern" : "local";
+  const timezone = requestedTimezone === "local" ? "local" : "eastern";
   const filters = { event, from, to, search };
   const requestedPage = parsePage(params.page);
 
@@ -143,7 +146,7 @@ export default async function AdminEventsPage({
   if (typeof params.from === "string" && from) preservedParams.from = params.from;
   if (typeof params.to === "string" && to) preservedParams.to = params.to;
   if (search) preservedParams.q = search;
-  if (timezone === "eastern") preservedParams.timezone = timezone;
+  preservedParams.timezone = timezone;
 
   return (
     <>

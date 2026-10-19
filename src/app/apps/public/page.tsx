@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import { listPublicApps } from "@/features/public-apps/queries";
+
+export const metadata: Metadata = { title: "Cedarville Apps" };
 
 export default async function PublicAppsPage() {
   const userId = await getCurrentUserIdOrNull();

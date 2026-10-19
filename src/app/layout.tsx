@@ -18,8 +18,11 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "CU Launch",
+  title: { default: "CU Launch", template: "%s | CU Launch" },
   description: "Launch Cedarville-approved app packages.",
+  icons: {
+    icon: { url: "/brand/cu-launch-mark-light.png", type: "image/png" },
+  },
 };
 
 export default function RootLayout({

@@ -1,3 +1,4 @@
+import { getAppPageMetadata } from "@/features/navigation/page-metadata";
 import React from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -913,6 +914,15 @@ function renderSupportReference(supportReference: string) {
       </p>
     </details>
   );
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ requestId: string }>;
+}) {
+  const { requestId } = await params;
+  return getAppPageMetadata(requestId, "details");
 }
 
 export default async function DownloadPage({

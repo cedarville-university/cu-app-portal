@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import React from "react";
 import {
@@ -37,6 +38,8 @@ function sortableHeader(
     </Link>
   );
 }
+
+export const metadata: Metadata = { title: "Admin Users" };
 
 export default async function AdminUsersPage({
   searchParams,

@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import React from "react";
 import Link from "next/link";
 import { loginAction } from "@/features/auth/login";
 import { CuLaunchBrand } from "@/components/cu-launch-brand";
+
+export const metadata: Metadata = { title: "Sign In" };
 
 export default async function LoginPage({
   searchParams,

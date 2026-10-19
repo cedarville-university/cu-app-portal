@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import React from "react";
 import { AdminNotAuthorized, getAdminUserIdOrNull } from "@/features/admin/guard";
@@ -39,6 +40,8 @@ function HubCard({
     </article>
   );
 }
+
+export const metadata: Metadata = { title: "Admin" };
 
 export default async function AdminPage() {
   const adminUserId = await getAdminUserIdOrNull();
