@@ -255,6 +255,7 @@ describe("MyAppsPage", () => {
         repositoryAccessStatus: "NOT_REQUESTED",
         repositoryAccessNote: null,
         publishStatus: "SUCCEEDED",
+        publishWarningSummary: "Published with a warning: /api/health is missing.",
         publishingSetupStatus: "NOT_CHECKED",
         repositoryUrl:
           "https://github.com/cedarville-it/actor-access-app",
@@ -271,6 +272,7 @@ describe("MyAppsPage", () => {
       .closest("li");
 
     expect(appCard).not.toBeNull();
+    expect(within(appCard as HTMLElement).getByText("Published with a warning: /api/health is missing.")).toBeInTheDocument();
     expect(within(appCard as HTMLElement).getByText("Live")).toBeInTheDocument();
     expect(
       within(appCard as HTMLElement).getByRole("link", { name: "Open app" }),

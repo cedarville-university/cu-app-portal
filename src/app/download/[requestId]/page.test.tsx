@@ -179,6 +179,13 @@ describe("DownloadPage navigation", () => {
     expect(screen.getByText("Advanced options")).toBeInTheDocument();
   });
 
+  it("shows the health warning to a published app owner", async () => {
+    const warning = "Published with a warning: /api/health is missing. The root path returned HTTP 200.";
+    await renderPage({ publishStatus: "SUCCEEDED", publishWarningSummary: warning, primaryPublishUrl: "https://app.example.test" });
+    expect(screen.getByText(warning)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open your app" })).toHaveAttribute("href", "https://app.example.test");
+  });
+
   it("offers repair and retry controls under advanced options for published apps", async () => {
     await renderPage({
       publishStatus: "SUCCEEDED",

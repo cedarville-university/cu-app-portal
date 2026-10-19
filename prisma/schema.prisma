@@ -66,6 +66,7 @@ model AppRequest {
   publishStatus    PublishStatus      @default(NOT_STARTED)
   publishUrl       String?
   publishErrorSummary String?
+  publishWarningSummary String?
   publishingSetupStatus PublishingSetupStatus @default(NOT_CHECKED)
   publishingSetupCheckedAt DateTime?
   publishingSetupRepairedAt DateTime?

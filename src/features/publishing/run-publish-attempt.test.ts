@@ -118,6 +118,7 @@ describe("runPublishAttempt", () => {
       where: { id: "request-123" },
       data: expect.objectContaining({
         publishStatus: "SUCCEEDED",
+        publishWarningSummary: null,
         publishUrl: "https://campus-dashboard.azurewebsites.net",
         publishingSetupStatus: "READY",
         publishingSetupErrorSummary: null,
@@ -126,6 +127,22 @@ describe("runPublishAttempt", () => {
     expect(safeNotifyAppEvent).toHaveBeenCalledWith({
       appRequestId: "request-123",
       eventKey: "PUBLISH_SUCCEEDED",
+    });
+  });
+
+  it("persists a verification warning while marking the app published", async () => {
+    vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({
+      id: "attempt-123", appRequestId: "request-123", appRequest: { id: "request-123" },
+    } as never);
+    const warningSummary = "Published with a warning: /api/health is missing. The root path returned HTTP 200.";
+    await runPublishAttempt("attempt-123", {
+      provisionInfrastructure: vi.fn().mockResolvedValue({}),
+      deployRepository: vi.fn().mockResolvedValue({ publishUrl: "https://app.example.test" }),
+      verifyDeployment: vi.fn().mockResolvedValue({ verifiedAt: new Date(), warningSummary }),
+    });
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({
+      where: { id: "request-123" },
+      data: expect.objectContaining({ publishStatus: "SUCCEEDED", publishWarningSummary: warningSummary, publishErrorSummary: null }),
     });
   });
 
