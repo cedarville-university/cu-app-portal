@@ -1,7 +1,7 @@
 ---
 title: User Guide
 description: Detailed instructions for launching, managing, and publishing apps with CU Launch.
-lastReviewed: 2026-09-02
+lastReviewed: 2026-10-21
 owner: Cedarville IT
 ---
 
@@ -85,7 +85,7 @@ If you choose customization, the wizard asks whether you already have a GitHub a
 5. Follow the **Before opening Codex** checklist, then copy the complete prompt into the task inside the app's local Codex project. Let Codex inspect, change, test, commit, and push the app.
 6. Return only after Codex reports that the push succeeded.
 
-Portal collaboration and GitHub access are separate. Confirm that finished changes are committed and pushed to the managed repository; the portal cannot publish local files that were never pushed. Codex uses an HTTPS repository address and may open a secure browser or operating-system GitHub sign-in. Complete that sign-in yourself. Never provide a GitHub password, personal access token, SSH key, or other secret. Codex should stop and direct you to Cedarville IT if secure sign-in does not work; it should not use the GitHub plugin or GitHub CLI as a fallback.
+Portal collaboration and GitHub access are separate. Confirm that finished changes are committed and pushed to the managed repository; the portal cannot publish local files that were never pushed. Codex uses an HTTPS repository address and may open a secure browser or operating-system GitHub sign-in. Complete that sign-in yourself. Never provide a GitHub password, personal access token, SSH key, or other secret. If the connection fails, Codex should diagnose and repair it, try available GitHub connection tools, and set up the official GitHub command-line tool if needed. You do not need to choose tools or type commands. Complete any required secure sign-in, verification, consent, repository invitation, or organization authorization yourself; Codex then resumes setup. Contact Cedarville IT only if Codex has exhausted applicable recovery options or identifies a restriction that requires an administrator.
 
 ### Permission prompts
 

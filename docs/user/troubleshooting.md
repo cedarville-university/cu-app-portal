@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
 description: Plain-language solutions to common portal and publishing problems.
-lastReviewed: 2026-09-02
+lastReviewed: 2026-10-21
 owner: Cedarville IT
 ---
 
@@ -22,7 +22,7 @@ For every Codex handoff, first open a **local Codex project** whose primary fold
 | The portal does not know your GitHub username | Your portal profile is missing the account name used on GitHub. | If needed, create the account from the wizard first. Enter the name after `github.com/` in your profile address, not your email address or display name, then save it and return to the app. |
 | Codex says Git is not available | Git is not installed, or Codex was open during installation and cannot see it yet. | Do not let Codex install anything. On Windows, install Git from **Company Portal**. On macOS, Git should be installed automatically by Cedarville login scripts; if Git is unavailable, contact Cedarville IT for help. Completely quit and reopen Codex, reopen the local project, and return to the same task. |
 | Codex is in Quick chat or the wrong folder | The handoff was started outside the app's local project. | Stop without changing files. Create or open the **local Codex project**, make the app folder primary, and start the task inside it. For a generated app, use a new empty folder; for an existing local app, use its current folder. |
-| GitHub sign-in does not open or fails | Git could not complete its secure browser or operating-system sign-in. | Stop and contact Cedarville IT. Do not give Codex a password, personal access token, or SSH key, and do not switch to the GitHub plugin or GitHub CLI. |
+| GitHub sign-in does not open or fails | The local Git connection may need repair, a different connection tool, or secure sign-in. | Let Codex diagnose and repair the connection, try available GitHub tools, and set up the official GitHub command-line tool if needed. Complete required secure sign-in or authorization yourself. Do not provide passwords, tokens, or SSH keys. Codex should involve IT only after applicable recovery options fail or an administrator is required. |
 | Codex asks for a permission you do not recognize | The task may be requesting more access than the current app work needs. | Read the request. Use **Allow once** if available for the selected app folder, normal development commands, or secure sign-in you complete yourself. Decline unrelated folders or applications and contact Cedarville IT if unsure. |
 | **My code has been uploaded** is shown | The portal is waiting for Codex to finish the local upload. | Do not select it early. Wait for Codex to report a successful push, then select it so the portal can inspect the uploaded code. |
 | The local app cannot be prepared | The uploaded runtime is not supported yet, or the earlier compatibility check missed a required change. | Copy the repair prompt into the same local Codex project. Codex uses the pulled portal skill to choose the smallest safe migration, preserve the app's behavior, test it, and push it. Then select **I've repaired and uploaded my code**. |
