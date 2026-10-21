@@ -32,13 +32,40 @@ function expectManagedGitReadiness(prompt: string) {
   expect(prompt).toContain("stop and wait");
   expect(prompt).toContain("HTTPS");
   expect(prompt).toContain("secure browser or operating-system sign-in");
-  expect(prompt).toContain("Do not use the GitHub plugin or GitHub CLI");
+  const recoverySteps = [
+    "1. Try existing Git authentication",
+    "2. Diagnose and repair credential handling",
+    "3. Try the GitHub plugin",
+    "4. Try GitHub CLI",
+    "5. Complete required sign-in",
+    "6. Verify recovery or explain the remaining blocker",
+  ];
+  const recoveryIndexes = recoverySteps.map((step) => prompt.indexOf(step));
+  recoveryIndexes.forEach((index) => expect(index).toBeGreaterThan(-1));
+  recoveryIndexes.slice(1).forEach((index, position) => {
+    expect(index).toBeGreaterThan(recoveryIndexes[position]);
+  });
+  expect(prompt).toContain("git config --show-origin --get-all credential.helper");
+  expect(prompt).toContain("osxkeychain");
+  expect(prompt).toContain("git credential-manager configure");
+  expect(prompt).toContain("changes user-level Git configuration");
+  expect(prompt).toContain("Plugin access does not authenticate local Git");
+  expect(prompt).toContain("gh auth status --hostname github.com");
+  expect(prompt).toContain("user-writable tools directory");
+  expect(prompt).toContain("gh auth login --hostname github.com --git-protocol https --web");
+  expect(prompt).toContain("gh auth git-credential");
+  expect(prompt).toContain("gh still requires Git to clone");
+  expect(prompt).toContain("Do not repeat unchanged failed attempts");
+  expect(prompt).toContain("Do not disable TLS verification");
+  expect(prompt).toContain("Do not claim write access from a successful clone");
+  expect(prompt).not.toContain("Do not use the GitHub plugin or GitHub CLI");
+  expect(prompt).not.toContain("Do not try another credential method");
   expect(prompt).toContain(
     "Never ask for a GitHub password, personal access token, or SSH key",
   );
   expect(prompt).not.toContain("help me install Git");
   expect(prompt).not.toContain("https://git-scm.com/downloads/");
-  expect(prompt).not.toContain("package manager");
+  expect(prompt).toContain("existing package manager");
 }
 
 function expectCodexRuntimeAndPortalBoundaries(prompt: string) {
