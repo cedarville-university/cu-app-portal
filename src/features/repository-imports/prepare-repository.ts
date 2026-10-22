@@ -8,6 +8,12 @@ import {
 import { repositoryCompatibilityError } from "./errors";
 import { planPublishingBundle } from "./publishing-bundle";
 
+import {
+  importedFeaturesIssue,
+  resolveImportedFeatures,
+  type ImportedAppFeatures,
+} from "./features";
+
 type PreparationMode = "DIRECT_COMMIT" | "PULL_REQUEST";
 
 type GitHubPreparationClient = {
@@ -49,6 +55,7 @@ type PrepareImportedRepositoryInput = {
   name: string;
   defaultBranch: string;
   mode: PreparationMode;
+  features?: ImportedAppFeatures;
   github: GitHubPreparationClient;
 };
 
@@ -120,26 +127,13 @@ function sanitizeBranchSegment(value: string) {
   return sanitized || "repository";
 }
 
-function getFeatureDefaults(runtime: ImportedAppRuntime) {
-  if (runtime.framework === "nextjs") {
-    return {
-      databaseProvider: "postgresql" as const,
-      entraLogin: true,
-    };
-  }
-
-  return {
-    databaseProvider: "none" as const,
-    entraLogin: false,
-  };
-}
-
 export async function prepareImportedRepository({
   appName,
   owner,
   name,
   defaultBranch,
   mode,
+  features,
   github,
 }: PrepareImportedRepositoryInput) {
   const head = await github.getBranchHead({
@@ -186,15 +180,19 @@ export async function prepareImportedRepository({
     );
   }
 
+  const selectedFeatures = resolveImportedFeatures(compatibility.runtime, features);
+  const featureIssue = importedFeaturesIssue(compatibility.runtime, selectedFeatures);
+  if (featureIssue) throw repositoryCompatibilityError(featureIssue);
+
   const plan = planPublishingBundle({
     appName,
     repositoryOwner: owner,
     repositoryName: name,
     runtime: compatibility.runtime,
+    features: selectedFeatures,
     files,
     allowPublishingPathConflicts: mode === "PULL_REQUEST",
   });
-  const featureDefaults = getFeatureDefaults(compatibility.runtime);
 
   if (mode === "DIRECT_COMMIT") {
     const commit = await github.commitFiles({
@@ -211,7 +209,7 @@ export async function prepareImportedRepository({
       commitSha: commit.commitSha,
       pullRequestUrl: null,
       runtime: compatibility.runtime,
-      ...featureDefaults,
+      ...selectedFeatures,
     };
   }
 
@@ -235,6 +233,6 @@ export async function prepareImportedRepository({
     commitSha: pullRequest.commitSha,
     pullRequestUrl: pullRequest.pullRequestUrl,
     runtime: compatibility.runtime,
-    ...featureDefaults,
+    ...selectedFeatures,
   };
 }

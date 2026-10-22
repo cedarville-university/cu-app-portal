@@ -39,6 +39,38 @@ function readRequestedFiles(repositoryFiles: Record<string, string>) {
 }
 
 describe("prepareImportedRepository", () => {
+  it("blocks static imports that request server services before committing", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head" }),
+      readRepositoryTextFiles: vi.fn().mockResolvedValue({ "index.html": "<h1>App</h1>" }),
+      commitFiles: vi.fn(), createPullRequestWithFiles: vi.fn(),
+    };
+    await expect(prepareImportedRepository({
+      appName: "Static App", owner: "cedarville-it", name: "static-app",
+      defaultBranch: "main", mode: "DIRECT_COMMIT", github,
+      features: { databaseProvider: "none", entraLogin: true },
+    })).rejects.toThrow(/server.*Codex/i);
+    expect(github.commitFiles).not.toHaveBeenCalled();
+  });
+
+  it("returns selected services and writes matching publishing settings", async () => {
+    const github = {
+      getBranchHead: vi.fn().mockResolvedValue({ sha: "head" }),
+      readRepositoryTextFiles: vi.fn().mockResolvedValue(files),
+      commitFiles: vi.fn().mockResolvedValue({ commitSha: "commit" }),
+      createPullRequestWithFiles: vi.fn(),
+    };
+    const result = await prepareImportedRepository({
+      appName: "Public App", owner: "cedarville-it", name: "public-app",
+      defaultBranch: "main", mode: "DIRECT_COMMIT", github,
+      features: { databaseProvider: "none", entraLogin: false },
+    });
+    expect(result).toMatchObject({ databaseProvider: "none", entraLogin: false });
+    const manifest = JSON.parse(github.commitFiles.mock.calls[0][0].files["app-portal/deployment-manifest.json"]);
+    expect(manifest.auth).toBeUndefined();
+    expect(manifest.defaults.azure.database).toBeUndefined();
+  });
+
   it("commits publishing additions directly", async () => {
     const github = {
       getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),

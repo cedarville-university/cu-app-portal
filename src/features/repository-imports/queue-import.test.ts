@@ -223,3 +223,16 @@ describe("queueExternalRepositoryImport", () => {
     );
   });
 });
+
+
+it("saves explicit services before queuing the import worker", async () => {
+  const { db, tx, queue } = createDependencies();
+  vi.mocked(createImportAttempt).mockResolvedValue({ attemptId: "attempt-123" });
+  await queueExternalRepositoryImport({ ...input, features: { databaseProvider: "none", entraLogin: false } }, { db: db as never, queue });
+  expect(tx.appRequest.create).toHaveBeenCalledWith(expect.objectContaining({
+    data: expect.objectContaining({ submittedConfig: expect.objectContaining({
+      databaseProvider: "none", entraLogin: false,
+      importFeatures: { databaseProvider: "none", entraLogin: false },
+    }) }),
+  }));
+});

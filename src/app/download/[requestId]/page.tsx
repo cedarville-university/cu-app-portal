@@ -1,3 +1,4 @@
+import { savedImportedFeatures } from "@/features/repository-imports/features";
 import { getAppPageMetadata } from "@/features/navigation/page-metadata";
 import React from "react";
 import Link from "next/link";
@@ -1029,6 +1030,7 @@ export default async function DownloadPage({
           requestId,
           defaultBranch: appRequest.repositoryDefaultBranch,
           gitAuthor: currentUser ?? {},
+          importFeatures: savedImportedFeatures(appRequest.submittedConfig),
         })
       : appRequest.repositoryUrl
         ? buildCodexHandoffPrompt(
@@ -1037,6 +1039,7 @@ export default async function DownloadPage({
             requestId,
             {
               gitAuthor: currentUser ?? {},
+              importFeatures: savedImportedFeatures(appRequest.submittedConfig),
               defaultBranch:
                 importedRepositoryRemoteWorkflow?.defaultBranch ??
                 appRequest.repositoryDefaultBranch,

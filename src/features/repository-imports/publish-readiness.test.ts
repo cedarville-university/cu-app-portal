@@ -494,3 +494,34 @@ describe("verifyImportedPublishReadiness", () => {
     });
   });
 });
+
+
+it("preserves selected services while verifying a prepared FastAPI import", async () => {
+  const runtime = {
+    family: "python", framework: "fastapi", displayName: "Python 3.14 / FastAPI",
+    azureRuntimeStack: "PYTHON|3.14",
+    startupCommand: "python -m gunicorn main:app -k uvicorn.workers.UvicornWorker",
+    workflowFileName: "deploy-azure-app-service.yml",
+  } as const;
+  const features = { databaseProvider: "postgresql", entraLogin: true } as const;
+  const { planPublishingBundle } = await import("./publishing-bundle");
+  const files = {
+    "requirements.txt": "fastapi==0.115.0\nuvicorn==0.30.0\ngunicorn==23.0.0\n",
+    "main.py": "from fastapi import FastAPI\napp = FastAPI()\n",
+    ...planPublishingBundle({ appName: "API", repositoryOwner: "cedarville-it",
+      repositoryName: "api", runtime, features, files: {} }).filesToWrite,
+  };
+  const result = await verifyImportedPublishReadiness({
+    owner: "cedarville-it", name: "api", defaultBranch: "main", features,
+    github: { readRepositoryTextFiles: async () => files },
+  });
+  expect(result).toMatchObject({ ready: true, databaseProvider: "postgresql", entraLogin: true });
+  const manifest = JSON.parse(files["app-portal/deployment-manifest.json"]);
+  delete manifest.auth;
+  files["app-portal/deployment-manifest.json"] = JSON.stringify(manifest);
+  const mismatched = await verifyImportedPublishReadiness({
+    owner: "cedarville-it", name: "api", defaultBranch: "main", features,
+    github: { readRepositoryTextFiles: async () => files },
+  });
+  expect(mismatched.ready).toBe(false);
+});

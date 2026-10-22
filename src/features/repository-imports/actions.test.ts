@@ -275,6 +275,9 @@ describe("repository import actions", () => {
     formData.set("appName", "Campus Dashboard");
     formData.set("description", "Existing dashboard.");
 
+    formData.set("databaseProvider", "none");
+    formData.set("entraLogin", "false");
+
     await addExistingAppAction(formData, {
       defaultOrg: "cedarville-it",
       repository: {
@@ -298,8 +301,8 @@ describe("repository import actions", () => {
           description: "Existing dashboard.",
           hostingTarget: "Azure App Service",
           templateSlug: "imported-web-app",
-          databaseProvider: "postgresql",
-          entraLogin: true,
+          databaseProvider: "none",
+          entraLogin: false,
           importRuntime: expect.objectContaining({
             family: "node",
             framework: "nextjs",
@@ -483,6 +486,8 @@ describe("repository import actions", () => {
     formData.set("appName", "Campus Dashboard");
     formData.set("description", "Built locally with Codex.");
 
+    formData.set("databaseProvider", "none");
+    formData.set("entraLogin", "false");
     await createManagedRepositoryForLocalAppAction(formData);
 
     expect(createRepository).toHaveBeenCalledWith({
@@ -506,8 +511,9 @@ describe("repository import actions", () => {
           description: "Built locally with Codex.",
           hostingTarget: "Azure App Service",
           templateSlug: "imported-web-app",
-          databaseProvider: "postgresql",
-          entraLogin: true,
+          databaseProvider: "none",
+          entraLogin: false,
+          importFeatures: { databaseProvider: "none", entraLogin: false },
           importRuntime: expect.objectContaining({
             family: "node",
             framework: "nextjs",

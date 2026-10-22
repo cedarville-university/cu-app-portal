@@ -12,6 +12,12 @@ import {
   type RepositoryFileMap,
 } from "./compatibility";
 
+import {
+  importedFeaturesIssue,
+  resolveImportedFeatures,
+  type ImportedAppFeatures,
+} from "./features";
+
 type GitHubReadinessClient = {
   readRepositoryTextFiles(input: {
     owner: string;
@@ -26,6 +32,7 @@ type VerifyImportedPublishReadinessInput = {
   name: string;
   defaultBranch: string;
   github: GitHubReadinessClient;
+  features?: ImportedAppFeatures;
 };
 
 const READINESS_PATHS = [
@@ -135,15 +142,6 @@ function parseManifestRuntime(files: RepositoryFileMap) {
   }
 }
 
-function getFeatureDefaults(runtime: ImportedAppRuntime | null) {
-  const isNext = runtime?.framework === "nextjs";
-
-  return {
-    databaseProvider: isNext ? ("postgresql" as const) : ("none" as const),
-    entraLogin: isNext,
-  };
-}
-
 function hasRepositoryFile(files: RepositoryFileMap, path: string) {
   return Object.prototype.hasOwnProperty.call(files, path);
 }
@@ -170,6 +168,7 @@ export async function verifyImportedPublishReadiness({
   owner,
   name,
   defaultBranch,
+  features,
   github,
 }: VerifyImportedPublishReadinessInput) {
   const files = await github.readRepositoryTextFiles({
@@ -186,12 +185,27 @@ export async function verifyImportedPublishReadiness({
     .map(formatFinding);
   const runtime = compatibility.runtime ?? parseManifestRuntime(files);
   const missingPaths = missingReadinessPaths(files, runtime);
+  const selectedFeatures = resolveImportedFeatures(runtime, features);
+  const featureIssue = importedFeaturesIssue(runtime, selectedFeatures);
+  if (featureIssue) packageIssues.push(featureIssue);
+  if (features) {
+    try {
+      const manifest = JSON.parse(files["app-portal/deployment-manifest.json"]);
+      const hasDatabase = manifest.defaults?.azure?.database?.provider === "postgresql";
+      const hasLogin = manifest.auth?.provider === "microsoft-entra-id";
+      if (hasDatabase !== (features.databaseProvider === "postgresql") || hasLogin !== features.entraLogin) {
+        packageIssues.push("Publishing manifest does not match the selected database and Cedarville login. Review and update the publishing preparation before continuing.");
+      }
+    } catch {
+      packageIssues.push("Publishing manifest could not be read for the selected services.");
+    }
+  }
 
   return {
     ready: missingPaths.length === 0 && packageIssues.length === 0,
     missingPaths,
     packageIssues,
     runtime,
-    ...getFeatureDefaults(runtime),
+    ...selectedFeatures,
   };
 }

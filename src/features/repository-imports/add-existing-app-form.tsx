@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useActionState } from "react";
+import { ImportFeatureFields } from "./import-feature-fields";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import {
   addExistingAppFormAction,
@@ -80,6 +81,8 @@ export function AddExistingAppForm({
           className="form-control"
         />
       </div>
+
+      <ImportFeatureFields />
 
       {state.error ? (
         <div className="error-box" role="alert" style={{ margin: 0 }}>

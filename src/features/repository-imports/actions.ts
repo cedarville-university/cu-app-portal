@@ -42,6 +42,12 @@ import {
 import { parseGitHubRepositoryUrl } from "./repo-url";
 import { buildSharedOrgTargetName, isRepositoryInOrg } from "./target-name";
 
+import {
+  readImportedFeatures,
+  savedImportedFeatures,
+  type ImportedAppFeatures,
+} from "./features";
+
 const addExistingAppSchema = z.object({
   repositoryUrl: z.string().min(1),
   appName: z.string().trim().min(2).max(80),
@@ -326,10 +332,12 @@ function buildImportedSubmittedConfig({
   repositoryUrl,
   description,
   localOnlySource = false,
+  features,
 }: {
   repositoryUrl: string;
   description: string;
   localOnlySource?: boolean;
+  features?: ImportedAppFeatures;
 }) {
   return {
     repositoryUrl,
@@ -337,8 +345,9 @@ function buildImportedSubmittedConfig({
     hostingTarget: "Azure App Service",
     templateSlug: "imported-web-app",
     importRuntime: IMPORTED_NEXT_RUNTIME,
-    databaseProvider: "postgresql",
-    entraLogin: true,
+    databaseProvider: features?.databaseProvider ?? "postgresql",
+    entraLogin: features?.entraLogin ?? true,
+    ...(features ? { importFeatures: features } : {}),
     ...(localOnlySource ? { localOnlySource: true } : {}),
   };
 }
@@ -429,6 +438,7 @@ export async function addExistingAppAction(
     appName: String(formData.get("appName") ?? ""),
     description: String(formData.get("description") ?? ""),
   });
+  const features = readImportedFeatures(formData);
   const userId = await resolveCurrentUserId();
   const source = parseGitHubRepositoryUrl(parsed.repositoryUrl);
   const githubConfig = loadGitHubAppConfig();
@@ -464,6 +474,7 @@ export async function addExistingAppAction(
         targetName,
         targetVisibility: repositoryVisibility,
         supportReference,
+        ...(features ? { features } : {}),
       },
       deps.queue ? { queue: deps.queue } : undefined,
     );
@@ -554,6 +565,7 @@ export async function addExistingAppAction(
         submittedConfig: buildImportedSubmittedConfig({
           repositoryUrl: source.normalizedUrl,
           description: parsed.description ?? "",
+          features,
         }),
         generationStatus: "SUCCEEDED",
         supportReference,
@@ -757,6 +769,7 @@ export async function createManagedRepositoryForLocalAppAction(
     appName: String(formData.get("appName") ?? ""),
     description: String(formData.get("description") ?? ""),
   });
+  const features = readImportedFeatures(formData);
   const userId = await resolveCurrentUserId();
   const githubConfig = loadGitHubAppConfig();
   const owner = githubConfig.defaultOrg;
@@ -794,6 +807,7 @@ export async function createManagedRepositoryForLocalAppAction(
         submittedConfig: buildImportedSubmittedConfig({
           repositoryUrl: repository.url,
           description: parsed.description ?? "",
+          features,
           localOnlySource: true,
         }),
         generationStatus: "SUCCEEDED",
@@ -979,12 +993,14 @@ export async function prepareExistingAppAction(
   }
 
   try {
+    const features = savedImportedFeatures(appRequest.submittedConfig);
     const result = await prepareImportedRepository({
       appName: appRequest.appName,
       owner: appRequest.repositoryOwner,
       name: appRequest.repositoryName,
       defaultBranch: appRequest.repositoryDefaultBranch,
       mode,
+      ...(features ? { features } : {}),
       github:
         deps.github ?? createDefaultPreparationGitHubClient(appRequest.repositoryOwner),
     });
@@ -1128,7 +1144,9 @@ export async function verifyExistingAppPreparationAction(
     );
   }
 
+  const features = savedImportedFeatures(appRequest.submittedConfig);
   const readiness = await verifyImportedPublishReadiness({
+    ...(features ? { features } : {}),
     owner: appRequest.repositoryOwner,
     name: appRequest.repositoryName,
     defaultBranch: appRequest.repositoryDefaultBranch,

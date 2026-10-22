@@ -48,6 +48,7 @@ type OnboardingStepShellProps = {
   next: string;
   supportReference?: string;
   details?: ReactNode;
+  beforeAction?: ReactNode;
   children: ReactNode;
 };
 
@@ -59,6 +60,7 @@ export function OnboardingStepShell({
   next,
   supportReference,
   details,
+  beforeAction,
   children,
 }: OnboardingStepShellProps) {
   const currentStageIndex = onboardingStages.indexOf(currentStage);
@@ -78,7 +80,10 @@ export function OnboardingStepShell({
         <h1 id="onboarding-step-title">{title}</h1>
         <p className="onboarding-step-shell__explanation">{explanation}</p>
 
-        <div className="onboarding-step-shell__primary-action">{children}</div>
+        <div className="onboarding-step-shell__primary-action">
+          {beforeAction}
+          {children}
+        </div>
 
         <section className="onboarding-step-shell__next" aria-labelledby="onboarding-next-heading">
           <h2 id="onboarding-next-heading">What happens next?</h2>

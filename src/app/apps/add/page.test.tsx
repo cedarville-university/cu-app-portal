@@ -169,7 +169,8 @@ describe("AddExistingAppPage", () => {
     expect(
       screen.getByText(/the portal will create an empty online home for your app/i),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Codex instructions/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Add a database")).toHaveValue("none");
+    expect(screen.getByLabelText("Require Cedarville login")).toHaveValue("true");
     expect(
       screen.getByRole("button", { name: /create online home/i }),
     ).toHaveAttribute("type", "submit");
@@ -267,4 +268,12 @@ describe("AddExistingAppPage", () => {
         ),
     ).toBe(true);
   });
+});
+
+
+it("offers database and login selections for local imports", async () => {
+  vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
+  render(await AddExistingAppPage({ searchParams: Promise.resolve({ source: "local" }) }));
+  expect(screen.getByLabelText("Add a database")).toHaveValue("none");
+  expect(screen.getByLabelText("Require Cedarville login")).toHaveValue("true");
 });

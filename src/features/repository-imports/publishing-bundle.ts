@@ -17,12 +17,19 @@ import {
   type RepositoryFileMap,
 } from "./compatibility";
 
+import {
+  importedFeaturesIssue,
+  resolveImportedFeatures,
+  type ImportedAppFeatures,
+} from "./features";
+
 type PublishingBundleInput = {
   appName: string;
   repositoryOwner: string;
   repositoryName: string;
   runtime: ImportedAppRuntime;
   files: RepositoryFileMap;
+  features?: ImportedAppFeatures;
   allowPublishingPathConflicts?: boolean;
 };
 
@@ -188,10 +195,6 @@ with ThreadingHTTPServer(("0.0.0.0", port), handler) as server:
     server.serve_forever()
 `;
 
-function usesNextPublishingDefaults(runtime: ImportedAppRuntime) {
-  return runtime.framework === IMPORTED_NEXT_RUNTIME.framework;
-}
-
 function usesNodePackageDefaults(runtime: ImportedAppRuntime) {
   return (
     runtime.framework === IMPORTED_NEXT_RUNTIME.framework ||
@@ -285,16 +288,16 @@ function buildImportedManifest(
   appName: string,
   repositoryName: string,
   runtime: ImportedAppRuntime,
+  features?: ImportedAppFeatures,
 ) {
-  const hasNextDefaults = usesNextPublishingDefaults(runtime);
+  const selectedFeatures = resolveImportedFeatures(runtime, features);
   const manifest = buildDeploymentManifest(
     {
       templateSlug: "imported-web-app",
       appName,
       description: `Imported app ${appName}`,
       hostingTarget: "Azure App Service",
-      databaseProvider: hasNextDefaults ? "postgresql" : "none",
-      entraLogin: hasNextDefaults,
+      ...selectedFeatures,
     },
     { runtime },
   );
@@ -360,8 +363,12 @@ export function planPublishingBundle({
   repositoryName,
   runtime,
   files,
+  features,
   allowPublishingPathConflicts = false,
 }: PublishingBundleInput): PublishingBundlePlan {
+  const featureIssue = importedFeaturesIssue(runtime, resolveImportedFeatures(runtime, features));
+  if (featureIssue) throw new Error(featureIssue);
+
   if (!allowPublishingPathConflicts) {
     assertNoPublishingPathConflicts(files, runtime);
   }
@@ -393,6 +400,7 @@ export function planPublishingBundle({
     appName,
     repositoryName,
     runtime,
+    features,
   );
 
   return { filesToWrite };

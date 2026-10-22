@@ -1,3 +1,5 @@
+import { ImportServicesHandoff } from "@/features/repository-imports/import-services-handoff";
+import { savedImportedFeatures } from "@/features/repository-imports/features";
 import { getAppPageMetadata } from "@/features/navigation/page-metadata";
 import React from "react";
 import Link from "next/link";
@@ -393,24 +395,65 @@ export default async function AppOnboardingPage({
     failedPublishEligibility.reason === "PREPARATION_NOT_COMMITTED"
       ? deriveOnboardingState({ ...stateInput, publishStatus: "NOT_STARTED" })
       : derivedState;
+  const importFeatures = savedImportedFeatures(app.submittedConfig);
+  const showImportHandoff = [
+    "PREPARATION_READY", "PREPARATION_FAILED", "PREPARATION_CONFLICT",
+    "PREPARATION_REVIEW_OPEN", "PUBLISHING_SETUP_NOT_STARTED",
+    "PUBLISHING_SETUP_REPAIR_REQUIRED", "READY_TO_PUBLISH", "PUBLISH_FAILED",
+  ].includes(state.kind);
+  const importHandoff = app.sourceOfTruth === "IMPORTED_REPOSITORY" &&
+    !isLocalSource(app.submittedConfig) && showImportHandoff &&
+    app.repositoryStatus === "READY" && app.publishingSetupStatus !== "REPAIRING" &&
+    app.repositoryUrl ? (
+    repositoryAccessStatus === "GRANTED" ? (
+      <ImportServicesHandoff repositoryUrl={app.repositoryUrl} appName={app.appName}
+        requestId={app.id} defaultBranch={app.repositoryDefaultBranch}
+        features={importFeatures} gitAuthor={currentActor} />
+    ) : (
+      <section className="info-box" aria-label="Codex handoff">
+        <h2>Continue with Codex</h2>
+        <p>
+          Codex needs access to your private managed code home before it can
+          work on your imported app. Complete the
+          GitHub invitation below; the handoff instructions will appear here
+          when access is confirmed.
+        </p>
+        {repositoryAccessStatus === "INVITED" ? (
+          <>
+            <a href={app.repositoryUrl} target="_blank" rel="noreferrer">
+              Open your GitHub invitation
+            </a>
+            <ConfirmGitHubInvitationForm requestId={app.id}
+              githubUsername={currentActor.githubUsername} />
+          </>
+        ) : (
+          <GitHubUsernameForm requestId={app.id}
+            githubUsername={currentActor.githubUsername} />
+        )}
+      </section>
+    )) : null;
   const repositoryDetails = app.repositoryUrl ? (
-    <p>
-      <a href={app.repositoryUrl} target="_blank" rel="noreferrer">
-        Open your private code home on GitHub
-      </a>
-    </p>
+    <>
+      <p>
+        <a href={app.repositoryUrl} target="_blank" rel="noreferrer">
+          Open your private code home on GitHub
+        </a>
+      </p>
+    </>
   ) : undefined;
   const publishingTechnicalDetails = (
-    <PublishingTechnicalDetails
-      supportReference={app.supportReference}
-      checks={app.publishSetupChecks}
-      summaries={[
-        app.publishErrorSummary,
-        app.publishingSetupErrorSummary,
-        app.publishAttempts[0]?.errorSummary,
-      ]}
-      showProviderDiagnostics={isAdmin}
-    />
+    <>
+      <PublishingTechnicalDetails
+        supportReference={app.supportReference}
+        checks={app.publishSetupChecks}
+        summaries={[
+          app.publishErrorSummary,
+          app.publishingSetupErrorSummary,
+          app.publishAttempts[0]?.errorSummary,
+        ]}
+        showProviderDiagnostics={isAdmin}
+      />
+    </>
   );
 
   if (state.kind === "IMPORT_PENDING") {
@@ -418,6 +461,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title={
@@ -443,6 +487,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title="The portal is creating your app's code home"
@@ -460,6 +505,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title="The app's code home needs another try"
@@ -493,6 +539,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title="We couldn't copy your app yet"
@@ -532,6 +579,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title="Your starter app is ready"
@@ -629,6 +677,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title="Give Codex access to your app code"
@@ -646,6 +695,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title="Accept your invitation to the app code"
@@ -687,6 +737,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title="Customize your app with Codex"
@@ -753,6 +804,7 @@ export default async function AppOnboardingPage({
       requestId: app.id,
       defaultBranch: app.repositoryDefaultBranch,
       gitAuthor: currentActor,
+      importFeatures: savedImportedFeatures(app.submittedConfig),
       preparationErrorSummary: isRepair
         ? isAdmin
           ? app.repositoryImport?.preparationErrorSummary
@@ -763,6 +815,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title={
@@ -824,6 +877,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Prepare"
           title="Prepare your app for publishing"
@@ -848,6 +902,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Prepare"
           title="The portal is preparing your app"
@@ -869,6 +924,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Prepare"
           title={
@@ -932,6 +988,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Prepare"
           title="Review existing publishing files safely"
@@ -965,6 +1022,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Prepare"
           title="Review and approve the publishing changes"
@@ -1015,6 +1073,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
           title="Your app is ready to publish"
@@ -1022,6 +1081,9 @@ export default async function AppOnboardingPage({
           next="The portal will check progress automatically and tell you when the app is online or when it needs your help."
           details={publishingTechnicalDetails}
         >
+          {importFeatures && (importFeatures.databaseProvider === "postgresql" || importFeatures.entraLogin) ? (
+            <p className="info-box">Before publishing, confirm that Codex connected and tested your selected database and login. Publishing setup supplies the services; your app code must use them.</p>
+          ) : null}
           <PublishForm requestId={app.id} />
         </OnboardingStepShell>
       </main>
@@ -1032,6 +1094,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
           title="Finish the last check before publishing"
@@ -1058,6 +1121,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
           title="The portal is checking publishing setup"
@@ -1075,6 +1139,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
           title="Fix publishing setup before publishing"
@@ -1115,6 +1180,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
           title="Your app is being published"
@@ -1149,6 +1215,7 @@ export default async function AppOnboardingPage({
         return (
           <main>
             <OnboardingStepShell
+          beforeAction={importHandoff}
               appName={app.appName}
               currentStage="Develop"
               title="Your app's code home is still being prepared"
@@ -1165,6 +1232,7 @@ export default async function AppOnboardingPage({
       return (
         <main>
           <OnboardingStepShell
+          beforeAction={importHandoff}
             appName={app.appName}
             currentStage="Develop"
             title="Your app's code home needs support"
@@ -1187,6 +1255,7 @@ export default async function AppOnboardingPage({
       return (
         <main>
           <OnboardingStepShell
+          beforeAction={importHandoff}
             appName={app.appName}
             currentStage="Publish"
             title="The portal is finishing a publishing check"
@@ -1204,6 +1273,7 @@ export default async function AppOnboardingPage({
       return (
         <main>
           <OnboardingStepShell
+          beforeAction={importHandoff}
             appName={app.appName}
             currentStage="Publish"
             title="Publishing needs support before another try"
@@ -1224,6 +1294,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
           title="Your app did not finish publishing"
@@ -1261,6 +1332,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
           title="Your app is online"
@@ -1295,6 +1367,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
           title="This app is no longer published"
@@ -1319,6 +1392,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
+          beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Develop"
           title="This code step needs support"

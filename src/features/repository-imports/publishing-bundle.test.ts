@@ -24,6 +24,34 @@ const HTTP_SERVER_RUNTIME = {
 } as const;
 
 describe("planPublishingBundle", () => {
+  it.each([IMPORTED_NEXT_RUNTIME, IMPORTED_EXPRESS_RUNTIME, FASTAPI_RUNTIME])(
+    "uses explicit service selections for $framework",
+    (runtime) => {
+      const plan = planPublishingBundle({
+        appName: "Campus App", repositoryOwner: "cedarville-it",
+        repositoryName: "campus-app", runtime,
+        files: { "package.json": "{}" },
+        features: { databaseProvider: "postgresql", entraLogin: true },
+      });
+      const manifest = JSON.parse(plan.filesToWrite["app-portal/deployment-manifest.json"]);
+      expect(manifest.defaults.azure.database.provider).toBe("postgresql");
+      expect(manifest.auth.callbackPath).toBe(runtime.framework === "fastapi"
+        ? "/auth/callback" : "/api/auth/callback/microsoft-entra-id");
+    },
+  );
+
+  it("allows a Next.js import to opt out of both services", () => {
+    const plan = planPublishingBundle({
+      appName: "Public App", repositoryOwner: "cedarville-it",
+      repositoryName: "public-app", runtime: IMPORTED_NEXT_RUNTIME,
+      files: { "package.json": "{}" },
+      features: { databaseProvider: "none", entraLogin: false },
+    });
+    const manifest = JSON.parse(plan.filesToWrite["app-portal/deployment-manifest.json"]);
+    expect(manifest.defaults.azure.database).toBeUndefined();
+    expect(manifest.auth).toBeUndefined();
+  });
+
   it("adds Azure OIDC readiness retries to every imported-app deployment workflow", () => {
     const plans = [
       planPublishingBundle({

@@ -8,6 +8,8 @@ import { createManagedRepositoryForLocalAppAction } from "@/features/repository-
 import { AddExistingAppForm } from "@/features/repository-imports/add-existing-app-form";
 import { OnboardingProgress } from "@/features/onboarding/step-shell";
 
+import { ImportFeatureFields } from "@/features/repository-imports/import-feature-fields";
+
 type SourcePath = "github" | "local" | null;
 
 function getSourcePath(value: string | string[] | undefined): SourcePath {
@@ -149,6 +151,8 @@ export default async function AddExistingAppPage({
                   className="form-control"
                 />
               </div>
+
+              <ImportFeatureFields />
 
               <div>
                 <PendingSubmitButton

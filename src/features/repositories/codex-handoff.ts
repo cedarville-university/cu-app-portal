@@ -1,3 +1,5 @@
+import type { ImportedAppFeatures } from "@/features/repository-imports/features";
+
 export const LOCAL_UPLOAD_CONFIRMATION_LABEL = "My code has been uploaded";
 export const LOCAL_REPAIR_CONFIRMATION_LABEL =
   "I've repaired and uploaded my code";
@@ -67,6 +69,25 @@ function codexRuntimeAndPortalBoundaryInstructions() {
   ];
 }
 
+function importedServiceInstructions(features: ImportedAppFeatures) {
+  return [
+    "Selected CU Launch import services",
+    "These choices are the project work already requested. After repository setup, implement the selected services before publishing; do not ask me to repeat this request.",
+    features.databaseProvider === "postgresql"
+      ? "Database: add PostgreSQL using the server-only DATABASE_URL supplied by CU Launch. Add the application's tables, versioned migrations, and database access using its existing stack. Preserve existing data and storage behavior; do not copy production data, replace an existing database, or run destructive migrations without a separate request."
+      : "Database: no new CU Launch database requested. Preserve existing storage and data; do not add a managed PostgreSQL dependency.",
+    features.entraLogin
+      ? "Login: require verified Cedarville Microsoft Entra sign-in before protected pages and APIs, with server-side session and authorization checks. Do not use a client-only gate, pretend session, or production authentication bypass. Use CU Launch's AUTH_SECRET, AUTH_MICROSOFT_ENTRA_ID_ID, AUTH_MICROSOFT_ENTRA_ID_SECRET, AUTH_MICROSOFT_ENTRA_ID_ISSUER, AUTH_URL, and NEXTAUTH_URL settings. For FastAPI use /login and /auth/callback; for Next.js or Express use /api/auth/signin and /api/auth/callback/microsoft-entra-id so the callback matches portal provisioning."
+      : "Login: no new CU Launch Cedarville login requested. Do not add a managed Entra dependency or remove existing authentication or authorization without a separate request.",
+    "If either selected service needs a server and the app is plain static HTML, migrate it to supported root Next.js, Express, or FastAPI while preserving the app's behavior. Never put database credentials or Entra client secrets in browser code.",
+    "Keep GET /api/health public and returning HTTP 200 for a healthy app process, independently of sessions, databases, and external services. Leave only that exact health route and necessary sign-in/callback routes anonymous when Cedarville login is required.",
+    "Inspect app-portal/deployment-manifest.json if present and keep it aligned with these choices. Before portal preparation creates that file, use these instructions as the service contract; do not create conflicting publishing files yourself.",
+    "Document required environment-variable names with placeholder values only. CU Launch supplies production settings during publishing setup; never invent credentials, ask me to paste secrets, or provision cloud resources yourself.",
+    "Test database behavior and migrations with isolated local fixtures, plus anonymous denial and authenticated access for protected routes when login is selected. Run the relevant checks and production build. Report any live database or Cedarville sign-in verification that still needs the provisioned environment; local checks do not prove live integration.",
+    "After implementing and verifying the selected services, commit and push only the intended changes, verify the push, and tell me to return to CU Launch myself. Do not open or operate CU Launch. Do not claim that provisioning alone connects or protects the app.",
+  ];
+}
+
 export function buildCodexHandoffPrompt(
   repositoryUrl: string,
   appName: string,
@@ -76,6 +97,7 @@ export function buildCodexHandoffPrompt(
     sourceRepositoryUrl?: string | null;
     localFolderMode?: "new" | "new-or-existing";
     gitAuthor?: GitAuthorIdentity;
+    importFeatures?: ImportedAppFeatures;
   } = {},
 ) {
   const prompt = [
@@ -85,7 +107,9 @@ export function buildCodexHandoffPrompt(
     "",
     "Your goal",
     `Prepare the local project for "${appName}" for Cedarville App Portal request ${requestId}, then help me make the changes I request.`,
-    "First own the repository setup and verification. Do not invent an app-change request or assume publishing is next.",
+    options.importFeatures
+      ? "First verify the repository setup, then implement the selected import services below."
+      : "First own the repository setup and verification. Do not invent an app-change request or assume publishing is next.",
     "",
     "Safety rules",
     "Do not ask me to type terminal or Git commands. Run the technical commands yourself.",
@@ -165,14 +189,21 @@ export function buildCodexHandoffPrompt(
   prompt.push(
     "Use the managed repository as the source of truth and inspect only enough files to confirm that the project is ready.",
     "Use `.codex/skills/cu-app-portal/SKILL.md` for CU Launch-managed app workflow guidance.",
-    "",
-    "Repository ready — ask for project work",
-    "After the repository setup and verification succeed, do not modify app files yet.",
-    'Ask exactly one question: "The project is ready. What would you like me to change or build in this project?"',
-    "Stop and wait for my answer before modifying app files, running change-specific tests, committing changes, or pushing new work.",
-    "Do not assume that publishing is the next task. The next task is the modification or feature I describe.",
-    "After I answer, restate my requested outcome in plain language, make only the requested changes, and verify them.",
   );
+
+  if (options.importFeatures) {
+    prompt.push(...importedServiceInstructions(options.importFeatures));
+  } else {
+    prompt.push(
+      "",
+      "Repository ready — ask for project work",
+      "After the repository setup and verification succeed, do not modify app files yet.",
+      'Ask exactly one question: "The project is ready. What would you like me to change or build in this project?"',
+      "Stop and wait for my answer before modifying app files, running change-specific tests, committing changes, or pushing new work.",
+      "Do not assume that publishing is the next task. The next task is the modification or feature I describe.",
+      "After I answer, restate my requested outcome in plain language, make only the requested changes, and verify them.",
+    );
+  }
 
   prompt.push(
     "",
@@ -193,6 +224,7 @@ export function buildLocalCodexGitSetupPrompt({
   defaultBranch = "main",
   preparationErrorSummary,
   gitAuthor,
+  importFeatures,
 }: {
   repositoryUrl: string;
   appName: string;
@@ -200,6 +232,7 @@ export function buildLocalCodexGitSetupPrompt({
   defaultBranch?: string | null;
   preparationErrorSummary?: string | null;
   gitAuthor?: GitAuthorIdentity;
+  importFeatures?: ImportedAppFeatures;
 }) {
   const branch = defaultBranch ?? "main";
 
@@ -247,6 +280,7 @@ export function buildLocalCodexGitSetupPrompt({
     "Read `.codex/skills/cu-app-portal/SKILL.md` from the pulled managed commit before continuing.",
     "Inspect the local app using the compatibility and safe-migration workflow in that skill. If migration is needed, follow the skill instead of inventing a different hosting path in this prompt.",
     "Run the relevant tests using compatible system or bundled workspace runtimes. Do not upload code whose relevant tests fail.",
+    ...(importFeatures ? importedServiceInstructions(importFeatures) : []),
     "Inspect candidate files with git status before staging.",
     "After reviewing them, stage only intentional source, configuration, and documentation files by explicit path. Do not use a broad catch-all staging command.",
     "Re-check the staged file names and diff with git diff --cached --name-only and git diff --cached.",

@@ -27,6 +27,17 @@ afterEach(() => {
 });
 
 describe("AddExistingAppForm", () => {
+  it("submits explicit database and Cedarville login choices", () => {
+    render(<AddExistingAppForm />);
+    const database = screen.getByLabelText("Add a database");
+    const login = screen.getByLabelText("Require Cedarville login");
+    expect(database).toHaveValue("none");
+    expect(login).toHaveValue("true");
+    const data = new FormData(database.closest("form")!);
+    expect(data.get("databaseProvider")).toBe("none");
+    expect(data.get("entraLogin")).toBe("true");
+  });
+
   it("renders the repository analysis fields", () => {
     render(<AddExistingAppForm />);
 

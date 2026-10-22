@@ -331,3 +331,20 @@ describe("Git commit author identity", () => {
     expect(prompt).toContain("do not invent a value");
   });
 });
+
+
+it("turns selected import services into concrete project work in both handoffs", () => {
+  const importFeatures = { databaseProvider: "postgresql", entraLogin: true } as const;
+  const prompts = [
+    buildCodexHandoffPrompt("https://github.com/cedarville-it/app", "App", "req", { importFeatures }),
+    buildLocalCodexGitSetupPrompt({ repositoryUrl: "https://github.com/cedarville-it/app", appName: "App", requestId: "req", importFeatures }),
+  ];
+  for (const prompt of prompts) {
+    expect(prompt).toContain("DATABASE_URL");
+    expect(prompt).toContain("server-side");
+    expect(prompt).toContain("/auth/callback");
+    expect(prompt).toContain("/api/health");
+    expect(prompt).toContain("Do not open or operate CU Launch");
+    expect(prompt).not.toContain('Ask exactly one question: "The project is ready. What would you like me to change or build in this project?"');
+  }
+});

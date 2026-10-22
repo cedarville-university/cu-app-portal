@@ -115,6 +115,13 @@ function importedApp(
   });
 }
 
+// Publishing/preparation controls are distinct from the newly visible Codex
+// access and copy controls, whose behavior has dedicated assertions below.
+function workflowButtons() {
+  const handoff = screen.queryByRole("region", { name: "Codex handoff" });
+  return screen.getAllByRole("button").filter((button) => !handoff?.contains(button));
+}
+
 async function renderPage(
   searchParams: Record<string, string | undefined> = {},
 ) {
@@ -215,7 +222,7 @@ describe("AppOnboardingPage generated apps", () => {
     expect(
       screen.getByRole("button", { name: "Try code-home setup again" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
     expect(screen.queryByLabelText("GitHub username")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /publish|publishing setup/i }),
@@ -399,7 +406,7 @@ describe("AppOnboardingPage generated apps", () => {
     expect(
       screen.getByRole("link", { name: /customize it with codex first/i }),
     ).toHaveAttribute("href", "/onboarding/req_123?path=customize");
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
   });
 
   it("shows the path choice before using a legacy granted-access status", async () => {
@@ -767,7 +774,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
       "DIRECT_COMMIT",
     );
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
   });
 
   it("checks preparation progress automatically without offering a stale action", async () => {
@@ -813,7 +820,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
       "PULL_REQUEST",
     );
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
   });
 
   it("highlights an unsupported GitHub repository as a blocking compatibility issue", async () => {
@@ -928,7 +935,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
       "PULL_REQUEST",
     );
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
   });
 
   it("shows the opened review and only verifies after the user approves it", async () => {
@@ -955,7 +962,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(
       screen.getByRole("button", { name: "I've approved the changes" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
   });
 
   it("gives a local app the beginner upload prompt before direct preparation", async () => {
@@ -1005,7 +1012,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
       "DIRECT_COMMIT",
     );
-    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(workflowButtons()).toHaveLength(2);
   });
 
   it("returns an incompatible local app to Codex repair and upload guidance", async () => {
@@ -1054,7 +1061,7 @@ describe("AppOnboardingPage imported and local preparation", () => {
     expect(document.querySelector('input[name="preparationMode"]')).toHaveValue(
       "DIRECT_COMMIT",
     );
-    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(workflowButtons()).toHaveLength(2);
   });
 
   it("does not offer failed-import retry to a collaborator", async () => {
@@ -1132,7 +1139,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(
       screen.queryByRole("button", { name: "Publish to Azure" }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
   });
 
   it.each(["CHECKING", "REPAIRING"])(
@@ -1196,7 +1203,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
       expect(
         screen.queryByRole("button", { name: "Try publishing again" }),
       ).not.toBeInTheDocument();
-      expect(screen.getAllByRole("button")).toHaveLength(1);
+      expect(workflowButtons()).toHaveLength(1);
       expect(
         screen.getByText("github_actions_secrets"),
       ).toBeInTheDocument();
@@ -1261,7 +1268,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(
       screen.queryByRole("button", { name: "Fix publishing setup" }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
   });
 
   it.each(["QUEUED", "PROVISIONING", "DEPLOYING"])(
@@ -1342,7 +1349,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(
       screen.queryByRole("button", { name: "Publish to Azure" }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(workflowButtons()).toHaveLength(2);
   });
 
   it("offers publish retry and setup repair when failed setup was previously ready", async () => {
@@ -1361,7 +1368,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(
       screen.getByRole("button", { name: "Fix publishing setup" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(workflowButtons()).toHaveLength(2);
   });
 
   it("does not offer an invalid retry while setup repair is still running", async () => {
@@ -1457,7 +1464,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(
       screen.queryByRole("button", { name: "Fix publishing setup" }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(workflowButtons()).toHaveLength(1);
   });
 
   it("links directly to the live app and its full details after publishing", async () => {
@@ -1506,4 +1513,56 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(screen.getByText(/contact the portal support team/i)).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
+});
+
+
+it.each(["PENDING_USER_CHOICE", "COMMITTED"])("shows service connection instructions before publishing (%s)", async (preparationStatus) => {
+  vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(importedApp({
+    submittedConfig: { importFeatures: { databaseProvider: "postgresql", entraLogin: true } },
+    publishingSetupStatus: "READY",
+    repositoryAccessStatus: "GRANTED",
+    repositoryAccessNote: "GitHub access is ready for @collaborator-name.",
+    repositoryImport: { id: "import_123", importStatus: "SUCCEEDED",
+      preparationMode: null, compatibilityStatus: "COMPATIBLE", preparationStatus },
+  }));
+  await renderPage();
+  expect(screen.getByRole("heading", { name: "Continue with Codex" })).toBeInTheDocument();
+  expect(screen.getByText(/DATABASE_URL/)).toBeInTheDocument();
+});
+
+
+it.each(["NOT_REQUESTED", "INVITED"])("provides GitHub access before the service prompt (%s)", async (repositoryAccessStatus) => {
+  vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(importedApp({
+    submittedConfig: { importFeatures: { databaseProvider: "postgresql", entraLogin: true } },
+    repositoryAccessStatus,
+    repositoryAccessNote: repositoryAccessStatus === "INVITED"
+      ? "GitHub invited @collaborator-name to this repository." : null,  }));
+  await renderPage();
+  expect(screen.queryByRole("button", { name: /copy codex handoff prompt/i })).not.toBeInTheDocument();
+  if (repositoryAccessStatus === "INVITED") {
+    expect(screen.getByRole("button", { name: "I've accepted the invitation" })).toBeInTheDocument();
+  } else {
+    expect(screen.getByRole("textbox", { name: "GitHub username" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send repository invite" })).toBeInTheDocument();
+  }
+});
+
+
+it.each([
+  { importFeatures: { databaseProvider: "postgresql", entraLogin: true } },
+  { importFeatures: { databaseProvider: "none", entraLogin: false } },
+  {},
+])("surfaces the import handoff before preparation, including legacy and no-service imports", async (submittedConfig) => {
+  vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(importedApp({
+    submittedConfig,
+    repositoryAccessStatus: "GRANTED",
+    repositoryAccessNote: "GitHub access is ready for @collaborator-name.",
+  }));
+  await renderPage();
+  const heading = screen.getByRole("heading", { name: "Continue with Codex" });
+  const copy = screen.getByRole("button", { name: "Copy Codex Handoff Prompt" });
+  const prepare = screen.getByRole("button", { name: "Prepare my app for publishing" });
+  expect(heading.closest("aside")).toBeNull();
+  expect(copy.closest("details")).toBeNull();
+  expect(copy.compareDocumentPosition(prepare) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });

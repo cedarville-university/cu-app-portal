@@ -10,6 +10,8 @@ import {
   type RepositoryImportQueue,
 } from "./queue";
 
+import type { ImportedAppFeatures } from "./features";
+
 const ENQUEUE_FAILURE_SUMMARY =
   "Repository import could not be queued. Please retry.";
 
@@ -29,6 +31,7 @@ export type QueueExternalRepositoryImportInput = {
   targetName: string;
   targetVisibility: GitHubRepoVisibility;
   supportReference: string;
+  features?: ImportedAppFeatures;
 };
 
 type QueueImportDb = Pick<typeof prisma, "$transaction">;
@@ -71,8 +74,9 @@ export async function queueExternalRepositoryImport(
           hostingTarget: "Azure App Service",
           templateSlug: "imported-web-app",
           importRuntime: IMPORTED_NEXT_RUNTIME,
-          databaseProvider: "postgresql",
-          entraLogin: true,
+          databaseProvider: input.features?.databaseProvider ?? "postgresql",
+          entraLogin: input.features?.entraLogin ?? true,
+          ...(input.features ? { importFeatures: input.features } : {}),
         },
         generationStatus: "SUCCEEDED",
         supportReference: input.supportReference,
