@@ -48,9 +48,20 @@ export function CodexPreparationChecklist({
           )}
         </li>
         <li>
-          In Codex, open Projects and create a <strong>local project</strong>{" "}
-          using that folder. Make it the primary folder. This tells Codex which
-          files belong to this app.
+          {folderKind === "existing" ? (
+            <>
+              Open the existing <strong>local Codex project</strong> for this
+              app. If the app folder is not in a Codex project yet, create a
+              local project using that same folder.
+            </>
+          ) : (
+            <>
+              In Codex, open Projects and create a <strong>local project</strong>{" "}
+              using that folder.
+            </>
+          )}{" "}
+          Make it the primary folder. This tells Codex which files
+          belong to this app.
         </li>
         <li>
           Open that local project and start this task inside it.{" "}

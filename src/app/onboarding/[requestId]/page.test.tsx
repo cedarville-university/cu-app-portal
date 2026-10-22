@@ -1566,3 +1566,18 @@ it.each([
   expect(copy.closest("details")).toBeNull();
   expect(copy.compareDocumentPosition(prepare) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
+
+
+it("uses the existing imported checkout and a separate portal remote in the visible handoff", async () => {
+  vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(importedApp({
+    repositoryAccessStatus: "GRANTED",
+    repositoryAccessNote: "GitHub access is ready for @collaborator-name.",
+  }));
+  await renderPage();
+  const handoff = screen.getByRole("region", { name: "Codex handoff" });
+  expect(handoff).toHaveTextContent("Open the local Codex project you already use for this app");
+  expect(handoff).toHaveTextContent("git remote add portal https://github.com/cedarville-it/campus-dashboard");
+  expect(handoff).toHaveTextContent("This app was imported from https://github.com/external-org/campus-dashboard");
+  expect(handoff).not.toHaveTextContent("git clone");
+  expect(handoff).not.toHaveTextContent("use a new empty folder for the managed copy");
+});

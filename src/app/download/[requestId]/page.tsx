@@ -1044,7 +1044,10 @@ export default async function DownloadPage({
                 importedRepositoryRemoteWorkflow?.defaultBranch ??
                 appRequest.repositoryDefaultBranch,
               sourceRepositoryUrl:
-                importedRepositoryRemoteWorkflow?.sourceRepositoryUrl,
+                importedRepositoryRemoteWorkflow?.sourceRepositoryUrl ??
+                (isImportedApp
+                  ? appRequest.repositoryImport?.sourceRepositoryUrl ?? appRequest.repositoryUrl
+                  : undefined),
               localFolderMode: isImportedApp
                 ? undefined
                 : "new-or-existing",
@@ -1296,8 +1299,8 @@ export default async function DownloadPage({
             <p>
               Keep the app connected to its original GitHub home and let Codex
               add the CU Launch-managed repository as a separate publishing
-              destination. Create the local Codex project described above,
-              then copy the complete prompt under Your Code Repository into a
+              destination. Open the local Codex project you already use for
+              this app, then copy the complete prompt under Your Code Repository into a
               task inside that project.
             </p>
             <p>

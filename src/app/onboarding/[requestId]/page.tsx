@@ -407,6 +407,7 @@ export default async function AppOnboardingPage({
     app.repositoryUrl ? (
     repositoryAccessStatus === "GRANTED" ? (
       <ImportServicesHandoff repositoryUrl={app.repositoryUrl} appName={app.appName}
+        sourceRepositoryUrl={app.repositoryImport?.sourceRepositoryUrl ?? app.repositoryUrl}
         requestId={app.id} defaultBranch={app.repositoryDefaultBranch}
         features={importFeatures} gitAuthor={currentActor} />
     ) : (

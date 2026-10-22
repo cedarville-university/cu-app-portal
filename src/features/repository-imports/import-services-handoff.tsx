@@ -5,9 +5,10 @@ import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-hando
 import type { ImportedAppFeatures } from "./features";
 
 export function ImportServicesHandoff({
-  repositoryUrl, appName, requestId, defaultBranch, features, gitAuthor,
+  repositoryUrl, sourceRepositoryUrl, appName, requestId, defaultBranch, features, gitAuthor,
 }: {
   repositoryUrl: string;
+  sourceRepositoryUrl: string;
   appName: string;
   requestId: string;
   defaultBranch: string | null;
@@ -15,7 +16,7 @@ export function ImportServicesHandoff({
   gitAuthor: { githubUsername?: string | null; email?: string | null };
 }) {
   const prompt = buildCodexHandoffPrompt(repositoryUrl, appName, requestId, {
-    defaultBranch, localFolderMode: "new-or-existing", importFeatures: features, gitAuthor,
+    defaultBranch, sourceRepositoryUrl, importFeatures: features, gitAuthor,
   });
   return (
     <section className="info-box" aria-label="Codex handoff">
@@ -31,19 +32,19 @@ export function ImportServicesHandoff({
         resources; it does not add database tables or protect your app code.
       </p> : null}
       <ol>
-        <li>Create or open a local Codex project for the managed copy of this app.</li>
+        <li>Open the local Codex project you already use for this app.</li>
         <li>Copy the handoff below and paste it into a task inside that project.</li>
         <li>After Codex verifies and uploads your changes, return here to continue setup.</li>
       </ol>
       <CopyCodexHandoffButton prompt={prompt} />
       <p>
-        Use the managed Cedarville checkout for this task. If you have an
-        existing checkout of the original source, keep it and use a new empty
-        folder for the managed copy.
+        Keep working in your existing app folder. Codex will preserve your
+        current remotes and add a separate portal remote for the CU Launch
+        publishing copy. Your files and Git history stay in the same project.
       </p>
       <details>
         <summary>Help setting up your Codex project</summary>
-        <CodexPreparationChecklist appName={appName} folderKind="new-or-existing" />
+        <CodexPreparationChecklist appName={appName} folderKind="existing" />
       </details>
       <details>
         <summary>Preview the Codex handoff</summary>
