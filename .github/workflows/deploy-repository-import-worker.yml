@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - ".github/workflows/deploy-repository-import-worker.yml"
+      - ".github/workflows/worker-smtp.test.ts"
+      - "scripts/workers/**"
       - "infra/repository-import-worker/**"
       - "prisma/**"
       - "scripts/repository-imports/**"
@@ -20,6 +22,7 @@ on:
 
 env:
   AZURE_RESOURCE_GROUP: rg-cu-app-portal
+  AZURE_WEBAPP_NAME: cu-app-portal
   IMAGE_REPOSITORY: repository-import-worker
 
 jobs:
@@ -100,16 +103,9 @@ jobs:
 
       - name: Deploy job by digest
         run: |
-          az containerapp job update \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name "$JOB_NAME" \
-            --image "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY@${DIGEST}" \
-            --set-env-vars "APP_COMMIT_SHA=${{ github.sha }}" "CONTAINER_IMAGE_DIGEST=${DIGEST}"
-
-      - name: Wait for the job update
-        run: |
-          JOB_ID="$(az containerapp job show --resource-group "$AZURE_RESOURCE_GROUP" --name "$JOB_NAME" --query id --output tsv)"
-          az resource wait --updated --ids "$JOB_ID" --interval 10 --timeout 600
+          node scripts/workers/deploy-with-portal-smtp.mjs \
+            "$AZURE_RESOURCE_GROUP" "$AZURE_WEBAPP_NAME" "$ACR_LOGIN_SERVER/$IMAGE_REPOSITORY@${DIGEST}" \
+            "${{ github.sha }}" "$JOB_NAME"
 
       - name: Record deployed digest
         run: |

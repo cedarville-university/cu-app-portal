@@ -26,6 +26,7 @@ param workerEnvironment = {
   AZURE_PUBLISH_ENTRA_ISSUER: 'https://login.microsoftonline.com/<tenant-id>/v2.0'
   AZURE_PUBLISH_ENTRA_APP_OBJECT_ID: '<shared-app-registration-object-id>'
   PORTAL_APP_URL: 'https://launch.cedarville.edu'
+  // Bootstrap values; worker CI deployments copy all SMTP_* settings from the portal.
   SMTP_HOST: '<smtp-host>'
   SMTP_PORT: '587'
   SMTP_TLS_MODE: 'starttls'

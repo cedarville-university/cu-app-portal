@@ -10,6 +10,7 @@ param githubAllowedOrgs = 'cedarville-it'
 param githubDefaultOrg = 'cedarville-it'
 param githubInstallationsJson = '{"cedarville-it":"00000000"}'
 param portalAppUrl = 'https://launch.cedarville.edu'
+// Bootstrap values; worker CI deployments copy all SMTP_* settings from the portal.
 param smtpHost = 'smtp.example.edu'
 param smtpPort = 587
 param smtpUsername = 'cu-launch@example.edu'
