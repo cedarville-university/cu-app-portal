@@ -1159,7 +1159,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
   );
 
   it.each(["NEEDS_REPAIR", "BLOCKED"])(
-    "offers only safe setup repair when publishing setup is %s",
+    "uses neutral first-time setup language when publishing setup is %s",
     async (publishingSetupStatus) => {
       vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
         preparedImportedApp({
@@ -1195,7 +1195,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
         /azure app service put|provider-detail|provider-check-detail|raw-check-token|raw-signature|secret=|token=/i,
       );
       expect(
-        screen.getByRole("button", { name: "Fix publishing setup" }),
+        screen.getByRole("button", { name: "Finish publishing setup" }),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Publish to Azure" }),
@@ -1204,6 +1204,7 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
         screen.queryByRole("button", { name: "Try publishing again" }),
       ).not.toBeInTheDocument();
       expect(workflowButtons()).toHaveLength(1);
+      expect(screen.queryByRole("button", { name: "Fix publishing setup" })).not.toBeInTheDocument();
       expect(
         screen.getByText("github_actions_secrets"),
       ).toBeInTheDocument();

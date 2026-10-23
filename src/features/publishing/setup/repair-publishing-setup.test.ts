@@ -61,6 +61,35 @@ describe("repairPublishingSetupForActor", () => {
     consoleWarn.mockRestore();
   });
 
+  it("finishes first-time imported setup and makes the app eligible to publish", async () => {
+    vi.mocked(dependencies.prisma.appRequest.findFirst).mockResolvedValue({
+      ...repairableRequest,
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      publishStatus: "NOT_STARTED",
+      publishingSetupStatus: "NOT_CHECKED",
+      publishingSetupErrorSummary: null,
+      repositoryImport: { preparationStatus: "COMMITTED" },
+    });
+    const outcome = await repairPublishingSetupForActor({
+      requestId: "request-123", actorUserId: "owner-123", source: "portal-ui",
+    }, dependencies);
+    expect(outcome.status).toBe("READY");
+    expect(dependencies.prisma.appRequest.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        publishingSetupStatus: "NOT_CHECKED",
+        repositoryImport: { is: { preparationStatus: "COMMITTED" } },
+      }),
+      data: expect.objectContaining({ publishingSetupStatus: "REPAIRING" }),
+    }));
+    expect(dependencies.repairPublishingSetup).toHaveBeenCalledWith("request-123", undefined,
+      expect.objectContaining({ statusAlreadyClaimed: true, authorizeProviderMutation: expect.any(Function) }));
+    expect(getPublishEligibility({
+      sourceOfTruth: "IMPORTED_REPOSITORY", repositoryStatus: "READY",
+      preparationStatus: "COMMITTED", publishingSetupStatus: outcome.status,
+      publishStatus: "NOT_STARTED",
+    }, { allowedPublishStatuses: ["NOT_STARTED"] })).toEqual({ eligible: true });
+  });
+
   it.each([
     ["owner-123", false],
     ["collaborator-123", false],

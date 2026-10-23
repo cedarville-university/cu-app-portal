@@ -883,7 +883,7 @@ export default async function AppOnboardingPage({
           currentStage="Prepare"
           title="Prepare your app for publishing"
           explanation="The portal will inspect your app and add Cedarville's Azure publishing files. It will not overwrite publishing files that are already there."
-          next="If there are no conflicts, the portal will finish the publishing setup. If existing files need a decision, it will guide you through a safe GitHub review."
+          next="If there are no conflicts, the portal will finish publishing setup automatically and show Publish to Azure. If existing files need a decision, it will guide you through a safe GitHub review first."
           supportReference={app.supportReference}
           details={repositoryDetails}
         >
@@ -892,7 +892,7 @@ export default async function AppOnboardingPage({
             mode="DIRECT_COMMIT"
             label="Prepare my app for publishing"
             pendingLabel="Preparing my app..."
-            statusText="Checking your app and adding the files needed for Azure publishing."
+            statusText="Preparing your app files and completing publishing setup automatically."
           />
         </OnboardingStepShell>
       </main>
@@ -1137,27 +1137,32 @@ export default async function AppOnboardingPage({
   }
 
   if (state.kind === "PUBLISHING_SETUP_REPAIR_REQUIRED") {
+    const isFirstImportedSetup = app.sourceOfTruth === "IMPORTED_REPOSITORY" &&
+      app.publishStatus === "NOT_STARTED";
+    const setupLabel = isFirstImportedSetup ? "Finish publishing setup" : "Fix publishing setup";
     return (
       <main>
         <OnboardingStepShell
           beforeAction={importHandoff}
           appName={app.appName}
           currentStage="Publish"
-          title="Fix publishing setup before publishing"
-          explanation="One protected connection needs to be refreshed before the app can go online. The portal can safely refresh it without deleting app code, removing online resources, or starting a publish."
-          next="The repair usually takes one or two minutes. If the same message returns, share the support reference with the portal support team."
+          title={isFirstImportedSetup ? "Finish publishing setup" : "Fix publishing setup before publishing"}
+          explanation={isFirstImportedSetup
+            ? "The portal still needs to complete the protected connections for your app's first publish. Completing setup does not change your app code, delete resources, or start a publish."
+            : "One protected connection needs to be refreshed before the app can go online. The portal can safely refresh it without deleting app code, removing online resources, or starting a publish."}
+          next="Setup usually takes one or two minutes. If the same message returns, share the support reference with the portal support team."
           details={publishingTechnicalDetails}
         >
           <div className="wizard-actions">
             <p role="alert">
               Publishing setup needs attention. Your app code and existing
-              online resources are safe. Choose Fix publishing setup to refresh
-              the protected connection.
+              online resources are safe. Choose {setupLabel} to complete
+              the protected connections.
             </p>
             {setupActionEligibility.eligible ? (
               <PublishingSetupForm
                 requestId={app.id}
-                label="Fix publishing setup"
+                label={setupLabel}
               />
             ) : (
               <Link className="btn btn--primary-solid" href="/apps">

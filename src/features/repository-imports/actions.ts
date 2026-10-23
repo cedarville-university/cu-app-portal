@@ -14,7 +14,7 @@ import {
   buildManagedAppPortalSkill,
 } from "@/features/generation/portal-skill";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
-import { preflightPublishingSetup } from "@/features/publishing/setup/service";
+import { repairPublishingSetupForActor } from "@/features/publishing/setup/repair-publishing-setup";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
@@ -296,24 +296,19 @@ function summarizePreparationError(error: unknown) {
   return summarizeError(error);
 }
 
-function summarizePublishingSetupPreflightError(error: unknown) {
-  return error instanceof Error && error.message
-    ? error.message
-    : "Publishing setup preflight failed.";
-}
-
-async function runPublishingSetupPreflightBestEffort(requestId: string) {
+async function completePublishingSetupBestEffort(requestId: string, actorUserId: string) {
   try {
-    await preflightPublishingSetup(requestId);
-  } catch (error) {
-    await prisma.appRequest.update({
-      where: { id: requestId },
-      data: {
-        publishingSetupStatus: "NEEDS_REPAIR",
-        publishingSetupErrorSummary:
-          summarizePublishingSetupPreflightError(error),
-      },
+    // This service creates missing resources before checking readiness, with
+    // an atomic claim and fresh actor authorization for provider mutations.
+    await repairPublishingSetupForActor({
+      requestId,
+      actorUserId,
+      source: "portal-ui",
     });
+  } catch {
+    // Setup owns its failure state. A concurrent claim or lost authorization
+    // must not overwrite it or turn successful repository prep into a failure.
+    console.error("Automatic publishing setup could not be started.", { requestId });
   }
 }
 
@@ -1036,7 +1031,7 @@ export async function prepareExistingAppAction(
     );
 
     if (result.status === "COMMITTED") {
-      await runPublishingSetupPreflightBestEffort(requestId);
+      await completePublishingSetupBestEffort(requestId, userId);
       await safeNotifyAppEvent({
         appRequestId: requestId,
         eventKey: "REPOSITORY_READY",
@@ -1209,7 +1204,7 @@ export async function verifyExistingAppPreparationAction(
     targetRepository: `${appRequest.repositoryOwner}/${appRequest.repositoryName}`,
   });
 
-  await runPublishingSetupPreflightBestEffort(requestId);
+  await completePublishingSetupBestEffort(requestId, userId);
   await safeNotifyAppEvent({
     appRequestId: requestId,
     eventKey: "REPOSITORY_READY",

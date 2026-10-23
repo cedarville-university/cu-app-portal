@@ -4,7 +4,7 @@ import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
-import { preflightPublishingSetup } from "@/features/publishing/setup/service";
+import { repairPublishingSetupForActor } from "@/features/publishing/setup/repair-publishing-setup";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import {
@@ -141,8 +141,8 @@ vi.mock("@/features/repositories/github-app", () => ({
   })),
 }));
 
-vi.mock("@/features/publishing/setup/service", () => ({
-  preflightPublishingSetup: vi.fn(),
+vi.mock("@/features/publishing/setup/repair-publishing-setup", () => ({
+  repairPublishingSetupForActor: vi.fn(),
 }));
 
 function createJsonResponse(body: unknown, init?: ResponseInit) {
@@ -256,8 +256,8 @@ describe("repository import actions", () => {
     vi.mocked(createImportAttempt).mockResolvedValue({
       attemptId: "attempt-retry",
     });
-    vi.mocked(preflightPublishingSetup).mockReset();
-    vi.mocked(preflightPublishingSetup).mockResolvedValue([]);
+    vi.mocked(repairPublishingSetupForActor).mockReset();
+    vi.mocked(repairPublishingSetupForActor).mockResolvedValue({ status: "READY" });
   });
 
   it("creates an imported app request for a shared-org repo", async () => {
@@ -1582,7 +1582,11 @@ describe("repository import actions", () => {
         preparationErrorSummary: null,
       }),
     });
-    expect(preflightPublishingSetup).toHaveBeenCalledWith("req_123");
+    expect(repairPublishingSetupForActor).toHaveBeenCalledWith({
+      requestId: "req_123",
+      actorUserId: "user-123",
+      source: "portal-ui",
+    });
     expect(safeNotifyAppEvent).toHaveBeenCalledWith({
       appRequestId: "req_123",
       eventKey: "REPOSITORY_READY",
@@ -1648,7 +1652,7 @@ describe("repository import actions", () => {
     expect(prepareImportedRepository).toHaveBeenCalled();
   });
 
-  it("persists detected FastAPI config before direct-commit preflight", async () => {
+  it("persists detected FastAPI config before automatic publishing setup", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_fastapi_prepare",
@@ -1705,14 +1709,16 @@ describe("repository import actions", () => {
     expect(
       vi.mocked(prisma.appRequest.update).mock.invocationCallOrder[0],
     ).toBeLessThan(
-      vi.mocked(preflightPublishingSetup).mock.invocationCallOrder[0],
+      vi.mocked(repairPublishingSetupForActor).mock.invocationCallOrder[0],
     );
-    expect(preflightPublishingSetup).toHaveBeenCalledWith(
-      "req_fastapi_prepare",
-    );
+    expect(repairPublishingSetupForActor).toHaveBeenCalledWith({
+      requestId: "req_fastapi_prepare",
+      actorUserId: "user-123",
+      source: "portal-ui",
+    });
   });
 
-  it("persists detected http.server config before direct-commit preflight", async () => {
+  it("persists detected http.server config before automatic publishing setup", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_http_prepare",
@@ -1769,9 +1775,13 @@ describe("repository import actions", () => {
     expect(
       vi.mocked(prisma.appRequest.update).mock.invocationCallOrder[0],
     ).toBeLessThan(
-      vi.mocked(preflightPublishingSetup).mock.invocationCallOrder[0],
+      vi.mocked(repairPublishingSetupForActor).mock.invocationCallOrder[0],
     );
-    expect(preflightPublishingSetup).toHaveBeenCalledWith("req_http_prepare");
+    expect(repairPublishingSetupForActor).toHaveBeenCalledWith({
+      requestId: "req_http_prepare",
+      actorUserId: "user-123",
+      source: "portal-ui",
+    });
   });
 
   it("retries a failed imported app preparation", async () => {
@@ -1843,7 +1853,7 @@ describe("repository import actions", () => {
         preparationErrorSummary: null,
       }),
     });
-    expect(preflightPublishingSetup).not.toHaveBeenCalled();
+    expect(repairPublishingSetupForActor).not.toHaveBeenCalled();
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { id: "user-123" },
       select: { githubUsername: true },
@@ -2032,7 +2042,7 @@ describe("repository import actions", () => {
     });
   });
 
-  it("marks publishing setup as needing repair when committed preparation preflight fails", async () => {
+  it("keeps committed preparation intact when automatic setup cannot be started", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_preflight_failed",
@@ -2054,7 +2064,7 @@ describe("repository import actions", () => {
       databaseProvider: "postgresql",
       entraLogin: true,
     });
-    vi.mocked(preflightPublishingSetup).mockRejectedValue(
+    vi.mocked(repairPublishingSetupForActor).mockRejectedValue(
       new Error("Azure app settings are missing."),
     );
 
@@ -2072,14 +2082,17 @@ describe("repository import actions", () => {
       }),
     ).resolves.toBeUndefined();
 
-    expect(preflightPublishingSetup).toHaveBeenCalledWith("req_preflight_failed");
-    expect(prisma.appRequest.update).toHaveBeenCalledWith({
-      where: { id: "req_preflight_failed" },
-      data: {
-        publishingSetupStatus: "NEEDS_REPAIR",
-        publishingSetupErrorSummary: "Azure app settings are missing.",
-      },
+    expect(repairPublishingSetupForActor).toHaveBeenCalledWith({
+      requestId: "req_preflight_failed",
+      actorUserId: "user-123",
+      source: "portal-ui",
     });
+    expect(prisma.appRequest.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ publishingSetupStatus: "NEEDS_REPAIR" }),
+    }));
+    expect(prisma.repositoryImport.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ preparationStatus: "FAILED" }),
+    }));
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req_preflight_failed");
     expect(
@@ -2509,7 +2522,11 @@ describe("repository import actions", () => {
         targetRepository: "cedarville-it/campus-dashboard",
       },
     );
-    expect(preflightPublishingSetup).toHaveBeenCalledWith("req_verify");
+    expect(repairPublishingSetupForActor).toHaveBeenCalledWith({
+      requestId: "req_verify",
+      actorUserId: "user-123",
+      source: "portal-ui",
+    });
     expect(safeNotifyAppEvent).toHaveBeenCalledWith({
       appRequestId: "req_verify",
       eventKey: "REPOSITORY_READY",
@@ -2573,7 +2590,7 @@ describe("repository import actions", () => {
     });
   });
 
-  it("persists verified FastAPI config before PR-verification preflight", async () => {
+  it("persists verified FastAPI config before automatic publishing setup after review", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_verify_fastapi",
@@ -2624,14 +2641,16 @@ describe("repository import actions", () => {
     expect(
       vi.mocked(prisma.appRequest.update).mock.invocationCallOrder[0],
     ).toBeLessThan(
-      vi.mocked(preflightPublishingSetup).mock.invocationCallOrder[0],
+      vi.mocked(repairPublishingSetupForActor).mock.invocationCallOrder[0],
     );
-    expect(preflightPublishingSetup).toHaveBeenCalledWith(
-      "req_verify_fastapi",
-    );
+    expect(repairPublishingSetupForActor).toHaveBeenCalledWith({
+      requestId: "req_verify_fastapi",
+      actorUserId: "user-123",
+      source: "portal-ui",
+    });
   });
 
-  it("persists verified http.server config before PR-verification preflight", async () => {
+  it("persists verified http.server config before automatic publishing setup after review", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_verify_http",
@@ -2682,12 +2701,16 @@ describe("repository import actions", () => {
     expect(
       vi.mocked(prisma.appRequest.update).mock.invocationCallOrder[0],
     ).toBeLessThan(
-      vi.mocked(preflightPublishingSetup).mock.invocationCallOrder[0],
+      vi.mocked(repairPublishingSetupForActor).mock.invocationCallOrder[0],
     );
-    expect(preflightPublishingSetup).toHaveBeenCalledWith("req_verify_http");
+    expect(repairPublishingSetupForActor).toHaveBeenCalledWith({
+      requestId: "req_verify_http",
+      actorUserId: "user-123",
+      source: "portal-ui",
+    });
   });
 
-  it("marks publishing setup as needing repair when verification preflight fails", async () => {
+  it("keeps verified preparation intact when automatic setup cannot be started", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
       id: "req_verify_preflight_failed",
@@ -2700,7 +2723,7 @@ describe("repository import actions", () => {
         preparationStatus: "PULL_REQUEST_OPENED",
       },
     } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
-    vi.mocked(preflightPublishingSetup).mockRejectedValue(
+    vi.mocked(repairPublishingSetupForActor).mockRejectedValue(
       new Error("Workflow dispatch is not configured."),
     );
     const github = {
@@ -2728,16 +2751,17 @@ describe("repository import actions", () => {
         preparationErrorSummary: null,
       },
     });
-    expect(preflightPublishingSetup).toHaveBeenCalledWith(
-      "req_verify_preflight_failed",
-    );
-    expect(prisma.appRequest.update).toHaveBeenCalledWith({
-      where: { id: "req_verify_preflight_failed" },
-      data: {
-        publishingSetupStatus: "NEEDS_REPAIR",
-        publishingSetupErrorSummary: "Workflow dispatch is not configured.",
-      },
+    expect(repairPublishingSetupForActor).toHaveBeenCalledWith({
+      requestId: "req_verify_preflight_failed",
+      actorUserId: "user-123",
+      source: "portal-ui",
     });
+    expect(prisma.appRequest.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ publishingSetupStatus: "NEEDS_REPAIR" }),
+    }));
+    expect(prisma.repositoryImport.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ preparationStatus: "FAILED" }),
+    }));
     expect(revalidatePath).toHaveBeenCalledWith("/apps");
     expect(revalidatePath).toHaveBeenCalledWith(
       "/download/req_verify_preflight_failed",
