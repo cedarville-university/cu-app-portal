@@ -211,6 +211,18 @@ Deleted vaults soft-delete for 90 days; the portal never purges them.
 
 Set `PORTAL_APP_URL` to the public portal origin used in email links. Configure SMTP with `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS_MODE`, `SMTP_FROM`, and optional username, password, and reply-to values.
 
+The worker deployment workflows copy every `SMTP_*` setting from the main `cu-app-portal` App Service in `rg-cu-app-portal` into the repository-import, publishing, and publishing-recovery jobs. This includes `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS_MODE`, `SMTP_FROM`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_REPLY_TO`, and future settings with that prefix. After changing App Service settings, run both **Deploy Repository Import Worker** and **Deploy Publishing Worker** workflows (or let their next automatic deployments run). Existing executions retain their previous environment. `PORTAL_APP_URL` is configured independently.
+
+All copied values are stored as Container Apps Job secrets and referenced by the container environment. The helper submits a temporary JSON/YAML file with mode `0600` in a private directory, then deletes it on success or failure. Values are kept out of command arguments, workflow outputs, and logs. Missing or empty optional settings remove old environment entries, including old SMTP credentials; required host, port, and sender settings must be present. Values must be literal, single-line strings; App Service Key Vault references are rejected rather than copied as unresolved text. Azure errors during updates are summarized without including their potentially sensitive response bodies.
+
+The GitHub Actions Azure identity must be able to read the portal's app settings (`Microsoft.Web/sites/config/list/action`, scoped to that App Service). Azure returns the full settings collection for this operation; the deployment helper selects only `SMTP_*` settings and does not print them. From an authenticated Azure CLI session with role-definition and role-assignment write permissions, grant and verify a custom role containing only this action:
+
+```bash
+node scripts/workers/grant-portal-smtp-read.mjs <CI-service-principal-object-id>
+```
+
+Use the service principal object ID for the GitHub Actions identity referenced by `AZURE_CLIENT_ID`, rather than the client ID itself. The script defaults to `rg-cu-app-portal` and `cu-app-portal`; optional second and third arguments override the resource group and App Service. Re-running the script verifies an existing matching assignment without creating duplicates. The role is assignable within the portal resource group, and the assignment is scoped to the portal App Service only. It permits reading all App Service settings because Azure cannot restrict this API to individual setting names. Worker identities receive no new permissions.
+
 Collaboration invites validate coworkers against Entra before sending. Configure `ENTRA_DIRECTORY_TENANT_ID`, `ENTRA_DIRECTORY_CLIENT_ID`, `ENTRA_DIRECTORY_CLIENT_SECRET`, and `ENTRA_ALLOWED_EMAIL_DOMAIN=cedarville.edu`. The directory app registration needs Microsoft Graph permission to read users and alias evidence; the expected app-only permission is `User.Read.All` unless Cedarville validates a narrower delegated or app-only permission path.
 
 Invite acceptance grants portal app access only. Users request GitHub repository access separately from the app details page.

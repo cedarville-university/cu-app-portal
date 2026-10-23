@@ -52,8 +52,7 @@ describe("repository import worker deployment workflow", () => {
     expect(source).toContain("${{ github.sha }}");
     expect(source).toContain("az acr repository show");
     expect(source).toContain("@${DIGEST}");
-    expect(source).toContain("az containerapp job update");
-    expect(source).toContain("az resource wait");
+    expect(source).toContain("node scripts/workers/deploy-with-portal-smtp.mjs");
     expect(source).not.toMatch(/:latest\b|IMAGE_(REF|TAG)[^\n]*latest/i);
   });
 

@@ -21,3 +21,9 @@ az deployment group what-if \
 ```
 
 The real `main.bicepparam` is administrator-owned and ignored. Deploy only after reviewing the what-if output and confirming it contains only the documented worker resources and scoped role assignments.
+
+Each **Deploy Repository Import Worker** workflow run copies all `SMTP_*` settings from the main `cu-app-portal` App Service in `rg-cu-app-portal` into the job with the image update. All values, including credentials, become job secrets referenced by environment variables. Absent or empty optional settings clear stale environment entries. Changes take effect on the next worker deployment, for new executions. Required settings must be present; multiline values and unresolved Key Vault references fail deployment.
+
+The CI identity also needs `Microsoft.Web/sites/config/list/action` on the portal App Service; the resource-group Reader role above does not grant that action. Run `node scripts/workers/grant-portal-smtp-read.mjs <CI-service-principal-object-id>` from an authenticated Azure CLI session with role-management permissions. Worker identities need no additional permission. See [notification setup](../../docs/portal/setup.md#notifications-and-collaboration-invites) for permission scope and credential handling.
+
+SMTP fields in the Bicep parameters and the initial Key Vault password remain bootstrap values. A direct Bicep redeployment can replace synchronized configuration, so run the worker workflow again afterward. `PORTAL_APP_URL` remains independently configured.
