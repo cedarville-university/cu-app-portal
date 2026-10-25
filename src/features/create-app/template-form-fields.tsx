@@ -1,5 +1,6 @@
 import React from "react";
 import type { PortalTemplate } from "@/features/templates/types";
+import { AppNameField } from "./app-name-field";
 import { AudienceField } from "./audience-field";
 
 function renderDatabaseField(template: PortalTemplate) {
@@ -56,20 +57,7 @@ export function TemplateFormFields({ template }: { template: PortalTemplate }) {
       {template.fields.map((field) => {
         switch (field.type) {
           case "text":
-            return (
-              <div key={field.name} className="form-group">
-                <label className="form-label" htmlFor={field.name}>
-                  {field.label}
-                </label>
-                <input
-                  id={field.name}
-                  name={field.name}
-                  type="text"
-                  required={field.required}
-                  className="form-control"
-                />
-              </div>
-            );
+            return <AppNameField key={field.name} />;
           case "textarea":
             return (
               <div key={field.name} className="form-group">

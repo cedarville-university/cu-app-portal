@@ -1,5 +1,6 @@
 "use server";
 
+import { PortalApiError } from "@/features/portal-api/errors";
 import { redirect } from "next/navigation";
 import type { CreateAppRequestInput } from "@/features/app-requests/types";
 import { createGeneratedApp } from "@/features/app-requests/create-generated-app";
@@ -47,11 +48,19 @@ export async function extractCreateAppInput(
 export async function createAppAction(formData: FormData) {
   const input = await extractCreateAppInput(formData);
   const actorUserId = await resolveCurrentUserId();
-  const result = await createGeneratedApp({
-    actorUserId,
-    input,
-    source: "portal-ui",
-  });
+  let result;
+  try {
+    result = await createGeneratedApp({
+      actorUserId,
+      input,
+      source: "portal-ui",
+    });
+  } catch (error) {
+    if (error instanceof PortalApiError && error.code === "CONFLICT") {
+      return { error: error.message };
+    }
+    throw error;
+  }
 
   redirect(`/onboarding/${result.requestId}`);
 }

@@ -2,6 +2,7 @@ import React from "react";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 
 type SubmitButtonProps = {
+  pending?: boolean;
   idleLabel?: string;
   pendingLabel?: string;
   statusText?: string;
@@ -11,6 +12,7 @@ type SubmitButtonProps = {
 };
 
 export function SubmitButton({
+  pending,
   idleLabel = "Launch App",
   pendingLabel = "Launching Your App...",
   statusText = "Launching your app and its private code repository.",
@@ -20,6 +22,7 @@ export function SubmitButton({
 }: SubmitButtonProps) {
   return (
     <PendingSubmitButton
+      pending={pending}
       idleLabel={idleLabel}
       pendingLabel={pendingLabel}
       statusText={statusText}

@@ -217,6 +217,26 @@ test.describe("novice onboarding", () => {
     await expect(page.getByRole("button", { name: /try import again/i })).toHaveCount(0);
   });
 
+  test("new apps reject existing names after typing or blur and allow correction", async ({ page }) => {
+    await page.goto("/create/public-information-page");
+    const name = page.getByLabel("App Name");
+    const feedback = page.locator("form").getByRole("alert");
+    await page.getByLabel("Short Description").fill("Preserve this description");
+    await name.fill("  e2e published starter  ");
+    await expect(feedback).toContainText("That app name is already in use. Please try another name.");
+    await expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(await name.evaluate((element: HTMLInputElement) => element.checkValidity())).toBe(false);
+
+    await name.fill("E2E Starter Awaiting Publish");
+    await name.blur();
+    await expect(feedback).toContainText("already in use");
+
+    await name.fill("E2E%");
+    await expect.poll(() => name.evaluate((element: HTMLInputElement) => element.checkValidity())).toBe(true);
+    await expect(feedback).toHaveCount(0);
+    await expect(page.getByLabel("Short Description")).toHaveValue("Preserve this description");
+  });
+
   test("submits a generated create form and hands the saved request to the wizard", async ({
     page,
   }) => {
@@ -229,6 +249,8 @@ test.describe("novice onboarding", () => {
     await page
       .getByLabel(/I understand that anyone who knows or discovers/i)
       .check();
+    await expect.poll(() => page.getByLabel("App Name").evaluate((element: HTMLInputElement) => element.checkValidity())).toBe(true);
+    await page.getByLabel("App Name").focus();
     await page.getByRole("button", { name: "Launch App" }).click();
 
     await expect(page).toHaveURL(/\/onboarding\/[^/?#]+$/);

@@ -14,6 +14,7 @@ export function PendingSubmitButton({
   value,
   title,
   ariaLabel,
+  pending: externalPending = false,
 }: {
   idleLabel: string;
   pendingLabel: string;
@@ -30,8 +31,10 @@ export function PendingSubmitButton({
   value?: string;
   title?: string;
   ariaLabel?: string;
+  pending?: boolean;
 }) {
-  const { pending } = useFormStatus();
+  const formStatus = useFormStatus();
+  const pending = externalPending || formStatus.pending;
   const sizeClass = size ? ` btn--${size}` : "";
   const isLaunchAction = /^launch/i.test(idleLabel);
 

@@ -1,7 +1,8 @@
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PortalTemplate } from "@/features/templates/types";
+import { createAppAction } from "@/app/create/actions";
 import { TemplateForm } from "./template-form";
 
 const mockUseFormStatus = vi.hoisted(() => vi.fn());
@@ -76,6 +77,25 @@ describe("TemplateForm", () => {
     cleanup();
   });
 
+  it("preserves entered fields and shows recoverable submission conflicts", async () => {
+    vi.mocked(createAppAction).mockResolvedValue({ error: "That app name is already in use. Please try another name." });
+    const { container } = render(<TemplateForm template={buildTemplate({ fields: [
+      ...template.fields,
+      { name: "description", label: "Short Description", type: "textarea", required: true },
+    ] })} />);
+    fireEvent.change(screen.getByLabelText("App Name"), { target: { value: "Campus Hub" } });
+    fireEvent.change(screen.getByLabelText("Short Description"), { target: { value: "Keep my description" } });
+    fireEvent.click(screen.getByLabelText("Cedarville sign-in required"));
+    await act(async () => { fireEvent.submit(container.querySelector("form")!); });
+    expect(screen.getByRole("alert")).toHaveTextContent(/already in use/i);
+    expect(screen.getByLabelText("App Name")).toHaveValue("Campus Hub");
+    expect(screen.getByLabelText("Short Description")).toHaveValue("Keep my description");
+    expect(screen.getByLabelText("Cedarville sign-in required")).toBeChecked();
+    expect(screen.getByLabelText("App Name")).toHaveFocus();
+    fireEvent.change(screen.getByLabelText("App Name"), { target: { value: "Another name" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("disables submit and shows progress text while generation is pending", () => {
     mockUseFormStatus.mockReturnValue({ pending: true });
 
@@ -134,3 +154,5 @@ describe("TemplateForm", () => {
     expect(formData.get("entraLogin")).toBe("false");
   });
 });
+
+vi.mock("@/app/create/name-availability-action", () => ({ checkAppNameAvailability: vi.fn().mockResolvedValue(true) }));
