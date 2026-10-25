@@ -18,6 +18,8 @@ vi.mock("@/features/app-requests/create-generated-app", () => ({
   createGeneratedApp: mocks.createGeneratedApp,
 }));
 
+import { PortalApiError } from "@/features/portal-api/errors";
+
 import { createAppAction } from "./actions";
 
 function generatedForm() {
@@ -43,6 +45,12 @@ describe("createAppAction generated onboarding handoff", () => {
       repositoryStatus: "READY",
       repositoryUrl: "https://github.com/cedarville-it/campus-dashboard-request-123",
     });
+  });
+
+  it("returns recoverable name feedback instead of redirecting on conflict", async () => {
+    mocks.createGeneratedApp.mockRejectedValue(new PortalApiError("CONFLICT", "That app name is already in use. Please try another name."));
+    await expect(createAppAction(generatedForm())).resolves.toEqual({ error: "That app name is already in use. Please try another name." });
+    expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
   it("passes the authenticated portal actor and validated input to the shared service", async () => {

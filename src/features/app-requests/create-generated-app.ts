@@ -1,3 +1,9 @@
+import {
+  APP_NAME_CONFLICT_MESSAGE,
+  isAppNameAvailable,
+  isAppNameUniqueViolation,
+} from "./app-name";
+import { PortalApiError } from "@/features/portal-api/errors";
 import type { CreateAppRequestInput } from "./types";
 import { buildSourceSnapshot } from "@/features/generation/build-source-snapshot";
 import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
@@ -65,6 +71,11 @@ export async function createGeneratedApp(
     throw new Error("Template not found.");
   }
 
+  const appName = request.input.appName.trim();
+  if (!(await isAppNameAvailable(appName, dependencies.prisma))) {
+    throw new PortalApiError("CONFLICT", APP_NAME_CONFLICT_MESSAGE);
+  }
+
   const persistedTemplate = await dependencies.prisma.template.upsert({
     where: { slug: template.slug },
     update: dependencies.serializeTemplateForStorage(template),
@@ -76,8 +87,9 @@ export async function createGeneratedApp(
       userId: request.actorUserId,
       templateId: persistedTemplate.id,
       templateVersion: template.version,
-      appName: request.input.appName,
-      submittedConfig: request.input,
+      appName,
+      appNameKey: appName.toLowerCase(),
+      submittedConfig: { ...request.input, appName },
       generationStatus: "PENDING",
       supportReference,
       deploymentTarget: request.input.hostingTarget,
@@ -85,6 +97,11 @@ export async function createGeneratedApp(
       repositoryStatus: "PENDING",
       publishStatus: "NOT_STARTED",
     },
+  }).catch((error: unknown) => {
+    if (isAppNameUniqueViolation(error)) {
+      throw new PortalApiError("CONFLICT", APP_NAME_CONFLICT_MESSAGE);
+    }
+    throw error;
   });
   const auditContext = {
     actorUserId: request.actorUserId,

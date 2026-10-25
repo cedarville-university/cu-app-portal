@@ -47,6 +47,8 @@ model AppRequest {
   templateId       String
   templateVersion  String
   appName          String
+  // Only new template apps claim a key; legacy names remain unchanged.
+  appNameKey       String?            @unique
   submittedConfig  Json
   generationStatus GenerationStatus
   supportReference String

@@ -1,6 +1,6 @@
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { getTemplateBySlug } from "@/features/templates/catalog";
 import type { PortalTemplate } from "@/features/templates/types";
 import { TemplateFormFields } from "./template-form-fields";
@@ -232,3 +232,5 @@ describe("TemplateFormFields", () => {
     ).toThrow(/unsupported template field type/i);
   });
 });
+
+vi.mock("@/app/create/name-availability-action", () => ({ checkAppNameAvailability: vi.fn().mockResolvedValue(true) }));

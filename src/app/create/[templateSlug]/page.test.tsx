@@ -115,3 +115,5 @@ describe("TemplatePage", () => {
     ).rejects.toThrow("notFound");
   });
 });
+
+vi.mock("@/app/create/name-availability-action", () => ({ checkAppNameAvailability: vi.fn().mockResolvedValue(true) }));

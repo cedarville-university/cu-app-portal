@@ -30,6 +30,7 @@ function createDependencies(): CreateGeneratedAppDependencies {
     prisma: {
       template: { upsert: vi.fn().mockResolvedValue({ id: "template-1" }) },
       appRequest: {
+        findFirst: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockResolvedValue({ id: "request-1" }),
         update: vi.fn().mockResolvedValue({}),
       },
@@ -61,6 +62,31 @@ describe("createGeneratedApp", () => {
 
   afterEach(() => {
     consoleError.mockRestore();
+  });
+
+  it("rejects a name already used by any app before generating sources", async () => {
+    vi.mocked(dependencies.prisma.appRequest.findFirst).mockResolvedValue({ id: "other-app" } as never);
+    await expect(createGeneratedApp({ actorUserId: "user-1", input: { ...validInput, appName: " campus dashboard " }, source: "portal-ui" }, dependencies)).rejects.toMatchObject({ code: "CONFLICT", message: "That app name is already in use. Please try another name." });
+    expect(dependencies.prisma.appRequest.findFirst).toHaveBeenCalledWith({ where: { appName: { equals: "campus dashboard", mode: "insensitive" } }, select: { id: true } });
+    expect(dependencies.prisma.appRequest.create).not.toHaveBeenCalled();
+    expect(dependencies.buildSourceSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("saves a trimmed name and normalized key for new apps", async () => {
+    await createGeneratedApp({ actorUserId: "user-1", input: { ...validInput, appName: " Campus Dashboard " }, source: "portal-ui" }, dependencies);
+    expect(dependencies.prisma.appRequest.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ appName: "Campus Dashboard", appNameKey: "campus dashboard" }) }));
+  });
+
+  it("returns a safe conflict if another request claims the name first", async () => {
+    vi.mocked(dependencies.prisma.appRequest.create).mockRejectedValue({ code: "P2002", meta: { target: ["appNameKey"] } });
+    await expect(createGeneratedApp({ actorUserId: "user-1", input: validInput, source: "portal-ui" }, dependencies)).rejects.toMatchObject({ code: "CONFLICT", message: "That app name is already in use. Please try another name." });
+    expect(dependencies.buildSourceSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("does not disguise unrelated database failures as name conflicts", async () => {
+    const error = { code: "P2002", meta: { target: ["id"] } };
+    vi.mocked(dependencies.prisma.appRequest.create).mockRejectedValue(error);
+    await expect(createGeneratedApp({ actorUserId: "user-1", input: validInput, source: "portal-ui" }, dependencies)).rejects.toBe(error);
   });
 
   it("creates a managed repository for the explicit actor without publishing", async () => {
