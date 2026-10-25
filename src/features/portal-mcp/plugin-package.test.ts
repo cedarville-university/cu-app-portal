@@ -29,7 +29,7 @@ describe("CU Launch workspace plugin package", () => {
         defaultPrompt: "Launch a new Cedarville app from an approved template.",
       },
     });
-    expect(String(plugin.version)).toMatch(/^1\.0\.0\+codex\./);
+    expect(String(plugin.version)).toMatch(/^1\.0\.\d+\+codex\./);
     expect(plugin).not.toHaveProperty("apps");
 
     expect(marketplace).toMatchObject({
@@ -65,6 +65,10 @@ describe("CU Launch workspace plugin package", () => {
       "get_publish_status",
       "repair_publishing_setup",
       "retry_publish",
+      "admin_list_apps",
+      "admin_debug_app",
+      "admin_find_users",
+      "admin_get_app_logs",
     ];
 
     expect(skill).toContain("name: cedarville-app-portal-workspace");

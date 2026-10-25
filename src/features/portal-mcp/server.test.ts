@@ -79,6 +79,10 @@ function fakeServer() {
 
 function dependencies(): PortalMcpDependencies {
   return {
+    adminListApps: vi.fn(async () => ({ apps: [], nextOffset: null })),
+    adminFindUsers: vi.fn(async () => ({ users: [], nextOffset: null })),
+    adminDebugApp: vi.fn() as PortalMcpDependencies["adminDebugApp"],
+    adminGetAppLogs: vi.fn<PortalMcpDependencies["adminGetAppLogs"]>(async () => ({ appId: "app-1", attemptId: null, collectedAt: "2026-10-25T00:00:00Z", sources: [], nextCursor: null })),
     listPortalTemplateSummaries: vi.fn(() => [
       {
         slug: "web-app",
@@ -92,7 +96,7 @@ function dependencies(): PortalMcpDependencies {
         audience: { cedarville: true, public: true },
       },
     ]),
-    listAccessibleAppSummaries: vi.fn(async () => [managedApp]),
+    listOwnedAppSummaries: vi.fn(async () => [managedApp]),
     createGeneratedApp: vi.fn(async () => ({
       requestId: "app-1",
       supportReference: "SUPPORT-1",
@@ -180,7 +184,7 @@ function modernRequest(method: string, params: Record<string, unknown>) {
 }
 
 describe("portal MCP server contract", () => {
-  it("registers exactly the nine approved tools in workflow order", () => {
+  it("registers the thirteen approved tools in workflow order", () => {
     const { tools } = registeredPortalTools();
 
     expect([...tools.keys()]).toEqual([
@@ -193,6 +197,10 @@ describe("portal MCP server contract", () => {
       "get_publish_status",
       "repair_publishing_setup",
       "retry_publish",
+      "admin_list_apps",
+      "admin_debug_app",
+      "admin_find_users",
+      "admin_get_app_logs",
     ]);
     expect(tools.has("delete_app")).toBe(false);
   });
@@ -424,7 +432,7 @@ describe("portal MCP read adapters", () => {
     expect(deps.claimPortalRateLimit).toHaveBeenNthCalledWith(2, "user-1", "read");
     expect(deps.claimPortalRateLimit).toHaveBeenNthCalledWith(3, "user-1", "read");
     expect(deps.listPortalTemplateSummaries).toHaveBeenCalledOnce();
-    expect(deps.listAccessibleAppSummaries).toHaveBeenCalledWith(actor);
+    expect(deps.listOwnedAppSummaries).toHaveBeenCalledWith(actor);
     expect(deps.getAccessibleAppSummary).toHaveBeenCalledWith(actor, "app-1");
     expect(appResult).toMatchObject({ structuredContent: { app: managedApp } });
   });
@@ -673,5 +681,50 @@ describe("portal MCP mutation adapters", () => {
     expect(deps.queuePublishForActor).not.toHaveBeenCalled();
     expect(deps.repairPublishingSetupForActor).not.toHaveBeenCalled();
     expect(deps.retryPublishForActor).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("admin MCP access boundary", () => {
+  const names = ["admin_list_apps", "admin_debug_app", "admin_find_users", "admin_get_app_logs"];
+  it.each(names)("denies non-admin calls to %s through the real MCP handler", async name => {
+    const handler = createPortalMcpHandler(actor);
+    const response = await handler(modernRequest("tools/call", { name, arguments: name.includes("debug") || name.includes("logs") ? { appId: "app-1" } : {} }));
+    const frame = await response.json();
+    expect(frame.result).toMatchObject({ isError: true, structuredContent: { code: "FORBIDDEN" } });
+  });
+  it.each(names)("marks %s as read-only and requires administrator access", name => {
+    const { tools } = registeredPortalTools();
+    expect(tool(tools, name).config.description).toMatch(/admin/i);
+    expect(tool(tools, name).config.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, openWorldHint: false });
+  });
+});
+
+
+describe("admin MCP successful and invalid calls", () => {
+  const cases = [
+    { name: "admin_list_apps", input: {}, key: "apps" },
+    { name: "admin_find_users", input: {}, key: "users" },
+    { name: "admin_get_app_logs", input: { appId: "app-1" }, key: "logs" },
+  ];
+  it.each(cases)("serves authorized $name through the real handler", async ({ name, input, key }) => {
+    const deps = dependencies();
+    const handler = createPortalMcpHandler({ ...actor, isAdmin: true }, deps);
+    const response = await handler(modernRequest("tools/call", { name, arguments: input }));
+    const frame = await response.json();
+    expect(frame.result.isError).not.toBe(true); expect(frame.result.structuredContent).toHaveProperty(key);
+    expect(deps.claimPortalRateLimit).toHaveBeenCalledWith(actor.userId, "read");
+  });
+  it.each(cases)("rejects role injection in $name", async ({ name, input }) => {
+    const deps = dependencies();
+    const response = await createPortalMcpHandler({ ...actor, isAdmin: true }, deps)(modernRequest("tools/call", { name, arguments: { ...input, isAdmin: true } }));
+    expect((await response.json()).result.isError).toBe(true);
+    expect(deps.claimPortalRateLimit).not.toHaveBeenCalled();
+  });
+  it("enforces rate limits before admin queries", async () => {
+    const deps = dependencies(); vi.mocked(deps.claimPortalRateLimit).mockRejectedValue(new PortalApiError("RATE_LIMITED", "Wait", 60));
+    const response = await createPortalMcpHandler({ ...actor, isAdmin: true }, deps)(modernRequest("tools/call", { name: "admin_find_users", arguments: {} }));
+    expect((await response.json()).result.structuredContent).toMatchObject({ code: "RATE_LIMITED", retryAfterSeconds: 60 });
+    expect(deps.adminFindUsers).not.toHaveBeenCalled();
   });
 });

@@ -23,7 +23,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { listAccessibleAppSummaries } from "./list-accessible-apps";
+import { listOwnedAppSummaries } from "./list-owned-apps";
 
 const owner: PortalActor = {
   userId: "owner-1",
@@ -68,14 +68,23 @@ beforeEach(() => {
   });
 });
 
-describe("listAccessibleAppSummaries", () => {
+describe("listOwnedAppSummaries", () => {
+  it.each([false, true])("only queries owned apps with admin=%s", async (isAdmin) => {
+    mocks.appRequestFindMany.mockImplementation(async ({ where }) =>
+      where.userId === "owner-1" ? [app("PORTAL_MANAGED_REPO")] :
+        [app("PORTAL_MANAGED_REPO"), { ...app("PORTAL_MANAGED_REPO"), id: "foreign-app" }],
+    );
+    const result = await listOwnedAppSummaries({ ...owner, isAdmin });
+    expect(result.map((item) => item.id)).toEqual(["PORTAL_MANAGED_REPO-1"]);
+    expect(mocks.appRequestFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "owner-1" } }));
+  });
   it("includes owned generated and imported apps but limits imported records to advanced portal management", async () => {
     mocks.appRequestFindMany.mockResolvedValue([
       app("PORTAL_MANAGED_REPO"),
       app("IMPORTED_REPOSITORY"),
     ]);
 
-    await expect(listAccessibleAppSummaries(owner)).resolves.toEqual(
+    await expect(listOwnedAppSummaries(owner)).resolves.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: "PORTAL_MANAGED_REPO-1",
@@ -87,6 +96,6 @@ describe("listAccessibleAppSummaries", () => {
         }),
       ]),
     );
-    expect(mocks.appListWhereForUser).toHaveBeenCalledWith("owner-1");
+    expect(mocks.appRequestFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "owner-1" } }));
   });
 });

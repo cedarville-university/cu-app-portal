@@ -363,6 +363,10 @@ describe("portal MCP route authentication", () => {
       "get_publish_status",
       "repair_publishing_setup",
       "retry_publish",
+      "admin_list_apps",
+      "admin_debug_app",
+      "admin_find_users",
+      "admin_get_app_logs",
     ]);
     expect(
       frame.result.tools.find(({ name }) => name === "get_app")?.inputSchema

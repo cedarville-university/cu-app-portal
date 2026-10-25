@@ -68,6 +68,15 @@ afterEach(() => {
 });
 
 describe("resolvePortalActor", () => {
+  it("refreshes admin roles on every resolution so removal revokes later access", async () => {
+    const { store } = createInMemoryUserStore();
+    let isAdmin = true;
+    const principal = { entraOid: "admin", email: "admin@cedarville.edu", displayName: "Admin" };
+    const deps = { users: store, hasAdminRole: async () => isAdmin };
+    expect((await resolvePortalActor(principal, deps)).isAdmin).toBe(true);
+    isAdmin = false;
+    expect((await resolvePortalActor(principal, deps)).isAdmin).toBe(false);
+  });
   it("upserts by Entra object ID and refreshes cached identity fields", async () => {
     const { store, users } = createInMemoryUserStore();
     const hasAdminRole = async () => false;

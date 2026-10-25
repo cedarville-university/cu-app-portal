@@ -1,3 +1,4 @@
+import { redactDiagnosticText } from "@/features/portal-mcp/admin/redaction";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { PublishingSetupCheckResult } from "./status";
@@ -63,17 +64,7 @@ function normalizeMetadataKey(key: string) {
 }
 
 function redactDiagnosticString(value: string) {
-  return value
-    .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
-    .replace(
-      /\b(secret|token|password|api[_-]?key|client[_-]?secret|sig(?:nature)?|authorization|connection[_-]?string|database[_-]?url)\s*[:=]\s*[^\s,;]+/gi,
-      "$1=[redacted]",
-    )
-    .replace(
-      /([a-z][a-z\d+.-]*:\/\/)[^\s/:@]+:[^\s/@]+@/gi,
-      "$1[redacted]@",
-    )
-    .slice(0, 500);
+  return redactDiagnosticText(value).slice(0, 500);
 }
 
 function sanitizeJsonValue(value: unknown): Prisma.InputJsonValue | undefined {

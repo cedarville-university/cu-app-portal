@@ -1,15 +1,14 @@
-import { appListWhereForUser } from "@/features/app-requests/access";
 import { summarizePortalApp, type PortalAppSummary } from "@/features/app-requests/portal-summary";
 import type { PortalActor } from "@/features/portal-api/principal";
 import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
 import { prisma } from "@/lib/db";
 
-export async function listAccessibleAppSummaries(
+export async function listOwnedAppSummaries(
   actor: PortalActor,
 ): Promise<PortalAppSummary[]> {
   const [apps, actorUser] = await Promise.all([
     prisma.appRequest.findMany({
-      where: actor.isAdmin ? {} : appListWhereForUser(actor.userId),
+      where: { userId: actor.userId },
       orderBy: { createdAt: "desc" },
       include: {
         template: { select: { slug: true, name: true } },

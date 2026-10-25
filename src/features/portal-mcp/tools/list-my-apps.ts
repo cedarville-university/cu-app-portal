@@ -20,7 +20,7 @@ export function registerListMyAppsTool(
     "list_my_apps",
     {
       title: "List My Apps",
-      description: "List concise summaries of apps accessible to the signed-in actor.",
+      description: "List concise summaries of apps owned by the signed-in actor, including administrators.",
       inputSchema: listMyAppsMcpInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -31,10 +31,10 @@ export function registerListMyAppsTool(
     async () => {
       try {
         await context.claimPortalRateLimit(context.actor.userId, "read");
-        const apps = await context.listAccessibleAppSummaries(context.actor);
+        const apps = await context.listOwnedAppSummaries(context.actor);
         return portalToolSuccess(
           { apps },
-          `Found ${apps.length} accessible app${apps.length === 1 ? "" : "s"}.`,
+          `Found ${apps.length} owned app${apps.length === 1 ? "" : "s"}.`,
         );
       } catch (error) {
         return portalToolFailure(error);

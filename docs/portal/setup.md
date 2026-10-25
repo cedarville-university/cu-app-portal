@@ -298,3 +298,13 @@ The app management page supports drafting multiple environment variable changes 
 Saved secrets are never displayed. An empty replacement field keeps the existing secret unchanged. To change an existing variable's name or secret storage type, delete and save it first, then add its replacement.
 
 The server checks app access and validates the entire submitted batch before mutations, preserves portal-managed settings, and updates live Azure app settings once per submission. Secret updates use Key Vault. Saving live settings briefly restarts the app. Draft edits remain available after errors; partial service failures can affect Azure, Key Vault, or database state because these systems do not share a transaction. Retrying a draft tolerates deletions already completed by a prior attempt.
+
+
+### MCP ownership, admin reads, and logs
+
+The MCP `list_my_apps` action returns owned apps only, including for admins. Separate portal ADMIN actions list all apps, inspect recorded diagnostics, find CU Launch users, and retrieve GitHub/Azure logs. These reads do not repair, retry, or deploy. Provider log access and logging availability require live verification; see [workspace plugin operations](codex-workspace-plugin.md) for schemas, limits, permission prerequisites, and rollout steps.
+
+
+### MSAL security dependency override
+
+The portal and both worker runtime manifests scope `@azure/msal-node` to version `7.1.0` under `@azure/identity` to address CVE-2026-109461. Keep all three lockfiles aligned; each Docker image installs its own worker runtime lockfile. This override crosses Azure Identity's declared MSAL range, so retain the offline credential compatibility tests and rebuild, smoke-test, and scan both Linux amd64 worker images before changing or removing it. Do not suppress the existing HIGH/CRITICAL image-scan gate.

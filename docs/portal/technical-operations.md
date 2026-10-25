@@ -216,9 +216,13 @@ delegated MCP resource.
 
 ### Support, audit, and monitoring boundary
 
-The nine MCP tools are `list_app_templates`, `list_my_apps`, `create_app`,
+The thirteen MCP tools are `list_app_templates`, `list_my_apps`, `create_app`,
 `get_app`, `request_github_access`, `publish_app_to_azure`,
-`get_publish_status`, `repair_publishing_setup`, and `retry_publish`. There
+`get_publish_status`, `repair_publishing_setup`, `retry_publish`,
+`admin_list_apps`, `admin_debug_app`, `admin_find_users`, and
+`admin_get_app_logs`. My Apps lists owned apps only. Administrative actions
+require the portal ADMIN role; see the plugin operations runbook for log
+availability, limits, provider read permissions, and rollout checks. There
 is no deletion tool. Creation never publishes; publishing, repair, and retry
 remain separately approved operations.
 
