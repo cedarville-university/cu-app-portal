@@ -43,6 +43,7 @@ function mockUsers() {
       displayName: "Ada Admin",
       email: "ada@cedarville.edu",
       githubUsername: "ada",
+      lastLoginAt: new Date("2026-10-27T14:05:00Z"),
       roles: [{ role: "ADMIN" }],
       _count: { appRequests: 3, appAccess: 1 },
     },
@@ -51,6 +52,7 @@ function mockUsers() {
       displayName: "Norm Normal",
       email: "norm@cedarville.edu",
       githubUsername: null,
+      lastLoginAt: null,
       roles: [],
       _count: { appRequests: 0, appAccess: 2 },
     },
@@ -87,6 +89,12 @@ describe("AdminUsersPage", () => {
       "/admin/users/user-1",
     );
     expect(screen.getByText("ada@cedarville.edu")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Last login (Eastern)" })).toBeInTheDocument();
+    expect(screen.getByText("Oct 27, 2026, 10:05 AM")).toHaveAttribute(
+      "dateTime",
+      "2026-10-27T14:05:00.000Z",
+    );
+    expect(screen.getByText("Never recorded")).toBeInTheDocument();
     expect(screen.getByText("Admin")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Remove Admin" }),

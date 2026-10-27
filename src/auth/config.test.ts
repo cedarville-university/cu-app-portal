@@ -34,6 +34,7 @@ describe("authConfig", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     recordAuditEventMock.mockReset();
     prismaUserUpsertMock.mockReset();
@@ -191,6 +192,8 @@ describe("authConfig", () => {
   });
 
   it("syncs authenticated users into the local database", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-27T14:00:00Z"));
     prismaUserUpsertMock.mockResolvedValueOnce({
       id: "user-123",
       email: "staff@cedarville.edu",
@@ -213,11 +216,13 @@ describe("authConfig", () => {
       update: {
         email: "staff@cedarville.edu",
         displayName: "Portal Staff",
+        lastLoginAt: new Date("2026-10-27T14:00:00Z"),
       },
       create: {
         entraOid: "entra-oid",
         email: "staff@cedarville.edu",
         displayName: "Portal Staff",
+        lastLoginAt: new Date("2026-10-27T14:00:00Z"),
       },
     });
 
@@ -226,6 +231,24 @@ describe("authConfig", () => {
       userId: "user-123",
       email: "staff@cedarville.edu",
     });
+
+    vi.setSystemTime(new Date("2026-10-28T15:00:00Z"));
+    prismaUserUpsertMock.mockResolvedValueOnce({
+      id: "user-123",
+      email: "staff@cedarville.edu",
+    });
+    await config.callbacks?.signIn?.({
+      user,
+      account: { provider: "microsoft-entra-id" },
+      profile: { oid: "entra-oid" },
+    } as never);
+    expect(prismaUserUpsertMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          lastLoginAt: new Date("2026-10-28T15:00:00Z"),
+        }),
+      }),
+    );
   });
 
   it("stores the local user id in the session token", async () => {

@@ -25,6 +25,10 @@ stores such as Azure App Service application settings and GitHub Actions
 secrets. Do not paste real secret values into tracked docs, examples, tests,
 or templates.
 
+### Last-login tracking
+
+Portal Entra sign-in writes `User.lastLoginAt` for both new and returning users. The admin Users page displays it in Eastern time. Migration `20261027140000_add_user_last_login` adds a nullable column; run `npm run prisma:migrate:deploy` before starting the updated portal. Existing rows remain null (**Never recorded**) until the next sign-in. Session reuse, profile edits, and MCP requests do not count as new sign-ins.
+
 ### Optional Codex workspace-plugin MCP API
 
 The portal's MCP API is disabled by default. Keep `PORTAL_MCP_ENABLED=false`

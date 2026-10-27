@@ -39,6 +39,7 @@ export default async function AdminAppDetailPage({
     prisma.appRequest.findUnique({
       where: { id },
       include: {
+        repositoryImport: { select: { sourceRepositoryUrl: true } },
         publishAttempts: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 },
         user: {
           select: { id: true, displayName: true, email: true },
@@ -74,6 +75,8 @@ export default async function AdminAppDetailPage({
   }
 
   const displayPublishUrl = request.publishUrl ?? request.primaryPublishUrl;
+  const isImportedApp = request.sourceOfTruth === "IMPORTED_REPOSITORY";
+  const sourceRepositoryUrl = request.repositoryImport?.sourceRepositoryUrl;
   const collaborators = request.collaborators.map((access) => access.user);
   const canDeleteGitHub =
     request.repositoryStatus !== "DELETED" &&
@@ -115,6 +118,23 @@ export default async function AdminAppDetailPage({
         </div>
 
         <div className="status-table" style={{ marginTop: "1rem" }}>
+          <div className="status-row">
+            <span className="status-row__label">App type</span>
+            <span>{isImportedApp ? "Imported app" : "Generated app"}</span>
+          </div>
+          {isImportedApp && sourceRepositoryUrl ? (
+            <div className="status-row">
+              <span className="status-row__label">Source repository</span>
+              <a
+                href={sourceRepositoryUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="meta-link"
+              >
+                {sourceRepositoryUrl}
+              </a>
+            </div>
+          ) : null}
           <div className="status-row">
             <span className="status-row__label">Owner</span>
             <span>{userLabel(request.user)}</span>
@@ -159,7 +179,15 @@ export default async function AdminAppDetailPage({
       <section className="card" style={{ marginTop: "1rem" }}>
         <h2>Publishing recovery</h2>
         <div className="status-table" style={{ marginBottom: "1rem" }}>
-          <div className="status-row">Support reference: {request.supportReference}</div>
+          <div className="status-row">
+            Support reference:{" "}
+            <Link
+              href={`/admin/events?q=${encodeURIComponent(request.supportReference)}`}
+              className="meta-link"
+            >
+              {request.supportReference}
+            </Link>
+          </div>
           <div className="status-row">Publishing setup: {request.publishingSetupStatus}</div>
           {request.publishAttempts?.[0] ? <>
             <div className="status-row">Latest attempt: {request.publishAttempts[0].status} · {request.publishAttempts[0].stage}</div>

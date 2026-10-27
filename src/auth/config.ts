@@ -71,16 +71,19 @@ export async function authConfig() {
         }
 
         const { prisma } = await import("@/lib/db");
+        const lastLoginAt = new Date();
         const syncedUser = await prisma.user.upsert({
           where: { entraOid: profile.oid },
           update: {
             email: user.email,
             displayName: user.name,
+            lastLoginAt,
           },
           create: {
             entraOid: profile.oid,
             email: user.email,
             displayName: user.name,
+            lastLoginAt,
           },
         });
 

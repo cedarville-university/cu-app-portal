@@ -45,6 +45,8 @@ The portal sends immediate SMTP email notifications for app lifecycle, collabora
 
 ## Local Setup
 
+The admin Users page shows each user's last recorded portal sign-in in Eastern time. `User.lastLoginAt` is refreshed during Entra sign-in; existing users show **Never recorded** until they next sign in. Apply the database migrations before running code that uses this field.
+
 1. Copy `.env.example` to `.env`.
 2. Configure PostgreSQL and Microsoft Entra ID values.
 3. If you want managed repo creation to run during app generation, also configure the GitHub App values in `.env`.

@@ -14,11 +14,12 @@ import {
   parseSearch,
 } from "@/features/admin/query-params";
 import { AdminSearchForm } from "@/features/admin/search-form";
+import { formatDateTime } from "@/features/admin/status";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
-type SortKey = "name" | "email" | "github" | "owned" | "collaborating" | "role";
+type SortKey = "name" | "email" | "github" | "owned" | "collaborating" | "role" | "lastLogin";
 
 function sortableHeader(
   key: SortKey,
@@ -61,6 +62,7 @@ export default async function AdminUsersPage({
     owned: true,
     collaborating: true,
     role: true,
+    lastLogin: true,
   } as const;
   const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
   const sort = Object.hasOwn(sortOptions, requestedSort ?? "")
@@ -83,7 +85,9 @@ export default async function AdminUsersPage({
   const totalCount = await prisma.user.count({ where });
   const page = clampPage(parsePage(params.page), totalCount);
   const orderBy: Prisma.UserOrderByWithRelationInput | Prisma.UserOrderByWithRelationInput[] =
-    sort === "name"
+    sort === "lastLogin"
+      ? [{ lastLoginAt: { sort: direction, nulls: "last" } }, { email: "asc" }]
+      : sort === "name"
       ? [{ displayName: direction }, { email: "asc" as const }]
       : sort === "email"
         ? { email: direction }
@@ -138,6 +142,7 @@ export default async function AdminUsersPage({
                 <th>{sortableHeader("owned", "Owned", sort, direction, q)}</th>
                 <th>{sortableHeader("collaborating", "Collaborating", sort, direction, q)}</th>
                 <th>{sortableHeader("role", "Role", sort, direction, q)}</th>
+                <th>{sortableHeader("lastLogin", "Last login (Eastern)", sort, direction, q)}</th>
                 <th></th>
               </tr>
             </thead>
@@ -165,6 +170,13 @@ export default async function AdminUsersPage({
                       >
                         {isAdmin ? "Admin" : "User"}
                       </span>
+                    </td>
+                    <td>
+                      {user.lastLoginAt ? (
+                        <time dateTime={user.lastLoginAt.toISOString()}>
+                          {formatDateTime(user.lastLoginAt, "America/New_York")}
+                        </time>
+                      ) : "Never recorded"}
                     </td>
                     <td>
                       <form action={roleAction}>
