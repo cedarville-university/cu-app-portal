@@ -120,7 +120,11 @@ function emptyWorkflowRunsError() {
 }
 
 function createDeps({
-  appRequest = readyAppRequest,
+  appRequest = readyAppRequest as typeof readyAppRequest & {
+    submittedConfig?: unknown;
+    azureKeyVaultName?: string;
+    azureKeyVaultUri?: string;
+  },
   environmentVariables = [] as {
     key: string;
     isSecret: boolean;
@@ -204,7 +208,16 @@ function createDeps({
   };
 
   return {
-    deps: { config, prisma, arm, graph, github },
+    deps: {
+      config,
+      prisma: prisma as unknown as Parameters<typeof createAzurePublishRuntime>[0]["prisma"],
+      arm,
+      graph,
+      github,
+      createKeyVaultClient: vi.fn(() => ({
+        setSecret: vi.fn().mockResolvedValue(undefined),
+      })),
+    },
     arm,
     graph,
     github,
@@ -213,6 +226,89 @@ function createDeps({
 }
 
 describe("createAzurePublishRuntime", () => {
+  it("stores managed credentials in Key Vault without custom secret variables", async () => {
+    const { deps, arm } = createDeps();
+    const setSecret = vi.fn().mockResolvedValue(undefined);
+    deps.createKeyVaultClient.mockReturnValue({ setSecret });
+    const target = await createAzurePublishRuntime(deps).provisionInfrastructure(readyAppRequest.id);
+
+    expect(arm.putKeyVault).toHaveBeenCalledTimes(1);
+    expect(setSecret).toHaveBeenCalledWith({ name: "DATABASE-URL", value: expect.stringContaining("portaladmin:secret@") });
+    expect(setSecret).toHaveBeenCalledWith({ name: "AUTH-SECRET", value: config.authSecret });
+    expect(setSecret).toHaveBeenCalledWith({ name: "AUTH-MICROSOFT-ENTRA-ID-SECRET", value: config.entraClientSecret });
+    const settings = arm.putAppSettings.mock.calls[0][0].settings;
+    for (const key of ["DATABASE_URL", "AUTH_SECRET", "AUTH_MICROSOFT_ENTRA_ID_SECRET"]) {
+      expect(settings[key]).toBe(`@Microsoft.KeyVault(SecretUri=${target.azureKeyVaultUri}/secrets/${key.replaceAll("_", "-")})`);
+    }
+    expect(settings.AUTH_MICROSOFT_ENTRA_ID_ID).toBe(config.entraClientId);
+  });
+
+  it.each([
+    ["postgresql", false, ["DATABASE-URL"]],
+    ["none", true, ["AUTH-SECRET", "AUTH-MICROSOFT-ENTRA-ID-SECRET"]],
+    ["none", false, []],
+  ] as const)("stores only enabled feature credentials (%s, Entra=%s)", async (databaseProvider, entraLogin, names) => {
+    const { deps, arm } = createDeps({ appRequest: { ...readyNoFeatureRequest, submittedConfig: { ...readyNoFeatureRequest.submittedConfig, databaseProvider, entraLogin } } });
+    const setSecret = vi.fn().mockResolvedValue(undefined);
+    deps.createKeyVaultClient.mockReturnValue({ setSecret });
+    await createAzurePublishRuntime(deps).provisionInfrastructure(readyAppRequest.id);
+    expect(setSecret.mock.calls.map(([input]) => input.name)).toEqual(names);
+    const settings = arm.putAppSettings.mock.calls[0][0].settings;
+    if (databaseProvider === "none") expect(settings).not.toHaveProperty("DATABASE_URL");
+    if (!entraLogin) {
+      expect(settings).not.toHaveProperty("AUTH_SECRET");
+      expect(settings).not.toHaveProperty("AUTH_MICROSOFT_ENTRA_ID_SECRET");
+    }
+    if (names.length === 0) expect(arm.putKeyVault).not.toHaveBeenCalled();
+  });
+
+  it("keeps custom secrets in the existing vault and tracks it before secret-write failure", async () => {
+    const { deps, arm, prisma } = createDeps({ environmentVariables: [{ key: "API_KEY", isSecret: true, value: null }] });
+    prisma.appRequest.findUnique.mockResolvedValue({ ...readyAppRequest, azureKeyVaultName: "existing-vault", azureKeyVaultUri: "https://existing-vault.vault.azure.net" });
+    arm.putKeyVault.mockResolvedValue({ vaultUri: "https://existing-vault.vault.azure.net" });
+    const setSecret = vi.fn().mockRejectedValue(new Error("vault unavailable"));
+    deps.createKeyVaultClient.mockReturnValue({ setSecret });
+    await expect(createAzurePublishRuntime(deps).provisionInfrastructure(readyAppRequest.id)).rejects.toThrow("vault unavailable");
+    expect(arm.putKeyVault).toHaveBeenCalledWith(expect.objectContaining({ name: "existing-vault" }));
+    expect(prisma.appRequest.update).toHaveBeenCalledWith({ where: { id: readyAppRequest.id }, data: { azureKeyVaultName: "existing-vault", azureKeyVaultUri: "https://existing-vault.vault.azure.net" } });
+    expect(prisma.appRequest.update.mock.invocationCallOrder[0]).toBeLessThan(setSecret.mock.invocationCallOrder[0]);
+    expect(arm.putAppSettings).not.toHaveBeenCalled();
+  });
+
+  it("rechecks actor authorization before each vault secret write", async () => {
+    const { deps, arm } = createDeps();
+    const setSecret = vi.fn().mockResolvedValue(undefined);
+    deps.createKeyVaultClient.mockReturnValue({ setSecret });
+    const authorizeProviderMutation = vi.fn(async () => {
+      if (setSecret.mock.calls.length === 1) throw new Error("access revoked");
+    });
+    await expect(createAzurePublishRuntime(deps).provisionInfrastructure(readyAppRequest.id, { authorizeProviderMutation })).rejects.toThrow("access revoked");
+    expect(setSecret).toHaveBeenCalledTimes(1);
+    expect(arm.putAppSettings).not.toHaveBeenCalled();
+  });
+
+  it("encodes database credentials inside the vault secret rather than app settings", async () => {
+    const { deps, arm } = createDeps();
+    const setSecret = vi.fn().mockResolvedValue(undefined);
+    deps.createKeyVaultClient.mockReturnValue({ setSecret });
+    await createAzurePublishRuntime({
+      ...deps,
+      config: { ...config, postgresAdminUser: "portal@admin", postgresAdminPassword: "p@ss:/?#%" },
+    }).provisionInfrastructure(readyAppRequest.id);
+    expect(setSecret).toHaveBeenCalledWith({
+      name: "DATABASE-URL",
+      value: "postgresql://portal%40admin:p%40ss%3A%2F%3F%23%25@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_dashboard_clx9abc1?sslmode=require",
+    });
+    expect(arm.putAppSettings.mock.calls[0][0].settings.DATABASE_URL).toMatch(/^@Microsoft.KeyVault\(/);
+  });
+
+  it("does not write app settings if storing a managed secret fails", async () => {
+    const { deps, arm } = createDeps();
+    deps.createKeyVaultClient.mockReturnValue({ setSecret: vi.fn().mockRejectedValue(new Error("vault unavailable")) });
+    await expect(createAzurePublishRuntime(deps).provisionInfrastructure(readyAppRequest.id)).rejects.toThrow("vault unavailable");
+    expect(arm.putAppSettings).not.toHaveBeenCalled();
+  });
+
   it("stops before the next provider mutation when actor access is revoked", async () => {
     const { deps, arm } = createDeps({
       appRequest: readyGeneratedFastApiWithDatabaseAndEntraRequest,
@@ -301,7 +397,7 @@ describe("createAzurePublishRuntime", () => {
       expect.objectContaining({
         settings: expect.objectContaining({
           DATABASE_URL:
-            "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_dashboard_clx9abc1?sslmode=require",
+            "@Microsoft.KeyVault(SecretUri=https://kv-campus-dashb-clx9abc1.vault.azure.net/secrets/DATABASE-URL)",
           AUTH_URL:
             "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
           NEXTAUTH_URL:
@@ -477,7 +573,7 @@ describe("createAzurePublishRuntime", () => {
       expect.objectContaining({
         settings: expect.objectContaining({
           DATABASE_URL:
-            "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_api_clx9abc1?sslmode=require",
+            "@Microsoft.KeyVault(SecretUri=https://kv-campus-dashb-clx9abc1.vault.azure.net/secrets/DATABASE-URL)",
           AUTH_URL:
             "https://app-campus-dashboard-clx9abc1.azurewebsites.net",
           NEXTAUTH_URL:
@@ -920,8 +1016,9 @@ describe("createAzurePublishRuntime", () => {
     expect(sleep).toHaveBeenCalledWith(10_000);
   });
 
-  it("merges user environment variables into app settings at publish", async () => {
+  it("merges user environment variables without provisioning a vault when no secrets are needed", async () => {
     const { deps, arm } = createDeps({
+      appRequest: readyNoFeatureRequest,
       environmentVariables: [
         { key: "FEATURE_FLAG", isSecret: false, value: "on" },
       ],

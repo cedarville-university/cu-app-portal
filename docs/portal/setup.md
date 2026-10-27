@@ -163,6 +163,8 @@ Deletion behavior:
 
 ### Azure Permissions for the Portal Runtime Identity
 
+Managed app database URLs and authentication secrets are stored in per-app Key Vaults and referenced by App Service settings. Existing apps require **Repair Publishing Setup** after the updated portal, worker, and worker permissions are deployed; see [the migration runbook](technical-operations.md#migrating-managed-credentials-to-key-vault). Client/tenant IDs and public URLs remain ordinary configuration.
+
 The portal authenticates to Azure with `DefaultAzureCredential`. The identity
 it resolves to (a managed identity on the portal's App Service, or a service
 principal in local development) is the **portal runtime identity**. It needs,
@@ -172,7 +174,8 @@ scoped to the publish resource group:
    and each app's user-assigned managed identity with its federated
    credential; enables web app system-assigned identities.
 2. **Key Vault Secrets Officer** — sets and deletes secret values in the
-   RBAC-mode vaults that back user-managed environment variables
+   RBAC-mode vaults that back managed database/authentication credentials and
+   user-managed secret environment variables
    (`kv-{slug}-{shortRequestId}`). Secrets reach the running app through Key
    Vault references resolved by the web app's system-assigned identity.
 3. **Role Based Access Control Administrator** — grants each web app's

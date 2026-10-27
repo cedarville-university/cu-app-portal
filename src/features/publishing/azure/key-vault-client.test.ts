@@ -40,10 +40,10 @@ describe("createKeyVaultClient", () => {
     );
   });
 
-  it("throws the response status and text on failure", async () => {
+  it("does not expose provider response bodies on failure", async () => {
     const fetchImpl = vi
       .fn<Parameters<typeof fetch>, ReturnType<typeof fetch>>()
-      .mockResolvedValue(text("forbidden", { status: 403 }));
+      .mockResolvedValue(text("credential-from-provider", { status: 403 }));
     const client = createKeyVaultClient({
       vaultUri: "https://kv-campus-dashb-clx9abc1.vault.azure.net",
       tokenProvider: async () => "token",
@@ -52,7 +52,7 @@ describe("createKeyVaultClient", () => {
 
     await expect(
       client.setSecret({ name: "API-KEY", value: "s3cret" }),
-    ).rejects.toThrow("Azure Key Vault request failed: 403 forbidden");
+    ).rejects.toThrow(/^Azure Key Vault request failed: 403$/);
   });
 
   it("deletes a secret and tolerates a missing secret", async () => {

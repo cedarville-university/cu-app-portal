@@ -28,6 +28,14 @@ import {
   buildPublishTargetNames,
 } from "@/features/publishing/azure/naming";
 import { prisma } from "@/lib/db";
+import { createKeyVaultClient } from "@/features/publishing/azure/key-vault-client";
+import { keyVaultReference } from "@/features/env-vars/settings";
+import {
+  configureAppSecretStore,
+  managedSecretValues,
+  MANAGED_SECRET_SETTING_NAMES,
+  type AppSecretStoreDeps,
+} from "@/features/publishing/azure/managed-secrets";
 import {
   persistPublishingSetupChecks,
   replacePublishingSetupChecks,
@@ -60,11 +68,6 @@ const REQUIRED_PORTAL_MANAGED_APP_SETTINGS = [
   "AUTH_MICROSOFT_ENTRA_ID_ISSUER",
   "NODE_ENV",
 ] as const;
-const SECRET_PORTAL_MANAGED_APP_SETTINGS: ReadonlySet<string> = new Set([
-  "DATABASE_URL",
-  "AUTH_SECRET",
-  "AUTH_MICROSOFT_ENTRA_ID_SECRET",
-] as const);
 
 type SetupDb = Pick<
   PrismaClient,
@@ -104,6 +107,8 @@ type SetupAppRequest = {
   repositoryDefaultBranch: string | null;
   repositoryStatus: string;
   primaryPublishUrl: string | null;
+  azureKeyVaultName: string | null;
+  azureKeyVaultUri: string | null;
   user: {
     githubUsername: string | null;
     displayName: string;
@@ -120,9 +125,10 @@ type SelectedAppServiceRuntime = {
 };
 
 export type PublishingSetupServiceDeps = {
+  createKeyVaultClient: AppSecretStoreDeps["createKeyVaultClient"];
   config: AzurePublishConfig;
   prisma?: SetupDb;
-  arm: {
+  arm: AppSecretStoreDeps["arm"] & {
     appServicePlanId(resourceGroup: string, name: string): string;
     getAppSettings(input: {
       resourceGroup: string;
@@ -252,6 +258,11 @@ function createDefaultSetupDeps(): PublishingSetupServiceDeps {
         "https://management.azure.com/.default",
       ),
     }),
+    createKeyVaultClient: (vaultUri) =>
+      createKeyVaultClient({
+        vaultUri,
+        tokenProvider: createAzureTokenProvider("https://vault.azure.net/.default"),
+      }),
     graph: createMicrosoftGraphClient({
       tokenProvider: createAzureTokenProvider(
         "https://graph.microsoft.com/.default",
@@ -293,6 +304,8 @@ async function loadSetupRequest(
     repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
     repositoryStatus: appRequest.repositoryStatus,
     primaryPublishUrl: appRequest.primaryPublishUrl,
+    azureKeyVaultName: appRequest.azureKeyVaultName ?? null,
+    azureKeyVaultUri: appRequest.azureKeyVaultUri ?? null,
     user: {
       githubUsername: appRequest.user.githubUsername,
       displayName: appRequest.user.displayName,
@@ -471,12 +484,6 @@ function federatedCredentialName(appRequest: SetupAppRequest) {
   return targetNames(appRequest).federatedCredentialName;
 }
 
-function buildDatabaseUrl(config: AzurePublishConfig, databaseName: string) {
-  const password = encodeURIComponent(config.postgresAdminPassword);
-
-  return `postgresql://${config.postgresAdminUser}:${password}@${config.postgresServer}.postgres.database.azure.com:5432/${databaseName}?sslmode=require`;
-}
-
 function buildSecretValues(
   config: AzurePublishConfig,
   webAppName: string,
@@ -493,7 +500,7 @@ function buildSecretValues(
 function buildRepairAppSettings({
   existingSettings,
   config,
-  databaseName,
+  secretSettings,
   databaseProvider,
   publishUrl,
   entraLogin,
@@ -501,7 +508,7 @@ function buildRepairAppSettings({
 }: {
   existingSettings: Record<string, string>;
   config: AzurePublishConfig;
-  databaseName: string;
+  secretSettings: Record<string, string>;
   databaseProvider: DatabaseProvider;
   publishUrl: string;
   entraLogin: boolean;
@@ -524,16 +531,12 @@ function buildRepairAppSettings({
     }
   }
 
-  if (databaseProvider === "postgresql") {
-    settings.DATABASE_URL = buildDatabaseUrl(config, databaseName);
-  }
+  Object.assign(settings, secretSettings);
 
   if (entraLogin) {
     settings.AUTH_URL = publishUrl;
     settings.NEXTAUTH_URL = publishUrl;
-    settings.AUTH_SECRET = config.authSecret;
     settings.AUTH_MICROSOFT_ENTRA_ID_ID = config.entraClientId;
-    settings.AUTH_MICROSOFT_ENTRA_ID_SECRET = config.entraClientSecret;
     settings.AUTH_MICROSOFT_ENTRA_ID_ISSUER = config.entraIssuer;
   }
 
@@ -830,7 +833,7 @@ function mismatchedPublicAppSettingNames({
 }) {
   return Object.entries(expected)
     .filter(([settingName, expectedValue]) => {
-      if (SECRET_PORTAL_MANAGED_APP_SETTINGS.has(settingName)) {
+      if (MANAGED_SECRET_SETTING_NAMES.has(settingName)) {
         return false;
       }
 
@@ -846,6 +849,7 @@ function isAzureArmForbidden(error: unknown) {
 }
 
 async function checkAzureAppSettings({
+  vaultUri,
   deps,
   webAppName,
   publishUrl,
@@ -853,6 +857,7 @@ async function checkAzureAppSettings({
   entraLogin,
   runtime,
 }: {
+  vaultUri: string | null;
   deps: PublishingSetupServiceDeps;
   webAppName: string;
   publishUrl: string;
@@ -899,6 +904,13 @@ async function checkAzureAppSettings({
         runtime,
       }),
     });
+
+    mismatchedSettingNames.push(
+      ...requiredSettingNames.filter(
+        (name) => MANAGED_SECRET_SETTING_NAMES.has(name) &&
+          (!vaultUri || appSettings.settings[name] !== keyVaultReference(vaultUri, name)),
+      ),
+    );
 
     mismatchedSettingNames.push(
       ...forbiddenAppServiceDeploymentSettingNames(runtime).filter(
@@ -1204,6 +1216,7 @@ async function runPreflightChecks(
   );
   checks.push(
     await checkAzureAppSettings({
+      vaultUri: appRequest.azureKeyVaultUri,
       deps,
       webAppName: names.webAppName,
       publishUrl: publishUrlFor(appRequest),
@@ -1331,6 +1344,27 @@ export async function repairPublishingSetup(
       resourceGroup: deps.config.resourceGroup,
       name: names.webAppName,
     });
+    const secretStore = await configureAppSecretStore({
+      deps,
+      appRequest,
+      webAppName: names.webAppName,
+      tags,
+      secrets: managedSecretValues(deps.config, {
+        databaseProvider,
+        databaseName: names.databaseName,
+        entraLogin,
+      }),
+      authorizeProviderMutation: options.authorizeProviderMutation,
+      onVaultReady: async (metadata) => {
+        await persistRepairAppRequestWrite({
+          appRequestId,
+          db,
+          claimedRepairAttempt,
+          preserveAttemptIdentity: true,
+          data: metadata,
+        });
+      },
+    });
     await options.authorizeProviderMutation?.();
     await deps.arm.putAppSettings({
       resourceGroup: deps.config.resourceGroup,
@@ -1340,7 +1374,7 @@ export async function repairPublishingSetup(
           ? existingAppSettings.settings
           : {},
         config: deps.config,
-        databaseName: names.databaseName,
+        secretSettings: secretStore.settings,
         databaseProvider,
         publishUrl: effectivePublishUrl,
         entraLogin,

@@ -62,11 +62,11 @@ describe("classifyPublishingSetupError", () => {
     });
   });
 
-  it("classifies Azure ARM 403 responses as blocked", () => {
+  it.each(["Azure ARM", "Azure Key Vault"])("classifies %s 403 responses as blocked", (provider) => {
     const result = classifyPublishingSetupError({
       step: "azure_resource_access",
       error: new Error(
-        'Azure ARM request failed: 403 {"error":{"code":"AuthorizationFailed","message":"The client does not have authorization to perform action Microsoft.Authorization/roleAssignments/write."}}',
+        `${provider} request failed: 403`,
       ),
     });
 
@@ -74,7 +74,7 @@ describe("classifyPublishingSetupError", () => {
       setupStatus: "BLOCKED",
       summary: "Azure permission is missing for publishing setup.",
       operatorDetail:
-        "Grant the portal runtime identity Contributor and the constrained Role Based Access Control Administrator role (allowing Key Vault Secrets User and Website Contributor) on the publish resource group, then run Repair Publishing Setup.",
+        "Grant the portal runtime identity Contributor, Key Vault Secrets Officer, and the constrained Role Based Access Control Administrator role (allowing Key Vault Secrets User and Website Contributor) on the publish resource group, then run Repair Publishing Setup.",
       providerRequestId: null,
     });
   });

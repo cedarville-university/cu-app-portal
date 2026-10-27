@@ -297,7 +297,7 @@ The portal creates or configures each managed app in the publish resource group:
 - One Azure Web App per app request.
 - One user-assigned managed identity per app request. It holds the app's GitHub OIDC federated credential and is assigned **Website Contributor** on that app's Web App only, so a repository can deploy to its own app and nothing else.
 - One PostgreSQL database per app only when PostgreSQL is selected.
-- One RBAC-mode Key Vault per app that uses secret user-managed environment variables.
+- One RBAC-mode Key Vault per app that uses PostgreSQL, Entra login, or secret user-managed environment variables.
 
 Names are deterministic from the app name and the first eight normalized characters of the request ID: Web Apps begin with `app-`, managed identities with `id-`, Key Vaults with `kv-`, databases with `db_`, and federated credential names with `github-`. Every portal-created resource is tagged `managedBy=cu-app-portal` and includes the app request ID and support reference. The portal will refuse to treat an existing, untagged resource as its own.
 
@@ -312,6 +312,18 @@ The portal runtime identity (the identity `DefaultAzureCredential` resolves to) 
 - **Role Based Access Control Administrator**, constrained by ABAC to assigning only **Key Vault Secrets User** and **Website Contributor**, so the portal can grant a Web App's system-assigned identity read access to its own vault and grant an app's deploy identity deploy rights on its own Web App.
 
 The `docs/portal/setup.md` file contains the approved role-assignment shape and ABAC condition. An Azure `403` during publishing setup marks the app `BLOCKED` with "Azure permission is missing for publishing setup."; the usual cause is an ABAC condition that still allows only the Key Vault role. Key Vaults soft-delete for 90 days; the portal never purges them.
+
+### Migrating managed credentials to Key Vault
+
+Publishing and Repair Publishing Setup store the complete password-bearing `DATABASE_URL`, `AUTH_SECRET`, and `AUTH_MICROSOFT_ENTRA_ID_SECRET` as secrets in the app's vault, then write versionless `@Microsoft.KeyVault(SecretUri=...)` references into App Service settings. The Web App system identity receives vault-scoped Key Vault Secrets User. Client/tenant IDs, issuer URLs, and public app URLs remain ordinary settings. Existing user secrets and custom settings remain intact during repair. The portal records vault metadata before later provider operations so a failed setup can be retried or the tracked vault deleted with the app.
+
+1. Apply the updated `infra/publish-worker/main.bicep` infrastructure so the publishing worker has **Key Vault Secrets Officer** on the publish resource group. Verify the portal identity has that role too. An image-only worker deployment does not update these assignments.
+2. Deploy the updated portal and publishing worker. This change needs no database migration.
+3. Run publishing preflight for existing apps. Raw managed credentials, empty values, and references that do not match the app's recorded vault are reported as `NEEDS_REPAIR`; check metadata contains setting names only.
+4. Run **Repair Publishing Setup** for each affected app. It writes configured credentials into Key Vault before replacing App Service settings, preserves custom settings and custom domains, and does not dispatch a deployment. Updating settings can restart a running app. A normal portal publish also writes managed credentials through the same helper.
+5. In Azure, verify the references resolve and the app's database connection and Entra sign-in work. Allow for Azure role/reference propagation and retry repair if needed. The local tests do not establish live reference resolution.
+
+This migration retains the currently configured credentials; it does not rotate database passwords or Entra secrets or revoke anyone's existing permissions. People with secret-read or application-management access may still obtain runtime secrets. A failed secret write aborts before settings are replaced; repair is retryable, though Azure and the portal database are not transactional. Setup preflight validates reference configuration, not secret contents or live reference resolution.
 
 ### Migrating apps published before per-app identities
 

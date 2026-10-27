@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db";
+import { keyVaultReference } from "@/features/env-vars/settings";
+
+const vaultUri = "https://kv-campus-dashboa-req123.vault.azure.net";
 import {
   preflightPublishingSetup,
   repairPublishingSetup,
@@ -21,6 +24,8 @@ const appRequest = {
   repositoryDefaultBranch: "main",
   repositoryStatus: "READY",
   primaryPublishUrl: "https://app-campus-dashboard.azurewebsites.net",
+  azureKeyVaultName: "kv-campus-dashboa-req123",
+  azureKeyVaultUri: vaultUri,
   template: { slug: "imported-web-app" },
 };
 
@@ -144,12 +149,12 @@ function createDeps(
       getAppSettings: vi.fn().mockResolvedValue({
         exists: true,
         settings: {
-          DATABASE_URL: "postgresql://example",
+          DATABASE_URL: keyVaultReference(vaultUri, "DATABASE_URL"),
           AUTH_URL: "https://app-campus-dashboard.azurewebsites.net",
           NEXTAUTH_URL: "https://app-campus-dashboard.azurewebsites.net",
-          AUTH_SECRET: "auth-secret",
+          AUTH_SECRET: keyVaultReference(vaultUri, "AUTH_SECRET"),
           AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
-          AUTH_MICROSOFT_ENTRA_ID_SECRET: "entra-client-secret",
+          AUTH_MICROSOFT_ENTRA_ID_SECRET: keyVaultReference(vaultUri, "AUTH_MICROSOFT_ENTRA_ID_SECRET"),
           AUTH_MICROSOFT_ENTRA_ID_ISSUER:
             "https://login.microsoftonline.com/tenant/v2.0",
           NODE_ENV: "production",
@@ -166,6 +171,9 @@ function createDeps(
           defaultHostName: "app-campus-dashboard.azurewebsites.net",
         },
       }),
+      putKeyVault: vi.fn().mockResolvedValue({ vaultUri: vaultUri }),
+      keyVaultId: vi.fn(() => "/vaults/campus-dashboard"),
+      ensureSystemAssignedIdentity: vi.fn().mockResolvedValue({ principalId: "webapp-principal" }),
       putAppSettings: vi.fn(),
       webAppId: vi.fn(
         (resourceGroup: string, name: string) =>
@@ -191,6 +199,7 @@ function createDeps(
       ]),
       ensureFederatedIdentityCredential: vi.fn(),
     },
+    createKeyVaultClient: vi.fn(() => ({ setSecret: vi.fn().mockResolvedValue(undefined) })),
     graph: {
       hasRedirectUri: vi.fn().mockResolvedValue({ exists: true }),
       ensureRedirectUri: vi.fn(),
@@ -240,6 +249,58 @@ describe("publishing setup service", () => {
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(
       appRequest as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>,
     );
+  });
+
+  it("migrates legacy managed credentials to vault references during repair", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({ ...fastApiWithDatabaseAndEntraAppRequest, azureKeyVaultName: null, azureKeyVaultUri: null } as unknown as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>);
+    const deps = createDeps();
+    vi.mocked(deps.arm.getAppSettings).mockResolvedValueOnce({ exists: true, settings: {
+      DATABASE_URL: "postgresql://old", AUTH_SECRET: "old-auth", AUTH_MICROSOFT_ENTRA_ID_SECRET: "old-client", EXISTING_CUSTOM_SETTING: "keep-me",
+    } });
+    const setSecret = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(deps.createKeyVaultClient).mockReturnValue({ setSecret });
+    await repairPublishingSetup("req_123", deps);
+    expect(setSecret).toHaveBeenCalledTimes(3);
+    const settings = vi.mocked(deps.arm.putAppSettings).mock.calls[0][0].settings;
+    expect(settings.DATABASE_URL).toContain("@Microsoft.KeyVault(");
+    expect(settings.AUTH_SECRET).toContain("/AUTH-SECRET)");
+    expect(settings.AUTH_MICROSOFT_ENTRA_ID_SECRET).toContain("/AUTH-MICROSOFT-ENTRA-ID-SECRET)");
+    expect(settings.EXISTING_CUSTOM_SETTING).toBe("keep-me");
+    expect(prisma.appRequest.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ azureKeyVaultUri: vaultUri }) }));
+  });
+
+  it("flags plaintext managed credentials without putting values in check metadata", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue(fastApiWithDatabaseAndEntraAppRequest as unknown as Awaited<ReturnType<typeof prisma.appRequest.findUnique>>);
+    const deps = createDeps();
+    const current = await deps.arm.getAppSettings({ resourceGroup: deps.config.resourceGroup, name: "app-campus-api-req123" });
+    current.settings.DATABASE_URL = "postgresql://example";
+    current.settings.AUTH_SECRET = "auth-secret";
+    current.settings.AUTH_MICROSOFT_ENTRA_ID_SECRET = "entra-client-secret";
+    current.settings.SCM_DO_BUILD_DURING_DEPLOYMENT = "true";
+    current.settings.ENABLE_ORYX_BUILD = "true";
+    delete (current.settings as Record<string, string>).WEBSITE_RUN_FROM_PACKAGE;
+    vi.mocked(deps.arm.getAppSettings).mockResolvedValue(current);
+    const result = await preflightPublishingSetup("req_123", deps);
+    const check = result.checks.find((item) => item.checkKey === "azure_app_settings");
+    expect(check?.status).toBe("FAIL");
+    expect(JSON.stringify(check)).not.toContain("entra-client-secret");
+    expect(JSON.stringify(check)).not.toContain("postgresql://example");
+  });
+
+  it("leaves app settings untouched if a managed secret cannot be stored during repair", async () => {
+    const deps = createDeps();
+    vi.mocked(deps.createKeyVaultClient).mockReturnValue({ setSecret: vi.fn().mockRejectedValue(new Error("Azure Key Vault request failed: 403")) });
+    await expect(repairPublishingSetup("req_123", deps)).rejects.toThrow("Azure Key Vault request failed: 403");
+    expect(deps.arm.putAppSettings).not.toHaveBeenCalled();
+    expect(prisma.appRequest.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ publishingSetupStatus: "BLOCKED" }) }));
+  });
+
+  it.each(["raw-secret", "@Microsoft.KeyVault(SecretUri=https://other.vault.azure.net/secrets/AUTH-SECRET)", ""])("rejects an unsafe managed reference (%s)", async (authSecret) => {
+    const deps = createDeps();
+    const settings = (await deps.arm.getAppSettings({ resourceGroup: deps.config.resourceGroup, name: "app-campus-api-req123" })).settings;
+    vi.mocked(deps.arm.getAppSettings).mockResolvedValue({ exists: true, settings: { ...settings, AUTH_SECRET: authSecret } });
+    const result = await preflightPublishingSetup("req_123", deps);
+    expect(result.checks.find((item) => item.checkKey === "azure_app_settings")).toEqual(expect.objectContaining({ status: "FAIL", metadata: expect.objectContaining({ mismatchedSettingNames: ["AUTH_SECRET"] }) }));
   });
 
   it("stops before the next repair mutation when actor access is revoked", async () => {
@@ -445,7 +506,7 @@ describe("publishing setup service", () => {
         getAppSettings: vi.fn().mockResolvedValue({
           exists: true,
           settings: {
-            DATABASE_URL: "postgresql://example",
+            DATABASE_URL: keyVaultReference(vaultUri, "DATABASE_URL"),
             NODE_ENV: "production",
           },
         }),
@@ -727,12 +788,12 @@ describe("publishing setup service", () => {
         getAppSettings: vi.fn().mockResolvedValue({
           exists: true,
           settings: {
-            DATABASE_URL: "postgresql://example",
+            DATABASE_URL: keyVaultReference(vaultUri, "DATABASE_URL"),
             AUTH_URL: "https://app-campus-dashboard.azurewebsites.net",
             NEXTAUTH_URL: "https://app-campus-dashboard.azurewebsites.net",
-            AUTH_SECRET: "auth-secret",
+            AUTH_SECRET: keyVaultReference(vaultUri, "AUTH_SECRET"),
             AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
-            AUTH_MICROSOFT_ENTRA_ID_SECRET: "entra-client-secret",
+            AUTH_MICROSOFT_ENTRA_ID_SECRET: keyVaultReference(vaultUri, "AUTH_MICROSOFT_ENTRA_ID_SECRET"),
             AUTH_MICROSOFT_ENTRA_ID_ISSUER:
               "https://login.microsoftonline.com/tenant/v2.0",
             NODE_ENV: "production",
@@ -825,7 +886,7 @@ describe("publishing setup service", () => {
           message: "Azure App Service settings need to be refreshed.",
           metadata: {
             webAppName: "app-campus-dashboard-req123",
-            mismatchedSettingNames: ["AUTH_URL"],
+            mismatchedSettingNames: ["AUTH_URL", "DATABASE_URL", "AUTH_SECRET", "AUTH_MICROSOFT_ENTRA_ID_SECRET"],
             repairable: true,
           },
         }),
@@ -1058,6 +1119,7 @@ describe("publishing setup service", () => {
     const attemptClaimedAt = new Date("2026-08-19T13:01:00.000Z");
     vi.mocked(prisma.appRequest.updateMany)
       .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 1 })
       .mockResolvedValueOnce({ count: 0 });
 
     await expect(
@@ -1068,7 +1130,7 @@ describe("publishing setup service", () => {
     ).rejects.toThrow(/no longer current/i);
 
     expect(deps.arm.putWebApp).toHaveBeenCalledTimes(1);
-    expect(prisma.appRequest.updateMany).toHaveBeenNthCalledWith(1, {
+    expect(prisma.appRequest.updateMany).toHaveBeenNthCalledWith(2, {
       where: {
         id: "req_123",
         publishingSetupStatus: "REPAIRING",
@@ -1495,12 +1557,12 @@ describe("publishing setup service", () => {
             exists: true,
             settings: {
               DATABASE_URL:
-                "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_api_req123?sslmode=require",
+                keyVaultReference(vaultUri, "DATABASE_URL"),
               AUTH_URL: "https://campus-api.cedarville.edu",
               NEXTAUTH_URL: "https://campus-api.cedarville.edu",
-              AUTH_SECRET: "auth-secret",
+              AUTH_SECRET: keyVaultReference(vaultUri, "AUTH_SECRET"),
               AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",
-              AUTH_MICROSOFT_ENTRA_ID_SECRET: "entra-client-secret",
+              AUTH_MICROSOFT_ENTRA_ID_SECRET: keyVaultReference(vaultUri, "AUTH_MICROSOFT_ENTRA_ID_SECRET"),
               AUTH_MICROSOFT_ENTRA_ID_ISSUER:
                 "https://login.microsoftonline.com/tenant/v2.0",
               NODE_ENV: "production",
@@ -1534,7 +1596,7 @@ describe("publishing setup service", () => {
         name: "app-campus-api-req123",
         settings: expect.objectContaining({
           DATABASE_URL:
-            "postgresql://portaladmin:secret@psql-cu-apps-published.postgres.database.azure.com:5432/db_campus_api_req123?sslmode=require",
+            keyVaultReference(vaultUri, "DATABASE_URL"),
           AUTH_URL: "https://campus-api.cedarville.edu",
           NEXTAUTH_URL: "https://campus-api.cedarville.edu",
           AUTH_MICROSOFT_ENTRA_ID_ID: "entra-client-id",

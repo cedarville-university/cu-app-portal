@@ -23,11 +23,11 @@ export function createKeyVaultClient({
   }
 
   async function requireOk(response: Response) {
-    const text = await response.text();
+    await response.text();
 
     if (!response.ok) {
       throw new Error(
-        `Azure Key Vault request failed: ${response.status} ${text}`,
+        `Azure Key Vault request failed: ${response.status}`,
       );
     }
   }

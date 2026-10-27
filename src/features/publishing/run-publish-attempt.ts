@@ -1,3 +1,4 @@
+import { createKeyVaultClient } from "./azure/key-vault-client";
 import type { Prisma } from "@prisma/client";
 import { persistPublishProgress, PublishClaimLostError, type PublishWorkerClaim } from "./worker-lease";
 import { DefaultAzureCredential } from "@azure/identity";
@@ -100,6 +101,11 @@ function createDefaultRuntime() {
         "https://management.azure.com/.default",
       ),
     }),
+    createKeyVaultClient: (vaultUri) =>
+      createKeyVaultClient({
+        vaultUri,
+        tokenProvider: createAzureTokenProvider("https://vault.azure.net/.default"),
+      }),
     graph: createMicrosoftGraphClient({
       tokenProvider: createAzureTokenProvider(
         "https://graph.microsoft.com/.default",

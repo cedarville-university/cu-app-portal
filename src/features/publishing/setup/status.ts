@@ -64,7 +64,7 @@ const GRAPH_PERMISSION_DETAIL =
 const AZURE_PERMISSION_SUMMARY =
   "Azure permission is missing for publishing setup.";
 const AZURE_PERMISSION_DETAIL =
-  "Grant the portal runtime identity Contributor and the constrained Role Based Access Control Administrator role (allowing Key Vault Secrets User and Website Contributor) on the publish resource group, then run Repair Publishing Setup.";
+  "Grant the portal runtime identity Contributor, Key Vault Secrets Officer, and the constrained Role Based Access Control Administrator role (allowing Key Vault Secrets User and Website Contributor) on the publish resource group, then run Repair Publishing Setup.";
 
 function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -100,8 +100,8 @@ function getProviderRequestId(payload: ReturnType<typeof parseGraphErrorPayload>
   );
 }
 
-function isAzureArmForbidden(message: string) {
-  return message.includes("Azure ARM request failed: 403");
+function isAzurePublishingForbidden(message: string) {
+  return message.includes("Azure ARM request failed: 403") || message.includes("Azure Key Vault request failed: 403");
 }
 
 function isGraphAuthorizationDenied(message: string) {
@@ -144,7 +144,7 @@ export function classifyPublishingSetupError({
     };
   }
 
-  if (isAzureArmForbidden(message)) {
+  if (isAzurePublishingForbidden(message)) {
     return {
       setupStatus: "BLOCKED",
       summary: AZURE_PERMISSION_SUMMARY,

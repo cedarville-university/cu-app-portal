@@ -18,7 +18,6 @@ import { buildPublishResourceTags, buildPublishTargetNames } from "./naming";
 import { verifyPublishedUrl as defaultVerifyPublishedUrl } from "./verify-deployment";
 import { buildUserAppSettings } from "@/features/env-vars/settings";
 import {
-  KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID,
   WEBSITE_CONTRIBUTOR_ROLE_DEFINITION_ID,
 } from "./arm-client";
 import {
@@ -26,8 +25,14 @@ import {
   type GitHubOidcRepositoryIdentity,
 } from "../github-oidc";
 import { appServiceDeploymentSettings } from "./app-settings";
+import {
+  configureAppSecretStore,
+  managedSecretValues,
+  type AppSecretStoreDeps,
+} from "./managed-secrets";
 
 type RuntimeDeps = {
+  createKeyVaultClient: AppSecretStoreDeps["createKeyVaultClient"];
   config: AzurePublishConfig;
   prisma: Pick<PrismaClient, "appRequest" | "appEnvironmentVariable">;
   workflowRunPollAttempts?: number;
@@ -349,12 +354,6 @@ function ownerUsername(appRequest: PublishableAppRequest) {
   );
 }
 
-function buildDatabaseUrl(config: AzurePublishConfig, databaseName: string) {
-  const password = encodeURIComponent(config.postgresAdminPassword);
-
-  return `postgresql://${config.postgresAdminUser}:${password}@${config.postgresServer}.postgres.database.azure.com:5432/${databaseName}?sslmode=require`;
-}
-
 function isEmptyWorkflowRunError(error: unknown) {
   return (
     error instanceof Error &&
@@ -535,22 +534,6 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const hasSecretVariables = environmentVariables.some(
         (variable) => variable.isSecret,
       );
-      let keyVaultName = appRequest.azureKeyVaultName;
-      let keyVaultUri = appRequest.azureKeyVaultUri;
-
-      if (hasSecretVariables) {
-        keyVaultName = keyVaultName ?? names.keyVaultName;
-        await options?.authorizeProviderMutation?.();
-        const vault = await deps.arm.putKeyVault({
-          resourceGroup: deps.config.resourceGroup,
-          name: keyVaultName,
-          location: deps.config.location,
-          tenantId: deps.config.azureTenantId,
-          tags,
-        });
-        keyVaultUri = vault.vaultUri;
-      }
-
       await options?.authorizeProviderMutation?.();
       const webApp = await deps.arm.putWebApp({
         resourceGroup: deps.config.resourceGroup,
@@ -584,42 +567,40 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         principalId: deployIdentity.principalId,
       });
 
-      if (keyVaultName && keyVaultUri) {
-        let principalId = webApp.identity?.principalId;
-        if (!principalId) {
-          await options?.authorizeProviderMutation?.();
-          principalId = (
-            await deps.arm.ensureSystemAssignedIdentity({
-              resourceGroup: deps.config.resourceGroup,
-              name: names.webAppName,
-            })
-          ).principalId;
-        }
-
-        await options?.authorizeProviderMutation?.();
-        await deps.arm.putRoleAssignment({
-          scope: deps.arm.keyVaultId(deps.config.resourceGroup, keyVaultName),
-          roleDefinitionId: KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID,
-          principalId,
-        });
-      }
+      const secretStore = await configureAppSecretStore({
+        deps,
+        appRequest,
+        webAppName: names.webAppName,
+        webAppPrincipalId: webApp.identity?.principalId,
+        tags,
+        hasUserSecrets: hasSecretVariables,
+        secrets: managedSecretValues(deps.config, {
+          databaseProvider,
+          databaseName: names.databaseName,
+          entraLogin: selectedEntraLogin(appRequest),
+        }),
+        authorizeProviderMutation: options?.authorizeProviderMutation,
+        onVaultReady: async (metadata) => {
+          await deps.prisma.appRequest.update({
+            where: { id: appRequest.id },
+            data: metadata,
+          });
+        },
+      });
+      const keyVaultName = secretStore.azureKeyVaultName;
+      const keyVaultUri = secretStore.azureKeyVaultUri;
 
       const settings: Record<string, string> = {
         ...buildUserAppSettings(environmentVariables, keyVaultUri),
+        ...secretStore.settings,
         NODE_ENV: "production",
         ...appServiceDeploymentSettings(appServiceRuntime),
       };
 
-      if (databaseProvider === "postgresql") {
-        settings.DATABASE_URL = buildDatabaseUrl(deps.config, names.databaseName);
-      }
-
       if (selectedEntraLogin(appRequest)) {
         settings.AUTH_URL = primaryPublishUrl;
         settings.NEXTAUTH_URL = primaryPublishUrl;
-        settings.AUTH_SECRET = deps.config.authSecret;
         settings.AUTH_MICROSOFT_ENTRA_ID_ID = deps.config.entraClientId;
-        settings.AUTH_MICROSOFT_ENTRA_ID_SECRET = deps.config.entraClientSecret;
         settings.AUTH_MICROSOFT_ENTRA_ID_ISSUER = deps.config.entraIssuer;
       }
 

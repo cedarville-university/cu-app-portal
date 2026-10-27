@@ -91,6 +91,8 @@ Azure publishing runs in a separate durable worker. For local development, run `
 
 ## Editing app environment variables
 
+Managed Azure publishing stores `DATABASE_URL`, `AUTH_SECRET`, and `AUTH_MICROSOFT_ENTRA_ID_SECRET` in the app's Key Vault and uses references in App Service settings. Entra client/tenant IDs, issuer URLs, and app URLs remain ordinary configuration. After deploying this update and the worker permissions, run **Repair Publishing Setup** for existing apps to replace raw credentials; see [the migration steps](docs/portal/technical-operations.md#migrating-managed-credentials-to-key-vault).
+
 Managed Azure apps receive `SCM_MAX_ZIP_PACKAGE_COUNT=2` during provisioning and publishing repair. Azure trims older deployment ZIPs during deployments, limiting retained packages to two per app; this is not an immediate cleanup job. App Service storage is shared across all apps in the same plan.
 
 On an app's management page, edit existing values directly, add variables with **Add Variable**, and mark deletions with **Delete**. Nothing is submitted until you select **Save Changes**. **Undo** cancels a staged deletion; **Discard Changes** restores the last saved values and removes draft additions.
