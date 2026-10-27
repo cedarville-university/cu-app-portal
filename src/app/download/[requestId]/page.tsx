@@ -986,7 +986,11 @@ export default async function DownloadPage({
     notFound();
   }
 
-  if (appRequest.publishStatus !== "SUCCEEDED" && !isAdmin) {
+  if (
+    appRequest.publishStatus !== "SUCCEEDED" &&
+    appRequest.publishStatus !== "FAILED" &&
+    !isAdmin
+  ) {
     redirect(`/onboarding/${appRequest.id}`);
   }
 

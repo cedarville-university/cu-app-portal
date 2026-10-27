@@ -433,6 +433,19 @@ export default async function AppOnboardingPage({
         )}
       </section>
     )) : null;
+  const onboardingHelp = (
+    <>
+      {importHandoff}
+      {app.publishStatus === "FAILED" ? (
+        <div className="info-box">
+          <p>Open app details to add environment variables or delete this app.</p>
+          <Link className="btn btn--secondary" href={`/download/${app.id}`}>
+            Open app details
+          </Link>
+        </div>
+      ) : null}
+    </>
+  );
   const repositoryDetails = app.repositoryUrl ? (
     <>
       <p>
@@ -462,7 +475,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title={
@@ -488,7 +501,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title="The portal is creating your app's code home"
@@ -506,7 +519,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title="The app's code home needs another try"
@@ -540,7 +553,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title="We couldn't copy your app yet"
@@ -580,7 +593,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title="Your starter app is ready"
@@ -678,7 +691,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title="Give Codex access to your app code"
@@ -696,7 +709,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title="Accept your invitation to the app code"
@@ -738,7 +751,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title="Customize your app with Codex"
@@ -816,7 +829,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title={
@@ -878,7 +891,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Prepare"
           title="Prepare your app for publishing"
@@ -903,7 +916,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Prepare"
           title="The portal is preparing your app"
@@ -925,7 +938,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Prepare"
           title={
@@ -989,7 +1002,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Prepare"
           title="Review existing publishing files safely"
@@ -1023,7 +1036,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Prepare"
           title="Review and approve the publishing changes"
@@ -1074,7 +1087,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Publish"
           title="Your app is ready to publish"
@@ -1095,7 +1108,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Publish"
           title="Finish the last check before publishing"
@@ -1122,7 +1135,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Publish"
           title="The portal is checking publishing setup"
@@ -1143,7 +1156,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Publish"
           title={isFirstImportedSetup ? "Finish publishing setup" : "Fix publishing setup before publishing"}
@@ -1186,7 +1199,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Publish"
           title="Your app is being published"
@@ -1221,7 +1234,7 @@ export default async function AppOnboardingPage({
         return (
           <main>
             <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
               appName={app.appName}
               currentStage="Develop"
               title="Your app's code home is still being prepared"
@@ -1238,7 +1251,7 @@ export default async function AppOnboardingPage({
       return (
         <main>
           <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
             appName={app.appName}
             currentStage="Develop"
             title="Your app's code home needs support"
@@ -1261,7 +1274,7 @@ export default async function AppOnboardingPage({
       return (
         <main>
           <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
             appName={app.appName}
             currentStage="Publish"
             title="The portal is finishing a publishing check"
@@ -1279,7 +1292,7 @@ export default async function AppOnboardingPage({
       return (
         <main>
           <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
             appName={app.appName}
             currentStage="Publish"
             title="Publishing needs support before another try"
@@ -1300,7 +1313,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Publish"
           title="Your app did not finish publishing"
@@ -1338,7 +1351,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Publish"
           title="Your app is online"
@@ -1373,7 +1386,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Publish"
           title="This app is no longer published"
@@ -1398,7 +1411,7 @@ export default async function AppOnboardingPage({
     return (
       <main>
         <OnboardingStepShell
-          beforeAction={importHandoff}
+          beforeAction={onboardingHelp}
           appName={app.appName}
           currentStage="Develop"
           title="This code step needs support"

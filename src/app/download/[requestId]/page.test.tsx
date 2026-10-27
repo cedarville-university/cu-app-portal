@@ -55,8 +55,8 @@ vi.mock("@/features/collaboration-invites/invite-panel", () => ({
   CollaborationInvitePanel: () => <div />,
 }));
 
-vi.mock("@/features/env-vars/env-vars-panel", () => ({
-  EnvVarsPanel: () => <div />,
+vi.mock("@/features/env-vars/actions", () => ({
+  saveEnvVarsFormAction: vi.fn(),
 }));
 
 vi.mock("@/features/public-apps/public-listing-panel", () => ({
@@ -148,14 +148,23 @@ afterEach(() => {
 });
 
 describe("DownloadPage navigation", () => {
-  it("redirects an unpublished non-admin to onboarding", async () => {
-    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(appRequest());
+  it.each(["NOT_STARTED", "QUEUED", "PROVISIONING", "DEPLOYING", "DELETED"])("redirects a non-admin to onboarding for %s", async (publishStatus) => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(appRequest({ publishStatus }));
 
     await expect(
       DownloadPage({
         params: Promise.resolve({ requestId: "request-123" }),
       }),
     ).rejects.toThrow("redirect:/onboarding/request-123");
+  });
+
+  it("lets an owner manage settings and delete an app after a failed first publish", async () => {
+    await renderPage({ publishStatus: "FAILED", azureWebAppName: null });
+
+    expect(screen.getByText("Advanced options")).toBeInTheDocument();
+    expect(screen.getByText("Delete App")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Environment variables", hidden: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry Publish" })).toBeInTheDocument();
   });
 
   it("renders published app details for a non-admin", async () => {

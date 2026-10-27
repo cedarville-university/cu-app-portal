@@ -1314,6 +1314,25 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     },
   );
 
+  it.each([
+    { publishingSetupStatus: "READY" },
+    { publishingSetupStatus: "NEEDS_REPAIR" },
+    { publishingSetupStatus: "REPAIRING" },
+    { repositoryStatus: "PENDING" },
+    { repositoryStatus: "FAILED" },
+  ])("offers app details after a failed publish with %j", async (overrides) => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
+      preparedImportedApp({ ...overrides, publishStatus: "FAILED" }),
+    );
+
+    await renderPage();
+
+    expect(screen.getByRole("link", { name: "Open app details" })).toHaveAttribute(
+      "href", "/download/req_123",
+    );
+    expect(screen.getByText(/add environment variables or delete this app/i)).toBeInTheDocument();
+  });
+
   it("offers valid publish recovery with user-safe error details", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       preparedImportedApp({
