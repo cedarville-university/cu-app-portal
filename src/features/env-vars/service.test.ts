@@ -5,6 +5,7 @@ import {
   deleteEnvironmentVariable,
   saveEnvironmentVariable,
   type EnvVarAppRequest,
+  type EnvVarServiceDeps,
 } from "./service";
 
 const unpublishedAppRequest: EnvVarAppRequest = {
@@ -69,6 +70,7 @@ function createDeps({
   return {
     deps: {
       prisma: prisma as never,
+      withEnvironmentLock: async <T>(_appId: string, execute: (db: EnvVarServiceDeps["prisma"]) => Promise<T>) => execute(prisma as never),
       config: {
         resourceGroup: "rg-cu-apps-published",
         location: "eastus2",

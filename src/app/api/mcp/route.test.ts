@@ -363,6 +363,8 @@ describe("portal MCP route authentication", () => {
       "get_publish_status",
       "repair_publishing_setup",
       "retry_publish",
+      "get_app_environment",
+      "set_app_environment",
       "admin_list_apps",
       "admin_debug_app",
       "admin_find_users",

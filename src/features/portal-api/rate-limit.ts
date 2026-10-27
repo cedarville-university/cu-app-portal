@@ -8,6 +8,7 @@ export const PORTAL_API_RATE_LIMITS = {
   publish_app_to_azure: { limit: 6, windowSeconds: 3600 },
   repair_publishing_setup: { limit: 3, windowSeconds: 3600 },
   retry_publish: { limit: 6, windowSeconds: 3600 },
+  set_app_environment: { limit: 10, windowSeconds: 3600 },
 } as const;
 
 export type PortalRateLimitAction = keyof typeof PORTAL_API_RATE_LIMITS;
@@ -65,6 +66,7 @@ const rateLimitOverrideNames: Record<PortalRateLimitAction, string> = {
   publish_app_to_azure: "PORTAL_MCP_RATE_PUBLISH_MAX",
   repair_publishing_setup: "PORTAL_MCP_RATE_REPAIR_MAX",
   retry_publish: "PORTAL_MCP_RATE_RETRY_MAX",
+  set_app_environment: "PORTAL_MCP_RATE_ENVIRONMENT_MAX",
 };
 
 export function loadPortalApiRateLimits(

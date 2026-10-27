@@ -54,7 +54,7 @@ class InMemoryRateLimitDatabase implements PortalRateLimitDatabase {
 }
 
 describe("portal API rate-limit policies", () => {
-  it("uses all six approved policies", () => {
+  it("uses all approved policies", () => {
     expect(PORTAL_API_RATE_LIMITS).toEqual({
       read: { limit: 120, windowSeconds: 600 },
       create_app: { limit: 3, windowSeconds: 3600 },
@@ -62,6 +62,7 @@ describe("portal API rate-limit policies", () => {
       publish_app_to_azure: { limit: 6, windowSeconds: 3600 },
       repair_publishing_setup: { limit: 3, windowSeconds: 3600 },
       retry_publish: { limit: 6, windowSeconds: 3600 },
+      set_app_environment: { limit: 10, windowSeconds: 3600 },
     });
   });
 

@@ -1,5 +1,4 @@
 import { DefaultAzureCredential } from "@azure/identity";
-import type { PrismaClient } from "@prisma/client";
 import {
   createAzureArmClient,
   KEY_VAULT_SECRETS_USER_ROLE_DEFINITION_ID,
@@ -12,6 +11,7 @@ import {
 } from "@/features/publishing/azure/naming";
 import { prisma } from "@/lib/db";
 import { keyVaultReference } from "./settings";
+import { createEnvironmentLock, type EnvironmentDatabase, type EnvironmentLock, type EnvironmentLockDatabase } from "./lock";
 import {
   normalizeEnvVarKey,
   validateEnvVarKey,
@@ -27,7 +27,8 @@ export type EnvVarAppRequest = {
 };
 
 export type EnvVarServiceDeps = {
-  prisma: Pick<PrismaClient, "appRequest" | "appEnvironmentVariable">;
+  prisma: EnvironmentDatabase;
+  withEnvironmentLock: EnvironmentLock;
   config: {
     resourceGroup: string;
     location: string;
@@ -89,6 +90,7 @@ export function createDefaultEnvVarServiceDeps(): EnvVarServiceDeps {
 
   return {
     prisma,
+    withEnvironmentLock: createEnvironmentLock(prisma as unknown as EnvironmentLockDatabase),
     config: {
       resourceGroup: config.resourceGroup,
       location: config.location,
@@ -178,7 +180,15 @@ export async function saveEnvironmentVariables(
   input: { appRequest: EnvVarAppRequest; changes: EnvVarChange[] },
 ): Promise<Array<{ operation: "set" | "delete"; key: string; isSecret: boolean }>> {
   if (!input.changes.length) return [];
+  return deps.withEnvironmentLock(input.appRequest.id, (database) =>
+    saveLockedEnvironmentVariables({ ...deps, prisma: database }, input),
+  );
+}
 
+async function saveLockedEnvironmentVariables(
+  deps: EnvVarServiceDeps,
+  input: { appRequest: EnvVarAppRequest; changes: EnvVarChange[] },
+): Promise<Array<{ operation: "set" | "delete"; key: string; isSecret: boolean }>> {
   const existing = await deps.prisma.appEnvironmentVariable.findMany({
     where: { appRequestId: input.appRequest.id },
   });

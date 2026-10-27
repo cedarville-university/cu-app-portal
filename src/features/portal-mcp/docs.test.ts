@@ -54,7 +54,7 @@ describe("Codex workspace plugin operator documentation", () => {
     const docs = readDoc(runbookPath);
 
     expect(docs).toMatch(/existing[\s/]+local app imports[\s\S]{0,220}CU Launch UI/i);
-    expect(docs).toMatch(/collaborator management[\s\S]{0,220}environment-variable\s+management[\s\S]{0,220}push-to-deploy[\s\S]{0,220}deletion/i);
+    expect(docs).toMatch(/collaborator management[\s\S]{0,220}secret environment-variable\s+management[\s\S]{0,220}push-to-deploy[\s\S]{0,220}deletion/i);
     expect(docs).toMatch(/must not substitute\s+template-based launch[\s\S]{0,160}direct provider\s+operations/i);
   });
 
@@ -78,6 +78,8 @@ describe("Codex workspace plugin operator documentation", () => {
       "get_publish_status",
       "repair_publishing_setup",
       "retry_publish",
+      "get_app_environment",
+      "set_app_environment",
     ];
 
     for (const tool of tools) expect(docs).toContain(tool);
@@ -105,6 +107,17 @@ describe("Codex workspace plugin operator documentation", () => {
     expect(docs).toContain("ON_INSTALL");
     expect(docs).toMatch(/workspace admin[\s\S]{0,180}restricted pilot role/i);
     expect(docs).toMatch(/disposable-app smoke test/i);
+  });
+
+  it("documents ordinary environment batching without exposing secrets", () => {
+    const docs = readDoc(runbookPath);
+    expect(docs).toContain("1–100");
+    expect(docs).toMatch(/one Azure\s+settings update/i);
+    expect(docs).toMatch(/secret values are never returned/i);
+    expect(docs).toContain("PORTAL_MCP_RATE_ENVIRONMENT_MAX");
+    expect(docs).toMatch(/metadata-only/i);
+    expect(docs).toMatch(/misclassified|incorrectly\s+saved/i);
+    expect(docs).toMatch(/may briefly restart/i);
   });
 
   it("provides the deployment-finalization, rollback, and operational boundaries", () => {

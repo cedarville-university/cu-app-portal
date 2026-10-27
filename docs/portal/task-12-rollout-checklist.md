@@ -68,11 +68,12 @@ Owners: Entra administrator, OpenAI/Codex administrator, portal operator.
   expired, and non-Cedarville tokens are denied.
 - [ ] Register the MCP connection as **CU Launch**, using the canonical public
   HTTPS endpoint ending in `/api/mcp`.
-- [ ] Confirm exactly these thirteen tools are discovered:
+- [ ] Confirm exactly these fifteen tools are discovered:
   `list_app_templates`, `list_my_apps`, `create_app`, `get_app`,
   `request_github_access`, `publish_app_to_azure`, `get_publish_status`,
   `repair_publishing_setup`, `retry_publish`, `admin_list_apps`, `admin_debug_app`,
-  `admin_find_users`, and `admin_get_app_logs`.
+  `admin_find_users`, `admin_get_app_logs`, `get_app_environment`, and
+  `set_app_environment`.
 - [ ] Capture the issued technical ID beginning with `plugin_asdk_app_` in the
   restricted deployment record.
 
@@ -84,7 +85,7 @@ Evidence record (safe identifiers and references only):
 - OAuth test date and pilot role:
 - MCP connection registration reference:
 - Issued app ID recorded securely: yes / no
-- Thirteen tools confirmed: yes / no
+- Fifteen tools confirmed: yes / no
 - Negative authorization cases confirmed: yes / no
 
 ### [ ] 2. Finalize with the real app ID
@@ -281,3 +282,7 @@ Copy this prompt into a new chat:
 - `docs/superpowers/plans/2026-09-01-codex-portal-workspace-plugin.md`
 - `docs/portal/codex-workspace-plugin.md`
 
+
+- [ ] Verify environment tools omit secret values, reject sensitive inputs,
+  batch ordinary writes into one Azure settings update, and deny cached replay
+  after app access removal. Verify on a disposable app; live settings may restart it.

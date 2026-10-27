@@ -79,6 +79,9 @@ function fakeServer() {
 
 function dependencies(): PortalMcpDependencies {
   return {
+    authorizeEnvironmentApp: vi.fn().mockResolvedValue({ id: "app-1" }) as PortalMcpDependencies["authorizeEnvironmentApp"],
+    getAppEnvironment: vi.fn().mockResolvedValue({ appId: "app-1", variables: [], nextOffset: null, evidence: "Saved settings" }),
+    setAppEnvironment: vi.fn().mockResolvedValue({ appId: "app-1", keys: ["APP_TITLE"], application: "next_publish" }),
     adminListApps: vi.fn(async () => ({ apps: [], nextOffset: null })),
     adminFindUsers: vi.fn(async () => ({ users: [], nextOffset: null })),
     adminDebugApp: vi.fn() as PortalMcpDependencies["adminDebugApp"],
@@ -184,7 +187,7 @@ function modernRequest(method: string, params: Record<string, unknown>) {
 }
 
 describe("portal MCP server contract", () => {
-  it("registers the thirteen approved tools in workflow order", () => {
+  it("registers the fifteen approved tools in workflow order", () => {
     const { tools } = registeredPortalTools();
 
     expect([...tools.keys()]).toEqual([
@@ -197,6 +200,8 @@ describe("portal MCP server contract", () => {
       "get_publish_status",
       "repair_publishing_setup",
       "retry_publish",
+      "get_app_environment",
+      "set_app_environment",
       "admin_list_apps",
       "admin_debug_app",
       "admin_find_users",

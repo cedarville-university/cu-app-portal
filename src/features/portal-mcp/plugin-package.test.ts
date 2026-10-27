@@ -65,6 +65,8 @@ describe("CU Launch workspace plugin package", () => {
       "get_publish_status",
       "repair_publishing_setup",
       "retry_publish",
+      "set_app_environment",
+      "get_app_environment",
       "admin_list_apps",
       "admin_debug_app",
       "admin_find_users",
@@ -138,6 +140,7 @@ describe("CU Launch workspace plugin package", () => {
       "publish_app_to_azure",
       "repair_publishing_setup",
       "retry_publish",
+      "set_app_environment",
     ];
 
     expect(replayContract).toBeDefined();
@@ -156,6 +159,16 @@ describe("CU Launch workspace plugin package", () => {
     expect(replayContract).toContain(
       "renew the user's intent before a consequential new operation",
     );
+  });
+
+  it("guides batch environment changes and keeps secrets in CU Launch", () => {
+    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
+    expect(skill).toMatch(/1–100/);
+    expect(skill).toMatch(/one Azure settings update/);
+    expect(skill).toMatch(/never solicit credentials/i);
+    expect(skill).toMatch(/secret entry and replacement[\s\S]{0,80}CU Launch UI/i);
+    expect(skill).toMatch(/may briefly restart/i);
+    expect(skill).toMatch(/metadata-only/i);
   });
 
   it("keeps implicit invocation and the approved skill interface metadata", () => {

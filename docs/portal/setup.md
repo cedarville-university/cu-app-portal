@@ -315,3 +315,23 @@ The MCP `list_my_apps` action returns owned apps only, including for admins. Sep
 ### MSAL security dependency override
 
 The portal and both worker runtime manifests scope `@azure/msal-node` to version `7.1.0` under `@azure/identity` to address CVE-2026-109461. Keep all three lockfiles aligned; each Docker image installs its own worker runtime lockfile. This override crosses Azure Identity's declared MSAL range, so retain the offline credential compatibility tests and rebuild, smoke-test, and scan both Linux amd64 worker images before changing or removing it. Do not suppress the existing HIGH/CRITICAL image-scan gate.
+
+
+### Ordinary environment settings through MCP
+
+`get_app_environment` reads saved ordinary environment values and secret names/status
+for an accessible app; secret values are never returned. `set_app_environment`
+accepts 1–100 ordinary `{ key, value }` entries with one stable idempotency UUID.
+The complete batch is validated before changes, and a published app receives one
+Azure settings update that may briefly restart it. Unrelated settings and secret
+references are preserved. Responses and audit records do not echo submitted values.
+Keep all secret entry and replacement in the CU Launch UI; sensitive settings cannot
+be written through MCP. Detection cannot recognize every credential incorrectly
+saved as ordinary configuration, so store credentials as secrets. Provider failures
+may leave partial changes because Azure and the database do not share a transaction.
+
+Environment saves from UI and MCP are serialized per app with a transaction-scoped
+PostgreSQL advisory lock. Validation and provider/database changes run under that
+lock, preventing concurrent ordinary updates from overwriting newly saved secrets.
+The database transaction is bounded to two minutes. An Azure update can outlive a
+database rollback, so failures still require checking the app's actual state.

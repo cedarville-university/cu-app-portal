@@ -216,11 +216,11 @@ delegated MCP resource.
 
 ### Support, audit, and monitoring boundary
 
-The thirteen MCP tools are `list_app_templates`, `list_my_apps`, `create_app`,
+The fifteen MCP tools are `list_app_templates`, `list_my_apps`, `create_app`,
 `get_app`, `request_github_access`, `publish_app_to_azure`,
 `get_publish_status`, `repair_publishing_setup`, `retry_publish`,
 `admin_list_apps`, `admin_debug_app`, `admin_find_users`, and
-`admin_get_app_logs`. My Apps lists owned apps only. Administrative actions
+`admin_get_app_logs`, `get_app_environment`, and `set_app_environment`. My Apps lists owned apps only. Administrative actions
 require the portal ADMIN role; see the plugin operations runbook for log
 availability, limits, provider read permissions, and rollout checks. There
 is no deletion tool. Creation never publishes; publishing, repair, and retry
@@ -424,3 +424,8 @@ After changes to templates, auth, repository setup, publishing, imports, or loca
 ## Publishing process recovery
 
 Publishing now uses a dedicated durable Container Apps Job with a persisted worker lease, plus a scheduled recovery job. Administrator app details provide explicit publishing recovery and setup-state correction controls. Deploy the schema migration, worker infrastructure, identity permissions, and portal transport configuration together in the order documented in [the publishing worker runbook](publishing-worker.md). A local build does not deploy the jobs or reconcile production attempts.
+
+MCP environment reads return saved ordinary settings and metadata-only secret entries.
+Environment writes accept 1–100 ordinary variables in one batch, use one Azure
+settings update, and may briefly restart published apps. Secret entry/replacement
+remains in CU Launch. See the plugin runbook for disclosure limits and replay rules.
