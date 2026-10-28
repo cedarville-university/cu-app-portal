@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { CuLaunchBrand } from "@/components/cu-launch-brand";
+import { WhatsChanged } from "@/features/release-notes/whats-changed";
 import { LaunchRocketIcon } from "@/components/launch-rocket-icon";
 
 export const metadata: Metadata = { title: { absolute: "Home | CU Launch" } };
@@ -69,6 +70,7 @@ export default function HomePage() {
           </p>
         </div>
       </div>
+      <WhatsChanged />
     </main>
   );
 }

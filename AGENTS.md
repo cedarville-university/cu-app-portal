@@ -122,6 +122,13 @@ The most natural next features are:
 - If you touch auth, create flow, repository setup, seeding, or e2e config, rerun the relevant checks.
 - If you change local setup behavior, update the docs in `README.md` and `docs/portal/`.
 
+## User-facing Release Notes
+
+- For user-visible changes, include one or more single-line `Release-note: <plain-language improvement>` entries in the final commit message. Describe what users can do or what became easier; omit technical implementation details.
+- Maintenance-only commits need no release note.
+- Deployment reads first-parent history: preserve the notes in squash or merge commit messages when integrating branches.
+- Run `npm run release-notes:generate` to refresh local preview data. Production runs it automatically before building. See `docs/portal/release-notes.md`.
+
 ## Milestone Commits
 
 Recent commits that matter for orientation:

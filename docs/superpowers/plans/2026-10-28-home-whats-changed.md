@@ -33,12 +33,12 @@
 
 **Interfaces:** Export `collectReleaseNotes(commits, baseline)` returning `{ date: string, notes: string[] }[]`; commits contain `{ timestamp: string, message: string }`. Export `readReleaseNoteCommits(cwd)` for first-parent history. The CLI writes the generated JSON to a fixed repository-relative destination. Importing the module does not run the CLI.
 
-- [ ] Write tests asserting Eastern midnight/DST grouping, newest-first order, 20 distinct dates, multiple notes, ignored unmarked/empty entries, same-date deduplication, baseline fallback, and invalid input handling.
-- [ ] Add temporary-repository tests asserting first-parent merge behavior and refusal of missing or shallow history.
-- [ ] Run `npm test -- scripts/release-notes/generate.test.ts`; confirm expected failures before implementation.
-- [ ] Implement generation using argument-array Git subprocess calls and structured record delimiters; do not interpolate commit messages into shell code. Verify baseline claims against current source and seed a few useful recent changes.
-- [ ] Run the tests and CLI; inspect generated JSON for dates and plain-language content.
-- [ ] Commit only the task files.
+- [x] Write tests asserting Eastern midnight/DST grouping, newest-first order, 20 distinct dates, multiple notes, ignored unmarked/empty entries, same-date deduplication, baseline fallback, and invalid input handling.
+- [x] Add temporary-repository tests asserting first-parent merge behavior and refusal of missing or shallow history.
+- [x] Run `npm test -- scripts/release-notes/generate.test.ts`; confirm expected failures before implementation.
+- [x] Implement generation using argument-array Git subprocess calls and structured record delimiters; do not interpolate commit messages into shell code. Verify baseline claims against current source and seed a few useful recent changes.
+- [x] Run the tests and CLI; inspect generated JSON for dates and plain-language content.
+- [x] Commit only the task files.
 
 ### Task 2: Render the home page section
 
@@ -46,11 +46,11 @@
 
 **Interfaces:** `WhatsChanged()` reads the generated `{ date, notes }[]` data. Render an h2, a named region with `tabIndex={0}`, semantic date headings and `<time dateTime>` elements, and note lists.
 
-- [ ] Write tests asserting the section follows How it works, dates render in readable US English without timezone drift, notes are text, the scroll region is named/focusable, and an empty collection renders no empty section.
-- [ ] Run the component/home tests and confirm expected failures.
-- [ ] Implement the component and page insertion before the closing main element; add responsive max-height, overflow-y, and visible focus styles consistent with the portal.
-- [ ] Run the tests and inspect desktop/narrow-screen rendering, including keyboard scrolling, when the local browser is available.
-- [ ] Commit only the task files.
+- [x] Write tests asserting the section follows How it works, dates render in readable US English without timezone drift, notes are text, the scroll region is named/focusable, and an empty collection renders no empty section.
+- [x] Run the component/home tests and confirm expected failures.
+- [x] Implement the component and page insertion before the closing main element; add responsive max-height, overflow-y, and visible focus styles consistent with the portal.
+- [x] Run the tests and inspect desktop/narrow-screen rendering, including keyboard scrolling, when the local browser is available.
+- [x] Commit only the task files.
 
 ### Task 3: Connect deployment and document authoring
 
@@ -58,10 +58,10 @@
 
 **Interfaces:** `npm run release-notes:generate` invokes the generator. The deployment checkout uses `fetch-depth: 0`; generation runs before `npm run build`. Generated JSON is bundled through the component import.
 
-- [ ] Write a YAML-based workflow test asserting full history checkout and generation before build, with unchanged main push/manual triggers and no write permission requirement.
-- [ ] Run the workflow test and confirm expected failure.
-- [ ] Add the command and workflow step. Document one-line trailer examples, skipped maintenance commits, squash/merge expectations, Eastern commit dates, 20-date limit, local regeneration, and successful-deployment visibility.
-- [ ] Add contributor guidance requiring plain-language release notes for user-visible changes; avoid technical terms in visitor-facing text.
-- [ ] Run all release-note/home tests and relevant existing workflow tests; then run `npm run build` and `git diff --check`.
-- [ ] Review the complete scoped diff against the spec, fix any issues, and report local validation separately from commits, pushes, and deployment. Do not push or deploy without authorization.
-- [ ] Commit only feature files, with `Release-note: See recent CU Launch improvements and fixes on the home page.` in the commit body.
+- [x] Write a YAML-based workflow test asserting full history checkout and generation before build, with unchanged main push/manual triggers and no write permission requirement.
+- [x] Run the workflow test and confirm expected failure.
+- [x] Add the command and workflow step. Document one-line trailer examples, skipped maintenance commits, squash/merge expectations, Eastern commit dates, 20-date limit, local regeneration, and successful-deployment visibility.
+- [x] Add contributor guidance requiring plain-language release notes for user-visible changes; avoid technical terms in visitor-facing text.
+- [x] Run all release-note/home tests and relevant existing workflow tests; then run `npm run build` and `git diff --check`.
+- [x] Review the complete scoped diff against the spec, fix any issues, and report local validation separately from commits, pushes, and deployment. Do not push or deploy without authorization.
+- [x] Commit only feature files, with `Release-note: See recent CU Launch improvements and fixes on the home page.` in the commit body.

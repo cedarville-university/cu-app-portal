@@ -2247,3 +2247,59 @@ h1, h2, h3, h4, h5,
     font-size: 1.9rem;
   }
 }
+
+/* Home page release notes */
+.whats-changed {
+  margin-top: 2.5rem;
+}
+
+.whats-changed h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.whats-changed__intro {
+  margin: 0 0 1rem;
+  color: var(--text-secondary);
+}
+
+.whats-changed__list {
+  max-height: 24rem;
+  max-height: min(24rem, 65svh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-white);
+  padding: 0 1.25rem;
+}
+
+.whats-changed__list:focus-visible {
+  outline: 3px solid var(--cu-navy);
+  outline-offset: 4px;
+}
+
+.whats-changed__day {
+  padding: 1.25rem 0;
+}
+
+.whats-changed__day + .whats-changed__day {
+  border-top: 1px solid var(--border-light);
+}
+
+.whats-changed__day h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
+}
+
+.whats-changed__day ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.whats-changed__day li + li {
+  margin-top: 0.5rem;
+}
