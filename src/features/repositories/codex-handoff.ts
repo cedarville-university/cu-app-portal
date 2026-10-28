@@ -1,5 +1,9 @@
 import type { ImportedAppFeatures } from "@/features/repository-imports/features";
-import { NEXTJS_ENTRA_LOGIN_GUIDANCE } from "./entra-login-guidance";
+import {
+  EXPRESS_ENTRA_LOGIN_GUIDANCE,
+  NEXTJS_ENTRA_LOGIN_GUIDANCE,
+  type LoginUpdateFramework,
+} from "./entra-login-guidance";
 
 export const LOCAL_UPLOAD_CONFIRMATION_LABEL = "My code has been uploaded";
 export const LOCAL_REPAIR_CONFIRMATION_LABEL =
@@ -320,19 +324,29 @@ export function buildLocalCodexGitSetupPrompt({
   return prompt.join("\n");
 }
 
-export function buildLoginUpdatePrompt({ repositoryUrl, appName }: {
+export function buildLoginUpdatePrompt({ repositoryUrl, appName, framework = "nextjs" }: {
   repositoryUrl: string;
   appName: string;
+  framework?: LoginUpdateFramework;
 }) {
+  const frameworkInstructions = framework === "express"
+    ? [
+        "Confirm that this is an Express app with Microsoft Entra / OpenID Connect authentication. If the recorded framework does not match the actual code, explain the mismatch before making authentication changes. If the equivalent login flow is already present, inspect and test it first; report what still needs verification rather than replacing a working implementation or making cosmetic route changes.",
+        EXPRESS_ENTRA_LOGIN_GUIDANCE,
+        "Style /login consistently with this app and explain that sign-in continues to Cedarville University's Microsoft sign-in page. Inspect any existing public welcome page and login-start handler, and reuse them where appropriate. Adapt route names to avoid collisions while keeping the public login page and its CSRF-protected POST handler distinct. Add only the middleware and parsing needed by this app's existing framework.",
+      ]
+    : [
+        "If this is not a Next.js app using Auth.js and Microsoft Entra, explain the mismatch before making authentication changes. If the custom login fix is already present, verify it instead of replacing it.",
+        NEXTJS_ENTRA_LOGIN_GUIDANCE,
+        "Style /login consistently with this app. Add one Sign in with your Cedarville account button and explain that it continues to Cedarville University's Microsoft sign-in page. Do not ask for passwords on this page. Set pages: { signIn: \"/login\" } and make the exact page anonymous without exposing other content or creating redirect loops.",
+      ];
   return [
-    `Update the existing "${appName}" app to use the custom Cedarville /login flow that resolved the Chrome sign-in warning for History4U.`,
+    `Update the existing "${appName}" app with a custom Cedarville /login flow appropriate to its ${framework === "express" ? "Express" : "Next.js"} framework. The custom login approach resolved the warning for the Next.js app History4U; verify its suitability here instead of assuming it clears Google's classification.`,
     `Expected managed repository: ${repositoryUrl}`,
     "Work inside the existing local Codex project for this app. Run git --version and check git status and remote URLs before editing. If this is not the intended app checkout, stop and explain the mismatch in plain language.",
     ...codexRuntimeAndPortalBoundaryInstructions(),
     "Inspect the project's instructions and current auth code first. Verify that the current checkout has the expected managed repository among its remotes before editing. Preserve unrelated local work, existing remotes, history, app features, and audience restrictions. Never print secrets.",
-    "If this is not a Next.js app using Auth.js and Microsoft Entra, explain the mismatch before making authentication changes. If the custom login fix is already present, verify it instead of replacing it.",
-    NEXTJS_ENTRA_LOGIN_GUIDANCE,
-    "Style /login consistently with this app. Add one Sign in with your Cedarville account button and explain that it continues to Cedarville University's Microsoft sign-in page. Do not ask for passwords on this page. Set pages: { signIn: \"/login\" } and make the exact page anonymous without exposing other content or creating redirect loops.",
+    ...frameworkInstructions,
     "Update normal sign-in links and unauthenticated redirects to use the custom page. Preserve requested destinations only after validating they are same-origin and cannot create login/auth redirect loops; otherwise return to /.",
     "Run focused checks for the public login page, protected pages and APIs, safe return destinations, sign-in errors, and the unchanged callback, then the production build. Do not bypass a browser security warning. Do not claim the warning is resolved without testing the deployed sign-in flow.",
     "Summarize the changes and checks, including any live validation still required. Explain before a default-branch push if auto-deploy is enabled because that push publishes the app. Follow the project's existing commit and publishing instructions; use the CU Launch access and authorization guidance above for requested portal actions.",

@@ -1,4 +1,5 @@
 import { getTemplateBySlug } from "@/features/templates/catalog";
+import type { LoginUpdateFramework } from "@/features/repositories/entra-login-guidance";
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -6,12 +7,12 @@ function record(value: unknown): Record<string, unknown> {
     : {};
 }
 
-export function needsLoginUpdateNotice(app: {
+export function getLoginUpdateFramework(app: {
   submittedConfig: unknown;
   templateVersion?: string;
   sourceOfTruth?: string;
   template?: { slug: string };
-}) {
+}): LoginUpdateFramework | null {
   const config = record(app.submittedConfig);
   const imported = app.sourceOfTruth === "IMPORTED_REPOSITORY";
   const slug = typeof config.templateSlug === "string"
@@ -26,15 +27,23 @@ export function needsLoginUpdateNotice(app: {
     : typeof importedLogin === "boolean"
       ? importedLogin
       : imported || template?.features.entraLogin.defaultEnabled === true;
-  if (!login) return false;
+  if (!login) return null;
   if (imported) {
     // Importing/preparing a repository does not replace its application code.
-    return (record(config.importRuntime).framework ?? "nextjs") === "nextjs";
+    const framework = record(config.importRuntime).framework ?? "nextjs";
+    return framework === "nextjs" || framework === "express" ? framework : null;
   }
-  if (template?.appServiceRuntime.framework !== "nextjs") return false;
+  if (template?.appServiceRuntime.framework !== "nextjs") return null;
   const version = /^(\d+)\.(\d+)\.(\d+)$/.exec(app.templateVersion ?? "");
-  return (
+  const needsUpdate = (
     !version || Number(version[1]) < 1 ||
     (Number(version[1]) === 1 && Number(version[2]) < 1)
   );
+  return needsUpdate ? "nextjs" : null;
+}
+
+export function needsLoginUpdateNotice(
+  app: Parameters<typeof getLoginUpdateFramework>[0],
+) {
+  return getLoginUpdateFramework(app) !== null;
 }

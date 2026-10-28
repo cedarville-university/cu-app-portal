@@ -89,6 +89,19 @@ function mockAppDetail() {
 }
 
 describe("AdminAppDetailPage", () => {
+  it("offers Express guidance on admin app details for imported sign-in apps", async () => {
+    mockAppDetail();
+    const request = await prisma.appRequest.findUnique({ where: { id: "app-1" } });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
+      ...request, sourceOfTruth: "IMPORTED_REPOSITORY",
+      submittedConfig: { entraLogin: true, importRuntime: { framework: "express" } },
+    } as NonNullable<typeof request>);
+    render(await AdminAppDetailPage({ params: Promise.resolve({ id: "app-1" }) }));
+    expect(screen.getByRole("region", { name: "Sign-in update" })).toBeInTheDocument();
+    const prompt = (screen.getByRole("textbox", { name: "Codex sign-in update prompt" }) as HTMLTextAreaElement).value;
+    expect(prompt).toContain("Express");
+    expect(prompt).not.toContain("server action");
+  });
   it("offers the same sign-in update on admin app details", async () => {
     mockAppDetail();
     const request = await prisma.appRequest.findUnique({ where: { id: "app-1" } });

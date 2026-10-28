@@ -6,7 +6,7 @@ CU Launch is Cedarville's internal portal for staff to launch managed GitHub rep
 
 ## What It Does
 
-New Next.js starters with Cedarville sign-in use a custom `/login` page and a server-side Microsoft sign-in action to reduce Chrome warnings associated with the default sign-in screen. The existing Entra callback stays unchanged. Older sign-in apps have a dismissible notice with a copyable Codex update prompt on their management pages. See [the login update behavior](docs/portal/template-authoring.md#cedarville-login-pages).
+New Next.js starters with Cedarville sign-in use a custom `/login` page and a server-side Microsoft sign-in action to reduce Chrome warnings associated with the default sign-in screen. The existing Entra callback stays unchanged. Older generated sign-in apps and imported Next.js or Express sign-in apps have a dismissible notice with a framework-specific, copyable Codex update prompt on their management pages. See [the login update behavior](docs/portal/template-authoring.md#cedarville-login-pages).
 
 CU Launch signs staff in with Microsoft Entra ID and begins creation or import with a plain-language onboarding wizard. The home page offers **Launch New App** and **Add Existing App**. Existing-app users then choose **Already on GitHub** or **Only on my computer**, while new-app users choose an approved template and explicitly select either Cedarville sign-in or openly public access. The wizard guides each path through managed GitHub repository setup, optional Codex customization, safe preparation, and an explicitly requested first Azure publish.
 

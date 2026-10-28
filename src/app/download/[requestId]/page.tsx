@@ -44,7 +44,7 @@ import { CollaborationInvitePanel } from "@/features/collaboration-invites/invit
 import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
 import { AppReadinessChecklist } from "@/features/app-details/app-readiness-checklist";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
-import { needsLoginUpdateNotice } from "@/features/app-details/login-update";
+import { getLoginUpdateFramework } from "@/features/app-details/login-update";
 import { PublicListingPanel } from "@/features/public-apps/public-listing-panel";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import {
@@ -1044,6 +1044,7 @@ export default async function DownloadPage({
   });
   const isLocalCodexApp = isLocalCodexSource(appRequest.submittedConfig);
   const appAudience = getAppAudience(appRequest.submittedConfig);
+  const loginUpdateFramework = getLoginUpdateFramework(appRequest);
   const codexHandoffPrompt =
     isLocalCodexApp && appRequest.repositoryUrl
       ? buildLocalCodexGitSetupPrompt({
@@ -1111,11 +1112,11 @@ export default async function DownloadPage({
         </div>
       </div>
 
-      {appRequest.repositoryUrl && needsLoginUpdateNotice(appRequest) ? (
+      {appRequest.repositoryUrl && loginUpdateFramework ? (
         <LoginUpdateNotice
           appRequestId={appRequest.id}
           userId={userId}
-          prompt={buildLoginUpdatePrompt({ repositoryUrl: appRequest.repositoryUrl, appName: appRequest.appName })}
+          prompt={buildLoginUpdatePrompt({ repositoryUrl: appRequest.repositoryUrl, appName: appRequest.appName, framework: loginUpdateFramework })}
         />
       ) : null}
 

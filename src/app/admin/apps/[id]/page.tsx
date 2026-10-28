@@ -13,7 +13,7 @@ import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { PublishingRecoveryPanel } from "@/features/admin/publishing-recovery-panel";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
-import { needsLoginUpdateNotice } from "@/features/app-details/login-update";
+import { getLoginUpdateFramework } from "@/features/app-details/login-update";
 import { buildLoginUpdatePrompt } from "@/features/repositories/codex-handoff";
 import { prisma } from "@/lib/db";
 
@@ -79,6 +79,7 @@ export default async function AdminAppDetailPage({
   }
 
   const displayPublishUrl = request.publishUrl ?? request.primaryPublishUrl;
+  const loginUpdateFramework = getLoginUpdateFramework(request);
   const isImportedApp = request.sourceOfTruth === "IMPORTED_REPOSITORY";
   const sourceRepositoryUrl = request.repositoryImport?.sourceRepositoryUrl;
   const collaborators = request.collaborators.map((access) => access.user);
@@ -114,11 +115,11 @@ export default async function AdminAppDetailPage({
         </div>
       </div>
 
-      {request.repositoryUrl && needsLoginUpdateNotice(request) ? (
+      {request.repositoryUrl && loginUpdateFramework ? (
         <LoginUpdateNotice
           appRequestId={request.id}
           userId={adminUserId}
-          prompt={buildLoginUpdatePrompt({ repositoryUrl: request.repositoryUrl, appName: request.appName })}
+          prompt={buildLoginUpdatePrompt({ repositoryUrl: request.repositoryUrl, appName: request.appName, framework: loginUpdateFramework })}
         />
       ) : null}
 

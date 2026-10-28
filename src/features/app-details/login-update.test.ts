@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { needsLoginUpdateNotice } from "./login-update";
+import { getLoginUpdateFramework, needsLoginUpdateNotice } from "./login-update";
 
 const legacy = {
   sourceOfTruth: "PORTAL_MANAGED_REPO", templateVersion: "1.0.0",
@@ -30,5 +30,24 @@ describe("login update notice eligibility", () => {
     } };
     expect(needsLoginUpdateNotice(imported)).toBe(true);
     expect(needsLoginUpdateNotice({ ...imported, submittedConfig: { importFeatures: { entraLogin: true }, importRuntime: { framework: "fastapi" } } })).toBe(false);
+  });
+  it("includes imported Express sign-in apps and selects Express guidance", () => {
+    const app = {
+      ...legacy,
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      submittedConfig: {
+        entraLogin: true,
+        importRuntime: { framework: "express" },
+      },
+    };
+    expect(needsLoginUpdateNotice(app)).toBe(true);
+    expect(getLoginUpdateFramework(app)).toBe("express");
+    expect(getLoginUpdateFramework(legacy)).toBe("nextjs");
+    expect(needsLoginUpdateNotice({ ...app, submittedConfig: {
+      ...app.submittedConfig, entraLogin: false,
+    } })).toBe(false);
+    expect(getLoginUpdateFramework({ ...app, submittedConfig: {
+      entraLogin: true, importRuntime: { framework: "http-server" },
+    } })).toBeNull();
   });
 });

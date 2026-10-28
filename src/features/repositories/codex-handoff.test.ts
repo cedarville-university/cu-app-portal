@@ -91,6 +91,24 @@ function expectCodexRuntimeAndPortalBoundaries(prompt: string) {
 }
 
 describe("buildCodexHandoffPrompt", () => {
+  it("gives Express apps an OIDC update prompt without Next.js-specific instructions", () => {
+    const prompt = buildLoginUpdatePrompt({
+      repositoryUrl: "https://github.com/org/bookmarks",
+      appName: "GO Bookmark Designer",
+      framework: "express",
+    });
+    expect(prompt).toContain("Express");
+    expect(prompt).toContain("openid-client");
+    expect(prompt).toContain("CSRF");
+    expect(prompt).toContain("state, nonce, and PKCE");
+    expect(prompt).toContain("/api/auth/callback/microsoft-entra-id");
+    expect(prompt).toContain("If the equivalent login flow is already present");
+    expect(prompt).not.toContain("server action");
+    expect(prompt).not.toContain("pages: { signIn:");
+    expect(prompt).not.toContain("AuthError");
+    expect(prompt).not.toContain("If this is not a Next.js app");
+    expectCodexRuntimeAndPortalBoundaries(prompt);
+  });
   it("preserves custom Next.js login in handoffs and provides an actionable existing-app update", () => {
     const handoff = buildCodexHandoffPrompt("https://github.com/org/app", "Campus App", "req");
     expect(handoff).toContain("/login");

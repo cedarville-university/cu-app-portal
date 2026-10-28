@@ -149,6 +149,16 @@ afterEach(() => {
 });
 
 describe("DownloadPage navigation", () => {
+  it("offers an Express-specific update for imported sign-in apps", async () => {
+    await renderPage({
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      submittedConfig: { entraLogin: true, importRuntime: { framework: "express" } },
+    });
+    expect(screen.getByRole("region", { name: "Sign-in update" })).toBeInTheDocument();
+    const prompt = (screen.getByRole("textbox", { name: "Codex sign-in update prompt" }) as HTMLTextAreaElement).value;
+    expect(prompt).toContain("Express");
+    expect(prompt).not.toContain("server action");
+  });
   it("shows the sign-in update for older sign-in apps above app readiness", async () => {
     await renderPage({ templateVersion: "1.0.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } });
     const notice = screen.getByRole("region", { name: "Sign-in update" });
