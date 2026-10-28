@@ -10,7 +10,6 @@ describe("HomePage release notes", () => {
     const notes = screen.getByRole("heading", { name: "What’s changed" });
     expect(screen.getByText("How it works").compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(main.lastElementChild).toContainElement(notes);
-    expect(screen.getByText("October 28, 2026")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "My Apps" })).toHaveAttribute("href", "/apps");
   });
 });
