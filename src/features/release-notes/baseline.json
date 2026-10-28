@@ -1,0 +1,20 @@
+[
+  {
+    "date": "2026-10-28",
+    "notes": [
+      "New apps automatically publish saved changes after their first successful publish. You can turn automatic publishing off or on from your app’s management page."
+    ]
+  },
+  {
+    "date": "2026-10-27",
+    "notes": [
+      "If your first publish fails, you can now open app details to adjust settings or delete the app before trying again."
+    ]
+  },
+  {
+    "date": "2026-10-23",
+    "notes": [
+      "After your existing app is prepared, publishing setup now completes automatically so you can move straight to publishing."
+    ]
+  }
+]
