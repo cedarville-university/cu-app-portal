@@ -2,19 +2,129 @@
   {
     "date": "2026-10-28",
     "notes": [
-      "New apps automatically publish saved changes after their first successful publish. You can turn automatic publishing off or on from your app’s management page."
+      "New apps automatically publish saved changes after their first successful publish. You can turn automatic publishing off or on from your app’s management page.",
+      "New apps that require Cedarville sign-in now have a dedicated sign-in page. Existing apps show guidance for adding one."
     ]
   },
   {
     "date": "2026-10-27",
     "notes": [
-      "If your first publish fails, you can now open app details to adjust settings or delete the app before trying again."
+      "If your first publish fails, you can now open app details to adjust settings or delete the app before trying again.",
+      "Administrators can now see when each user last signed in."
+    ]
+  },
+  {
+    "date": "2026-10-25",
+    "notes": [
+      "App names must now be unique, helping you avoid confusing one app with another."
     ]
   },
   {
     "date": "2026-10-23",
     "notes": [
       "After your existing app is prepared, publishing setup now completes automatically so you can move straight to publishing."
+    ]
+  },
+  {
+    "date": "2026-10-22",
+    "notes": [
+      "When adding an existing app, you can choose to add a database and require Cedarville sign-in.",
+      "Codex guidance for existing apps now reuses your current project folder."
+    ]
+  },
+  {
+    "date": "2026-10-21",
+    "notes": [
+      "Codex now gives clearer help connecting to your app’s code and resolving sign-in problems."
+    ]
+  },
+  {
+    "date": "2026-10-19",
+    "notes": [
+      "Browser tabs now show clearer page titles and the CU Launch icon.",
+      "Activity dates shown to administrators now default to Eastern time."
+    ]
+  },
+  {
+    "date": "2026-10-08",
+    "notes": [
+      "The shared-app area is now called Cedarville Apps, with clearer guidance about sharing your app."
+    ]
+  },
+  {
+    "date": "2026-10-06",
+    "notes": [
+      "Fixed a problem that could interrupt publishing while an app was still making progress.",
+      "Setup guidance now explains how Mac users get Git through Cedarville and when to contact IT for help."
+    ]
+  },
+  {
+    "date": "2026-10-05",
+    "notes": [
+      "Edit several app settings together and save them in one step. You can undo a deletion or discard unsaved changes.",
+      "Publishing now runs in the background, with better tools for administrators to recover interrupted attempts."
+    ]
+  },
+  {
+    "date": "2026-10-02",
+    "notes": [
+      "When an existing app needs changes before it can be published, setup now explains the problem and guides you back to Codex for repairs."
+    ]
+  },
+  {
+    "date": "2026-10-01",
+    "notes": [
+      "Creating or adding an app now follows a guided setup with clearer progress and next steps."
+    ]
+  },
+  {
+    "date": "2026-09-30",
+    "notes": [
+      "The home page has a refreshed look, and My Apps makes it easier to find and manage your work."
+    ]
+  },
+  {
+    "date": "2026-09-15",
+    "notes": [
+      "Choosing an app that is already on GitHub now takes you directly to the right setup screen."
+    ]
+  },
+  {
+    "date": "2026-09-04",
+    "notes": [
+      "A single Launch Your App button now helps you choose the right starting point.",
+      "Find Settings and Log Out together in the menu under your name."
+    ]
+  },
+  {
+    "date": "2026-09-02",
+    "notes": [
+      "The Codex connection now uses the CU Launch name consistently, making it easier to identify the right portal."
+    ]
+  },
+  {
+    "date": "2026-09-01",
+    "notes": [
+      "Collaborators now see their own code-access status, so one person’s invitation or error is not shown to someone else."
+    ]
+  },
+  {
+    "date": "2026-08-31",
+    "notes": [
+      "Improved publishing support for Python apps so required software is installed automatically during publishing."
+    ]
+  },
+  {
+    "date": "2026-08-25",
+    "notes": [
+      "When creating an app, you can choose whether it is openly public or requires Cedarville sign-in.",
+      "Setup uses simpler language to explain what happens next."
+    ]
+  },
+  {
+    "date": "2026-08-21",
+    "notes": [
+      "Clearer repair guidance helps Codex prepare existing apps for publishing."
     ]
   }
 ]

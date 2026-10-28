@@ -31,7 +31,7 @@ npm run release-notes:generate
 npm run dev
 ```
 
-Generation combines commit entries with `src/features/release-notes/baseline.json` and writes `src/features/release-notes/generated.json`. The baseline seeds a few verified improvements predating this feature. The checked-in generated file supports local development and builds that do not run the generator. Production always regenerates from its own checkout before building; there is no auto-commit or second workflow run.
+Generation combines commit entries with `src/features/release-notes/baseline.json` and writes `src/features/release-notes/generated.json`. The baseline backfills 20 dates of verified user-facing improvements from Git history. Maintenance-only dates are omitted. Future commit notes join this history, and only the latest 20 dates are displayed. The checked-in generated file supports local development and builds that do not run the generator. Production always regenerates from its own checkout before building; there is no auto-commit or second workflow run.
 
 Run generation from a full Git checkout. Missing Git metadata, shallow history, and malformed baseline dates fail generation rather than publishing incomplete history. After authoring a new note, commit it before regenerating to preview it. The generated file may change locally; commit a refreshed snapshot when useful. Do not add a release note solely for a generated snapshot update.
 
