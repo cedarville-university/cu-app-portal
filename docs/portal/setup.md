@@ -1,5 +1,7 @@
 # CU Launch Setup
 
+Generated Next.js sign-in apps now use a custom `/login` page (starter version 1.1.0). This update needs no Azure settings or database migration. Existing apps are not rewritten: their management pages offer a dismissible sign-in notice and a Codex update prompt. See [Cedarville login pages](template-authoring.md#cedarville-login-pages) for eligibility and verification details.
+
 This guide explains local development, required environment variables, and database setup for CU Launch.
 
 ## Requirements

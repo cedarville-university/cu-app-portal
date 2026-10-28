@@ -1,0 +1,44 @@
+import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
+import { signIn } from "@/auth";
+import { getLoginRedirect } from "@/lib/login-redirect";
+
+export default async function LoginPage({ searchParams }: {
+  searchParams: Promise<{ callbackUrl?: string | string[]; error?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const redirectTo = getLoginRedirect(
+    typeof params.callbackUrl === "string" ? params.callbackUrl : undefined,
+    process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "http://localhost:3000",
+  );
+
+  async function signInAction() {
+    "use server";
+    try {
+      await signIn("microsoft-entra-id", { redirectTo });
+    } catch (error) {
+      if (error instanceof AuthError) redirect("/login?error=signin");
+      throw error;
+    }
+  }
+
+  return (
+    <main className="app-shell">
+      <section className="hero">
+        <p className="eyebrow">Cedarville University</p>
+        <h1>Sign in to { {{APP_NAME_JS}} }</h1>
+        <p className="lede">
+          Use your Cedarville account to access this app. You will continue to
+          Cedarville University’s Microsoft sign-in page. Your password is never
+          entered into this app.
+        </p>
+        {params.error ? (
+          <p role="alert">We couldn’t complete sign-in. Please try again or contact Cedarville IT for help.</p>
+        ) : null}
+        <form action={signInAction}>
+          <button type="submit">Sign in with your Cedarville account</button>
+        </form>
+      </section>
+    </main>
+  );
+}

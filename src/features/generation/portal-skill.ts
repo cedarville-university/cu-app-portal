@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
+import { NEXTJS_ENTRA_LOGIN_GUIDANCE } from "@/features/repositories/entra-login-guidance";
 
 export const PORTAL_SKILL_PATH = ".codex/skills/cu-app-portal/SKILL.md";
 export const LEGACY_PUBLISH_SKILL_PATH =
   ".codex/skills/publish-to-azure/SKILL.md";
 
 const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
+  "2545b174f9bc885bfbafef27f664bb5b746c6251fc3b838814a02529f820751b",
   "aac7b510f75745347798af6b558fb4dbcae5739c1677a32249a384837711bfd3",
   "5ce4c7a302c86ecbdabda0ea68ed4dd763a741030ca7413686afa35e15998c28",
   "79e98100ee0299dcd3c68ca9efcce2fa80de774e41fc524645b01fd84dcdb926",
@@ -103,6 +105,10 @@ When the app is already on GitHub:
 2. Respect publishing file conflict warnings.
 3. Prefer a CU Launch-generated review PR when publishing files already exist.
 4. Do not overwrite an existing deployment workflow, deployment manifest, or app-local publishing docs without review.
+
+## Cedarville Sign-in
+
+${NEXTJS_ENTRA_LOGIN_GUIDANCE}
 
 ## Guardrails
 

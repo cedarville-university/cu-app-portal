@@ -1,4 +1,5 @@
 import type { ImportedAppFeatures } from "@/features/repository-imports/features";
+import { NEXTJS_ENTRA_LOGIN_GUIDANCE } from "./entra-login-guidance";
 
 export const LOCAL_UPLOAD_CONFIRMATION_LABEL = "My code has been uploaded";
 export const LOCAL_REPAIR_CONFIRMATION_LABEL =
@@ -77,7 +78,7 @@ function importedServiceInstructions(features: ImportedAppFeatures) {
       ? "Database: add PostgreSQL using the server-only DATABASE_URL supplied by CU Launch. Add the application's tables, versioned migrations, and database access using its existing stack. Preserve existing data and storage behavior; do not copy production data, replace an existing database, or run destructive migrations without a separate request."
       : "Database: no new CU Launch database requested. Preserve existing storage and data; do not add a managed PostgreSQL dependency.",
     features.entraLogin
-      ? "Login: require verified Cedarville Microsoft Entra sign-in before protected pages and APIs, with server-side session and authorization checks. Do not use a client-only gate, pretend session, or production authentication bypass. Use CU Launch's AUTH_SECRET, AUTH_MICROSOFT_ENTRA_ID_ID, AUTH_MICROSOFT_ENTRA_ID_SECRET, AUTH_MICROSOFT_ENTRA_ID_ISSUER, AUTH_URL, and NEXTAUTH_URL settings. For FastAPI use /login and /auth/callback; for Next.js or Express use /api/auth/signin and /api/auth/callback/microsoft-entra-id so the callback matches portal provisioning."
+      ? `Login: require verified Cedarville Microsoft Entra sign-in before protected pages and APIs, with server-side session and authorization checks. Do not use a client-only gate, pretend session, or production authentication bypass. Use CU Launch's AUTH_SECRET, AUTH_MICROSOFT_ENTRA_ID_ID, AUTH_MICROSOFT_ENTRA_ID_SECRET, AUTH_MICROSOFT_ENTRA_ID_ISSUER, AUTH_URL, and NEXTAUTH_URL settings. For FastAPI use /login and /auth/callback; for Express preserve its framework-appropriate flow and /api/auth/callback/microsoft-entra-id so the callback matches portal provisioning. ${NEXTJS_ENTRA_LOGIN_GUIDANCE}`
       : "Login: no new CU Launch Cedarville login requested. Do not add a managed Entra dependency or remove existing authentication or authorization without a separate request.",
     "If either selected service needs a server and the app is plain static HTML, migrate it to supported root Next.js, Express, or FastAPI while preserving the app's behavior. Never put database credentials or Entra client secrets in browser code.",
     "Keep GET /api/health public and returning HTTP 200 for a healthy app process, independently of sessions, databases, and external services. Leave only that exact health route and necessary sign-in/callback routes anonymous when Cedarville login is required.",
@@ -189,6 +190,7 @@ export function buildCodexHandoffPrompt(
   prompt.push(
     "Use the managed repository as the source of truth and inspect only enough files to confirm that the project is ready.",
     "Use `.codex/skills/cu-app-portal/SKILL.md` for CU Launch-managed app workflow guidance.",
+    NEXTJS_ENTRA_LOGIN_GUIDANCE,
   );
 
   if (options.importFeatures) {
@@ -279,6 +281,7 @@ export function buildLocalCodexGitSetupPrompt({
     `git pull --no-rebase --allow-unrelated-histories <verified-managed-remote> ${branch}`,
     "If the pull reports a conflict, do not overwrite either version, do not push, and do not discard local work. Explain the conflicting file in plain language and ask exactly one question only if a human choice is genuinely required.",
     "Read `.codex/skills/cu-app-portal/SKILL.md` from the pulled managed commit before continuing.",
+    NEXTJS_ENTRA_LOGIN_GUIDANCE,
     "Inspect the local app using the compatibility and safe-migration workflow in that skill. If migration is needed, follow the skill instead of inventing a different hosting path in this prompt.",
     "Run the relevant tests using compatible system or bundled workspace runtimes. Do not upload code whose relevant tests fail.",
     ...(importFeatures ? importedServiceInstructions(importFeatures) : []),
@@ -315,4 +318,23 @@ export function buildLocalCodexGitSetupPrompt({
   }
 
   return prompt.join("\n");
+}
+
+export function buildLoginUpdatePrompt({ repositoryUrl, appName }: {
+  repositoryUrl: string;
+  appName: string;
+}) {
+  return [
+    `Update the existing "${appName}" app to use the custom Cedarville /login flow that resolved the Chrome sign-in warning for History4U.`,
+    `Expected managed repository: ${repositoryUrl}`,
+    "Work inside the existing local Codex project for this app. Run git --version and check git status and remote URLs before editing. If this is not the intended app checkout, stop and explain the mismatch in plain language.",
+    ...codexRuntimeAndPortalBoundaryInstructions(),
+    "Inspect the project's instructions and current auth code first. Verify that the current checkout has the expected managed repository among its remotes before editing. Preserve unrelated local work, existing remotes, history, app features, and audience restrictions. Never print secrets.",
+    "If this is not a Next.js app using Auth.js and Microsoft Entra, explain the mismatch before making authentication changes. If the custom login fix is already present, verify it instead of replacing it.",
+    NEXTJS_ENTRA_LOGIN_GUIDANCE,
+    "Style /login consistently with this app. Add one Sign in with your Cedarville account button and explain that it continues to Cedarville University's Microsoft sign-in page. Do not ask for passwords on this page. Set pages: { signIn: \"/login\" } and make the exact page anonymous without exposing other content or creating redirect loops.",
+    "Update normal sign-in links and unauthenticated redirects to use the custom page. Preserve requested destinations only after validating they are same-origin and cannot create login/auth redirect loops; otherwise return to /.",
+    "Run focused checks for the public login page, protected pages and APIs, safe return destinations, sign-in errors, and the unchanged callback, then the production build. Do not bypass a browser security warning. Do not claim the warning is resolved without testing the deployed sign-in flow.",
+    "Summarize the changes and checks, including any live validation still required. Explain before a default-branch push if auto-deploy is enabled because that push publishes the app. Follow the project's existing commit and publishing instructions; the user operates CU Launch.",
+  ].join("\n\n");
 }

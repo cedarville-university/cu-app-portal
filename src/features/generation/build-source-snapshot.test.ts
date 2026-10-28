@@ -68,6 +68,7 @@ function executeGeneratedModule(
       esModuleInterop: true,
       module: ts.ModuleKind.CommonJS,
       target: ts.ScriptTarget.ES2022,
+      jsx: ts.JsxEmit.ReactJSX,
     },
   }).outputText;
   const generatedModule = { exports: {} as Record<string, unknown> };
@@ -89,6 +90,55 @@ function executeGeneratedModule(
 }
 
 describe("buildSourceSnapshot", () => {
+  it("generates a public custom login with server-side sign-in and safe return destinations", async () => {
+    const buildSourceSnapshot = await loadBuildSourceSnapshot();
+    const files = await buildSourceSnapshot({
+      templateSlug: "web-app", appName: 'Campus "Hub"', description: "Services",
+      hostingTarget: "Azure App Service", databaseProvider: "none", entraLogin: true,
+    });
+    expect(files["src/auth.ts"]).toContain('signIn: "/login"');
+    const { getLoginRedirect } = executeGeneratedModule(files["src/lib/login-redirect.ts"]!, {}) as {
+      getLoginRedirect: (value: string | undefined, baseUrl: string) => string;
+    };
+    for (const input of [undefined, "https://evil.test/", "//evil.test/", "/\\evil.test/", "/login", "/login?callbackUrl=/", "/api/auth/signin", "javascript:alert(1)"]) {
+      expect(getLoginRedirect(input, "https://campus.example")).toBe("/");
+    }
+    expect(getLoginRedirect("/records?view=mine", "https://campus.example")).toBe("/records?view=mine");
+    expect(getLoginRedirect("https://campus.example/records", "https://campus.example")).toBe("/records");
+    const middleware = executeGeneratedModule(files["src/middleware.ts"]!, { "@/auth": { auth: () => undefined } });
+    const config = middleware.config as { matcher: string[] };
+    expect(unstable_doesMiddlewareMatch({ config, url: "https://campus.example/login" })).toBe(false);
+    for (const path of ["/", "/login/private", "/login-help", "/api/private"]) {
+      expect(unstable_doesMiddlewareMatch({ config, url: `https://campus.example${path}` })).toBe(true);
+    }
+
+    class AuthError extends Error {}
+    const redirectSignal = new Error("NEXT_REDIRECT");
+    const signIn = vi.fn().mockRejectedValue(redirectSignal);
+    const redirect = vi.fn((url: string) => { throw new Error(`redirect:${url}`); });
+    type Element = { type: string; props: { children?: Element | Element[]; action?: () => Promise<void> } };
+    const jsx = (type: string, props: Element["props"]) => ({ type, props });
+    const { default: LoginPage } = executeGeneratedModule(files["src/app/login/page.tsx"]!, {
+      "react/jsx-runtime": { jsx, jsxs: jsx }, "@/auth": { signIn },
+      "next-auth": { AuthError }, "next/navigation": { redirect },
+      "@/lib/login-redirect": { getLoginRedirect },
+    }) as { default: (props: { searchParams: Promise<Record<string, string>> }) => Promise<Element> };
+    function findForm(element: Element): Element | undefined {
+      if (!element || typeof element !== "object") return undefined;
+      if (element.type === "form") return element;
+      const children = element.props?.children;
+      return (Array.isArray(children) ? children : [children]).flatMap((child) => child ? [findForm(child)] : []).find(Boolean);
+    }
+    const page = await LoginPage({ searchParams: Promise.resolve({ callbackUrl: "/records" }) });
+    const action = findForm(page)?.props.action;
+    expect(action).toBeTypeOf("function");
+    await expect(action!()).rejects.toBe(redirectSignal);
+    expect(signIn).toHaveBeenCalledWith("microsoft-entra-id", { redirectTo: "/records" });
+    signIn.mockRejectedValueOnce(new AuthError("provider failure"));
+    await expect(action!()).rejects.toThrow("redirect:/login?error=signin");
+    expect(files["src/app/login/page.tsx"]).not.toContain('action="/api/auth');
+  });
+
   it("uses CU Launch in generated starter guidance", async () => {
     const buildSourceSnapshot = await loadBuildSourceSnapshot();
     const files = await buildSourceSnapshot({

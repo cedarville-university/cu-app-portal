@@ -12,6 +12,9 @@ import { deleteAppFormAction } from "@/features/app-deletion/actions";
 import { ConfirmDeleteForm } from "@/features/app-deletion/confirm-delete-form";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { PublishingRecoveryPanel } from "@/features/admin/publishing-recovery-panel";
+import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
+import { needsLoginUpdateNotice } from "@/features/app-details/login-update";
+import { buildLoginUpdatePrompt } from "@/features/repositories/codex-handoff";
 import { prisma } from "@/lib/db";
 
 export async function generateMetadata({
@@ -39,6 +42,7 @@ export default async function AdminAppDetailPage({
     prisma.appRequest.findUnique({
       where: { id },
       include: {
+        template: { select: { slug: true } },
         repositoryImport: { select: { sourceRepositoryUrl: true } },
         publishAttempts: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 1 },
         user: {
@@ -109,6 +113,14 @@ export default async function AdminAppDetailPage({
           </Link>
         </div>
       </div>
+
+      {request.repositoryUrl && needsLoginUpdateNotice(request) ? (
+        <LoginUpdateNotice
+          appRequestId={request.id}
+          userId={adminUserId}
+          prompt={buildLoginUpdatePrompt({ repositoryUrl: request.repositoryUrl, appName: request.appName })}
+        />
+      ) : null}
 
       <section className="card">
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>

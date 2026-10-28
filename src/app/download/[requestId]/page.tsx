@@ -43,11 +43,14 @@ import { removeAppCollaboratorAction } from "@/features/collaboration-invites/ac
 import { CollaborationInvitePanel } from "@/features/collaboration-invites/invite-panel";
 import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
 import { AppReadinessChecklist } from "@/features/app-details/app-readiness-checklist";
+import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
+import { needsLoginUpdateNotice } from "@/features/app-details/login-update";
 import { PublicListingPanel } from "@/features/public-apps/public-listing-panel";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import {
   buildCodexHandoffPrompt,
   buildLocalCodexGitSetupPrompt,
+  buildLoginUpdatePrompt,
 } from "@/features/repositories/codex-handoff";
 import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-handoff-button";
 import { CodexPreparationChecklist } from "@/features/repositories/codex-preparation-checklist";
@@ -956,6 +959,7 @@ export default async function DownloadPage({
   const appRequest = await prisma.appRequest.findFirst({
     where: appAccessWhere(requestId, userId, isAdmin),
     include: {
+      template: { select: { slug: true } },
       user: {
         select: {
           displayName: true,
@@ -1106,6 +1110,14 @@ export default async function DownloadPage({
           </p>
         </div>
       </div>
+
+      {appRequest.repositoryUrl && needsLoginUpdateNotice(appRequest) ? (
+        <LoginUpdateNotice
+          appRequestId={appRequest.id}
+          userId={userId}
+          prompt={buildLoginUpdatePrompt({ repositoryUrl: appRequest.repositoryUrl, appName: appRequest.appName })}
+        />
+      ) : null}
 
       <div style={{ display: "grid", gap: "1.25rem" }}>
         <AppReadinessChecklist

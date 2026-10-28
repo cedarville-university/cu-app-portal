@@ -1,0 +1,20 @@
+export function getLoginRedirect(callbackUrl: string | undefined, baseUrl: string) {
+  if (!callbackUrl) return "/";
+
+  try {
+    const origin = new URL(baseUrl).origin;
+    const destination = new URL(callbackUrl, origin);
+    if (
+      destination.origin !== origin ||
+      destination.pathname.startsWith("//") ||
+      destination.pathname === "/login" ||
+      destination.pathname.startsWith("/login/") ||
+      destination.pathname === "/api/auth" ||
+      destination.pathname.startsWith("/api/auth/")
+    ) return "/";
+
+    return `${destination.pathname}${destination.search}${destination.hash}`;
+  } catch {
+    return "/";
+  }
+}

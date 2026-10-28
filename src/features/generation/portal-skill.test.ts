@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   LEGACY_PUBLISH_SKILL_PATH,
   PORTAL_SKILL_PATH,
@@ -63,6 +64,9 @@ describe("portal skill generation", () => {
     expect(skill).toContain("Cedarville Microsoft Entra login screen");
     expect(skill).toContain("Do not rely on a standalone allow list or client-side-only check");
     expect(skill).toContain("When adding a custom sign-in route");
+    expect(skill).toContain('pages: { signIn: "/login" }');
+    expect(skill).toContain("server action");
+    expect(skill).toContain("Do not collect passwords");
     expect(skill).toContain("must not depend on that route's path for deployment verification");
     expect(skill).toContain(
       "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate CU Launch",
@@ -86,6 +90,9 @@ describe("portal skill generation", () => {
   });
 
   it("recognizes the immediately previous generated skill but not a customized copy", () => {
+    const beforeLogin = readFileSync("src/features/generation/fixtures/managed-app-portal-skill-2026-10-28.md", "utf8");
+    expect(isCanonicalManagedAppPortalSkill(beforeLogin)).toBe(true);
+    expect(isCanonicalManagedAppPortalSkill(`${beforeLogin}\nCustom changes`)).toBe(false);
     const previousSkill = buildPreviousManagedAppPortalSkillForTest();
     const immediatelyPreviousSkill =
       buildImmediatelyPreviousManagedAppPortalSkillForTest();

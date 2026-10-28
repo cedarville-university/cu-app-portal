@@ -149,6 +149,19 @@ afterEach(() => {
 });
 
 describe("DownloadPage navigation", () => {
+  it("shows the sign-in update for older sign-in apps above app readiness", async () => {
+    await renderPage({ templateVersion: "1.0.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } });
+    const notice = screen.getByRole("region", { name: "Sign-in update" });
+    expect(notice).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy update prompt" })).toBeInTheDocument();
+    expect((screen.getByRole("textbox", { name: "Codex sign-in update prompt" }) as HTMLTextAreaElement).value).toContain("https://github.com/cedarville-it/campus-dashboard");
+    expect(notice.compareDocumentPosition(screen.getByRole("heading", { name: "App readiness" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("does not show the sign-in update for new starter versions", async () => {
+    await renderPage({ templateVersion: "1.1.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } });
+    expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
+  });
   it.each(["NOT_STARTED", "QUEUED", "PROVISIONING", "DEPLOYING", "DELETED"])("redirects a non-admin to onboarding for %s", async (publishStatus) => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(appRequest({ publishStatus }));
 

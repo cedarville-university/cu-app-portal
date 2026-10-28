@@ -89,6 +89,16 @@ function mockAppDetail() {
 }
 
 describe("AdminAppDetailPage", () => {
+  it("offers the same sign-in update on admin app details", async () => {
+    mockAppDetail();
+    const request = await prisma.appRequest.findUnique({ where: { id: "app-1" } });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
+      ...request, sourceOfTruth: "PORTAL_MANAGED_REPO", templateVersion: "1.0.0",
+      submittedConfig: { templateSlug: "web-app", entraLogin: true },
+    } as NonNullable<typeof request>);
+    render(await AdminAppDetailPage({ params: Promise.resolve({ id: "app-1" }) }));
+    expect(screen.getByRole("region", { name: "Sign-in update" })).toBeInTheDocument();
+  });
   beforeEach(() => {
     mockUseFormStatus.mockReturnValue({ pending: false });
     vi.mocked(getAdminUserIdOrNull).mockResolvedValue("admin-1");

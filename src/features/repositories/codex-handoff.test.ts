@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCodexHandoffPrompt,
+  buildLoginUpdatePrompt,
   buildLocalCodexGitSetupPrompt,
 } from "./codex-handoff";
 
@@ -86,6 +87,18 @@ function expectCodexRuntimeAndPortalBoundaries(prompt: string) {
 }
 
 describe("buildCodexHandoffPrompt", () => {
+  it("preserves custom Next.js login in handoffs and provides an actionable existing-app update", () => {
+    const handoff = buildCodexHandoffPrompt("https://github.com/org/app", "Campus App", "req");
+    expect(handoff).toContain("/login");
+    expect(handoff).toContain("server action");
+    const prompt = buildLoginUpdatePrompt({ repositoryUrl: "https://github.com/org/app", appName: "Campus App" });
+    expect(prompt).toContain("https://github.com/org/app");
+    expect(prompt).toContain('pages: { signIn: "/login" }');
+    expect(prompt).toContain("/api/auth/callback/microsoft-entra-id");
+    expect(prompt).toContain("Do not claim");
+    expect(prompt).not.toContain("The project is ready. What would you like me to change");
+    expectCodexRuntimeAndPortalBoundaries(prompt);
+  });
   it("prepares an empty local Codex project before cloning a generated app", () => {
     const prompt = buildCodexHandoffPrompt(
       "https://github.com/cedarville-it/campus-dashboard",

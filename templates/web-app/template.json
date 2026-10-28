@@ -1,6 +1,6 @@
 {
   "slug": "web-app",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "entryFiles": [
     "package.json.template",
     ".gitignore.template",
@@ -26,6 +26,8 @@
     "entraLogin": [
       "src/app/api/auth/[...nextauth]/route.ts.template",
       "src/auth.ts.template",
+      "src/app/login/page.tsx.template",
+      "src/lib/login-redirect.ts.template",
       "src/middleware.ts.template"
     ]
   },

@@ -111,6 +111,18 @@ Publishing-capable templates should assume this direction:
 - the portal renders the canonical source snapshot
 - the portal-created GitHub repo is the supported publish source of truth
 
+## Cedarville Login Pages
+
+Next.js starters and presets are version 1.1.0 as of the custom-login update. When Cedarville sign-in is selected, include `src/app/login/page.tsx` and `src/lib/login-redirect.ts` through the template's `entraLogin` conditional entries. Public apps do not receive these files. FastAPI keeps its existing login flow.
+
+Auth.js must set `pages.signIn` to `/login`. Exclude only the exact `/login` page from authentication middleware, alongside the existing required auth routes, public health check, and framework assets; `/login/private` and similarly named paths remain protected. The login button calls the server-side `signIn("microsoft-entra-id", { redirectTo })` in a Next.js server action. Keep the existing `/api/auth/callback/microsoft-entra-id` callback, secure sessions, and audience checks. Validate return destinations against `AUTH_URL`/`NEXTAUTH_URL`, fall back to `/`, and exclude login/auth destinations. Catch `AuthError` for a friendly retry message and rethrow other errors so framework redirects work.
+
+Keep this pattern in the generated app skill and both generated/imported Codex handoffs. A browser link or form submission to `/api/auth/signin/microsoft-entra-id` reintroduces the warning-prone flow. A custom login page is a mitigation; production Chrome verification is still required before claiming a warning is resolved.
+
+Existing generated Next.js sign-in apps with `templateVersion` older than 1.1.0 receive a notice at the top of both owner and admin app-details pages. Imported Next.js sign-in apps also receive it because repository preparation does not regenerate application code. The prompt checks the app's framework and existing fix before making changes. Public apps and FastAPI apps are excluded. Dismissal is per user and app in the current browser, and does not certify that the app was updated. The portal cannot detect later changes made directly in an app repository; users who already applied the fix can dismiss the notice. Blocked browser storage still allows dismissal for the current page, and clipboard failures expose the full prompt for manual copying.
+
+No database migration, Azure setting change, or callback migration is needed for this update. New-app creation upserts the current catalog version; seeding also refreshes stored template metadata. Existing repositories are updated only when their owners use the prompt.
+
 ## Database Sync
 
 Run `npm run prisma:seed` after catalog changes so the database template rows stay aligned with the in-code catalog used by the portal.
