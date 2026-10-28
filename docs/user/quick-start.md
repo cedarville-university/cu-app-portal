@@ -44,3 +44,7 @@ Open **My Apps**. An app that has not finished its first publish shows **Continu
 Read the full message. If offered, use **Try preparation again** or **Fix publishing setup**; fixing setup does not publish. Existing publishing files may require **Open a safe review on GitHub**. See [Troubleshooting](/help/troubleshooting) for the local upload and recovery paths.
 
 Never send passwords, secret values, or the contents of environment variables when asking for help. Provide the app name, support reference if shown, the approximate time, and a screenshot of the message.
+
+## Publishing later changes
+
+Push-to-deploy is enabled by default for new apps. After first publish, pushes to the managed GitHub repository's default branch publish automatically. Select **Disable Auto-Deploy** under **Manage App** to use manual **Publish to Azure** instead. **Enable Auto-Deploy** turns automatic publishing back on. Existing apps keep their saved setting.

@@ -57,7 +57,7 @@ Read the request and allow only what the current app task needs. It is normal to
 
 ## What happens after someone changes the code?
 
-The change must be committed and pushed to the portal-managed GitHub repository. Then push-to-deploy may publish automatically, or an authorized portal user can select **Publish to Azure**.
+The change must be committed and pushed to the portal-managed GitHub repository’s default branch. Push-to-deploy is enabled by default for new apps, so pushes after first publish deploy automatically. Select **Disable Auto-Deploy** under **Manage App** to require manual **Publish to Azure** for updates. **Enable Auto-Deploy** turns it back on. Existing apps retain their saved setting.
 
 ## Can another person help manage my app?
 

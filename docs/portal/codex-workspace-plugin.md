@@ -290,3 +290,5 @@ PostgreSQL advisory lock. Validation and provider/database changes run under tha
 lock, preventing concurrent ordinary updates from overwriting newly saved secrets.
 The database transaction is bounded to two minutes. An Azure update can outlive a
 database rollback, so failures still require checking the app's actual state.
+
+New managed apps default to push-to-deploy after first publish. Explain that a default-branch push to an already published app can deploy changes automatically. The user can select **Disable Auto-Deploy** in CU Launch to require manual publishing, or **Enable Auto-Deploy** to restore it. Existing apps keep their saved mode.

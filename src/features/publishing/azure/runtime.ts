@@ -1,3 +1,8 @@
+import {
+  AZURE_DEPLOY_WORKFLOW_PATH,
+  enablePushTriggerForAzureWorkflow,
+} from "../workflow-triggers";
+import type { createGitHubAppClient } from "@/features/repositories/github-app";
 import type { PrismaClient } from "@prisma/client";
 
 import type {
@@ -110,7 +115,10 @@ type RuntimeDeps = {
       redirectUri: string;
     }): Promise<void>;
   };
-  github: {
+  github: Pick<
+    ReturnType<typeof createGitHubAppClient>,
+    "readRepositoryTextFiles" | "getBranchHead" | "commitFiles"
+  > & {
     getRepositoryOidcIdentity(input: {
       owner: string;
       name: string;
@@ -146,6 +154,7 @@ type RuntimeDeps = {
 };
 
 type PublishableAppRequest = {
+  deploymentTriggerMode: "PUSH_TO_DEPLOY" | "PORTAL_DISPATCH";
   id: string;
   appName: string;
   userId: string;
@@ -201,6 +210,7 @@ async function loadPublishableRequest(
   }
 
   return {
+    deploymentTriggerMode: appRequest.deploymentTriggerMode,
     id: appRequest.id,
     appName: appRequest.appName,
     userId: appRequest.userId,
@@ -705,6 +715,38 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         secretName: "AZURE_WEBAPP_NAME",
         secretValue: names.webAppName,
       });
+
+      // Stage generated workflows until the user explicitly requests first publish.
+      // Skipping CI on this commit avoids a push run racing the manual dispatch.
+      const currentRequest = await deps.prisma.appRequest.findUnique({
+        where: { id: appRequestId },
+        select: { deploymentTriggerMode: true },
+      });
+      if (currentRequest?.deploymentTriggerMode === "PUSH_TO_DEPLOY") {
+        const head = await deps.github.getBranchHead({ owner, name, branch });
+        const files = await deps.github.readRepositoryTextFiles({
+          owner,
+          name,
+          ref: head.sha,
+          paths: [AZURE_DEPLOY_WORKFLOW_PATH],
+        });
+        const workflow = files[AZURE_DEPLOY_WORKFLOW_PATH];
+        if (!workflow) {
+          throw new Error("Deployment workflow was not found in the managed repository.");
+        }
+        const patched = enablePushTriggerForAzureWorkflow(workflow, branch);
+        if (patched.changed) {
+          await options?.authorizeProviderMutation?.();
+          await deps.github.commitFiles({
+            owner,
+            name,
+            branch,
+            expectedHeadSha: head.sha,
+            message: "Enable push-to-deploy [skip ci]",
+            files: { [AZURE_DEPLOY_WORKFLOW_PATH]: patched.content },
+          });
+        }
+      }
 
       const workflowRunInput = {
         owner,

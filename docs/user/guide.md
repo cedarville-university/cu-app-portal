@@ -130,7 +130,7 @@ After publishing, open the app and test its most important task. A successful de
 
 1. Make and test the change with Codex or a developer.
 2. Push the change to the managed GitHub repository.
-3. If push-to-deploy is enabled, the GitHub workflow may publish automatically. Otherwise, return through **Manage App** and select **Publish to Azure**.
+3. Push-to-deploy is enabled by default for new apps: after first publish, pushes to the managed repository’s default branch publish automatically. To stop this, open **Manage App** and select **Disable Auto-Deploy**. Then use **Publish to Azure** for updates. **Enable Auto-Deploy** turns automatic publishing back on. Existing apps keep their saved setting.
 4. Test the published app again.
 
 ## 8. Environment variables and secrets

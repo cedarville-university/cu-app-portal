@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import {
   appAccessWhere,
@@ -16,12 +17,16 @@ import { retryPublishForActor } from "./retry-publish";
 import {
   AZURE_DEPLOY_WORKFLOW_PATH,
   enablePushTriggerForAzureWorkflow,
+  disablePushTriggerForAzureWorkflow,
 } from "./workflow-triggers";
 
-async function loadAccessibleAppRequest(requestId: string) {
+async function loadAccessibleAppRequest(
+  requestId: string,
+  db: Pick<Prisma.TransactionClient, "appRequest"> = prisma,
+) {
   const userId = await resolveCurrentUserId();
   const isAdmin = await userHasAdminRole(userId);
-  const appRequest = await prisma.appRequest.findFirst({
+  const appRequest = await db.appRequest.findFirst({
     where: appAccessWhere(requestId, userId, isAdmin),
     include: {
       repositoryImport: true,
@@ -81,11 +86,40 @@ export async function retryPublishAction(requestId: string) {
 }
 
 export async function enablePushToDeployAction(requestId: string) {
-  const appRequest = await loadAccessibleAppRequest(requestId);
+  return setPushToDeploy(requestId, true);
+}
 
-  if (appRequest.sourceOfTruth !== "PORTAL_MANAGED_REPO") {
+export async function disablePushToDeployAction(requestId: string) {
+  return setPushToDeploy(requestId, false);
+}
+
+async function setPushToDeploy(requestId: string, enabled: boolean) {
+  // Check access before locking, then check again under the lock. Publish queue
+  // claims update this same row and must wait until the workflow and mode agree.
+  await loadAccessibleAppRequest(requestId);
+  const details = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "AppRequest" WHERE id = ${requestId} FOR UPDATE`;
+    return updatePushToDeploy(requestId, enabled, tx);
+  }, { timeout: 60_000 });
+  await recordAuditEvent(
+    enabled ? "PUSH_TO_DEPLOY_ENABLED" : "PUSH_TO_DEPLOY_DISABLED",
+    details,
+  );
+  revalidatePublishViews(requestId);
+}
+
+async function updatePushToDeploy(
+  requestId: string,
+  enabled: boolean,
+  tx: Prisma.TransactionClient,
+) {
+  const appRequest = await loadAccessibleAppRequest(requestId, tx);
+
+  if (
+    !["PORTAL_MANAGED_REPO", "IMPORTED_REPOSITORY"].includes(appRequest.sourceOfTruth)
+  ) {
     throw new Error(
-      "Push-to-deploy is only available for generated template apps.",
+      "Push-to-deploy is only available for managed repositories.",
     );
   }
 
@@ -93,7 +127,11 @@ export async function enablePushToDeployAction(requestId: string) {
     throw new Error("Managed repository is not ready for push-to-deploy.");
   }
 
-  if (appRequest.publishStatus !== "SUCCEEDED") {
+  if (["QUEUED", "PROVISIONING", "DEPLOYING"].includes(appRequest.publishStatus)) {
+    throw new Error("Wait for the current publish to finish before changing auto-deploy.");
+  }
+
+  if (enabled && appRequest.publishStatus !== "SUCCEEDED") {
     throw new Error(
       "Push-to-deploy can only be enabled after a successful publish.",
     );
@@ -118,18 +156,15 @@ export async function enablePushToDeployAction(requestId: string) {
     throw new Error("Managed repository metadata is incomplete.");
   }
 
-  if (appRequest.deploymentTriggerMode === "PUSH_TO_DEPLOY") {
-    return;
-  }
-
   const owner = appRequest.repositoryOwner;
   const name = appRequest.repositoryName;
   const branch = appRequest.repositoryDefaultBranch;
   const github = createGitHubClientForOwner(owner);
+  const head = await github.getBranchHead({ owner, name, branch });
   const files = await github.readRepositoryTextFiles({
     owner,
     name,
-    ref: branch,
+    ref: head.sha,
     paths: [AZURE_DEPLOY_WORKFLOW_PATH],
   });
   const workflow = files[AZURE_DEPLOY_WORKFLOW_PATH];
@@ -138,16 +173,17 @@ export async function enablePushToDeployAction(requestId: string) {
     throw new Error("Deployment workflow was not found in the managed repository.");
   }
 
-  const patched = enablePushTriggerForAzureWorkflow(workflow, branch);
+  const patched = enabled
+    ? enablePushTriggerForAzureWorkflow(workflow, branch)
+    : disablePushTriggerForAzureWorkflow(workflow);
   let commitSha: string | null = null;
 
   if (patched.changed) {
-    const head = await github.getBranchHead({ owner, name, branch });
     const commit = await github.commitFiles({
       owner,
       name,
       branch,
-      message: "Enable push-to-deploy",
+      message: `${enabled ? "Enable" : "Disable"} push-to-deploy [skip ci]`,
       expectedHeadSha: head.sha,
       files: {
         [AZURE_DEPLOY_WORKFLOW_PATH]: patched.content,
@@ -156,19 +192,12 @@ export async function enablePushToDeployAction(requestId: string) {
     commitSha = commit.commitSha;
   }
 
-  await prisma.appRequest.update({
+  await tx.appRequest.update({
     where: { id: requestId },
     data: {
-      deploymentTriggerMode: "PUSH_TO_DEPLOY",
-      publishErrorSummary: null,
+      deploymentTriggerMode: enabled ? "PUSH_TO_DEPLOY" : "PORTAL_DISPATCH",
     },
   });
 
-  await recordAuditEvent("PUSH_TO_DEPLOY_ENABLED", {
-    requestId,
-    repository: `${owner}/${name}`,
-    commitSha,
-  });
-
-  revalidatePublishViews(requestId);
+  return { requestId, repository: `${owner}/${name}`, commitSha };
 }

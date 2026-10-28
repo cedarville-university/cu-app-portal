@@ -55,7 +55,7 @@ model AppRequest {
   supportReference String
   visibility       String?
   deploymentTarget String?
-  deploymentTriggerMode DeploymentTriggerMode @default(PORTAL_DISPATCH)
+  deploymentTriggerMode DeploymentTriggerMode @default(PUSH_TO_DEPLOY)
   sourceOfTruth    SourceOfTruth      @default(PORTAL_MANAGED_REPO)
   repositoryProvider RepositoryProvider?
   repositoryOwner  String?

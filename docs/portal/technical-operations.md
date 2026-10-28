@@ -429,3 +429,9 @@ MCP environment reads return saved ordinary settings and metadata-only secret en
 Environment writes accept 1–100 ordinary variables in one batch, use one Azure
 settings update, and may briefly restart published apps. Secret entry/replacement
 remains in CU Launch. See the plugin runbook for disclosure limits and replay rules.
+
+## Push-to-deploy default and controls
+
+New managed app requests default to `PUSH_TO_DEPLOY` after migration `20261028140000_push_to_deploy_default`. Existing app modes are preserved. Generated workflow files remain manual-only until the first explicitly requested publish; after deployment secrets are ready, the runtime adds the default-branch push trigger with an `Enable push-to-deploy [skip ci]` commit before manual dispatch. GitHub's [skip instructions](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs) suppress that commit's push run while allowing the manual deployment.
+
+**Disable Auto-Deploy** removes only the push event from a recognized managed workflow, preserves manual dispatch and other events, saves `PORTAL_DISPATCH`, and records `PUSH_TO_DEPLOY_DISABLED`. It is also available after a failed publish. **Enable Auto-Deploy** restores the push trigger after a successful publish. Both operations read from the expected branch-head SHA and refuse to overwrite a concurrent branch change. Auto-deploy controls are unavailable while a portal publish is queued, provisioning, or deploying. Setting changes lock the app row while patching the workflow and saving the mode; a concurrent publish queue claim waits for that transaction. The runtime re-reads the saved mode after configuring secrets before activating the trigger. Already running GitHub deployments are not cancelled by disabling future push triggers. Manual publishing does not re-enable an app saved as `PORTAL_DISPATCH`.

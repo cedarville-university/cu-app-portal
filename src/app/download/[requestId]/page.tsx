@@ -17,6 +17,7 @@ import {
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import {
   enablePushToDeployAction,
+  disablePushToDeployAction,
   publishToAzureAction,
   retryPublishAction,
 } from "@/features/publishing/actions";
@@ -782,27 +783,40 @@ function renderPushToDeployButton(request: {
   deploymentTriggerMode?: string | null;
 }) {
   if (
-    request.sourceOfTruth !== "PORTAL_MANAGED_REPO" ||
+    !["PORTAL_MANAGED_REPO", "IMPORTED_REPOSITORY"].includes(
+      request.sourceOfTruth ?? "",
+    ) ||
+    ["QUEUED", "PROVISIONING", "DEPLOYING"].includes(request.publishStatus) ||
     request.repositoryStatus !== "READY" ||
-    request.publishStatus !== "SUCCEEDED" ||
-    request.deploymentTriggerMode === "PUSH_TO_DEPLOY" ||
     !request.deploymentTarget ||
     !supportsPostSuccessPushToDeploy(request.deploymentTarget)
   ) {
     return null;
   }
 
-  const enableAction = enablePushToDeployAction.bind(null, request.id);
+  const enabled = request.deploymentTriggerMode === "PUSH_TO_DEPLOY";
+  if (!enabled && request.publishStatus !== "SUCCEEDED") return null;
+  const action = (
+    enabled ? disablePushToDeployAction : enablePushToDeployAction
+  ).bind(null, request.id);
 
   return (
-    <form action={enableAction}>
+    <form action={action}>
       <PendingSubmitButton
-        idleLabel="Enable Auto-Deploy"
-        pendingLabel="Enabling..."
-        statusText="Enabling auto-deploy. Future code updates will publish automatically."
+        idleLabel={enabled ? "Disable Auto-Deploy" : "Enable Auto-Deploy"}
+        pendingLabel={enabled ? "Disabling..." : "Enabling..."}
+        statusText={
+          enabled
+            ? "Disabling auto-deploy. Use Publish to Azure for future updates."
+            : "Enabling auto-deploy. Future code updates will publish automatically."
+        }
         variant="ghost"
         size="sm"
-        title="Turn on automatic publishing — your app will deploy to Azure whenever code is updated in the repository, without needing to click Publish"
+        title={
+          enabled
+            ? "Turn off automatic publishing. Future pushes will require Publish to Azure."
+            : "Turn on automatic publishing for future pushes to the default branch."
+        }
       />
     </form>
   );

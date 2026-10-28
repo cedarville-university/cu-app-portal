@@ -209,8 +209,9 @@ export function buildCodexHandoffPrompt(
     "",
     "Before you finish",
     "After completing the project work I requested, run the relevant tests using compatible system or bundled workspace runtimes, explain the result plainly, then commit and push the completed work through the CU Launch-supported workflow.",
+    "Push-to-deploy is enabled by default for new managed apps. If this app has already been published and auto-deploy is enabled, pushing to its default branch deploys the changes automatically. Explain that effect before pushing. The app details page offers Disable Auto-Deploy for manual publishing; existing apps retain their saved mode.",
     "Verify that the push succeeded and give me a simple status summary.",
-    "Tell me that the requested changes are ready in GitHub. If I want to publish them, tell me that I can return to CU Launch myself.",
+    "Tell me that the requested changes are ready in GitHub. If auto-deploy is enabled on an already published app, explain that the push starts deployment; do not claim it is live without verification. First publish or manual publishing still uses CU Launch, which I operate myself.",
     "Do not open or operate CU Launch, and do not make publishing the next step unless I ask about publishing.",
   );
 

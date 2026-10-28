@@ -1,4 +1,8 @@
-import { buildManagedAppPortalSkill } from "./portal-skill";
+import { readFileSync } from "node:fs";
+
+function previousSkillBeforePushDefault() {
+  return readFileSync("src/features/generation/fixtures/managed-app-portal-skill-2026-10-27.md", "utf8");
+}
 
 const PREVIOUS_COMPATIBILITY_GUIDANCE = `2. Determine whether it is already one of the CU Launch-supported root app types: root Next.js, Express, Python FastAPI, or a plain static app with a root \`index.html\` that can run with Python \`http.server\`.
 3. If it is already supported, preserve its framework and behavior. Do not migrate it merely to make it resemble a portal starter.
@@ -14,14 +18,14 @@ const PREVIOUS_CUSTOM_SIGN_IN_GUIDANCE = "- When adding a custom sign-in route, 
 const PREVIOUS_IMPORTED_HEALTH_GUIDANCE = "- For an imported app that lacks this endpoint, add it before publishing. Use the app's existing supported server or framework and preserve its behavior. For a plain static import, use the portal-provided runner only after the portal has prepared the repository.\n";
 
 export function buildImmediatelyPreviousManagedAppPortalSkillForTest() {
-  return buildManagedAppPortalSkill().replace(
+  return previousSkillBeforePushDefault().replace(
     PREVIOUS_IMPORTED_HEALTH_GUIDANCE,
     "",
   );
 }
 
 export function buildPreviousManagedAppPortalSkillForTest() {
-  const currentSkill = buildManagedAppPortalSkill();
+  const currentSkill = previousSkillBeforePushDefault();
   const currentStart = currentSkill.indexOf("2. Match CU Launch's exact static-app rule.");
   const currentEndText =
     "12. After a successful migration and verification, commit and push the changed app to the CU Launch-managed repository. The user performs the next CU Launch confirmation.";

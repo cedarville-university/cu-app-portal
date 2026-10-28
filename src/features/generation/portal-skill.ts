@@ -5,6 +5,7 @@ export const LEGACY_PUBLISH_SKILL_PATH =
   ".codex/skills/publish-to-azure/SKILL.md";
 
 const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
+  "aac7b510f75745347798af6b558fb4dbcae5739c1677a32249a384837711bfd3",
   "5ce4c7a302c86ecbdabda0ea68ed4dd763a741030ca7413686afa35e15998c28",
   "79e98100ee0299dcd3c68ca9efcce2fa80de774e41fc524645b01fd84dcdb926",
   "54a3d32e89b6136ad0f0296feea5ff01321034e9d52acb9a752347ee6e5021cb",
@@ -36,10 +37,18 @@ Use this skill when Codex is working inside a CU Launch-managed app repository.
 
 ## CU Launch-First Workflows
 
-- Prefer CU Launch for publishing setup, first publish, Repair Publishing Setup, collaborator access, GitHub access requests, push-to-deploy enablement, and scoped deletion.
+- Prefer CU Launch for publishing setup, first publish, Repair Publishing Setup, collaborator access, GitHub access requests, push-to-deploy settings, and scoped deletion.
 - Use local \`git\` to connect this checkout to the CU Launch-managed GitHub repository. Pull CU Launch's initial guidance commit before changing or uploading the local app.
 - Use \`gh\` and \`az\` for verification, diagnostics, or documented recovery after the CU Launch path is unavailable or blocked.
 - Treat direct Azure CLI publishing as a recovery path, not the default path.
+
+## Push to Deploy
+
+- Push-to-deploy is enabled by default for new managed apps. After first publish, pushing to the managed repository's default branch publishes the app automatically.
+- Treat a default-branch push to a published app as a deployment. Explain this when preparing changes for the user.
+- The first publish still requires the user's CU Launch publish action. Generated workflows stay manual until that explicitly requested publish activates the push trigger after Azure resources and secrets are ready.
+- To stop automatic deployments, tell the user to select **Disable Auto-Deploy** on the app details page. Manual **Publish to Azure** remains available, and **Enable Auto-Deploy** can restore automatic deployments later.
+- Existing apps retain their saved deployment mode; check their CU Launch setting and workflow instead of assuming the new default changed them.
 
 ## App Compatibility and Safe Migration
 
@@ -136,7 +145,7 @@ description: Use when an older CU Launch-managed Cedarville app or prompt asks C
 
 Use the \`cu-app-portal\` skill for this CU Launch-managed app.
 
-Direct Azure-first publishing is now a recovery path, not the default path for CU Launch-managed apps. Read \`app-portal/deployment-manifest.json\`, then prefer CU Launch for publishing setup, Repair Publishing Setup, first publish, push-to-deploy enablement, GitHub access, collaborator workflows, and scoped deletion.
+Direct Azure-first publishing is now a recovery path, not the default path for CU Launch-managed apps. Read \`app-portal/deployment-manifest.json\`, then prefer CU Launch for publishing setup, Repair Publishing Setup, first publish, push-to-deploy settings, GitHub access, collaborator workflows, and scoped deletion.
 
 Do not open or operate CU Launch through Browser, Computer Use, Chrome, plugins, or connectors. Tell the user what CU Launch action is available, then stop and let the user perform it.
 `;

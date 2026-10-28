@@ -16,7 +16,7 @@ const AZURE_APP_SERVICE_CAPABILITIES: PublishingProviderCapabilities = {
   hostingTarget: "Azure App Service",
   supportsGeneratedTemplateOneStep: true,
   supportsPostSuccessPushToDeploy: true,
-  triggerPolicy: "portal_dispatch",
+  triggerPolicy: "push",
   workflowPath: ".github/workflows/deploy-azure-app-service.yml",
   workflowFileName: "deploy-azure-app-service.yml",
   requiredSecrets: [

@@ -393,7 +393,7 @@ export function planPublishingBundle({
   }
   filesToWrite[LEGACY_PUBLISH_SKILL_PATH] = buildLegacyPublishToAzureStub();
   filesToWrite["docs/publishing/azure-app-service.md"] =
-    `# Publish to Azure App Service\n\nThis imported ${runtime.displayName} app is prepared for CU Launch-managed Azure publishing.\n`;
+    `# Publish to Azure App Service\n\nThis imported ${runtime.displayName} app is prepared for CU Launch-managed Azure publishing.\n\nPush-to-deploy is enabled by default for new managed apps. After first publish, pushes to the managed repository’s default branch publish automatically. Select **Disable Auto-Deploy** on the app details page to use manual **Publish to Azure** instead; **Enable Auto-Deploy** restores automatic publishing. Existing apps retain their saved deployment mode.\n`;
   filesToWrite["docs/publishing/lessons-learned.md"] =
     "# Publishing Lessons Learned\n\nRecord manual fixes and deployment blockers here.\n";
   filesToWrite["app-portal/deployment-manifest.json"] = buildImportedManifest(

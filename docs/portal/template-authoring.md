@@ -86,6 +86,8 @@ Generated overrides are intentional. When an entry file and generated override r
 
 ## Publishing Bundle
 
+Push-to-deploy is the default for new managed app requests. Keep generated workflow assets manual-only at creation: the Azure publishing runtime adds the default-branch push trigger after resources and secrets are ready during the first explicitly requested publish. Its workflow commit uses `[skip ci]` to avoid a duplicate push deployment alongside manual dispatch. Generated documentation and app-local Codex guidance must describe automatic deployment as the default after first publish, with **Disable Auto-Deploy** for manual publishing and **Enable Auto-Deploy** to restore it.
+
 Publishing-capable templates can include assets such as:
 
 - `.github/workflows/`

@@ -121,6 +121,7 @@ function emptyWorkflowRunsError() {
 
 function createDeps({
   appRequest = readyAppRequest as typeof readyAppRequest & {
+    deploymentTriggerMode?: "PUSH_TO_DEPLOY" | "PORTAL_DISPATCH";
     submittedConfig?: unknown;
     azureKeyVaultName?: string;
     azureKeyVaultUri?: string;
@@ -185,6 +186,11 @@ function createDeps({
     ensureRedirectUri: vi.fn().mockResolvedValue(undefined),
   };
   const github = {
+    readRepositoryTextFiles: vi.fn().mockResolvedValue({
+      ".github/workflows/deploy-azure-app-service.yml": "name: Deploy to Azure App Service\non:\n  workflow_dispatch:\nenv:\n  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}\njobs:\n  deploy:\n    steps:\n      - uses: azure/webapps-deploy@v3\n",
+    }),
+    getBranchHead: vi.fn().mockResolvedValue({ sha: "head-sha" }),
+    commitFiles: vi.fn().mockResolvedValue({ commitSha: "trigger-sha" }),
     getRepositoryOidcIdentity: vi.fn().mockResolvedValue({
       owner: "cedarville-it",
       ownerId: "654321",
@@ -328,6 +334,39 @@ describe("createAzurePublishRuntime", () => {
     expect(arm.putPostgresDatabase).toHaveBeenCalledTimes(1);
     expect(arm.putWebApp).not.toHaveBeenCalled();
     expect(arm.putAppSettings).not.toHaveBeenCalled();
+  });
+
+  it("activates default push deployment after secrets are ready and before dispatch", async () => {
+    const { deps, github } = createDeps({ appRequest: { ...readyAppRequest, deploymentTriggerMode: "PUSH_TO_DEPLOY" } });
+    await createAzurePublishRuntime(deps).deployRepository(readyAppRequest.id);
+    expect(github.commitFiles).toHaveBeenCalledWith(expect.objectContaining({
+      message: "Enable push-to-deploy [skip ci]",
+      expectedHeadSha: "head-sha",
+      files: { ".github/workflows/deploy-azure-app-service.yml": expect.stringContaining("push:\n    branches:\n      - main") },
+    }));
+    expect(github.setActionsSecret.mock.invocationCallOrder.at(-1)).toBeLessThan(github.commitFiles.mock.invocationCallOrder[0]);
+    expect(github.commitFiles.mock.invocationCallOrder[0]).toBeLessThan(github.dispatchWorkflow.mock.invocationCallOrder[0]);
+  });
+
+  it("honors a disable saved while deployment secrets are being configured", async () => {
+    const { deps, github, prisma } = createDeps({
+      appRequest: { ...readyAppRequest, deploymentTriggerMode: "PUSH_TO_DEPLOY" },
+    });
+    github.setActionsSecret.mockImplementationOnce(async () => {
+      prisma.appRequest.findUnique.mockResolvedValue({
+        ...readyAppRequest, deploymentTriggerMode: "PORTAL_DISPATCH",
+      });
+    });
+    await createAzurePublishRuntime(deps).deployRepository(readyAppRequest.id);
+    expect(github.commitFiles).not.toHaveBeenCalled();
+    expect(github.dispatchWorkflow).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a disabled app manual when publishing again", async () => {
+    const { deps, github } = createDeps({ appRequest: { ...readyAppRequest, deploymentTriggerMode: "PORTAL_DISPATCH" } });
+    await createAzurePublishRuntime(deps).deployRepository(readyAppRequest.id);
+    expect(github.commitFiles).not.toHaveBeenCalled();
+    expect(github.dispatchWorkflow).toHaveBeenCalledTimes(1);
   });
 
   it("provisions shared-target app resources and configures github deployment", async () => {

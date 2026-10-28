@@ -7,12 +7,12 @@ import {
 import { getTemplateBySlug } from "@/features/templates/catalog";
 
 describe("publishing provider capabilities", () => {
-  it("reports Azure App Service as portal-dispatched with post-success push opt-in", () => {
+  it("reports Azure App Service with push deployment by default", () => {
     expect(getPublishingProviderCapabilities("Azure App Service")).toMatchObject({
       hostingTarget: "Azure App Service",
       supportsGeneratedTemplateOneStep: true,
       supportsPostSuccessPushToDeploy: true,
-      triggerPolicy: "portal_dispatch",
+      triggerPolicy: "push",
       workflowPath: ".github/workflows/deploy-azure-app-service.yml",
       workflowFileName: "deploy-azure-app-service.yml",
       requiredSecrets: [

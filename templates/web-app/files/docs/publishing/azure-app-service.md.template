@@ -7,10 +7,10 @@ This bundle supports one first-class publishing path for `{{APP_NAME}}`: a porta
 1. Prefer the GitHub repository that the portal created and tracks for this app.
 2. Open that managed repo locally in Codex on your machine and push the changes you want published.
 3. Review `app-portal/deployment-manifest.json` for the generated deployment contract.
-4. Use the portal's publish action for the first Azure deployment. The generated workflow starts as `workflow_dispatch` only so GitHub does not deploy before the portal has created Azure resources and GitHub secrets.
+4. Use the portal's publish action for the first Azure deployment. Push-to-deploy is enabled by default. The generated workflow stays manual until this explicitly requested first publish activates the push trigger after Azure resources and GitHub secrets are ready.
 5. Let the portal create the Azure Database for PostgreSQL database, App Service configuration, OpenID Connect credential, and GitHub Actions secrets.
 6. Let the portal dispatch the first workflow run and verify the deployment in Azure App Service.
-7. After the first successful portal publish, enable push-to-deploy in the portal if future pushes to the default branch should deploy automatically.
+7. Future default-branch pushes publish automatically by default. Choose **Disable Auto-Deploy** on the app details page to require manual **Publish to Azure** instead.
 8. Use `.codex/skills/cu-app-portal/SKILL.md` for Codex's portal-managed app workflow guidance.
 9. Treat `.codex/skills/publish-to-azure/SKILL.md` as a compatibility redirect when portal automation is unavailable and you need a local recovery path.
 
@@ -35,7 +35,7 @@ If automation is blocked, complete the publish manually with the same manifest a
 5. Add the public callback URL to the shared generated-app Entra registration.
 6. Create or select the Azure identity used by GitHub Actions. The portal model is one user-assigned managed identity per app with Website Contributor on that app's Web App and a GitHub OIDC federated credential for the default branch.
 7. Add the Azure identity secrets to GitHub (`AZURE_CLIENT_ID` is that identity's client ID).
-8. Trigger the workflow manually with `workflow_dispatch`. After the portal or an operator enables push-to-deploy, future pushes to the default branch can deploy automatically.
+8. Trigger the workflow manually with `workflow_dispatch`. Push-to-deploy is enabled by default for future pushes to the default branch. Select **Disable Auto-Deploy** on the app details page to require manual **Publish to Azure**; **Enable Auto-Deploy** restores automatic publishing.
 9. Record any manual changes or blockers in `docs/publishing/lessons-learned.md`.
 
 ## GitHub CLI Shortcut

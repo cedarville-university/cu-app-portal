@@ -335,3 +335,9 @@ PostgreSQL advisory lock. Validation and provider/database changes run under tha
 lock, preventing concurrent ordinary updates from overwriting newly saved secrets.
 The database transaction is bounded to two minutes. An Azure update can outlive a
 database rollback, so failures still require checking the app's actual state.
+
+## Default deployment mode
+
+Apply migration `20261028140000_push_to_deploy_default` with `npm run prisma:migrate:deploy` before running this portal version. New app requests default to `PUSH_TO_DEPLOY`; existing rows retain their saved mode because changing a database label alone would not update their GitHub workflows.
+
+Generated repositories start with manual dispatch only. During the first explicitly requested publish, the Azure runtime activates the push trigger after writing deployment secrets, then dispatches the requested deployment. Push-to-deploy is automatic for later default-branch pushes. **Disable Auto-Deploy** removes the workflow's push trigger and saves `PORTAL_DISPATCH`, while preserving manual publishing. **Enable Auto-Deploy** restores it after a successful publish. These controls support generated and imported managed repositories.

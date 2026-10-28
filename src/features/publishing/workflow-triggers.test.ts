@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enablePushTriggerForAzureWorkflow } from "./workflow-triggers";
+import { disablePushTriggerForAzureWorkflow, enablePushTriggerForAzureWorkflow } from "./workflow-triggers";
 
 const manualWorkflow = `name: Deploy to Azure App Service
 
@@ -46,4 +46,32 @@ describe("enablePushTriggerForAzureWorkflow", () => {
       "Deployment workflow is not a recognized portal-managed Azure workflow.",
     );
   });
+});
+
+describe("disablePushTriggerForAzureWorkflow", () => {
+  it("removes pushes while preserving manual dispatch and other workflow content", () => {
+    const workflow = manualWorkflow.replace("  workflow_dispatch:", "  workflow_dispatch:\n  push:\n    branches:\n      - main\n    paths:\n      - src/**\n  schedule:\n    - cron: '0 0 * * *'");
+    const result = disablePushTriggerForAzureWorkflow(workflow);
+    expect(result.changed).toBe(true);
+    expect(result.content).not.toMatch(/^  push:/m);
+    expect(result.content).toContain("workflow_dispatch:");
+    expect(result.content).toContain("schedule:");
+    expect(result.content).toContain("azure/webapps-deploy@v3");
+  });
+
+  it("is idempotent for manual-only workflows", () => {
+    expect(disablePushTriggerForAzureWorkflow(manualWorkflow)).toEqual({ changed: false, content: manualWorkflow });
+  });
+
+  it("refuses unrecognized workflows", () => {
+    expect(() => disablePushTriggerForAzureWorkflow("name: Custom\n")).toThrow("not a recognized");
+  });
+});
+
+it("can restore push deployment after disabling it", () => {
+  const enabled = enablePushTriggerForAzureWorkflow(manualWorkflow, "trunk");
+  const disabled = disablePushTriggerForAzureWorkflow(enabled.content);
+  const restored = enablePushTriggerForAzureWorkflow(disabled.content, "trunk");
+  expect(restored.changed).toBe(true);
+  expect(restored.content).toContain("push:\n    branches:\n      - trunk");
 });

@@ -54,7 +54,7 @@ describe("buildPublishingFiles", () => {
       "dispatch the first GitHub Actions workflow run",
     );
     expect(files["docs/publishing/azure-app-service.md"]).toContain(
-      "enable push-to-deploy",
+      "Push-to-deploy is enabled by default",
     );
     expect(files["docs/publishing/azure-app-service.md"]).toContain(
       "Use `.codex/skills/cu-app-portal/SKILL.md`",

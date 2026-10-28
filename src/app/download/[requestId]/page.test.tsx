@@ -25,6 +25,7 @@ vi.mock("@/features/app-requests/current-user", () => ({
 
 vi.mock("@/features/publishing/actions", () => ({
   enablePushToDeployAction: vi.fn(),
+  disablePushToDeployAction: vi.fn(),
   publishToAzureAction: vi.fn(),
   retryPublishAction: vi.fn(),
 }));
@@ -355,8 +356,9 @@ describe("DownloadPage admin publishing recovery", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps auto-deploy visible while leaving deployment diagnostics advanced", async () => {
+  it("keeps the disable auto-deploy control visible while leaving diagnostics advanced", async () => {
     await renderPage({
+      deploymentTriggerMode: "PUSH_TO_DEPLOY",
       publishStatus: "SUCCEEDED",
       azureWebAppName: "campus-dashboard",
       deploymentTarget: "Azure App Service",
@@ -370,7 +372,7 @@ describe("DownloadPage admin publishing recovery", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "Enable Auto-Deploy" }).closest("details"),
+      screen.getByRole("button", { name: "Disable Auto-Deploy" }).closest("details"),
     ).toBeNull();
     expect(
       screen.getByRole("link", { name: "Deployment log" }).closest("details"),
