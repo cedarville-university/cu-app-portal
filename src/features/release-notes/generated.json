@@ -2,6 +2,7 @@
   {
     "date": "2026-10-28",
     "notes": [
+      "See recent CU Launch improvements and fixes in a dated, scrollable list on the home page.",
       "New apps automatically publish saved changes after their first successful publish. You can turn automatic publishing off or on from your app’s management page."
     ]
   },

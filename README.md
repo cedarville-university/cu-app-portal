@@ -76,6 +76,7 @@ setting.
 
 ## Docs
 
+- [Home page release notes](docs/portal/release-notes.md)
 - [Portal setup](docs/portal/setup.md)
 - [Technical operations and support](docs/portal/technical-operations.md)
 - [Codex workspace plugin operations](docs/portal/codex-workspace-plugin.md)
