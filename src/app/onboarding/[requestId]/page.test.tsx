@@ -1049,11 +1049,11 @@ describe("AppOnboardingPage imported and local preparation", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /tell me that I can return to CU Launch myself and tell me to select "I've repaired and uploaded my code" myself/i,
+        /explain that the next CU Launch action is "I've repaired and uploaded my code"/i,
       ),
     ).toBeInTheDocument();
     expect(document.body).toHaveTextContent(
-      /Do not use Browser, Computer Use, Chrome, plugins, or connectors to access CU Launch/i,
+      /Ask for my permission before using the CU Launch plugin or connector, and wait for my approval before calling any of its tools/i,
     );
     expect(
       screen.queryByRole("button", { name: "Try preparation again" }),
