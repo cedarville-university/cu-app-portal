@@ -6,6 +6,7 @@ export const LEGACY_PUBLISH_SKILL_PATH =
   ".codex/skills/publish-to-azure/SKILL.md";
 
 const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
+  "45e9f7f5bf62103524d2cff217139a4843077bfc9a9069ea3b80f5d436a299f6",
   "2545b174f9bc885bfbafef27f664bb5b746c6251fc3b838814a02529f820751b",
   "aac7b510f75745347798af6b558fb4dbcae5739c1677a32249a384837711bfd3",
   "5ce4c7a302c86ecbdabda0ea68ed4dd763a741030ca7413686afa35e15998c28",
@@ -48,8 +49,8 @@ Use this skill when Codex is working inside a CU Launch-managed app repository.
 
 - Push-to-deploy is enabled by default for new managed apps. After first publish, pushing to the managed repository's default branch publishes the app automatically.
 - Treat a default-branch push to a published app as a deployment. Explain this when preparing changes for the user.
-- The first publish still requires the user's CU Launch publish action. Generated workflows stay manual until that explicitly requested publish activates the push trigger after Azure resources and secrets are ready.
-- To stop automatic deployments, tell the user to select **Disable Auto-Deploy** on the app details page. Manual **Publish to Azure** remains available, and **Enable Auto-Deploy** can restore automatic deployments later.
+- The first publish still requires an explicitly user-authorized CU Launch publish action. Generated workflows stay manual until that explicitly requested publish activates the push trigger after Azure resources and secrets are ready.
+- To stop automatic deployments, use the authorized CU Launch workflow or tell the user to select **Disable Auto-Deploy** on the app details page. Manual **Publish to Azure** remains available, and **Enable Auto-Deploy** can restore automatic deployments later.
 - Existing apps retain their saved deployment mode; check their CU Launch setting and workflow instead of assuming the new default changed them.
 
 ## App Compatibility and Safe Migration
@@ -67,14 +68,14 @@ Before uploading a local app to its CU Launch-managed repository:
 9. Explain the proposed migration and its visible impact in plain language before making it. If two reasonable migrations would change what the app can do, ask exactly one plain-language question and wait for the user's choice.
 10. Keep a recoverable Git history. Do not delete the original implementation or discard existing commits to simplify a migration.
 11. Use compatible system or bundled workspace runtimes to install dependencies and run the relevant build and tests. Do not upload a migration whose relevant tests fail.
-12. After a successful migration and verification, commit and push the changed app to the CU Launch-managed repository. The user performs the next CU Launch confirmation.
+12. After a successful migration and verification, commit and push the changed app to the CU Launch-managed repository. Explain the next CU Launch confirmation and perform it only when authorized by the user.
 
-## Human-Only CU Launch Boundary
+## CU Launch Access and Authorization
 
-- Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate CU Launch.
-- Never sign in, navigate, click a CU Launch button, publish, repair, or confirm an upload for the user. CU Launch navigation and button clicks belong to the user.
-- Tell the user the next CU Launch action in plain language, then stop and let the user perform it.
-- A secure GitHub sign-in window opened by Git is allowed and is not CU Launch.
+- Ask the user for permission before using the CU Launch plugin or connector, and wait for approval before calling any of its tools. Once approved, use its supported tools only within the user's authorized scope.
+- Browser, Computer Use, and Chrome may access and operate CU Launch when the user asks for that method. Follow the user's requested method when available.
+- Keep publishing, repair, upload confirmation, settings changes, and deletion within the user's authorized scope. Do not infer authorization for those actions from repository setup or code changes alone. Honor required confirmations and ask the user to complete secure sign-in, MFA, or consent when needed; never request or extract credentials.
+- If no authorized tool can complete the next CU Launch action, explain the action in plain language so the user can perform it.
 
 ## Development and Test Runtimes
 
@@ -95,7 +96,7 @@ When the app exists locally but is not yet CU Launch-managed:
 6. Pull the managed repository's initial guidance commit and read this skill before changing the app. Preserve both histories when the local project already has commits.
 7. Complete the compatibility check and any approved safe migration above, then run the relevant tests.
 8. Push the verified current branch to the managed repository.
-9. Tell the user that they can return to CU Launch themselves for scan, publishing setup, repair, or publish actions. Do not open or operate CU Launch.
+9. Explain the next scan, publishing setup, repair, or publish action. Use the CU Launch access and authorization guidance above for any requested portal actions.
 
 ## Existing GitHub App Migration
 
@@ -153,6 +154,6 @@ Use the \`cu-app-portal\` skill for this CU Launch-managed app.
 
 Direct Azure-first publishing is now a recovery path, not the default path for CU Launch-managed apps. Read \`app-portal/deployment-manifest.json\`, then prefer CU Launch for publishing setup, Repair Publishing Setup, first publish, push-to-deploy settings, GitHub access, collaborator workflows, and scoped deletion.
 
-Do not open or operate CU Launch through Browser, Computer Use, Chrome, plugins, or connectors. Tell the user what CU Launch action is available, then stop and let the user perform it.
+Ask the user for permission before using the CU Launch plugin or connector, and wait for approval before calling any of its tools. Once approved, use it only within the user's authorized scope. Browser, Computer Use, and Chrome may access and operate CU Launch when the user asks for that method. Follow the cu-app-portal skill's access and authorization guidance, including required confirmations and secure sign-in.
 `;
 }

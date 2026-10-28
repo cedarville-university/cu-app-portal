@@ -128,3 +128,5 @@ Keep all secret entry and replacement in the CU Launch UI; sensitive settings ca
 be written through MCP. Detection cannot recognize every credential incorrectly
 saved as ordinary configuration, so store credentials as secrets. Provider failures
 may leave partial changes because Azure and the database do not share a transaction.
+
+Codex handoffs and managed app skills require asking the user for permission and waiting for approval before calling any CU Launch plugin or connector tools. Browser or computer use is allowed when the user requests that method. Portal actions stay within the user’s authorized scope; repository setup or code changes alone do not authorize publishing, repair, upload confirmation, settings changes, or deletion.

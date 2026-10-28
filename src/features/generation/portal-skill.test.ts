@@ -69,9 +69,14 @@ describe("portal skill generation", () => {
     expect(skill).toContain("Do not collect passwords");
     expect(skill).toContain("must not depend on that route's path for deployment verification");
     expect(skill).toContain(
-      "Never use Browser, Computer Use, Chrome, plugins, or connectors to open or operate CU Launch",
+      "Ask the user for permission before using the CU Launch plugin or connector",
     );
-    expect(skill).toContain("CU Launch navigation and button clicks belong to the user");
+    expect(skill).toContain("wait for approval before calling any of its tools");
+    expect(skill).toContain("Browser, Computer Use, and Chrome may access and operate CU Launch when the user asks for that method");
+    expect(skill).toContain("Do not infer authorization for those actions from repository setup or code changes alone");
+    expect(skill).not.toContain("Human-Only");
+    expect(skill).not.toContain("Do not open or operate CU Launch");
+    expect(skill).not.toContain("Never use Browser");
     expect(skill).not.toContain(
       "Return to the portal for scan, publishing setup, repair, and publish actions",
     );
@@ -84,12 +89,16 @@ describe("portal skill generation", () => {
     expect(stub).toContain("Use the `cu-app-portal` skill");
     expect(stub).toContain("CU Launch-managed app");
     expect(stub).toContain("not the default path");
+    expect(stub).toContain("wait for approval before calling any of its tools");
     expect(stub).toContain(
-      "Do not open or operate CU Launch",
+      "Ask the user for permission before using the CU Launch plugin or connector",
     );
   });
 
   it("recognizes the immediately previous generated skill but not a customized copy", () => {
+    const beforeAccessUpdate = readFileSync("src/features/generation/fixtures/managed-app-portal-skill-before-access-update-2026-10-28.md", "utf8");
+    expect(isCanonicalManagedAppPortalSkill(beforeAccessUpdate)).toBe(true);
+    expect(isCanonicalManagedAppPortalSkill(`${beforeAccessUpdate}\nCustom changes`)).toBe(false);
     const beforeLogin = readFileSync("src/features/generation/fixtures/managed-app-portal-skill-2026-10-28.md", "utf8");
     expect(isCanonicalManagedAppPortalSkill(beforeLogin)).toBe(true);
     expect(isCanonicalManagedAppPortalSkill(`${beforeLogin}\nCustom changes`)).toBe(false);

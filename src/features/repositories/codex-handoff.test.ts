@@ -78,9 +78,13 @@ function expectCodexRuntimeAndPortalBoundaries(prompt: string) {
     "Do not report that tests cannot run until you have checked both the system commands and the bundled workspace dependencies",
   );
   expect(prompt).toContain(
-    "Do not use Browser, Computer Use, Chrome, plugins, or connectors to access CU Launch",
+    "Ask for my permission before using the CU Launch plugin or connector",
   );
-  expect(prompt).toContain("CU Launch navigation and button clicks are my job");
+  expect(prompt).toContain("wait for my approval before calling any of its tools");
+  expect(prompt).toContain("Browser, Computer Use, and Chrome may access and operate CU Launch when I ask for that method");
+  expect(prompt).toContain("Do not infer authorization for those actions from repository setup or code changes alone");
+  expect(prompt).not.toContain("Do not open or operate CU Launch");
+  expect(prompt).not.toContain("CU Launch navigation and button clicks are my job");
   expect(prompt).not.toContain(
     "Return to the portal and select Publish to Azure",
   );
@@ -283,7 +287,7 @@ describe("buildLocalCodexGitSetupPrompt", () => {
     expect(prompt).toContain("preserve any existing Git history");
     expect(prompt).toContain("report the repository and branch that received the push");
     expect(prompt).toContain(
-      'tell me to select "My code has been uploaded" myself',
+      'explain that the next CU Launch action is "My code has been uploaded"',
     );
     expect(prompt).not.toContain("git add .");
     expect(prompt).toContain("Inspect candidate files with git status");
@@ -357,7 +361,7 @@ it("turns selected import services into concrete project work in both handoffs",
     expect(prompt).toContain("server-side");
     expect(prompt).toContain("/auth/callback");
     expect(prompt).toContain("/api/health");
-    expect(prompt).toContain("Do not open or operate CU Launch");
+    expectCodexRuntimeAndPortalBoundaries(prompt);
     expect(prompt).not.toContain('Ask exactly one question: "The project is ready. What would you like me to change or build in this project?"');
   }
 });

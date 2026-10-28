@@ -62,11 +62,11 @@ function codexRuntimeAndPortalBoundaryInstructions() {
     "Do not report that tests cannot run until you have checked both the system commands and the bundled workspace dependencies.",
     "Do not attempt to install or download Node.js, Python, npm, pnpm, or another development runtime merely because a system command is missing.",
     "The bundled-runtime fallback does not replace the managed Git installation process above. Git must still be available through Company Portal on Windows or automatically through Cedarville login scripts on macOS.",
-    "CU Launch boundary",
-    "Do not use Browser, Computer Use, Chrome, plugins, or connectors to access CU Launch.",
-    "Never open, sign into, navigate, click, publish, or otherwise operate CU Launch for me. CU Launch navigation and button clicks are my job.",
-    "You may tell me in plain language what I can do in CU Launch, but then stop and let me do it myself.",
-    "This CU Launch boundary does not prevent GitHub plugin operations, GitHub CLI setup, or a secure GitHub sign-in window opened by Git, GCM, or gh when repository authentication is required.",
+    "CU Launch access and authorization",
+    "Ask for my permission before using the CU Launch plugin or connector, and wait for my approval before calling any of its tools. Once approved, use its supported tools only within my authorized scope.",
+    "Browser, Computer Use, and Chrome may access and operate CU Launch when I ask for that method. Follow my requested method when available.",
+    "Keep publishing, repair, upload confirmation, settings changes, and deletion within my authorized scope. Do not infer authorization for those actions from repository setup or code changes alone. Honor required confirmations and ask me to complete secure sign-in, MFA, or consent when needed; never request or extract credentials.",
+    "If no authorized tool can complete the next CU Launch action, explain the action in plain language so I can perform it myself.",
   ];
 }
 
@@ -85,7 +85,7 @@ function importedServiceInstructions(features: ImportedAppFeatures) {
     "Inspect app-portal/deployment-manifest.json if present and keep it aligned with these choices. Before portal preparation creates that file, use these instructions as the service contract; do not create conflicting publishing files yourself.",
     "Document required environment-variable names with placeholder values only. CU Launch supplies production settings during publishing setup; never invent credentials, ask me to paste secrets, or provision cloud resources yourself.",
     "Test database behavior and migrations with isolated local fixtures, plus anonymous denial and authenticated access for protected routes when login is selected. Run the relevant checks and production build. Report any live database or Cedarville sign-in verification that still needs the provisioned environment; local checks do not prove live integration.",
-    "After implementing and verifying the selected services, commit and push only the intended changes, verify the push, and tell me to return to CU Launch myself. Do not open or operate CU Launch. Do not claim that provisioning alone connects or protects the app.",
+    "After implementing and verifying the selected services, commit and push only the intended changes, verify the push, and explain the next CU Launch action. Use the access and authorization guidance above if I ask you to perform it. Do not claim that provisioning alone connects or protects the app.",
   ];
 }
 
@@ -213,8 +213,8 @@ export function buildCodexHandoffPrompt(
     "After completing the project work I requested, run the relevant tests using compatible system or bundled workspace runtimes, explain the result plainly, then commit and push the completed work through the CU Launch-supported workflow.",
     "Push-to-deploy is enabled by default for new managed apps. If this app has already been published and auto-deploy is enabled, pushing to its default branch deploys the changes automatically. Explain that effect before pushing. The app details page offers Disable Auto-Deploy for manual publishing; existing apps retain their saved mode.",
     "Verify that the push succeeded and give me a simple status summary.",
-    "Tell me that the requested changes are ready in GitHub. If auto-deploy is enabled on an already published app, explain that the push starts deployment; do not claim it is live without verification. First publish or manual publishing still uses CU Launch, which I operate myself.",
-    "Do not open or operate CU Launch, and do not make publishing the next step unless I ask about publishing.",
+    "Tell me that the requested changes are ready in GitHub. If auto-deploy is enabled on an already published app, explain that the push starts deployment; do not claim it is live without verification. First publish or manual publishing still uses CU Launch and requires my authorization.",
+    "Do not make publishing the next step unless I ask about publishing. Use the CU Launch access and authorization guidance above for requested portal actions.",
   );
 
   return prompt.join("\n");
@@ -298,8 +298,8 @@ export function buildLocalCodexGitSetupPrompt({
     `Verify that the push succeeded, and report the repository and branch that received the push: ${repositoryUrl} (${branch}).`,
     "Give me a simple status summary.",
     preparationErrorSummary
-      ? `After the push succeeds, tell me that I can return to CU Launch myself and tell me to select "${LOCAL_REPAIR_CONFIRMATION_LABEL}" myself. Do not open or operate CU Launch.`
-      : `After the push succeeds, tell me that I can return to CU Launch myself and tell me to select "${LOCAL_UPLOAD_CONFIRMATION_LABEL}" myself. Do not open or operate CU Launch.`,
+      ? `After the push succeeds, explain that the next CU Launch action is "${LOCAL_REPAIR_CONFIRMATION_LABEL}". If I ask you to confirm the upload, use the CU Launch access and authorization guidance above; otherwise tell me that I can return to CU Launch and select it myself.`
+      : `After the push succeeds, explain that the next CU Launch action is "${LOCAL_UPLOAD_CONFIRMATION_LABEL}". If I ask you to confirm the upload, use the CU Launch access and authorization guidance above; otherwise tell me that I can return to CU Launch and select it myself.`,
   ];
 
   if (preparationErrorSummary) {
@@ -335,6 +335,6 @@ export function buildLoginUpdatePrompt({ repositoryUrl, appName }: {
     "Style /login consistently with this app. Add one Sign in with your Cedarville account button and explain that it continues to Cedarville University's Microsoft sign-in page. Do not ask for passwords on this page. Set pages: { signIn: \"/login\" } and make the exact page anonymous without exposing other content or creating redirect loops.",
     "Update normal sign-in links and unauthenticated redirects to use the custom page. Preserve requested destinations only after validating they are same-origin and cannot create login/auth redirect loops; otherwise return to /.",
     "Run focused checks for the public login page, protected pages and APIs, safe return destinations, sign-in errors, and the unchanged callback, then the production build. Do not bypass a browser security warning. Do not claim the warning is resolved without testing the deployed sign-in flow.",
-    "Summarize the changes and checks, including any live validation still required. Explain before a default-branch push if auto-deploy is enabled because that push publishes the app. Follow the project's existing commit and publishing instructions; the user operates CU Launch.",
+    "Summarize the changes and checks, including any live validation still required. Explain before a default-branch push if auto-deploy is enabled because that push publishes the app. Follow the project's existing commit and publishing instructions; use the CU Launch access and authorization guidance above for requested portal actions.",
   ].join("\n\n");
 }
