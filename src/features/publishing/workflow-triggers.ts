@@ -1,5 +1,3 @@
-import { isMap, parseDocument } from "yaml";
-
 export const AZURE_DEPLOY_WORKFLOW_PATH =
   ".github/workflows/deploy-azure-app-service.yml";
 
@@ -8,7 +6,7 @@ type WorkflowPatchResult = {
   changed: boolean;
 };
 
-function assertPortalManagedAzureWorkflow(workflow: string) {
+export function assertPortalManagedAzureWorkflow(workflow: string) {
   if (
     !workflow.includes("name: Deploy to Azure App Service") ||
     !workflow.includes("azure/webapps-deploy@v3") ||
@@ -48,22 +46,4 @@ export function enablePushTriggerForAzureWorkflow(
       `on:\n  workflow_dispatch:\n  push:\n    branches:\n      - ${defaultBranch}\n`,
     ),
   };
-}
-
-export function disablePushTriggerForAzureWorkflow(
-  workflow: string,
-): WorkflowPatchResult {
-  assertPortalManagedAzureWorkflow(workflow);
-  const document = parseDocument(workflow);
-  const triggers = document.get("on");
-  if (
-    document.errors.length ||
-    !isMap(triggers) ||
-    !triggers.has("workflow_dispatch")
-  ) {
-    throw new Error("Deployment workflow does not have the expected manual dispatch trigger.");
-  }
-  if (!triggers.has("push")) return { content: workflow, changed: false };
-  triggers.delete("push");
-  return { content: document.toString(), changed: true };
 }

@@ -11,13 +11,13 @@ import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
+import { disablePushTriggerForAzureWorkflow } from "./disable-push-trigger";
 import { supportsPostSuccessPushToDeploy } from "./providers";
 import { queuePublishForActor } from "./queue-publish";
 import { retryPublishForActor } from "./retry-publish";
 import {
   AZURE_DEPLOY_WORKFLOW_PATH,
   enablePushTriggerForAzureWorkflow,
-  disablePushTriggerForAzureWorkflow,
 } from "./workflow-triggers";
 
 async function loadAccessibleAppRequest(

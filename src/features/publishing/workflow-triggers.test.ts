@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { disablePushTriggerForAzureWorkflow, enablePushTriggerForAzureWorkflow } from "./workflow-triggers";
+import { enablePushTriggerForAzureWorkflow } from "./workflow-triggers";
+import { disablePushTriggerForAzureWorkflow } from "./disable-push-trigger";
 
 const manualWorkflow = `name: Deploy to Azure App Service
 
