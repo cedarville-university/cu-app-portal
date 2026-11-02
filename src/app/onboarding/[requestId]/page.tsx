@@ -409,7 +409,9 @@ export default async function AppOnboardingPage({
       <ImportServicesHandoff repositoryUrl={app.repositoryUrl} appName={app.appName}
         sourceRepositoryUrl={app.repositoryImport?.sourceRepositoryUrl ?? app.repositoryUrl}
         requestId={app.id} defaultBranch={app.repositoryDefaultBranch}
-        features={importFeatures} gitAuthor={currentActor} />
+        features={importFeatures} gitAuthor={currentActor}
+        preparationErrorSummary={app.repositoryImport?.compatibilityStatus === "UNSUPPORTED"
+          ? app.repositoryImport.preparationErrorSummary : null} />
     ) : (
       <section className="info-box" aria-label="Codex handoff">
         <h2>Continue with Codex</h2>

@@ -1,3 +1,4 @@
+import { buildManagedAppPortalSkill } from "@/features/generation/portal-skill";
 import type { ImportedAppFeatures } from "@/features/repository-imports/features";
 import {
   EXPRESS_ENTRA_LOGIN_GUIDANCE,
@@ -74,6 +75,16 @@ function codexRuntimeAndPortalBoundaryInstructions() {
   ];
 }
 
+function missingImportSkillInstructions() {
+  return [
+    "CU Launch skill recovery",
+    "GitHub imports may not have the app-local skill yet: CU Launch adds publishing files only after compatibility succeeds.",
+    "If `.codex/skills/cu-app-portal/SKILL.md` is missing after fetching the managed repository, create its parent folders and write the exact content between BEGIN CU LAUNCH SKILL and END CU LAUNCH SKILL below to that path, excluding the marker lines. Read it and continue with this task. Do not stop or ask me to supply the missing skill, and do not require the CU Launch connector to obtain it.",
+    "If the skill already exists, read and preserve it; do not overwrite customized instructions. The embedded guidance supplies the supported compatibility contract when publishing files are still absent.",
+    "Missing app-portal/deployment-manifest.json or publishing docs before preparation is expected. Do not invent a manifest, deployment workflow, static runner, or cloud resources to bypass preparation.",
+  ];
+}
+
 function importedServiceInstructions(features: ImportedAppFeatures) {
   return [
     "Selected CU Launch import services",
@@ -103,8 +114,10 @@ export function buildCodexHandoffPrompt(
     localFolderMode?: "new" | "new-or-existing";
     gitAuthor?: GitAuthorIdentity;
     importFeatures?: ImportedAppFeatures;
+    preparationErrorSummary?: string | null;
   } = {},
 ) {
+  const isImport = Boolean(options.sourceRepositoryUrl || options.importFeatures);
   const prompt = [
     "Who you are helping",
     "The person I am helping is a beginner who may not know Git, repositories, branches, commits, pull requests, Azure, or publishing.",
@@ -112,8 +125,8 @@ export function buildCodexHandoffPrompt(
     "",
     "Your goal",
     `Prepare the local project for "${appName}" for Cedarville App Portal request ${requestId}, then help me make the changes I request.`,
-    options.importFeatures
-      ? "First verify the repository setup, then implement the selected import services below."
+    isImport
+      ? "First verify the repository setup, check compatibility, make any needed safe migration for CU Launch, and implement any selected import services below."
       : "First own the repository setup and verification. Do not invent an app-change request or assume publishing is next.",
     "",
     "Safety rules",
@@ -193,12 +206,23 @@ export function buildCodexHandoffPrompt(
 
   prompt.push(
     "Use the managed repository as the source of truth and inspect only enough files to confirm that the project is ready.",
+    ...(isImport ? missingImportSkillInstructions() : []),
     "Use `.codex/skills/cu-app-portal/SKILL.md` for CU Launch-managed app workflow guidance.",
     NEXTJS_ENTRA_LOGIN_GUIDANCE,
   );
 
-  if (options.importFeatures) {
-    prompt.push(...importedServiceInstructions(options.importFeatures));
+  if (isImport) {
+    prompt.push(
+      "Prepare the imported app for CU Launch",
+      "Check compatibility even when no new database or login was selected. Inspect the app using the skill's App Compatibility and Safe Migration workflow. A working GitHub Pages deployment does not prove compatibility with CU Launch.",
+      ...(options.preparationErrorSummary
+        ? [`CU Launch compatibility feedback: ${options.preparationErrorSummary}`, "Resolve this feedback in the app before retrying preparation; repeating preparation without code changes will not help."]
+        : []),
+      "If unsupported, explain the smallest safe migration and its visible impact, then implement it while preserving features, routes, assets, data, and Git history. Ask one question only if a real behavior choice is needed. If already supported, preserve its runtime.",
+      ...(options.importFeatures ? importedServiceInstructions(options.importFeatures) : []),
+      "Run the relevant tests and production build, commit only the intended changes including a restored skill, push to the verified managed remote, and verify the push. Do not upload a migration whose relevant checks fail.",
+      'After the verified push, return to CU Launch to apply the publishing changes, or select "Try preparation again" if preparation previously failed. First publish still requires a separate authorized CU Launch action.',
+    );
   } else {
     prompt.push(
       "",
@@ -220,6 +244,10 @@ export function buildCodexHandoffPrompt(
     "Tell me that the requested changes are ready in GitHub. If auto-deploy is enabled on an already published app, explain that the push starts deployment; do not claim it is live without verification. First publish or manual publishing still uses CU Launch and requires my authorization.",
     "Do not make publishing the next step unless I ask about publishing. Use the CU Launch access and authorization guidance above for requested portal actions.",
   );
+
+  if (isImport) {
+    prompt.push("", "BEGIN CU LAUNCH SKILL", buildManagedAppPortalSkill(), "END CU LAUNCH SKILL");
+  }
 
   return prompt.join("\n");
 }

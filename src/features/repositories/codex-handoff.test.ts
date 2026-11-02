@@ -188,6 +188,28 @@ describe("buildCodexHandoffPrompt", () => {
     );
   });
 
+  it("supplies missing-skill recovery and compatibility work before GitHub import preparation", () => {
+    const prompt = buildCodexHandoffPrompt(
+      "https://github.com/cedarville-it/pages-app", "Pages App", "req_pages",
+      { sourceRepositoryUrl: "https://github.com/example/pages-app",
+        preparationErrorSummary: "Unsupported packaged frontend: Vite." },
+    );
+
+    expect(prompt).toContain("If `.codex/skills/cu-app-portal/SKILL.md` is missing");
+    expect(prompt).toContain("Do not stop or ask me to supply the missing skill");
+    const embeddedSkill = prompt.split("BEGIN CU LAUNCH SKILL\n")[1]?.split("\nEND CU LAUNCH SKILL")[0];
+    expect(embeddedSkill).toContain("name: cu-app-portal");
+    expect(embeddedSkill).toContain("## App Compatibility and Safe Migration");
+    expect(embeddedSkill).toContain("Vite, React build tooling");
+    expect(prompt).toContain("Check compatibility even when no new database or login was selected");
+    expect(prompt).toContain('"Try preparation again"');
+    expect(prompt).toContain("CU Launch compatibility feedback: Unsupported packaged frontend: Vite.");
+    expect(prompt).not.toContain("The project is ready. What would you like me to change");
+    expect(prompt.indexOf("If `.codex/skills/cu-app-portal/SKILL.md` is missing")).toBeLessThan(
+      prompt.indexOf("Use `.codex/skills/cu-app-portal/SKILL.md`"),
+    );
+  });
+
   it("includes portal remote instructions for successfully imported repos", () => {
     const prompt = buildCodexHandoffPrompt(
       "https://github.com/cedarville-it/campus-dashboard",

@@ -826,6 +826,8 @@ describe("AppOnboardingPage imported and local preparation", () => {
   it("highlights an unsupported GitHub repository as a blocking compatibility issue", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       importedApp({
+        repositoryAccessStatus: "GRANTED",
+        repositoryAccessNote: "GitHub access is ready for @collaborator-name.",
         repositoryImport: {
           ...importedApp().repositoryImport,
           compatibilityStatus: "UNSUPPORTED",
@@ -844,6 +846,11 @@ describe("AppOnboardingPage imported and local preparation", () => {
         name: "This repository is not compatible with managed publishing",
       }),
     ).toBeInTheDocument();
+    const handoff = screen.getByRole("region", { name: "Codex handoff" });
+    expect(handoff.querySelector("pre")?.textContent).toContain(
+      "CU Launch compatibility feedback: Repository is not compatible with v1 Azure publishing. Fastify repositories are not currently supported.",
+    );
+    expect(handoff.querySelector("pre")?.textContent).toContain("BEGIN CU LAUNCH SKILL");
     const compatibilityAlert = screen.getByRole("alert");
     expect(compatibilityAlert).toHaveClass("error-box");
     expect(

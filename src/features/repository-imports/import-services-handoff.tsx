@@ -5,7 +5,7 @@ import { CopyCodexHandoffButton } from "@/features/repositories/copy-codex-hando
 import type { ImportedAppFeatures } from "./features";
 
 export function ImportServicesHandoff({
-  repositoryUrl, sourceRepositoryUrl, appName, requestId, defaultBranch, features, gitAuthor,
+  repositoryUrl, sourceRepositoryUrl, appName, requestId, defaultBranch, features, gitAuthor, preparationErrorSummary,
 }: {
   repositoryUrl: string;
   sourceRepositoryUrl: string;
@@ -13,15 +13,16 @@ export function ImportServicesHandoff({
   requestId: string;
   defaultBranch: string | null;
   features?: ImportedAppFeatures;
+  preparationErrorSummary?: string | null;
   gitAuthor: { githubUsername?: string | null; email?: string | null };
 }) {
   const prompt = buildCodexHandoffPrompt(repositoryUrl, appName, requestId, {
-    defaultBranch, sourceRepositoryUrl, importFeatures: features, gitAuthor,
+    defaultBranch, sourceRepositoryUrl, importFeatures: features, gitAuthor, preparationErrorSummary,
   });
   return (
     <section className="info-box" aria-label="Codex handoff">
       <h2>Continue with Codex</h2>
-      <p>Use this handoff to connect Codex to your imported app before preparing it for publishing.</p>
+      <p>Use this handoff to have Codex check compatibility, migrate the app if needed, and prepare it for publishing. The instructions include CU Launch guidance even if the repository is missing its skill file.</p>
       {features ? <p>
         Database: {features.databaseProvider === "postgresql" ? "PostgreSQL" : "No new database"}.
         {" "}Cedarville login: {features.entraLogin ? "Required" : "Not added"}.
