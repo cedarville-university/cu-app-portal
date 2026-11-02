@@ -2,11 +2,32 @@ import { describe, expect, it } from "vitest";
 import { getLoginUpdateFramework, needsLoginUpdateNotice } from "./login-update";
 
 const legacy = {
+  createdAt: new Date("2026-10-27T12:00:00Z"),
   sourceOfTruth: "PORTAL_MANAGED_REPO", templateVersion: "1.0.0",
   submittedConfig: { templateSlug: "web-app", entraLogin: true },
 };
 
 describe("login update notice eligibility", () => {
+  it.each([
+    { label: "generated", ...legacy },
+    ...["nextjs", "express"].map((framework) => ({
+      ...legacy,
+      label: `imported ${framework}`,
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      submittedConfig: {
+        entraLogin: true,
+        importRuntime: { framework },
+      },
+    })),
+  ])("only includes $label apps created before the login update", (app) => {
+    expect(needsLoginUpdateNotice({
+      ...app, createdAt: new Date("2026-10-28T14:33:19.999Z"),
+    })).toBe(true);
+    for (const createdAt of ["2026-10-28T14:33:20Z", "2026-10-28T14:33:20.001Z", "2026-11-02T12:00:00Z"]) {
+      expect(needsLoginUpdateNotice({ ...app, createdAt: new Date(createdAt) })).toBe(false);
+    }
+  });
+
   it("includes older Next.js sign-in apps and excludes updated starters", () => {
     expect(needsLoginUpdateNotice(legacy)).toBe(true);
     for (const templateVersion of ["1.1.0", "1.2.0", "2.0.0"]) {

@@ -112,6 +112,18 @@ describe("AdminAppDetailPage", () => {
     render(await AdminAppDetailPage({ params: Promise.resolve({ id: "app-1" }) }));
     expect(screen.getByRole("region", { name: "Sign-in update" })).toBeInTheDocument();
   });
+  it.each(["nextjs", "express"])("does not show the sign-in update for newly imported %s apps", async (framework) => {
+    mockAppDetail();
+    const request = await prisma.appRequest.findUnique({ where: { id: "app-1" } });
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
+      ...request,
+      createdAt: new Date("2026-11-02T12:00:00Z"),
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      submittedConfig: { entraLogin: true, importRuntime: { framework } },
+    } as NonNullable<typeof request>);
+    render(await AdminAppDetailPage({ params: Promise.resolve({ id: "app-1" }) }));
+    expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
+  });
   beforeEach(() => {
     mockUseFormStatus.mockReturnValue({ pending: false });
     vi.mocked(getAdminUserIdOrNull).mockResolvedValue("admin-1");

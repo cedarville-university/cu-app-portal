@@ -92,6 +92,7 @@ function appRequest(overrides: Record<string, unknown> = {}) {
     supportReference: "SUP-20260818-ABC123",
     userId: "user-123",
     appName: "Campus Dashboard",
+    createdAt: new Date("2026-08-18T12:00:00Z"),
     sourceOfTruth: "PORTAL_MANAGED_REPO",
     submittedConfig: {},
     repositoryStatus: "READY",
@@ -170,6 +171,14 @@ describe("DownloadPage navigation", () => {
 
   it("does not show the sign-in update for new starter versions", async () => {
     await renderPage({ templateVersion: "1.1.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } });
+    expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
+  });
+  it.each(["nextjs", "express"])("does not show the sign-in update for newly imported %s apps", async (framework) => {
+    await renderPage({
+      createdAt: new Date("2026-11-02T12:00:00Z"),
+      sourceOfTruth: "IMPORTED_REPOSITORY",
+      submittedConfig: { entraLogin: true, importRuntime: { framework } },
+    });
     expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
   });
   it.each(["NOT_STARTED", "QUEUED", "PROVISIONING", "DEPLOYING", "DELETED"])("redirects a non-admin to onboarding for %s", async (publishStatus) => {

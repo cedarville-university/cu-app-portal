@@ -1,6 +1,9 @@
 import { getTemplateBySlug } from "@/features/templates/catalog";
 import type { LoginUpdateFramework } from "@/features/repositories/entra-login-guidance";
 
+// Custom-login generation and handoffs were implemented in commit 07fdadf.
+const CUSTOM_LOGIN_IMPLEMENTED_AT = new Date("2026-10-28T14:33:20Z");
+
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -8,11 +11,13 @@ function record(value: unknown): Record<string, unknown> {
 }
 
 export function getLoginUpdateFramework(app: {
+  createdAt: Date;
   submittedConfig: unknown;
   templateVersion?: string;
   sourceOfTruth?: string;
   template?: { slug: string };
 }): LoginUpdateFramework | null {
+  if (app.createdAt >= CUSTOM_LOGIN_IMPLEMENTED_AT) return null;
   const config = record(app.submittedConfig);
   const imported = app.sourceOfTruth === "IMPORTED_REPOSITORY";
   const slug = typeof config.templateSlug === "string"
