@@ -69,6 +69,27 @@ export default async function OnboardingStartPage({
         </div>
       </section>
 
+      <details className="onboarding-step-shell__support">
+        <summary>Advanced</summary>
+        <h2>Use CU Launch in Codex</h2>
+        <p>
+          Prefer to work directly in Codex? Install the CU Launch plugin to
+          create and manage your Cedarville apps from a conversation.
+        </p>
+        <p>
+          <a
+            href="https://chatgpt.com/plugins/plugin_asdk_app_6aa05e6de3dc8191a45e1683ba5ee8e9?account_id=791c7de6-fe94-46ad-b7f7-ee335bbcdd6c"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Open the CU Launch plugin (opens in a new tab)
+          </a>
+        </p>
+        <p>
+          In Codex, open Plugins, find CU Launch, and install it while signed in
+          to your Cedarville workspace. Then ask Codex to help you launch an app.
+        </p>
+      </details>
     </main>
   );
 }
