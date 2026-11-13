@@ -148,6 +148,13 @@ The portal's public `GET /api/health` remains independent of the worker. It is v
 
 ## Portal Self-Hosting in Azure
 
+Both worker Dockerfiles explicitly refresh `apt` and `libapt-pkg6.0` in their
+build and runtime stages. The pinned Node Bookworm base includes APT 2.6.1;
+[Debian's CVE-2026-109518 fix](https://security-tracker.debian.org/tracker/CVE-2026-109518)
+requires 2.6.2 or later. Keep those upgrades when changing the base image and
+retain the HIGH/CRITICAL image-scan gate. A blocked candidate is not deployed;
+successful worker workflows smoke-test, scan, and update existing jobs by digest.
+
 ### Expected production topology
 
 The checked-in deployment manifest describes the baseline:

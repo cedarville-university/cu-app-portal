@@ -1,6 +1,6 @@
 FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS build
 WORKDIR /workspace
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends apt libapt-pkg6.0 openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json tsup.publish.config.ts ./
@@ -12,8 +12,8 @@ COPY workers/publish/package.json workers/publish/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
 FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
-# Refresh the base image's PCRE2 and Perl packages with Debian security fixes.
-RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates libpcre2-8-0 perl-base && rm -rf /var/lib/apt/lists/* && rm -rf /usr/local/lib/node_modules/npm && rm -f /usr/local/bin/npm /usr/local/bin/npx
+# Refresh APT, PCRE2, and Perl with Debian security fixes (APT >= 2.6.2).
+RUN apt-get update && apt-get install -y --no-install-recommends apt libapt-pkg6.0 openssl ca-certificates libpcre2-8-0 perl-base && rm -rf /var/lib/apt/lists/* && rm -rf /usr/local/lib/node_modules/npm && rm -f /usr/local/bin/npm /usr/local/bin/npx
 WORKDIR /app
 COPY --from=build /runtime/node_modules ./node_modules
 COPY --from=build /workspace/node_modules/.prisma ./node_modules/.prisma
