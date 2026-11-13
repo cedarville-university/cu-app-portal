@@ -63,6 +63,7 @@ describe("portal API rate-limit policies", () => {
       repair_publishing_setup: { limit: 3, windowSeconds: 3600 },
       retry_publish: { limit: 6, windowSeconds: 3600 },
       set_app_environment: { limit: 10, windowSeconds: 3600 },
+      set_my_github_username: { limit: 10, windowSeconds: 3600 },
     });
   });
 
@@ -156,6 +157,8 @@ describe("portal API rate-limit policies", () => {
   });
 
   it("only accepts lower positive integer limit overrides", () => {
+    expect(loadPortalApiRateLimits({ PORTAL_MCP_RATE_PROFILE_MAX: "2" }).set_my_github_username.limit).toBe(2);
+    expect(() => loadPortalApiRateLimits({ PORTAL_MCP_RATE_PROFILE_MAX: "11" })).toThrow("positive integer");
     expect(loadPortalApiRateLimits({ PORTAL_MCP_RATE_CREATE_MAX: "2" }).create_app.limit).toBe(2);
     expect(() => loadPortalApiRateLimits({ PORTAL_MCP_RATE_CREATE_MAX: "4" })).toThrow(
       "positive integer",

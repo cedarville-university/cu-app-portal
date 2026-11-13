@@ -1,5 +1,17 @@
 # CU Launch Setup
 
+The optional workspace plugin now includes self-profile tools for GitHub
+onboarding. `get_my_profile` reads the signed-in user's saved username and portal
+email; `set_my_github_username` saves a supplied missing or changed username
+without changing notification preferences or other profile fields. Profile
+writes default to 10/hour, with the lower-only `PORTAL_MCP_RATE_PROFILE_MAX`
+override in `.env.example`. No database migration is required. After deploying
+the portal, refresh MCP tool metadata and the workspace skill so Codex can reuse
+saved identities, automate repository invitations included in launch approval,
+and use the UI-equivalent local Git setup guidance. See
+[plugin GitHub onboarding](codex-workspace-plugin.md#github-identity-and-automatic-invitations)
+for contracts, replay behavior, and rollout verification.
+
 Generated Next.js sign-in apps now use a custom `/login` page (starter version 1.1.0). This update needs no Azure settings or database migration. Existing apps are not rewritten: eligible apps created before the October 28, 2026 login update have a dismissible sign-in notice and a Codex update prompt on their management pages. Apps created at or after the update are excluded. See [Cedarville login pages](template-authoring.md#cedarville-login-pages) for the exact cutoff, eligibility, and verification details.
 
 This guide explains local development, required environment variables, and database setup for CU Launch.

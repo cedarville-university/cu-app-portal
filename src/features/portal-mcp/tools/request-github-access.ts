@@ -33,7 +33,7 @@ export function registerRequestGitHubAccessTool(
     "request_github_access",
     {
       title: "Request GitHub Access",
-      description: "Request actor-specific access to an app's managed GitHub repository.",
+      description: "Request actor-specific access to an app's managed GitHub repository using the username saved in get_my_profile. Call automatically after approved creation including repository access. INVITED requires the user to accept in GitHub; after confirmed acceptance call once with a new UUID for a fresh check. Reuse the same UUID for uncertain-response replays; do not loop while an invitation is pending. This does not authenticate local Git.",
       inputSchema: requestGitHubAccessMcpInputSchema,
       annotations: {
         readOnlyHint: false,
@@ -51,6 +51,19 @@ export function registerRequestGitHubAccessTool(
           throw new PortalApiError(
             "ACTION_REQUIRED",
             "Open CU Launch for this app workflow.",
+          );
+        }
+
+        // Recheck identity even on a cached replay: a prior grant belongs to
+        // the username used then, not a replacement saved on the profile.
+        const profile = await context.getMyProfile(context.actor);
+        if (
+          !profile.githubUsername ||
+          profile.githubUsername.trim().toLowerCase() !== input.githubUsername.trim().toLowerCase()
+        ) {
+          throw new PortalApiError(
+            "ACTION_REQUIRED",
+            "Read your current CU Launch profile and use its saved GitHub username before requesting repository access.",
           );
         }
 

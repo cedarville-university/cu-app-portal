@@ -79,6 +79,8 @@ function fakeServer() {
 
 function dependencies(): PortalMcpDependencies {
   return {
+    getMyProfile: vi.fn(async () => ({ displayName: actor.displayName, email: actor.email, githubUsername: "portal-user" })),
+    setMyGitHubUsername: vi.fn(async (_actor, githubUsername) => ({ githubUsername })),
     authorizeEnvironmentApp: vi.fn().mockResolvedValue({ id: "app-1" }) as PortalMcpDependencies["authorizeEnvironmentApp"],
     getAppEnvironment: vi.fn().mockResolvedValue({ appId: "app-1", variables: [], nextOffset: null, evidence: "Saved settings" }),
     setAppEnvironment: vi.fn().mockResolvedValue({ appId: "app-1", keys: ["APP_TITLE"], application: "next_publish" }),
@@ -187,10 +189,12 @@ function modernRequest(method: string, params: Record<string, unknown>) {
 }
 
 describe("portal MCP server contract", () => {
-  it("registers the fifteen approved tools in workflow order", () => {
+  it("registers the seventeen approved tools in workflow order", () => {
     const { tools } = registeredPortalTools();
 
     expect([...tools.keys()]).toEqual([
+      "get_my_profile",
+      "set_my_github_username",
       "list_app_templates",
       "list_my_apps",
       "create_app",
@@ -222,6 +226,7 @@ describe("portal MCP server contract", () => {
   it("marks reads closed-world and accurately classifies mutation risk", () => {
     const { tools } = registeredPortalTools();
     const readNames = [
+      "get_my_profile",
       "list_app_templates",
       "list_my_apps",
       "get_app",

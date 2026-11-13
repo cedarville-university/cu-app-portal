@@ -33,6 +33,7 @@ describe("Codex workspace plugin operator documentation", () => {
       "PORTAL_MCP_RATE_PUBLISH_MAX",
       "PORTAL_MCP_RATE_REPAIR_MAX",
       "PORTAL_MCP_RATE_RETRY_MAX",
+      "PORTAL_MCP_RATE_PROFILE_MAX",
     ];
 
     for (const setting of settings) expect(docs).toContain(setting);
@@ -63,13 +64,17 @@ describe("Codex workspace plugin operator documentation", () => {
 
     expect(docs).toMatch(/CU Launch\s+workspace plugin/i);
     expect(docs).toMatch(/launching a new app never publishes/i);
-    expect(docs).toMatch(/launch[\s\S]{0,180}create_app[\s\S]{0,180}separate explicit request/i);
+    expect(docs).toMatch(/`create_app` tool stops after the app record/);
+    expect(docs).toMatch(/approved launch workflow[\s\S]*requests[\s\S]*repository\s+access separately through `request_github_access`/);
+    expect(docs).toMatch(/Publish, repair, and retry each\s+need a separate explicit request/);
   });
 
   it("gives operators the exact MCP contract and production security gates", () => {
     const docs = allOperatorDocs();
     const tools = [
       "list_app_templates",
+      "get_my_profile",
+      "set_my_github_username",
       "list_my_apps",
       "create_app",
       "get_app",
@@ -134,6 +139,20 @@ describe("Codex workspace plugin operator documentation", () => {
     expect(docs).toMatch(/audit/i);
     expect(docs).toMatch(/monitor/i);
     expect(docs).toMatch(/retention|cleanup/i);
+  });
+
+  it("documents self-profile storage, automatic invitations, acceptance checks, and Git setup", () => {
+    const docs = readDoc(runbookPath).replace(/\s+/g, " ");
+    expect(docs).toMatch(/`get_my_profile`.*signed-in.*current/i);
+    expect(docs).toMatch(/`set_my_github_username`.*idempotency.*UUID/i);
+    expect(docs).toMatch(/no target-user.*identifier/i);
+    expect(docs).toMatch(/10 requests \/ hour.*PORTAL_MCP_RATE_PROFILE_MAX/i);
+    expect(docs).toMatch(/automatically.*request_github_access/i);
+    expect(docs).toMatch(/acceptance.*new.*UUID/i);
+    expect(docs).toMatch(/`get_app`.*recorded.*not.*live/i);
+    expect(docs).toContain("git config --local");
+    expect(docs).toMatch(/no.*database migration/i);
+    expect(docs).toContain("1.0.3+codex.20261113");
   });
 
   it("does not claim administrator-owned rollout evidence or leak placeholder credentials", () => {

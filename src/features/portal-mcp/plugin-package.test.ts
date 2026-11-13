@@ -60,6 +60,8 @@ describe("CU Launch workspace plugin package", () => {
       "list_my_apps",
       "create_app",
       "get_app",
+      "get_my_profile",
+      "set_my_github_username",
       "request_github_access",
       "publish_app_to_azure",
       "get_publish_status",
@@ -83,7 +85,7 @@ describe("CU Launch workspace plugin package", () => {
     const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
 
     expect(skill).toContain("Launching a new app never publishes");
-    expect(skill).toMatch(/launch an app.*authorizes only.*`create_app`/is);
+    expect(skill).toMatch(/launch an app.*authorizes.*`create_app`.*`request_github_access`/is);
     expect(skill).toContain("separate explicit request");
     expect(skill).toMatch(/one plain-language question at a time/i);
     expect(skill).toMatch(/public acknowledgement/i);
@@ -115,7 +117,7 @@ describe("CU Launch workspace plugin package", () => {
       "Only actor-specific `repositoryAccess.status === GRANTED` is clone, fetch, and push ready.",
     );
     expect(skill).toContain(
-      "`INVITED` is partial: ask the actor to accept the invitation, then refresh with `get_app`.",
+      "After the actor confirms acceptance, call `request_github_access` once with a new UUID for this deliberate access check.",
     );
     expect(skill).toContain(
       "Do not repeat `request_github_access` merely because the invitation remains pending.",
@@ -141,6 +143,7 @@ describe("CU Launch workspace plugin package", () => {
       "repair_publishing_setup",
       "retry_publish",
       "set_app_environment",
+      "set_my_github_username",
     ];
 
     expect(replayContract).toBeDefined();
@@ -159,6 +162,38 @@ describe("CU Launch workspace plugin package", () => {
     expect(replayContract).toContain(
       "renew the user's intent before a consequential new operation",
     );
+  });
+
+  it("reuses the actor's saved GitHub identity, saving only a user-supplied missing or changed username", () => {
+    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8").replace(/\s+/g, " ");
+    expect(skill).toMatch(/call `get_my_profile` before.*launch summary/i);
+    expect(skill).toMatch(/reuse.*saved.*username without asking.*again/i);
+    expect(skill).toMatch(/if.*missing.*ask.*username.*save/i);
+    expect(skill).toMatch(/`set_my_github_username`.*stable.*UUID/i);
+    expect(skill).toMatch(/do not infer.*email.*Git.*another.*owner/i);
+    expect(skill).toMatch(/never use `admin_find_users`.*own profile/i);
+    expect(skill).toMatch(/automatically call `request_github_access`.*repository.*ready/i);
+    expect(skill).toMatch(/do not ask.*separate.*invitation.*approval/i);
+    expect(skill).toMatch(/access failure.*does not.*undo.*creation/i);
+    expect(skill).toMatch(/`get_app`.*recorded.*not.*fresh.*GitHub.*check/i);
+    expect(skill).not.toContain("authorizes only the `create_app` operation");
+    expect(skill).not.toContain("Request GitHub access only after the user chooses local customization.");
+  });
+
+  it("matches UI handoffs for local project, author settings, and authentication recovery", () => {
+    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8").replace(/\s+/g, " ");
+    for (const phrase of ["primary folder", "git --version", "Company Portal", "Cedarville login scripts", "reopen Codex", "git config --local", "user.name", "user.email", "credential.helper", "osxkeychain", "git credential-manager --version", "gh auth status --hostname github.com", "gh auth login --hostname github.com --git-protocol https --web", "load_workspace_dependencies"]) {
+      expect(skill).toContain(phrase);
+    }
+    expect(skill).toMatch(/GitHub username.*user\.name.*portal email.*user\.email/i);
+    expect(skill).toMatch(/before.*commit.*merge/i);
+    expect(skill).toMatch(/literal data.*safely quote/i);
+    expect(skill).toMatch(/do not change global Git settings/i);
+    expect(skill).toMatch(/command-scoped.*repository-local.*GitHub-specific/i);
+    expect(skill).toMatch(/published checksum/i);
+    expect(skill).toMatch(/plugin access does not authenticate local Git/i);
+    expect(skill).toMatch(/default-branch push.*auto-deploy/i);
+    expect(skill).not.toContain("do not substitute GitHub CLI or a GitHub connector");
   });
 
   it("guides batch environment changes and keeps secrets in CU Launch", () => {

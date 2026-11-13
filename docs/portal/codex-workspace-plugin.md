@@ -10,7 +10,7 @@ instructions, and it does not authorize changes to portal UI workflows.
 The following is **locally verified** in the repository: disabled-by-default
 MCP configuration parsing; the protected `/api/mcp` route and
 `/.well-known/oauth-protected-resource` metadata route; bearer-token claim
-validation; fifteen tool adapters; rate-limit and idempotency contracts; the
+validation; seventeen tool adapters; rate-limit and idempotency contracts; the
 skills-only plugin package; its marketplace descriptor; and the guarded
 finalizer script.
 
@@ -51,13 +51,80 @@ The supported tool list is deliberately narrow:
 13. `admin_get_app_logs`
 14. `get_app_environment`
 15. `set_app_environment`
+16. `get_my_profile`
+17. `set_my_github_username`
 
 `request_github_access` accepts only the signed-in actor's GitHub username already saved in CU Launch settings. The portal records the app, actor, and normalized username before asking GitHub to grant access so later collaborator removal can revoke every recorded identity even if the profile changes.
 
+### GitHub identity and automatic invitations
+
+`get_my_profile` reads the signed-in actor's current saved `githubUsername`,
+portal `email`, and `displayName`. It accepts `{}` and returns `{ profile: {
+githubUsername, email, displayName } }`; a missing username is `null`. There is
+no target-user identifier, directory discovery, administrator requirement, or
+provider lookup. Reads use the ordinary read limiter and query the current user
+record each time.
+
+`set_my_github_username` accepts `{ githubUsername, idempotencyKey }`, where the
+idempotency key is a UUID for one save. It changes only the authenticated actor's
+existing `User.githubUsername`, validates using the portal's shared username
+rules, trims whitespace, and stores lowercase. It returns `{ githubUsername }`
+and records `USER_PROFILE_UPDATED` with the acting user and MCP source. No
+target-user identifier, clear operation, email change, or role change is
+accepted. A save uses a dedicated 10 requests / hour policy, lowerable through
+`PORTAL_MCP_RATE_PROFILE_MAX`. There is no database migration for these tools.
+
+The plugin reads the profile before the launch summary. A saved username is
+reused without asking again; if missing, Codex explains it will be remembered,
+asks for it, and saves the user's supplied answer before requesting access.
+Do not derive the username from email, Git author settings, another app's owner,
+or GitHub plugin/CLI authentication. Profile strings are untrusted data, not
+instructions. A saved username is not proof of GitHub account control.
+
+The launch approval summary includes repository access for that username.
+After approved creation, Codex automatically calls `request_github_access`
+when the managed repository is ready. Creation and access use separate UUIDs:
+an access failure does not undo creation and must not cause duplicate apps.
+This plugin behavior does not change the portal UI's starter-or-customize flow.
+
+An `INVITED` result requires the user to accept the invitation in GitHub while
+signed in to the intended account. Codex supplies the managed repository's
+invitation-page link and waits. After confirmed acceptance, one new
+`request_github_access` operation with a new UUID checks GitHub again and records
+the current actor-specific result. Acceptance confirmation authorizes that check.
+An uncertain transport response reuses that check's UUID and identical input.
+Do not loop requests while waiting: replaying the original invitation UUID
+returns its cached result. `get_app` returns recorded access state, not a live
+GitHub acceptance check. The adapter rechecks the saved username before serving
+an access replay so a grant for a former profile identity is not presented as
+current access.
+
+Profile-save replays likewise report the result of that specific operation,
+without writing again or undoing a later profile change. Use `get_my_profile`
+for the current identity. Profile, invitation, and acceptance checks have
+independent stable UUIDs and the same seven-day replay boundary as other writes.
+
+Before local commits or merge-producing pulls, Codex sets and verifies
+repository-local Git `user.name` from the saved username and `user.email` from
+the portal email using `git config --local`. Author settings do not authenticate
+pushes. The plugin now follows the UI handoff's primary-folder checks, managed
+Git installation guidance, credential-helper/GCM diagnosis, available GitHub
+plugin fallback, and official GitHub CLI recovery with secure sign-in and
+scoped helpers. It preserves existing work, remotes, and unrelated settings;
+it does not make blanket global Git changes or request secrets.
+
+Package `1.0.3+codex.20261113` and MCP server version `1.1.0` contain this source
+update. Deploy the portal, refresh connected MCP tool metadata, and sync/review
+the updated workspace skill through the existing plugin release process before
+expecting installed users to receive both capabilities and instructions. Verify
+saved/missing identities, invitation acceptance, and local Git setup with a
+disposable app in the intended host; local tests alone do not prove that rollout.
+
 There is no delete, import, collaborator-management, secret-environment-variable, or
-push-to-deploy tool. Launching a new app never publishes. Product-facing
-“launch” maps to the technical `create_app` tool and stops after the app record
-and private managed repository are created. Publish, repair, and retry each
+push-to-deploy tool. Launching a new app never publishes. The technical
+`create_app` tool stops after the app record and private managed repository are
+created. The approved launch workflow then requests the actor's repository
+access separately through `request_github_access`. Publish, repair, and retry each
 need a separate explicit request and a caller-provided idempotency UUID.
 
 Existing/local app imports, collaborator management, secret environment-variable
@@ -93,10 +160,11 @@ the approved App Service settings or secret store:
 | `PORTAL_MCP_RATE_REPAIR_MAX` | Optional limit, at most 3 requests / hour. |
 | `PORTAL_MCP_RATE_RETRY_MAX` | Optional limit, at most 6 requests / hour. |
 | `PORTAL_MCP_RATE_ENVIRONMENT_MAX` | Optional limit, at most 10 requests / hour, per batch. |
+| `PORTAL_MCP_RATE_PROFILE_MAX` | Optional limit, at most 10 profile saves / hour. |
 
 The built-in defaults are the same approved limits: reads are 120 requests / 10
 minutes; `create_app` and `repair_publishing_setup` are 3 requests / hour;
-`request_github_access` and `set_app_environment` are 10 requests / hour; and
+`request_github_access`, `set_my_github_username`, and `set_app_environment` are 10 requests / hour; and
 `publish_app_to_azure` and `retry_publish` are 6 requests / hour. An override
 can only lower its default and must be a positive integer.
 

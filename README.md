@@ -111,6 +111,16 @@ For published apps, each submission applies the edited settings together and bri
 
 The MCP `list_my_apps` action returns owned apps only, including for admins. Separate portal ADMIN actions list all apps, inspect recorded diagnostics, find CU Launch users, and retrieve GitHub/Azure logs. These reads do not repair, retry, or deploy. Provider log access and logging availability require live verification; see [workspace plugin operations](docs/portal/codex-workspace-plugin.md) for schemas, limits, permission prerequisites, and rollout steps.
 
+The workspace plugin can read the signed-in user's saved GitHub username and
+portal email with `get_my_profile`. It reuses an existing username without
+asking again; when missing, it asks once and saves the supplied answer with
+`set_my_github_username`. Approved app creation includes requesting repository
+access automatically. The user accepts any required GitHub invitation, then
+Codex checks access again. Local Git setup follows the UI handoffs, including
+repository-local commit author settings and secure authentication recovery.
+These source changes require portal deployment and plugin metadata/skill refresh;
+see [GitHub onboarding operations](docs/portal/codex-workspace-plugin.md#github-identity-and-automatic-invitations).
+
 
 ### MSAL security dependency override
 

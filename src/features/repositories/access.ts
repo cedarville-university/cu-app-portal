@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createGitHubAppClient } from "./github-app";
 import { loadGitHubAppConfig, type GitHubAppConfig } from "./config";
 
-const githubUsernameSchema = z
+export const githubUsernameSchema = z
   .string()
   .trim()
   .min(1, "Enter your GitHub username.")
