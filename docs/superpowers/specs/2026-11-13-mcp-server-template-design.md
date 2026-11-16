@@ -8,7 +8,7 @@ Status: Design authorized for implementation November 16, 2026. Local implementa
 
 Let an advanced CU Launch user build and host an MCP server in a managed GitHub repository and Azure App Service, then use that server in a private personal or workspace plugin created with Plugin Creator. OpenAI Sites is not part of this path.
 
-The user requested an advanced template, availability through the CU Launch plugin, and instructions for integration with Plugin Creator. The user explicitly selected **Cedarville users through Entra** for the first version. TypeScript/Next.js, a distinct Advanced Templates group, no starter database, and per-server Entra resource registrations are recommendations in this design, rather than additional user decisions.
+The user requested an advanced template, availability through the CU Launch plugin, and instructions for integration with Plugin Creator. The user explicitly selected **Cedarville users through Entra** for the first version, then authorized optional managed PostgreSQL with no database as the default on November 16, 2026. TypeScript/Next.js, a distinct Advanced Templates group, and per-server Entra resource registrations are recommendations in this design, rather than additional user decisions.
 
 Success is a user-created plugin that authenticates a Cedarville user and successfully calls a harmless tool on its CU Launch-hosted server. Creating a repository, deploying a healthy process, packaging a plugin, and verifying a connected tool are distinct outcomes.
 
@@ -49,7 +49,7 @@ This proposal proceeds with the first approach for review. It does not record th
 | Hosting | Existing CU Launch shared plan, per-app Azure App Service |
 | Authentication | `entra-mcp` with delegated Cedarville sign-in; no anonymous mode |
 | Audience | `{ cedarville: true, public: false }` |
-| Database | `none` only for v1; external integrations are added in app code |
+| Database | Optional PostgreSQL using existing CU Launch provisioning; default `none` |
 | MCP endpoint | Exact `https://<managed-host>/api/mcp` |
 | Health | Exact anonymous `GET /api/health` returns 200 |
 
@@ -190,7 +190,7 @@ There is no circular requirement to install a plugin before it can be packaged: 
 
 ## Version-one boundaries
 
-No public/anonymous mode, alternative IdPs, app-only/machine tokens, Python MCP engine, arbitrary stdio upload, MCP Apps UI/Extensions generation, custom OAuth authorization server, shared gateway, automatic downstream API grants, persistent database starter, public directory submission, or automatic plugin sharing. These are possible follow-up projects, not hidden prerequisites.
+No public/anonymous mode, alternative IdPs, app-only/machine tokens, Python MCP engine, arbitrary stdio upload, MCP Apps UI/Extensions generation, custom OAuth authorization server, shared gateway, automatic downstream API grants, public directory submission, or automatic plugin sharing. These are possible follow-up projects, not hidden prerequisites.
 
 The workflow does not need Sites for server hosting or plugin packaging. It still depends on available Plugin Creator tools, supported host authentication, tenant/client administrator setup, and the user's repository access.
 
@@ -213,3 +213,5 @@ The workflow does not need Sites for server hosting or plugin packaging. It stil
 Implementation plan: [Advanced MCP Server Template](../plans/2026-11-13-mcp-server-template.md).
 
 Builder review completed for this proposal. Its three material questions are addressed above: Task 0 must prove the exact host/client binding recipe and managed-hostname resource policy; deployment probes are explicitly historical, with no unsupported promise of automatic push freshness detection. These are release gates and design constraints, not claims of tested interoperability.
+
+Implementation extension, November 16, 2026: PostgreSQL uses conditional schema/migration/server-only-client assets and a focused source helper for package/env/lock variants. Both no-database and selected-database packages remain locked. Publishing and repair retain existing PostgreSQL/Key Vault behavior; health and OAuth discovery never query the database. The Plugin Creator handoff includes only a verified storage mode, never database credentials.

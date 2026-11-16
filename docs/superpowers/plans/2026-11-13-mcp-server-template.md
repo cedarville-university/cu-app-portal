@@ -16,7 +16,7 @@
 
 - Slug `mcp-server`, ID `mcp-server-v1`, name `MCP Server (Advanced)`, version `1.0.0`, category `advanced`, group `Advanced Templates`.
 - Runtime Node.js 24 / Next.js, Azure `NODE|24-lts`, startup `npm start`, Streamable HTTP at `/api/mcp`.
-- Audience `{ cedarville: true, public: false }`; `entraLogin: true`; database `none` only for v1.
+- Audience `{ cedarville: true, public: false }`; `entraLogin: true`; database optional (`none` by default, `postgresql` when selected).
 - Exact anonymous `GET /api/health` returns 200; public OAuth discovery; delegated bearer auth before every MCP dispatch; no browser-cookie or app-only fallback.
 - One per-server Entra resource identity; delegated `mcp.access`; no shared portal/browser audience and no credentials in plugin archives, tools, or chat.
 - Body limit 256 KiB; execution deadline 20 seconds; process-local starter limit 60 requests/minute per validated principal, not a distributed quota.
@@ -197,3 +197,5 @@ Existing file paths below were checked in the current checkout. Paths marked Cre
 Proposed task order is sequential because identity, runtime, setup, and connection contracts depend on one another. Native execution is sufficient; delegate only when explicitly selected or required for a review. Do not begin by creating Azure resources or publishing plugins merely because this plan exists.
 
 Coverage: template/discovery/policy → Task 1; generated server/auth/manifest → Task 2; identity lifecycle → Task 3; setup/probes/settings → Task 4; UI/API handoff → Task 5; plugin instructions and packaging → Task 6; integrated acceptance/release → Task 7. Host feasibility is the Task 0 gate. No product code, migration, test plugin, or cloud resource was created while writing the original plan. Local implementation subsequently added the inactive template, migration, portal/plugin integration, tests, and runbooks; no live resources or user plugins have been created.
+
+User-authorized extension, November 16, 2026: offer optional PostgreSQL defaulting to none; generate matching Prisma/schema/migration/client/package/lock/env assets only for PostgreSQL; reuse existing publishing/repair provisioning; update plugin guidance; validate both generated builds and actual local migration/client/startup. Live identity/host activation gates remain unchanged.

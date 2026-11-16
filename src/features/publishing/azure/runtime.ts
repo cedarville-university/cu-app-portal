@@ -277,7 +277,6 @@ function submittedConfigObject(
 function selectedDatabaseProvider(
   appRequest: PublishableAppRequest,
 ): DatabaseProvider {
-  if (appRequest.template.slug === "mcp-server") return "none";
   const value = submittedConfigObject(appRequest)?.databaseProvider;
 
   if (value === "postgresql" || value === "none") {
@@ -533,6 +532,11 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       });
 
       const databaseProvider = selectedDatabaseProvider(appRequest);
+      const persistMcpTarget = async (target: Partial<ProvisionedPublishTarget>) => {
+        if (appRequest.template.slug !== "mcp-server") return;
+        if (options?.onTargetCreated) await options.onTargetCreated(target);
+        else { await options?.authorizeProviderMutation?.(); await deps.prisma.appRequest.update({where:{id:appRequest.id},data:target}); }
+      };
 
       if (databaseProvider === "postgresql") {
         await options?.authorizeProviderMutation?.();
@@ -542,6 +546,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
           databaseName: names.databaseName,
           tags,
         });
+        await persistMcpTarget({azureResourceGroup:deps.config.resourceGroup,azurePostgresServer:deps.config.postgresServer,azureDatabaseName:names.databaseName});
       }
 
       const environmentVariables =
@@ -571,8 +576,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         const partialTarget={azureResourceGroup:deps.config.resourceGroup,azureAppServicePlan:deps.config.appServicePlan,azureWebAppName:names.webAppName,azureDefaultHostName,primaryPublishUrl};
         // Enrollment normally suspends first publish. Retain cleanup targets
         // before that stage, fenced by the worker when available.
-        if (options?.onTargetCreated) await options.onTargetCreated(partialTarget);
-        else { await options?.authorizeProviderMutation?.(); await deps.prisma.appRequest.update({where:{id:appRequest.id},data:partialTarget}); }
+        await persistMcpTarget(partialTarget);
         options?.onSetupStep?.("mcp_identity");
       }
       const mcpSettings = appRequest.template.slug === "mcp-server"

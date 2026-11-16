@@ -226,6 +226,25 @@ function createDeps(
 }
 
 describe("publishing setup service", () => {
+  it("retains PostgreSQL cleanup details when MCP enrollment blocks repair", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({...noFeatureAppRequest,template:{slug:"mcp-server"},submittedConfig:{databaseProvider:"postgresql",entraLogin:true}} as never);
+    const deps=createDeps({ensureMcpIdentity:vi.fn().mockRejectedValue(new Error("enrollment required"))});
+    await expect(repairPublishingSetup("req_123",deps)).rejects.toThrow();
+    expect(prisma.appRequest.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({azurePostgresServer:deps.config.postgresServer,azureDatabaseName:expect.stringMatching(/^db_/)})}));
+  });
+  it.each(["none","postgresql"] as const)("repairs MCP %s settings through the shared database provisioning path", async (databaseProvider) => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({...noFeatureAppRequest,template:{slug:"mcp-server"},submittedConfig:{databaseProvider,entraLogin:true}} as never);
+    const mcpSettings={MCP_RESOURCE_URL:"https://app-campus-dashboard.azurewebsites.net/api/mcp"};
+    const deps=createDeps({ensureMcpIdentity:vi.fn().mockResolvedValue(mcpSettings),getMcpIdentitySettings:vi.fn().mockResolvedValue(mcpSettings)});
+    await repairPublishingSetup("req_123",deps);
+    expect(deps.arm.putPostgresDatabase).toHaveBeenCalledTimes(databaseProvider === "postgresql" ? 1 : 0);
+    const settings=vi.mocked(deps.arm.putAppSettings).mock.calls[0][0].settings;
+    expect(settings).toMatchObject(mcpSettings);
+    if (databaseProvider === "postgresql") expect(settings.DATABASE_URL).toBe(keyVaultReference(vaultUri,"DATABASE_URL"));
+    else expect(settings).not.toHaveProperty("DATABASE_URL");
+    expect(settings).not.toHaveProperty("AUTH_SECRET");
+    expect(deps.graph.ensureRedirectUri).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.mocked(prisma.$transaction).mockReset();
     vi.mocked(prisma.$transaction).mockImplementation(

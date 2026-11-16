@@ -142,3 +142,7 @@ Next.js retains the access token and expiry inside Auth.js's encrypted HttpOnly 
 ## Database Sync
 
 Run `npm run prisma:seed` after catalog changes so the database template rows stay aligned with the in-code catalog used by the portal.
+
+### MCP database variants
+
+The MCP template declares PostgreSQL optional with `defaultProvider: "none"`. Conditional PostgreSQL assets contain its schema, migration, and server-only client. `mcp-server-source.ts` supplies database-aware package files, the matching pinned lockfile, and local env examples via generated overrides. No-database output excludes these Prisma assets/dependencies. Publishing and repair reuse existing database and Key Vault support; bearer authentication stays separate from browser login.

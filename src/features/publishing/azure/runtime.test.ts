@@ -233,7 +233,7 @@ function createDeps({
 
 describe("createAzurePublishRuntime", () => {
   it("publishes MCP settings without provisioning browser auth or a database", async () => {
-    const { deps, arm, graph } = createDeps({ appRequest: { ...readyAppRequest, template: {slug:"mcp-server"}, submittedConfig: {entraLogin:true,databaseProvider:"postgresql"} } });
+    const { deps, arm, graph } = createDeps({ appRequest: { ...readyAppRequest, template: {slug:"mcp-server"}, submittedConfig: {entraLogin:true,databaseProvider:"none"} } });
     const ensureMcpIdentity=vi.fn().mockResolvedValue({MCP_RESOURCE_URL:"https://tools.azurewebsites.net/api/mcp"});
     await createAzurePublishRuntime({...deps,ensureMcpIdentity}).provisionInfrastructure(readyAppRequest.id);
     expect(ensureMcpIdentity).toHaveBeenCalledWith(expect.objectContaining({appId:readyAppRequest.id,endpointUrl:expect.stringMatching(/\/api\/mcp$/)}));
@@ -244,11 +244,34 @@ describe("createAzurePublishRuntime", () => {
     expect(settings).not.toHaveProperty("AUTH_URL");
     expect(settings).not.toHaveProperty("AUTH_SECRET");
   });
+  it("provisions selected MCP PostgreSQL through the existing database and Key Vault path", async () => {
+    const {deps,arm,graph}=createDeps({appRequest:{...readyAppRequest,template:{slug:"mcp-server"},submittedConfig:{entraLogin:true,databaseProvider:"postgresql"}}});
+    const setSecret=vi.fn().mockResolvedValue(undefined); deps.createKeyVaultClient.mockReturnValue({setSecret});
+    const target=await createAzurePublishRuntime({...deps,ensureMcpIdentity:vi.fn().mockResolvedValue({MCP_RESOURCE_URL:"https://tools.azurewebsites.net/api/mcp"})}).provisionInfrastructure(readyAppRequest.id);
+    expect(arm.putPostgresDatabase).toHaveBeenCalledOnce();
+    expect(target.azureDatabaseName).toMatch(/^db_/);
+    expect(setSecret).toHaveBeenCalledWith({name:"DATABASE-URL",value:expect.stringContaining("sslmode=require")});
+    const settings=arm.putAppSettings.mock.calls[0][0].settings;
+    expect(settings.DATABASE_URL).toBe(`@Microsoft.KeyVault(SecretUri=${target.azureKeyVaultUri}/secrets/DATABASE-URL)`);
+    expect(settings).not.toHaveProperty("AUTH_SECRET");
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
+  });
   it("stops before applying settings if MCP identity setup is blocked", async () => {
     const { deps, arm } = createDeps({appRequest:{...readyAppRequest,template:{slug:"mcp-server"}}});
     await expect(createAzurePublishRuntime({...deps,ensureMcpIdentity:vi.fn().mockRejectedValue(new Error("pilot required"))}).provisionInfrastructure(readyAppRequest.id)).rejects.toThrow("pilot required");
     expect(arm.putAppSettings).not.toHaveBeenCalled();
     expect(deps.prisma.appRequest.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({azureWebAppName:expect.any(String),azureResourceGroup:config.resourceGroup})}));
+  });
+  it("retains MCP database cleanup identifiers when enrollment suspends first publish", async () => {
+    const {deps}=createDeps({appRequest:{...readyAppRequest,template:{slug:"mcp-server"},submittedConfig:{databaseProvider:"postgresql",entraLogin:true}}});
+    await expect(createAzurePublishRuntime({...deps,ensureMcpIdentity:vi.fn().mockRejectedValue(new Error("enrollment required"))}).provisionInfrastructure(readyAppRequest.id)).rejects.toThrow("enrollment required");
+    expect(deps.prisma.appRequest.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({azurePostgresServer:config.postgresServer,azureDatabaseName:expect.stringMatching(/^db_/)})}));
+  });
+  it("retains the created MCP database if Web App provisioning fails", async () => {
+    const {deps,arm}=createDeps({appRequest:{...readyAppRequest,template:{slug:"mcp-server"},submittedConfig:{databaseProvider:"postgresql",entraLogin:true}}});
+    arm.putWebApp.mockRejectedValueOnce(new Error("web app unavailable"));
+    await expect(createAzurePublishRuntime(deps).provisionInfrastructure(readyAppRequest.id)).rejects.toThrow("web app unavailable");
+    expect(deps.prisma.appRequest.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({azureDatabaseName:expect.stringMatching(/^db_/)})}));
   });
   it("stores managed credentials in Key Vault without custom secret variables", async () => {
     const { deps, arm } = createDeps();

@@ -6,6 +6,7 @@ export const LEGACY_PUBLISH_SKILL_PATH =
   ".codex/skills/publish-to-azure/SKILL.md";
 
 const PREVIOUS_MANAGED_APP_PORTAL_SKILL_HASHES = new Set([
+  "bc0b7ac49ea5bf6e70ac5243cf818604284ff72da5af864c54b6e0245cac034d",
   "45e9f7f5bf62103524d2cff217139a4843077bfc9a9069ea3b80f5d436a299f6",
   "2545b174f9bc885bfbafef27f664bb5b746c6251fc3b838814a02529f820751b",
   "aac7b510f75745347798af6b558fb4dbcae5739c1677a32249a384837711bfd3",
@@ -153,6 +154,8 @@ description: Use when customizing, publishing, or connecting this CU Launch-mana
 Read app-portal/deployment-manifest.json, docs/mcp-server.md, and docs/plugin-creator-handoff.md. Use the managed GitHub repository as the source of truth. Preserve custom code and require the normal CU Launch publish, repair, and retry authorization. Ask permission before using the CU Launch connector unless already authorized. Use secure Git authentication; never extract credentials.
 
 Keep GET /api/health and OAuth discovery public. Require validated per-server delegated Entra bearer auth before every MCP dispatch. Browser sessions, portal tokens, app-only tokens, and API keys are not substitutes. Keep canonical identity stable. Authorize data/actions separately for every tool and never forward incoming MCP tokens downstream.
+
+PostgreSQL is optional and defaults to no database. Read the manifest before assuming storage exists. When selected, CU Launch provisions the app database and supplies the managed DATABASE_URL through Key Vault. Use the server-only src/lib/db.ts client, add schema changes and migrations with npm run db:migrate, and keep health/discovery independent of database queries. Never put database credentials in chat, plugin archives, or MCP responses. Database connectivity does not authorize every caller to read or change every row; enforce data permissions with the validated principal. Do not add a database or write tool unless the user's requested scope calls for it.
 
 Test with npm test, npm run typecheck, and npm run build before committing and pushing authorized changes. After first publish, default-branch pushes deploy automatically when auto-deploy is enabled; explain that effect. Preserve the exact health endpoint independently of external dependencies.
 

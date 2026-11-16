@@ -16,7 +16,9 @@ describe("MCP template policy", () => {
     const input = { appName: "Tools", description: "Internal tools", hostingTarget: "Azure App Service", databaseProvider: "none", entraLogin: false, publicAcknowledgement: true };
     expect(schema.safeParse(input).success).toBe(false);
     expect(schema.safeParse({ ...input, entraLogin: true }).success).toBe(true);
-    expect(schema.safeParse({ ...input, entraLogin: true, databaseProvider: "postgresql" }).success).toBe(false);
+    expect(schema.safeParse({ ...input, entraLogin: true, databaseProvider: "postgresql" }).success).toBe(true);
+    expect(schema.parse({ ...input, entraLogin: true, databaseProvider: undefined }).databaseProvider).toBe("none");
+    expect(schema.safeParse({ ...input, databaseProvider: "postgresql" }).success).toBe(false);
   });
   it("preserves both explicit audiences for existing templates", () => {
     expect(getTemplatePolicy(getTemplateBySlug("web-app")!).audience).toEqual({ cedarville: true, public: true });

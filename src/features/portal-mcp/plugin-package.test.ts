@@ -25,6 +25,8 @@ describe("CU Launch workspace plugin package", () => {
     expect(reference).toContain("get_server_info");
     expect(skill).toMatch(/existing.*server[\s\S]{0,220}get_app/i);
     expect(skill).toContain("Apply template discovery only when creating a server");
+    expect(reference).toContain("optional PostgreSQL");
+    expect(reference).toContain('default to `databaseProvider: "none"`');
   });
   it("declares the skills-only plugin and university marketplace contracts", () => {
     const plugin = readJson(resolve(pluginRoot, ".codex-plugin/plugin.json"));

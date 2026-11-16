@@ -4,7 +4,7 @@ Implemented November 16, 2026. The `mcp-server` template remains **DISABLED** pe
 
 ## Template and tool authoring
 
-`MCP Server (Advanced)` is a TypeScript/Next.js starter for Node.js 24 on CU Launch's existing Azure App Service path. It exposes Streamable HTTP at `/api/mcp`, public process health at `/api/health`, public OAuth resource discovery, and one harmless authenticated `get_server_info` tool. There is no starter database or OpenAI API key requirement. Its locked SDK/transport uses stateless JSON responses, not long-lived event streams.
+`MCP Server (Advanced)` is a TypeScript/Next.js starter for Node.js 24 on CU Launch's existing Azure App Service path. It exposes Streamable HTTP at `/api/mcp`, public process health at `/api/health`, public OAuth resource discovery, and one harmless authenticated `get_server_info` tool. PostgreSQL is optional and defaults to no database; no OpenAI API key is required. Its locked SDK/transport uses stateless JSON responses, not long-lived event streams.
 
 The catalog's audience policy is enforced in the UI, MCP creation adapter, and shared creation service. This template requires Cedarville authentication; existing templates retain both explicit audience choices. Every MCP dispatch needs a delegated token minted for this server. Browser sessions, app-only tokens, and CU Launch control-plane tokens cannot substitute.
 
@@ -56,3 +56,9 @@ Preflight compares reserved identity settings against Azure; missing registratio
 Rollback new availability by restoring catalog DISABLED and reverting the managed plugin release if needed. Retain existing servers and identities for investigation; deletion is a separate explicitly scoped action.
 
 Owned identity removal is fenced by the setup lease. Successful provider removal retires the stored IDs (`REMOVED`), making later portal-only cleanup possible; failed removal preserves the IDs for retry. A removed identity is not silently recreated by repair. First publish/repair saves Azure cleanup targets before suspending for operator client enrollment.
+
+## Optional PostgreSQL
+
+When selected at creation, CU Launch uses its existing per-app PostgreSQL provisioning and stores DATABASE_URL through Key Vault during publish and repair. The generated app includes pinned Prisma dependencies, a server-only `src/lib/db.ts` client, and an initial AppSetting migration. `npm run db:migrate -- --name your_change` supports local schema work; production startup runs `prisma migrate deploy`. The default no-database variant omits the Prisma files/dependencies and database environment setting. Both variants have separate pinned lockfiles.
+
+The plugin preserves the selected database mode in the launch summary and uses `databaseProvider: "postgresql"` only when chosen. Existing-server handoffs report a storage mode only when verified. Connection strings and credentials never belong in Plugin Creator packages or chat. Tool authors must enforce each caller’s row/action permissions, and keep health/discovery independent of database queries.

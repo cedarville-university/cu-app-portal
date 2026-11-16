@@ -354,7 +354,6 @@ function submittedConfigObject(
 }
 
 function selectedDatabaseProvider(appRequest: SetupAppRequest): DatabaseProvider {
-  if (appRequest.template.slug === "mcp-server") return "none";
   const value = submittedConfigObject(appRequest)?.databaseProvider;
 
   if (value === "postgresql" || value === "none") {
@@ -1317,6 +1316,7 @@ export async function repairPublishingSetup(
         databaseName: names.databaseName,
         tags,
       });
+      if (appRequest.template.slug === "mcp-server") await persistRepairAppRequestWrite({appRequestId,db,claimedRepairAttempt,preserveAttemptIdentity:true,data:{azureResourceGroup:deps.config.resourceGroup,azurePostgresServer:deps.config.postgresServer,azureDatabaseName:names.databaseName}});
     }
 
     repairStep = "azure_resource_access";

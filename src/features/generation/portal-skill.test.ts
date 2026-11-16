@@ -5,12 +5,21 @@ import {
   PORTAL_SKILL_PATH,
   buildLegacyPublishToAzureStub,
   buildManagedAppPortalSkill,
+  buildManagedMcpAppPortalSkill,
   isCanonicalManagedAppPortalSkill,
 } from "./portal-skill";
 import {
   buildImmediatelyPreviousManagedAppPortalSkillForTest,
   buildPreviousManagedAppPortalSkillForTest,
 } from "./portal-skill.test-fixtures";
+
+it("keeps prior MCP skills recognizable and protects customized guidance when adding PostgreSQL", () => {
+  const old = readFileSync("src/features/generation/fixtures/managed-mcp-app-portal-skill-before-postgresql.md", "utf8");
+  expect(isCanonicalManagedAppPortalSkill(old)).toBe(true);
+  expect(isCanonicalManagedAppPortalSkill(`${old}\nCustom instructions`)).toBe(false);
+  expect(buildManagedMcpAppPortalSkill()).toContain("PostgreSQL is optional and defaults to no database");
+  expect(buildManagedMcpAppPortalSkill()).toContain("Never put database credentials in chat, plugin archives, or MCP responses");
+});
 
 describe("portal skill generation", () => {
   it("uses stable generated skill paths", () => {

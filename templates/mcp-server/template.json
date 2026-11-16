@@ -31,5 +31,17 @@
     ".codex/skills/publish-to-azure/SKILL.md",
     "docs/publishing/azure-app-service.md",
     "docs/publishing/lessons-learned.md"
-  ]
+  ],
+  "generatedOverrides": [
+    "package.json",
+    "package-lock.json",
+    ".env.example"
+  ],
+  "conditionalEntryFiles": {
+    "databasePostgresql": [
+      "prisma/schema.prisma.template",
+      "prisma/migrations/00000000000000_init/migration.sql",
+      "src/lib/db.ts"
+    ]
+  }
 }

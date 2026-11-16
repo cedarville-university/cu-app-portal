@@ -46,7 +46,7 @@ const templates: PortalTemplate[] = [
     category: "advanced", applicationKind: "mcp-server", authenticationMode: "entra-mcp",
     audience: { cedarville: true, public: false },
     hostingTarget: "Azure App Service", appServiceRuntime: nextAppServiceRuntime,
-    features: { database: { mode: "unsupported", providerOptions: [], defaultProvider: "none" }, entraLogin: { mode: "required", defaultEnabled: true } },
+    features: { database: { mode: "optional", providerOptions: ["postgresql"], defaultProvider: "none" }, entraLogin: { mode: "required", defaultEnabled: true } },
     version: "1.0.0", status: "DISABLED", fields: sharedFields,
   },
   {

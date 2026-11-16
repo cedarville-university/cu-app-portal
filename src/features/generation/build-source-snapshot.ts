@@ -14,6 +14,7 @@ import {
   buildManagedMcpAppPortalSkill,
 } from "./portal-skill";
 import { buildPythonFastApiGeneratedFiles } from "./python-fastapi-source";
+import { buildMcpServerGeneratedFiles } from "./mcp-server-source";
 import { renderTemplateString } from "./render-template";
 import { buildTokenMap } from "./token-replacements";
 import { getTemplateBySlug } from "@/features/templates/catalog";
@@ -71,9 +72,9 @@ function assertTemplateManifestMatchesCatalog(
   }
 }
 
-function buildGeneratedTemplateFiles(
+async function buildGeneratedTemplateFiles(
   input: CreateAppRequestInput,
-): Record<string, string> {
+): Promise<Record<string, string>> {
   const instructionFiles = buildInstructionFiles(input);
 
   if (input.hostingTarget !== "Azure App Service") {
@@ -102,6 +103,7 @@ function buildGeneratedTemplateFiles(
     "README.md": buildReadmeFile(input),
     "app-portal/deployment-manifest.json": deploymentManifest,
     ...pythonFastApiFiles,
+    ...(input.templateSlug === "mcp-server" ? await buildMcpServerGeneratedFiles(input) : {}),
     [PORTAL_SKILL_PATH]: input.templateSlug === "mcp-server" ? buildManagedMcpAppPortalSkill() : buildManagedAppPortalSkill(),
     [LEGACY_PUBLISH_SKILL_PATH]: buildLegacyPublishToAzureStub(),
   };
@@ -430,7 +432,7 @@ export async function buildSourceSnapshot(
   const sourceTemplateSlug = template.sourceTemplateSlug ?? input.templateSlug;
   const manifest = await loadTemplateManifest(sourceTemplateSlug);
   assertTemplateManifestMatchesCatalog(sourceTemplateSlug, manifest);
-  const generatedTemplateFiles = buildGeneratedTemplateFiles(input);
+  const generatedTemplateFiles = await buildGeneratedTemplateFiles(input);
   const templateRoot = path.join(
     process.cwd(),
     "templates",
