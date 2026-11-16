@@ -148,6 +148,7 @@ describe("getAccessibleAppSummary", () => {
       "id",
       "latestAttempt",
       "liveUrl",
+      "mcp",
       "publishStatus",
       "publishWarningSummary",
       "publishingSetupStatus",

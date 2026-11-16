@@ -15,6 +15,8 @@ import {
 } from "@/features/publishing/eligibility";
 import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/status";
 import type { ActorRepositoryAccess } from "@/features/repositories/actor-access";
+import { buildMcpConnectionSummary, type McpConnectionSummary } from "@/features/mcp-servers/connection-summary";
+import type { McpIdentityRecord } from "@/features/mcp-servers/types";
 
 export type PortalNextAction =
   | "request_github_access"
@@ -35,6 +37,7 @@ export type PortalPublishAttemptSummary = {
 };
 
 export type PortalAppSummary = {
+  mcp?: McpConnectionSummary | null;
   id: string;
   appName: string;
   template: { slug: string; name: string };
@@ -56,6 +59,7 @@ export type PortalAppSummary = {
 };
 
 type PortalAppReadRecord = {
+  mcpConfiguration?: McpIdentityRecord | null;
   id: string;
   appName: string;
   sourceOfTruth: SourceOfTruth;
@@ -154,6 +158,7 @@ export function summarizePortalApp(
 
   return {
     id: app.id,
+    mcp: app.template.slug === "mcp-server" ? buildMcpConnectionSummary(app.mcpConfiguration, {published:app.publishStatus === "SUCCEEDED"}) : null,
     appName: app.appName,
     template: app.template,
     sourceOfTruth: app.sourceOfTruth,

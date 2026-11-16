@@ -1,0 +1,35 @@
+{
+  "slug": "mcp-server",
+  "version": "1.0.0",
+  "entryFiles": [
+    ".env.example.template",
+    ".github/workflows/deploy-azure-app-service.yml.template",
+    ".gitignore.template",
+    "README.md.template",
+    "docs/mcp-server.md",
+    "docs/plugin-creator-handoff.md",
+    "next-env.d.ts",
+    "next.config.mjs",
+    "package-lock.json.template",
+    "package.json.template",
+    "src/app/.well-known/oauth-protected-resource/api/mcp/route.ts.template",
+    "src/app/.well-known/oauth-protected-resource/route.ts.template",
+    "src/app/api/health/route.ts.template",
+    "src/app/api/mcp/route.ts.template",
+    "src/app/layout.tsx.template",
+    "src/app/page.tsx.template",
+    "src/mcp/auth.ts",
+    "src/mcp/handler.ts",
+    "src/mcp/server.ts",
+    "tests/auth.test.ts",
+    "tests/mcp.test.ts",
+    "tsconfig.json.template"
+  ],
+  "generatedFiles": [
+    "app-portal/deployment-manifest.json",
+    ".codex/skills/cu-app-portal/SKILL.md",
+    ".codex/skills/publish-to-azure/SKILL.md",
+    "docs/publishing/azure-app-service.md",
+    "docs/publishing/lessons-learned.md"
+  ]
+}

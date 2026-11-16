@@ -1,0 +1,7 @@
+# {{APP_NAME}}
+
+{{APP_DESCRIPTION}}
+
+An advanced Cedarville-authenticated MCP server hosted by CU Launch on Azure.
+
+Run `npm ci`, `npm test`, `npm run build`, and `npm run dev`. Identity settings are supplied by CU Launch; missing settings fail closed. No OpenAI API key is required. See `docs/mcp-server.md` and `docs/plugin-creator-handoff.md`.

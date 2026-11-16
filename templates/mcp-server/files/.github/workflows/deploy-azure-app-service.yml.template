@@ -1,0 +1,97 @@
+name: Deploy to Azure App Service
+
+on:
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+  DEPLOY_PACKAGE_PATH: release
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Build application
+        env:
+          # Prisma validates this setting during the build. The portal configures
+          # the real production connection string in Azure App Service.
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
+        run: npm run build
+
+      - name: Prepare deployment package
+        run: |
+          rm -rf "${{ env.DEPLOY_PACKAGE_PATH }}"
+          mkdir -p "${{ env.DEPLOY_PACKAGE_PATH }}"
+          cp -R .next "${{ env.DEPLOY_PACKAGE_PATH }}/.next"
+          cp -R node_modules "${{ env.DEPLOY_PACKAGE_PATH }}/node_modules"
+          cp package.json "${{ env.DEPLOY_PACKAGE_PATH }}/"
+          for file in package-lock.json next.config.js next.config.mjs next.config.ts next-env.d.ts prisma.config.ts; do
+            if [ -f "$file" ]; then
+              cp "$file" "${{ env.DEPLOY_PACKAGE_PATH }}/"
+            fi
+          done
+          for dir in public prisma; do
+            if [ -d "$dir" ]; then
+              cp -R "$dir" "${{ env.DEPLOY_PACKAGE_PATH }}/$dir"
+            fi
+          done
+
+      - name: Azure login (attempt 1)
+        id: azure_login_first
+        continue-on-error: true
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Wait for Azure RBAC propagation
+        if: steps.azure_login_first.outcome == 'failure'
+        run: sleep 30
+
+      - name: Azure login (attempt 2)
+        id: azure_login_second
+        if: steps.azure_login_first.outcome == 'failure'
+        continue-on-error: true
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Wait for Azure RBAC propagation
+        if: steps.azure_login_first.outcome == 'failure' && steps.azure_login_second.outcome == 'failure'
+        run: sleep 60
+
+      - name: Azure login (attempt 3)
+        if: steps.azure_login_first.outcome == 'failure' && steps.azure_login_second.outcome == 'failure'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: ${{ env.DEPLOY_PACKAGE_PATH }}

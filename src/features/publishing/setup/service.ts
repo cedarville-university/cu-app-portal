@@ -28,6 +28,7 @@ import {
   buildPublishTargetNames,
 } from "@/features/publishing/azure/naming";
 import { prisma } from "@/lib/db";
+import { ensureDefaultMcpIdentity, getMcpIdentitySettings } from "@/features/mcp-servers/default-identity";
 import { createKeyVaultClient } from "@/features/publishing/azure/key-vault-client";
 import { keyVaultReference } from "@/features/env-vars/settings";
 import {
@@ -125,6 +126,8 @@ type SelectedAppServiceRuntime = {
 };
 
 export type PublishingSetupServiceDeps = {
+  ensureMcpIdentity?: typeof ensureDefaultMcpIdentity;
+  getMcpIdentitySettings?: typeof getMcpIdentitySettings;
   createKeyVaultClient: AppSecretStoreDeps["createKeyVaultClient"];
   config: AzurePublishConfig;
   prisma?: SetupDb;
@@ -351,6 +354,7 @@ function submittedConfigObject(
 }
 
 function selectedDatabaseProvider(appRequest: SetupAppRequest): DatabaseProvider {
+  if (appRequest.template.slug === "mcp-server") return "none";
   const value = submittedConfigObject(appRequest)?.databaseProvider;
 
   if (value === "postgresql" || value === "none") {
@@ -366,6 +370,7 @@ function selectedDatabaseProvider(appRequest: SetupAppRequest): DatabaseProvider
 }
 
 function selectedEntraLogin(appRequest: SetupAppRequest): boolean {
+  if (appRequest.template.slug === "mcp-server") return false;
   const value = submittedConfigObject(appRequest)?.entraLogin;
 
   if (typeof value === "boolean") {
@@ -1162,6 +1167,14 @@ async function runPreflightChecks(
     branch: repo.branch,
   });
   const checks: PublishingSetupCheckResult[] = [];
+  if (appRequest.template.slug === "mcp-server") {
+    try {
+      const expected = await (deps.getMcpIdentitySettings ?? getMcpIdentitySettings)(appRequest.id);
+      const actual = await deps.arm.getAppSettings({resourceGroup:deps.config.resourceGroup,name:names.webAppName});
+      const matches=actual.exists && Object.entries(expected).every(([key,value])=>actual.settings[key]===value);
+      checks.push(matches ? pass("mcp_identity", "MCP resource identity settings match.") : fail("mcp_identity", "MCP resource settings need repair.", {repairable:true}));
+    } catch { checks.push(fail("mcp_identity", "MCP identity and administrator client enrollment are required.", {repairable:false})); }
+  }
 
   const workflowFile = await checkWorkflowFile({
     deps,
@@ -1324,6 +1337,12 @@ export async function repairPublishingSetup(
       webApp.properties?.defaultHostName ?? names.azureDefaultHostName;
     const azurePublishUrl = `https://${azureDefaultHostName}`;
     const effectivePublishUrl = appRequest.primaryPublishUrl ?? azurePublishUrl;
+    let mcpSettings: Record<string,string> = {};
+    if (appRequest.template.slug === "mcp-server") {
+      repairStep = "mcp_identity";
+      if (effectivePublishUrl !== azurePublishUrl) throw new Error("MCP custom-domain migration requires operator review.");
+      mcpSettings = await (deps.ensureMcpIdentity ?? ensureDefaultMcpIdentity)({ appId:appRequest.id,endpointUrl:`${azurePublishUrl}/api/mcp`,tenantId:deps.config.azureTenantId,authorizeProviderMutation:options.authorizeProviderMutation });
+    }
 
     await options.authorizeProviderMutation?.();
     const deployIdentity = await deps.arm.putUserAssignedIdentity({
@@ -1369,7 +1388,7 @@ export async function repairPublishingSetup(
     await deps.arm.putAppSettings({
       resourceGroup: deps.config.resourceGroup,
       name: names.webAppName,
-      settings: buildRepairAppSettings({
+      settings: { ...buildRepairAppSettings({
         existingSettings: existingAppSettings.exists
           ? existingAppSettings.settings
           : {},
@@ -1379,7 +1398,7 @@ export async function repairPublishingSetup(
         publishUrl: effectivePublishUrl,
         entraLogin,
         runtime: appServiceRuntime,
-      }),
+      }), ...mcpSettings },
     });
 
     if (entraLogin) {

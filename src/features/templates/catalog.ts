@@ -1,4 +1,5 @@
 import type { AppServiceRuntime, PortalTemplate, TemplateCategory, TemplateField } from "./types";
+import { getTemplatePolicy } from "./policy";
 
 const sharedFields: TemplateField[] = [
   { name: "appName", label: "App Name", type: "text", required: true },
@@ -37,6 +38,17 @@ const fastApiAppServiceRuntime: AppServiceRuntime = {
 };
 
 const templates: PortalTemplate[] = [
+  {
+    id: "mcp-server-v1", slug: "mcp-server", name: "MCP Server (Advanced)",
+    description: "Host tools for your own ChatGPT or Codex plugins on Azure.",
+    decisionSummary: "Requires Codex customization and Cedarville sign-in. Connect your Azure-hosted server to your own plugin with Plugin Creator.",
+    bestFor: ["Custom plugin backends", "Internal read-only integrations", "Developer-authored tools"],
+    category: "advanced", applicationKind: "mcp-server", authenticationMode: "entra-mcp",
+    audience: { cedarville: true, public: false },
+    hostingTarget: "Azure App Service", appServiceRuntime: nextAppServiceRuntime,
+    features: { database: { mode: "unsupported", providerOptions: [], defaultProvider: "none" }, entraLogin: { mode: "required", defaultEnabled: true } },
+    version: "1.0.0", status: "DISABLED", fields: sharedFields,
+  },
   {
     id: "department-form-approval-v1",
     slug: "department-form-approval",
@@ -201,6 +213,7 @@ const templates: PortalTemplate[] = [
 const templateGroupLabels: Record<TemplateCategory, string> = {
   recommended: "Recommended Templates",
   developer: "Developer Starters",
+  advanced: "Advanced Templates",
 };
 
 export function getActiveTemplates() {
@@ -209,7 +222,7 @@ export function getActiveTemplates() {
 
 export function getActiveTemplateGroups() {
   const activeTemplates = getActiveTemplates();
-  const categories: TemplateCategory[] = ["recommended", "developer"];
+  const categories: TemplateCategory[] = ["recommended", "developer", "advanced"];
 
   return categories
     .map((category) => ({
@@ -242,6 +255,7 @@ export function serializeTemplateForStorage(template: PortalTemplate) {
     version: template.version,
     status: template.status,
     inputSchema: {
+      ...getTemplatePolicy(template),
       fields: template.fields,
       category: template.category,
       ...(template.sourceTemplateSlug

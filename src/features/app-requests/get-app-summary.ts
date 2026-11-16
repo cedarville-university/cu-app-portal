@@ -11,6 +11,7 @@ import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-a
 import { prisma } from "@/lib/db";
 
 const appSummaryInclude = {
+  mcpConfiguration: true,
   template: { select: { slug: true, name: true } },
   repositoryImport: { select: { preparationStatus: true } },
   publishAttempts: {

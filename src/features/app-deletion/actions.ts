@@ -13,6 +13,7 @@ import {
 import type { DeletedAppNotificationRecipientSnapshot } from "@/features/notifications/service";
 import { recordAuditEvent, type AuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
+import { deleteDefaultMcpIdentity } from "@/features/mcp-servers/default-identity";
 import {
   deleteAzureDeployment,
   deleteManagedGitHubRepository,
@@ -90,6 +91,7 @@ async function loadDeletableAppRequest(requestId: string) {
       ? { id: requestId }
       : { id: requestId, userId: actorUserId },
     include: {
+      mcpConfiguration: true,
       user: {
         select: deletedAppNotificationRecipientSelect,
       },
@@ -230,6 +232,7 @@ async function deleteApp(requestId: string, formData: FormData) {
   const { appRequest, actorUserId, actorIsAdmin } =
     await loadDeletableAppRequest(requestId);
   const adminInitiated = actorIsAdmin && appRequest.userId !== actorUserId;
+  if (targets.portal && !targets.azure && appRequest.mcpConfiguration?.applicationObjectId) throw new Error("Delete the Azure deployment and its owned MCP identity before removing this portal record.");
   let githubRepository: { owner: string; name: string } | null = null;
   let azureDeployment: DeleteAzureDeploymentInput | null = null;
   const completed = {
@@ -279,6 +282,7 @@ async function deleteApp(requestId: string, formData: FormData) {
     }
 
     if (azureDeployment) {
+      if (appRequest.mcpConfiguration) await deleteDefaultMcpIdentity(requestId);
       await deleteAzureDeployment(azureDeployment);
       completed.azure = true;
     }

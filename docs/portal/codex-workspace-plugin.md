@@ -1,5 +1,7 @@
 # CU Launch Codex Workspace Plugin Operations
 
+The source plugin now includes an advanced MCP-server/Plugin Creator route. The MCP template remains disabled pending the live pilot. `get_app` adds nullable nonsecret `mcp` connection metadata; existing tools, access checks, and mutation replay rules remain unchanged. See [MCP servers](mcp-servers.md) and [agent evaluations](mcp-agent-evaluations.md). Source version 1.0.3+codex.20261116 does not prove installed workspace availability.
+
 This runbook is for portal operations, Entra administrators, and Codex
 workspace administrators. It describes the optional CU Launch
 workspace plugin and its delegated MCP API. It is not end-user publishing

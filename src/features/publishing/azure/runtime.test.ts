@@ -232,6 +232,23 @@ function createDeps({
 }
 
 describe("createAzurePublishRuntime", () => {
+  it("publishes MCP settings without provisioning browser auth or a database", async () => {
+    const { deps, arm, graph } = createDeps({ appRequest: { ...readyAppRequest, template: {slug:"mcp-server"}, submittedConfig: {entraLogin:true,databaseProvider:"postgresql"} } });
+    const ensureMcpIdentity=vi.fn().mockResolvedValue({MCP_RESOURCE_URL:"https://tools.azurewebsites.net/api/mcp"});
+    await createAzurePublishRuntime({...deps,ensureMcpIdentity}).provisionInfrastructure(readyAppRequest.id);
+    expect(ensureMcpIdentity).toHaveBeenCalledWith(expect.objectContaining({appId:readyAppRequest.id,endpointUrl:expect.stringMatching(/\/api\/mcp$/)}));
+    expect(arm.putPostgresDatabase).not.toHaveBeenCalled();
+    expect(graph.ensureRedirectUri).not.toHaveBeenCalled();
+    const settings=arm.putAppSettings.mock.calls[0][0].settings;
+    expect(settings).toHaveProperty("MCP_RESOURCE_URL");
+    expect(settings).not.toHaveProperty("AUTH_URL");
+    expect(settings).not.toHaveProperty("AUTH_SECRET");
+  });
+  it("stops before applying settings if MCP identity setup is blocked", async () => {
+    const { deps, arm } = createDeps({appRequest:{...readyAppRequest,template:{slug:"mcp-server"}}});
+    await expect(createAzurePublishRuntime({...deps,ensureMcpIdentity:vi.fn().mockRejectedValue(new Error("pilot required"))}).provisionInfrastructure(readyAppRequest.id)).rejects.toThrow("pilot required");
+    expect(arm.putAppSettings).not.toHaveBeenCalled();
+  });
   it("stores managed credentials in Key Vault without custom secret variables", async () => {
     const { deps, arm } = createDeps();
     const setSecret = vi.fn().mockResolvedValue(undefined);

@@ -9,6 +9,7 @@ export type PublishingSetupStatus =
 export type PublishSetupCheckStatus = "PASS" | "WARN" | "FAIL" | "UNKNOWN";
 
 export type PublishingSetupCheckKey =
+  | "mcp_identity"
   | "azure_resource_access"
   | "azure_app_settings"
   | "entra_redirect_uri"
@@ -120,6 +121,7 @@ export function classifyPublishingSetupError({
   repairWasReplacingPortalManagedCredential = false,
 }: ClassificationInput): PublishingSetupErrorClassification {
   const message = errorMessage(error);
+  if (step === "mcp_identity") return { setupStatus: "BLOCKED", summary: "MCP identity setup requires operator action.", operatorDetail: "Review the per-server registration, client enrollment, guest admission, and approved pilot configuration. Do not change the shared browser-login application.", providerRequestId: null };
   const graphPayload = parseGraphErrorPayload(message);
 
   if (isGraphAuthorizationDenied(message)) {

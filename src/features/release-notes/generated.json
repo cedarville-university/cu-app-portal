@@ -1,5 +1,20 @@
 [
   {
+    "date": "2026-11-16",
+    "notes": [
+      "After signing in, you can save your GitHub username for future apps or skip and add it later.",
+      "New apps can check a signed-in user's Cedarville group memberships to control access."
+    ]
+  },
+  {
+    "date": "2026-11-13",
+    "notes": [
+      "CU Launch remembers your GitHub username so you only need to enter it once.",
+      "CU Launch handles repository invitations and guides local Git setup automatically.",
+      "Open the CU Launch plugin from Advanced on the setup page to install it and launch apps in Codex."
+    ]
+  },
+  {
     "date": "2026-10-28",
     "notes": [
       "Imported Express sign-in apps now receive framework-specific guidance for updating their login flow.",
@@ -115,19 +130,6 @@
     "date": "2026-08-31",
     "notes": [
       "Improved publishing support for Python apps so required software is installed automatically during publishing."
-    ]
-  },
-  {
-    "date": "2026-08-25",
-    "notes": [
-      "When creating an app, you can choose whether it is openly public or requires Cedarville sign-in.",
-      "Setup uses simpler language to explain what happens next."
-    ]
-  },
-  {
-    "date": "2026-08-21",
-    "notes": [
-      "Clearer repair guidance helps Codex prepare existing apps for publishing."
     ]
   }
 ]

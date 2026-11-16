@@ -11,6 +11,7 @@ import {
   PORTAL_SKILL_PATH,
   buildLegacyPublishToAzureStub,
   buildManagedAppPortalSkill,
+  buildManagedMcpAppPortalSkill,
 } from "./portal-skill";
 import { buildPythonFastApiGeneratedFiles } from "./python-fastapi-source";
 import { renderTemplateString } from "./render-template";
@@ -101,7 +102,7 @@ function buildGeneratedTemplateFiles(
     "README.md": buildReadmeFile(input),
     "app-portal/deployment-manifest.json": deploymentManifest,
     ...pythonFastApiFiles,
-    [PORTAL_SKILL_PATH]: buildManagedAppPortalSkill(),
+    [PORTAL_SKILL_PATH]: input.templateSlug === "mcp-server" ? buildManagedMcpAppPortalSkill() : buildManagedAppPortalSkill(),
     [LEGACY_PUBLISH_SKILL_PATH]: buildLegacyPublishToAzureStub(),
   };
 }

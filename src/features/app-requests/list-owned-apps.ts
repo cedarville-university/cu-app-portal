@@ -11,6 +11,7 @@ export async function listOwnedAppSummaries(
       where: { userId: actor.userId },
       orderBy: { createdAt: "desc" },
       include: {
+        mcpConfiguration: true,
         template: { select: { slug: true, name: true } },
         repositoryImport: { select: { preparationStatus: true } },
         publishAttempts: {

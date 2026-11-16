@@ -7,6 +7,7 @@ import { createGeneratedApp } from "@/features/app-requests/create-generated-app
 import { resolveCurrentUserId } from "@/features/app-requests/current-user";
 import { createAppSchema } from "@/features/create-app/validation";
 import { getActiveTemplateBySlug } from "@/features/templates/catalog";
+import { getTemplatePolicy } from "@/features/templates/policy";
 
 export async function extractCreateAppInput(
   formData: FormData,
@@ -38,6 +39,7 @@ export async function extractCreateAppInput(
   const parsed = createAppSchema({
     hostingTarget: template.hostingTarget,
     features: template.features,
+    audience: getTemplatePolicy(template).audience,
     requirePublicAcknowledgement: true,
   }).parse(payload);
 

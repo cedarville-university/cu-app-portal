@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createAppSchema } from "@/features/create-app/validation";
+import { getTemplatePolicy } from "@/features/templates/policy";
 import { PortalApiError } from "@/features/portal-api/errors";
 import {
   portalMcpInputSchema,
@@ -68,6 +69,7 @@ export function registerCreateAppTool(
         const validated = createAppSchema({
           hostingTarget: template.hostingTarget,
           features: template.features,
+          audience: getTemplatePolicy(template).audience,
           requirePublicAcknowledgement: true,
         }).safeParse(candidate);
         if (!validated.success) {

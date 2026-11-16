@@ -7,6 +7,10 @@ import {
 } from "./validation";
 
 describe("validateEnvVarKey", () => {
+  it.each(["MCP_RESOURCE_URL", "MCP_ENTRA_TENANT_ID", "MCP_ENTRA_ISSUER", "MCP_ENTRA_AUDIENCE", "MCP_ENTRA_SCOPE", "MCP_ALLOWED_ORIGINS"])("keeps identity setting %s portal-managed", (key) => {
+    expect(validateEnvVarKey(key).ok).toBe(false);
+    expect(validateEnvVarKey(key.toLowerCase()).ok).toBe(false);
+  });
   it("accepts conventional env var keys", () => {
     expect(validateEnvVarKey("API_KEY")).toEqual({ ok: true });
     expect(validateEnvVarKey("_private")).toEqual({ ok: true });

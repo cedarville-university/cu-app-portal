@@ -10,7 +10,7 @@
 
 **Spec:** [Advanced MCP Server Template Design](../specs/2026-11-13-mcp-server-template-design.md). [Proposed plugin skill text](../specs/2026-11-13-mcp-server-plugin-skill.md) travels with this plan.
 
-**Status:** Proposed, not executed. The user requested design and planning. Review the proposed architecture before implementation. The host/identity pilot is the first implementation gate and needs its own explicitly scoped authorization before creating cloud resources, registering clients, or saving a test plugin. Nothing in this document grants those actions now.
+**Status:** Local implementation authorized November 16, 2026 and implemented on `codex/mcp-server-template`; live pilot/activation and plugin publication remain pending. The original plan follows for traceability. The user requested design and planning. Review the proposed architecture before implementation. The host/identity pilot is the first implementation gate and needs its own explicitly scoped authorization before creating cloud resources, registering clients, or saving a test plugin. Nothing in this document grants those actions now.
 
 ## Global Constraints
 
@@ -196,4 +196,4 @@ Existing file paths below were checked in the current checkout. Paths marked Cre
 
 Proposed task order is sequential because identity, runtime, setup, and connection contracts depend on one another. Native execution is sufficient; delegate only when explicitly selected or required for a review. Do not begin by creating Azure resources or publishing plugins merely because this plan exists.
 
-Coverage: template/discovery/policy → Task 1; generated server/auth/manifest → Task 2; identity lifecycle → Task 3; setup/probes/settings → Task 4; UI/API handoff → Task 5; plugin instructions and packaging → Task 6; integrated acceptance/release → Task 7. Host feasibility is the Task 0 gate. No product code, migration, test plugin, or cloud resource was created while writing this plan.
+Coverage: template/discovery/policy → Task 1; generated server/auth/manifest → Task 2; identity lifecycle → Task 3; setup/probes/settings → Task 4; UI/API handoff → Task 5; plugin instructions and packaging → Task 6; integrated acceptance/release → Task 7. Host feasibility is the Task 0 gate. No product code, migration, test plugin, or cloud resource was created while writing the original plan. Local implementation subsequently added the inactive template, migration, portal/plugin integration, tests, and runbooks; no live resources or user plugins have been created.

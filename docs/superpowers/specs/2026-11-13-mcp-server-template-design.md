@@ -2,7 +2,7 @@
 
 Date: 2026-11-13
 
-Status: Proposed design for review. No template, identity provisioning, plugin release, or Azure deployment is implemented by this document.
+Status: Design authorized for implementation November 16, 2026. Local implementation and tests are in this branch; live Entra/host pilot, catalog activation, managed plugin publication, and Azure rollout remain pending.
 
 ## Intent and decisions
 
