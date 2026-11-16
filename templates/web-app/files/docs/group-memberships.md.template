@@ -1,0 +1,28 @@
+# Check Group Membership On The Server
+
+This starter requests delegated Microsoft Graph `User.Read` during Cedarville sign-in. It can read the signed-in user's direct and nested group IDs without enabling group claims or requesting directory-wide permissions. Group names may be unavailable; use Entra group object IDs.
+
+Call the helpers from a server component, route handler, or server action:
+
+```ts
+import { isUserInGroup, getUserGroupIds } from "@/lib/user-groups";
+
+// Replace this example with your app's required Entra group object ID.
+export async function GET() {
+  if (!(await isUserInGroup("11111111-1111-1111-1111-111111111111"))) {
+    return Response.json({ message: "Access denied." }, { status: 403 });
+  }
+  return Response.json({ message: "Authorized" });
+}
+
+// To retrieve all group IDs on the server:
+// const groupIds = await getUserGroupIds();
+```
+
+The helper uses `/me/transitiveMemberOf`, follows all response pages, and keeps only groups. It runs only on the server. The Graph token stays in Auth.js's encrypted, HttpOnly session cookie and is excluded from `/api/auth/session`. Cookie chunks are handled by Auth.js. Keep `AUTH_URL` aligned with the app's public HTTPS URL and use a strong `AUTH_SECRET`.
+
+Missing or expired tokens and Graph HTTP 401 require a fresh sign-in. No refresh token or background renewal is requested. Graph permission failures, rate limits, network errors, and malformed responses throw an error: deny access while the lookup is unavailable; never treat a failed lookup as permission to proceed. The helpers do not automatically restrict any route. Apply the check to every protected page, API, and server action, and keep `/api/health` public.
+
+Users must consent to `User.Read` under Cedarville's tenant consent policy. Existing sessions created before this helper was installed need to sign out and sign in again. Changes to directory membership can take time to appear in Graph. Hidden membership can require additional permission and is outside this starter's `User.Read` contract.
+
+Reference: [Microsoft Graph membership permissions](https://learn.microsoft.com/en-us/graph/api/user-list-transitivememberof?view=graph-rest-1.0).

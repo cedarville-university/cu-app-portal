@@ -127,6 +127,16 @@ Public apps, FastAPI apps, and static apps are excluded. Dismissal is per user a
 
 No database migration, Azure setting change, or callback migration is needed for this update. New-app creation upserts the current catalog version; seeding also refreshes stored template metadata. Existing repositories are updated only when their owners use the prompt.
 
+## Server-side Group Membership Checks
+
+When `entraLogin` is enabled, both source engines request delegated Microsoft Graph `User.Read` and include `docs/group-memberships.md` with usage examples. Next.js includes server-only `src/lib/user-groups.ts` exporting `getUserGroupIds()` and `isUserInGroup(groupId)`. FastAPI includes `graph_groups.py` exporting async `get_user_group_ids(request)` and `is_user_in_group(request, group_id)`.
+
+Both use `/me/transitiveMemberOf` for direct and nested memberships, follow pagination, filter directory roles out, and return group object IDs. Names may be unavailable with `User.Read`. No group claims or directory-wide permissions are requested. Apps must apply checks before reading protected data in each relevant server entry point; generating a helper does not restrict any audience automatically. Membership errors must deny access. Keep `/api/health` independent of Graph.
+
+Next.js retains the access token and expiry inside Auth.js's encrypted HttpOnly JWT cookie, never the public session JSON. FastAPI encrypts credentials in separate chunked HttpOnly cookies bound to the profile session; signed Starlette sessions alone cannot protect token confidentiality. Production `AUTH_URL` must be HTTPS and FastAPI requires a strong random `AUTH_SECRET` of at least 32 characters. Missing or expired credentials require sign-in again; no refresh token is requested. Graph errors propagate without granting access. These files are omitted when login is disabled. Existing repositories and sessions need a code update and fresh sign-in respectively; publishing repair does not rewrite app code.
+
+`starter-groups.test.ts` exercises generated Next.js code. To run its generated FastAPI integration checks too, create a temporary Python virtual environment, install `fastapi==0.115.6 httpx==0.28.1 cryptography==46.0.3 authlib==1.3.2 itsdangerous==2.2.0`, then run `STARTER_PYTHON=/absolute/path/to/venv/bin/python npm test -- src/features/generation/starter-groups.test.ts`. The Python fixture uses the real ASGI app and a controlled Graph transport; it does not sign in to Entra or access live user memberships.
+
 ## Database Sync
 
 Run `npm run prisma:seed` after catalog changes so the database template rows stay aligned with the in-code catalog used by the portal.

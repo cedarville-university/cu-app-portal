@@ -1,17 +1,42 @@
 import NextAuth from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 
+const secureCookies = (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "").startsWith("https://");
+export const sessionCookie = {
+  name: `${secureCookies ? "__Secure-" : ""}authjs.session-token`,
+  options: { httpOnly: true, sameSite: "lax" as const, path: "/", secure: secureCookies },
+};
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  session: { strategy: "jwt" },
+  cookies: { sessionToken: sessionCookie },
   pages: { signIn: "/login" },
   callbacks: {
     authorized: ({ auth }) => Boolean(auth?.user),
+    jwt({ token, account }) {
+      // These fields stay inside Auth.js's encrypted, HttpOnly session cookie.
+      // Never accept credentials from a client-triggered session update.
+      if (account?.provider === "microsoft-entra-id") {
+        token.graphAccessToken = account.access_token;
+        token.graphExpiresAt = account.expires_at;
+      }
+      return token;
+    },
+    session({ session }) {
+      // /api/auth/session is browser-readable. Return profile information only.
+      return {
+        user: { name: session.user?.name, email: session.user?.email, image: session.user?.image },
+        expires: session.expires,
+      };
+    },
   },
   providers: [
     MicrosoftEntraID({
       clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID,
       clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET,
       issuer: process.env.AUTH_MICROSOFT_ENTRA_ID_ISSUER,
+      authorization: { params: { scope: "openid profile email User.Read" } },
     }),
   ],
 });

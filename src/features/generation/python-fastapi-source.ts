@@ -50,7 +50,7 @@ function buildRequirements({
     "gunicorn==23.0.0",
     "uvicorn[standard]==0.32.1",
     ...(hasDatabase ? ["psycopg[binary]==3.2.3"] : []),
-    ...(hasEntraLogin ? ["authlib==1.3.2", "itsdangerous==2.2.0"] : []),
+    ...(hasEntraLogin ? ["authlib==1.3.2", "itsdangerous==2.2.0", "httpx==0.28.1", "cryptography==46.0.3"] : []),
     "",
   ].join("\n");
 }
@@ -94,10 +94,12 @@ function buildMainPy(
     ...(hasDatabase ? ["import psycopg"] : []),
     ...(hasEntraLogin
       ? [
+          "import secrets",
           "from authlib.integrations.starlette_client import OAuth",
           "from fastapi import Depends, FastAPI, HTTPException, Request",
           "from fastapi.responses import JSONResponse, RedirectResponse",
           "from starlette.middleware.sessions import SessionMiddleware",
+          "from graph_groups import clear_graph_token, save_graph_token",
         ]
       : ["from fastapi import FastAPI"]),
   ];
@@ -109,7 +111,7 @@ oauth.register(
     client_id=os.environ.get("AUTH_MICROSOFT_ENTRA_ID_ID"),
     client_secret=os.environ.get("AUTH_MICROSOFT_ENTRA_ID_SECRET"),
     server_metadata_url=f'{os.environ.get("AUTH_MICROSOFT_ENTRA_ID_ISSUER", "").rstrip("/")}/.well-known/openid-configuration',
-    client_kwargs={"scope": "openid email profile"},
+    client_kwargs={"scope": "openid email profile User.Read"},
 )
 
 
@@ -134,6 +136,7 @@ async def require_sign_in(request: Request, call_next):
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.environ.get("AUTH_SECRET", "replace-me-for-local-dev"),
+    https_only=os.environ.get("AUTH_URL", "").startswith("https://"),
 )
 `
     : "";
@@ -170,17 +173,23 @@ async def login(request: Request):
 async def auth_callback(request: Request):
     token = await oauth.microsoft.authorize_access_token(request)
     userinfo = token.get("userinfo") or {}
+    request.session.clear()
     request.session["user"] = {
         "name": userinfo.get("name"),
         "email": userinfo.get("email") or userinfo.get("preferred_username"),
     }
-    return RedirectResponse(url="/protected")
+    request.session["graph_session_id"] = secrets.token_urlsafe(32)
+    response = RedirectResponse(url="/protected")
+    save_graph_token(request, response, token)
+    return response
 
 
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
-    return RedirectResponse(url="/")
+    response = RedirectResponse(url="/")
+    clear_graph_token(response)
+    return response
 
 
 @app.get("/protected")
@@ -243,7 +252,7 @@ ${
 
 ${
   hasEntraLogin
-    ? "Microsoft Entra browser login is enabled with `/login`, `/auth/callback`, `/logout`, and `/protected` routes."
+    ? "Microsoft Entra browser login is enabled with `/login`, `/auth/callback`, `/logout`, and `/protected` routes. Server-side group checks using delegated `User.Read` are available through `graph_groups.py`; see [group membership guidance](docs/group-memberships.md). Configure a strong random `AUTH_SECRET` of at least 32 characters."
     : "No login is enabled by default."
 }
 

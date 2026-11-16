@@ -10,7 +10,9 @@
     ".github/workflows/deploy-azure-app-service.yml.template",
     ".codex/skills/cu-app-portal/SKILL.md.template"
   ],
-  "conditionalEntryFiles": {},
+  "conditionalEntryFiles": {
+    "entraLogin": ["graph_groups.py.template", "docs/group-memberships.md.template"]
+  },
   "generatedFiles": [
     ".codex/skills/publish-to-azure/SKILL.md",
     "docs/github-setup.md",

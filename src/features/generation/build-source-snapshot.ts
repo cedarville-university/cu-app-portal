@@ -129,6 +129,7 @@ function buildPackageJsonFile(input: CreateAppRequestInput) {
     ...(hasDatabase ? { "@prisma/client": "^6.19.3" } : {}),
     next: "15.5.19",
     ...(hasEntraLogin ? { "next-auth": "^5.0.0-beta.25" } : {}),
+    ...(hasEntraLogin ? { "server-only": "^0.0.1" } : {}),
     ...(hasDatabase ? { prisma: "^6.19.3" } : {}),
     react: "19.0.0",
     "react-dom": "19.0.0",
@@ -360,7 +361,7 @@ function buildReadmeFile(input: CreateAppRequestInput) {
     publishResources,
   )} during publish.`;
   const authText = input.entraLogin
-    ? "This app is configured for Microsoft Entra login."
+    ? "This app is configured for Microsoft Entra login. Server-side group checks using delegated `User.Read` are available through `src/lib/user-groups.ts`; see [group membership guidance](docs/group-memberships.md)."
     : "This app was generated without built-in login.";
 
   return `# ${input.appName}

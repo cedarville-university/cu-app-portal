@@ -26,6 +26,8 @@
     "entraLogin": [
       "src/app/api/auth/[...nextauth]/route.ts.template",
       "src/auth.ts.template",
+      "src/lib/user-groups.ts.template",
+      "docs/group-memberships.md.template",
       "src/app/login/page.tsx.template",
       "src/lib/login-redirect.ts.template",
       "src/middleware.ts.template"

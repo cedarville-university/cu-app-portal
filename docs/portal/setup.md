@@ -1,5 +1,7 @@
 # CU Launch Setup
 
+New Next.js and FastAPI starters with Cedarville sign-in request delegated Microsoft Graph `User.Read` and include server-side group membership helpers. See [the starter contract and validation steps](template-authoring.md#server-side-group-membership-checks). This does not change the portal's registration or tenant consent grants. Configure each hosted app's `AUTH_URL` as its public HTTPS URL and a strong random `AUTH_SECRET` (at least 32 characters for FastAPI). Users with older sessions must sign out and sign in again after an app adopts the helpers.
+
 The optional workspace plugin now includes self-profile tools for GitHub
 onboarding. `get_my_profile` reads the signed-in user's saved username and portal
 email; `set_my_github_username` saves a supplied missing or changed username

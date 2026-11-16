@@ -1,0 +1,30 @@
+# Check Group Membership On The Server
+
+This starter requests delegated Microsoft Graph `User.Read` during Cedarville sign-in. It reads the signed-in user's direct and nested group IDs through `/me/transitiveMemberOf`. Group names may be unavailable; use Entra group object IDs. Directory-wide permissions and token group claims are unnecessary for this lookup.
+
+Use the helpers inside an async server route or dependency:
+
+```python
+from fastapi import HTTPException, Request
+from graph_groups import get_user_group_ids, is_user_in_group
+
+@app.get("/api/restricted")
+async def restricted(request: Request):
+    # Replace this example with your app's required Entra group object ID.
+    if not await is_user_in_group(request, "11111111-1111-1111-1111-111111111111"):
+        raise HTTPException(status_code=403, detail="Access denied.")
+    return {"message": "Authorized"}
+
+# To retrieve all group IDs on the server:
+# group_ids = await get_user_group_ids(request)
+```
+
+The helper follows every response page and keeps only groups. Graph credentials are encrypted with a key derived from `AUTH_SECRET` in separate HttpOnly cookies, split into chunks for browser cookie limits, and bound to the current sign-in session. Starlette's profile session remains signed; raw credentials never go in it or in `/protected` responses. Logout clears the profile and token cookies. All workers use the same configured secret; no in-memory token store is needed.
+
+Set a strong random `AUTH_SECRET` of at least 32 characters and keep `AUTH_URL` aligned with the app's public HTTPS address. HTTPS enables Secure session and token cookies; HTTP is for localhost development. Changing the secret invalidates existing tokens. Very large tokens exceeding eight 3,000-character encrypted chunks are rejected.
+
+Missing, tampered, mismatched, or expired tokens and Graph HTTP 401 return HTTP 401 and require a fresh `/login`. No refresh token or background renewal is requested. Permission failures, rate limits, network failures, and malformed Graph responses return HTTP 503. Deny access while the lookup is unavailable. The helpers do not automatically restrict any route: enforce the check before loading protected data in every relevant route or dependency. Keep `/api/health` public.
+
+Users must consent to `User.Read` under Cedarville's tenant consent policy. Older sessions need to sign out and sign in again. Directory changes can take time to appear in Graph. Hidden membership can require additional permission and is outside this starter's `User.Read` contract.
+
+Reference: [Microsoft Graph membership permissions](https://learn.microsoft.com/en-us/graph/api/user-list-transitivememberof?view=graph-rest-1.0).

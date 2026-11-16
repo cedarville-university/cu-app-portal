@@ -1,0 +1,67 @@
+import "server-only";
+import { headers } from "next/headers";
+import { getToken } from "next-auth/jwt";
+import { sessionCookie } from "@/auth";
+
+const membershipsUrl = "https://graph.microsoft.com/v1.0/me/transitiveMemberOf";
+const signInRequired = () => new Error("Sign in again to check group membership.");
+const unavailable = () => new Error("Group membership is unavailable. Try again later.");
+
+/** Direct and nested Entra group IDs for the signed-in user. Errors deny access. */
+export async function getUserGroupIds(): Promise<string[]> {
+  // Decode only the HttpOnly session cookie. Do not accept a caller-supplied token.
+  const requestHeaders = await headers();
+  const token = await getToken({
+    req: { headers: new Headers({ cookie: requestHeaders.get("cookie") ?? "" }) },
+    secret: process.env.AUTH_SECRET!,
+    cookieName: sessionCookie.name,
+    salt: sessionCookie.name,
+  });
+  if (typeof token?.graphAccessToken !== "string" || !token.graphAccessToken ||
+      typeof token.graphExpiresAt !== "number" || !Number.isFinite(token.graphExpiresAt) ||
+      token.graphExpiresAt <= Date.now() / 1000 + 30) {
+    throw signInRequired();
+  }
+
+  const ids = new Set<string>();
+  const visited = new Set<string>();
+  let next: string | undefined = `${membershipsUrl}?$select=id`;
+  while (next) {
+    let url: URL;
+    try { url = new URL(next); } catch { throw unavailable(); }
+    // Never forward the bearer token to an arbitrary pagination URL or redirect.
+    if (url.origin !== "https://graph.microsoft.com" || url.pathname !== "/v1.0/me/transitiveMemberOf" ||
+        url.username || url.password || url.hash || visited.has(url.href) || visited.size >= 100) throw unavailable();
+    visited.add(url.href);
+    let response: Response;
+    try {
+      response = await fetch(url.href, {
+        headers: { Authorization: `Bearer ${token.graphAccessToken}` },
+        cache: "no-store", redirect: "error", signal: AbortSignal.timeout(10000),
+      });
+    } catch { throw unavailable(); }
+    if (response.status === 401) throw signInRequired();
+    if (!response.ok) throw unavailable();
+    let page;
+    try { page = await response.json(); } catch { throw unavailable(); }
+    if (!page || !Array.isArray(page.value)) throw unavailable();
+    for (const item of page.value) {
+      if (!item || typeof item !== "object" || typeof item["@odata.type"] !== "string") throw unavailable();
+      if (item["@odata.type"] === "#microsoft.graph.group") {
+        if (typeof item.id !== "string" || !item.id) throw unavailable();
+        ids.add(item.id.toLowerCase());
+      }
+    }
+    next = page["@odata.nextLink"];
+    if (next !== undefined && (typeof next !== "string" || !next)) throw unavailable();
+  }
+  return [...ids];
+}
+
+/** Use a fixed Entra group object ID configured by the app, never a display name. */
+export async function isUserInGroup(groupId: string): Promise<boolean> {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(groupId)) {
+    throw new Error("Configure a valid Entra group object ID.");
+  }
+  return (await getUserGroupIds()).includes(groupId.toLowerCase());
+}

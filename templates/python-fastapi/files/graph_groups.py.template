@@ -1,0 +1,130 @@
+"""Server-side User.Read group checks. Never return credentials to an API client."""
+import base64
+import hashlib
+import json
+import math
+import os
+import time
+from urllib.parse import urlsplit
+from uuid import UUID
+
+import httpx
+from cryptography.fernet import Fernet, InvalidToken
+from fastapi import HTTPException, Request
+from starlette.responses import Response
+
+MEMBERSHIPS_URL = "https://graph.microsoft.com/v1.0/me/transitiveMemberOf"
+COOKIE_PARTS = 8
+COOKIE_SIZE = 3000
+
+
+def _sign_in_required():
+    return HTTPException(status_code=401, detail="Sign in again to check group membership.")
+
+
+def _unavailable():
+    return HTTPException(status_code=503, detail="Group membership is unavailable. Try again later.")
+
+
+def _cipher():
+    secret = os.environ.get("AUTH_SECRET", "")
+    if len(secret) < 32 or secret.startswith("replace-me"):
+        raise RuntimeError("Configure a strong AUTH_SECRET of at least 32 characters.")
+    key = hashlib.sha256(("cu-launch-graph:v1:" + secret).encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def clear_graph_token(response: Response):
+    for part in range(COOKIE_PARTS):
+        response.delete_cookie(f"cu_graph.{part}", path="/", httponly=True,
+                               secure=os.environ.get("AUTH_URL", "").startswith("https://"), samesite="lax")
+
+
+def save_graph_token(request: Request, response: Response, token: dict):
+    """Encrypt credentials separately: Starlette's signed session cookie is readable."""
+    access_token = token.get("access_token")
+    expires_at = token.get("expires_at")
+    session_id = request.session.get("graph_session_id")
+    if (not isinstance(access_token, str) or not access_token or not session_id
+            or not isinstance(expires_at, (int, float)) or not math.isfinite(expires_at)
+            or expires_at <= time.time() + 30):
+        raise _sign_in_required()
+    encrypted = _cipher().encrypt(json.dumps({
+        "access_token": access_token, "expires_at": expires_at, "session_id": session_id,
+    }).encode()).decode()
+    # Chunk large Entra tokens so no individual cookie exceeds browser limits.
+    parts = [encrypted[i:i + COOKIE_SIZE] for i in range(0, len(encrypted), COOKIE_SIZE)]
+    if len(parts) > COOKIE_PARTS:
+        raise _unavailable()
+    for part in range(COOKIE_PARTS):
+        if part < len(parts):
+            response.set_cookie(f"cu_graph.{part}", parts[part], max_age=int(expires_at - time.time()),
+                                path="/", httponly=True, samesite="lax",
+                                secure=os.environ.get("AUTH_URL", "").startswith("https://"))
+        else:
+            response.delete_cookie(f"cu_graph.{part}", path="/", httponly=True,
+                                   secure=os.environ.get("AUTH_URL", "").startswith("https://"), samesite="lax")
+
+
+def _access_token(request: Request):
+    if not request.session.get("user") or not request.session.get("graph_session_id"):
+        raise _sign_in_required()
+    encrypted = "".join(request.cookies.get(f"cu_graph.{part}", "") for part in range(COOKIE_PARTS))
+    if not encrypted or len(encrypted) > COOKIE_SIZE * COOKIE_PARTS:
+        raise _sign_in_required()
+    try:
+        credentials = json.loads(_cipher().decrypt(encrypted.encode()))
+    except (InvalidToken, ValueError, TypeError):
+        raise _sign_in_required() from None
+    if (not isinstance(credentials, dict)
+            or credentials.get("session_id") != request.session["graph_session_id"]
+            or not isinstance(credentials.get("expires_at"), (int, float))
+            or not math.isfinite(credentials["expires_at"])
+            or credentials["expires_at"] <= time.time() + 30
+            or not isinstance(credentials.get("access_token"), str) or not credentials["access_token"]):
+        raise _sign_in_required()
+    return credentials["access_token"]
+
+
+async def get_user_group_ids(request: Request) -> list[str]:
+    """Return direct and nested Entra group IDs. Errors must deny access."""
+    access_token = _access_token(request)
+    ids = dict()
+    visited = set()
+    next_url = MEMBERSHIPS_URL + "?$select=id"
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as client:
+            while next_url:
+                url = urlsplit(next_url)
+                if (url.scheme != "https" or url.netloc != "graph.microsoft.com"
+                        or url.path != "/v1.0/me/transitiveMemberOf" or url.fragment
+                        or next_url in visited or len(visited) >= 100):
+                    raise _unavailable()
+                visited.add(next_url)
+                response = await client.get(next_url, headers={"Authorization": f"Bearer {access_token}"})
+                if response.status_code == 401:
+                    raise _sign_in_required()
+                if response.status_code != 200:
+                    raise _unavailable()
+                page = response.json()
+                if not isinstance(page, dict) or not isinstance(page.get("value"), list):
+                    raise _unavailable()
+                for item in page["value"]:
+                    if not isinstance(item, dict) or not isinstance(item.get("@odata.type"), str):
+                        raise _unavailable()
+                    if item["@odata.type"] == "#microsoft.graph.group":
+                        if not isinstance(item.get("id"), str) or not item["id"]:
+                            raise _unavailable()
+                        ids[item["id"].lower()] = None
+                next_url = page.get("@odata.nextLink")
+                if next_url is not None and (not isinstance(next_url, str) or not next_url):
+                    raise _unavailable()
+    except (httpx.HTTPError, ValueError):
+        raise _unavailable() from None
+    return list(ids)
+
+
+async def is_user_in_group(request: Request, group_id: str) -> bool:
+    """Use an app-configured group object ID rather than a display name."""
+    normalized = str(UUID(group_id))
+    return normalized in await get_user_group_ids(request)
