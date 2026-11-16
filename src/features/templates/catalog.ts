@@ -217,7 +217,18 @@ const templateGroupLabels: Record<TemplateCategory, string> = {
 };
 
 export function getActiveTemplates() {
-  return templates.filter((template) => template.status === "ACTIVE");
+  const testingPreview =
+    process.env.WEBSITE_SLOT_NAME === "testing" &&
+    process.env.CU_LAUNCH_MCP_TEMPLATE_PREVIEW === "true";
+  return templates
+    .filter(
+      (template) =>
+        template.status === "ACTIVE" ||
+        (testingPreview && template.slug === "mcp-server"),
+    )
+    .map((template): PortalTemplate =>
+      template.status === "ACTIVE" ? template : { ...template, status: "ACTIVE" },
+    );
 }
 
 export function getActiveTemplateGroups() {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getActiveTemplateBySlug,
   getActiveTemplateGroups,
@@ -8,6 +8,22 @@ import {
 } from "./catalog";
 
 describe("getActiveTemplates", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("permits the explicit MCP preview only in Azure's testing slot", () => {
+    vi.stubEnv("CU_LAUNCH_MCP_TEMPLATE_PREVIEW", "true");
+    vi.stubEnv("WEBSITE_SLOT_NAME", "Production");
+    expect(getActiveTemplateBySlug("mcp-server")).toBeNull();
+    vi.stubEnv("WEBSITE_SLOT_NAME", "testing");
+    expect(getActiveTemplateBySlug("mcp-server")).toMatchObject({
+      slug: "mcp-server",
+      status: "ACTIVE",
+      features: { database: { mode: "optional", defaultProvider: "none" } },
+    });
+    vi.stubEnv("CU_LAUNCH_MCP_TEMPLATE_PREVIEW", "false");
+    expect(getActiveTemplateBySlug("mcp-server")).toBeNull();
+  });
+
   it("returns at least one active template", () => {
     const templates = getActiveTemplates();
     expect(templates.length).toBeGreaterThan(0);

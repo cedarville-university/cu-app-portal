@@ -25,3 +25,11 @@ Before activation:
 | Plugin Creator save/update and post-install call | Pending | Pending |
 
 Attach safe timestamps/commit IDs/support references when testing. Do not record tokens, secrets, raw headers, or personal claims.
+
+## Testing-slot catalog preview
+
+`CU_LAUNCH_MCP_TEMPLATE_PREVIEW=true` exposes the advanced MCP template only when Azure's `WEBSITE_SLOT_NAME` is exactly `testing`. The catalog entry remains disabled everywhere else, including production. This preview allows inspection of the create form and its optional PostgreSQL choice; it does not satisfy the live OAuth or Plugin Creator gates above.
+
+Use a separate empty testing database and testing-origin auth/link URLs. Keep `PUBLISH_TRANSPORT=disabled`, `REPOSITORY_IMPORT_TRANSPORT=disabled`, `PORTAL_MCP_ENABLED=false`, and `AZURE_PUBLISH_MCP_AUTOMATION_ENABLED=false`. Remove copied SMTP, GitHub App, publishing, queue, and directory automation credentials from the testing slot. Do not enable the test auth bypass, swap slots, or route production traffic to testing. Shared App Service and PostgreSQL compute still require bounded testing.
+
+Before real sign-in testing, confirm the exact testing callback is registered. Any change to a shared Entra registration requires separate authorization; changing the testing slot's URL settings alone does not register its callback.
