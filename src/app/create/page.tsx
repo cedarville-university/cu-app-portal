@@ -4,6 +4,7 @@ import Link from "next/link";
 import { LaunchRocketIcon } from "@/components/launch-rocket-icon";
 import { OnboardingProgress } from "@/features/onboarding/step-shell";
 import { getActiveTemplateGroups } from "@/features/templates/catalog";
+import { getTemplatePolicy } from "@/features/templates/policy";
 
 export const metadata: Metadata = { title: "Launch New App" };
 
@@ -41,7 +42,9 @@ export default async function CreatePage() {
                   </ul>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
                     <span className="badge badge--default">Database: {template.features.database.mode}</span>
-                    <span className="badge badge--default">Access: Choose sign-in or public</span>
+                    <span className="badge badge--default">
+                      Access: {getTemplatePolicy(template).audience.public ? "Choose sign-in or public" : "Cedarville sign-in required"}
+                    </span>
                   </div>
                   <Link href={`/create/${template.slug}`} className="btn btn--primary-solid btn--sm">
                     <LaunchRocketIcon />

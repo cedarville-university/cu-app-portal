@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TemplateForm } from "@/features/create-app/template-form";
 import { getActiveTemplateBySlug } from "@/features/templates/catalog";
+import { getTemplatePolicy } from "@/features/templates/policy";
 import { OnboardingProgress } from "@/features/onboarding/step-shell";
 
 export async function generateMetadata({
@@ -55,7 +56,9 @@ export default async function TemplatePage({
           </ul>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
             <span className="badge badge--default">Database: {template.features.database.mode}</span>
-            <span className="badge badge--default">Access: Choose sign-in or public</span>
+            <span className="badge badge--default">
+              Access: {getTemplatePolicy(template).audience.public ? "Choose sign-in or public" : "Cedarville sign-in required"}
+            </span>
           </div>
         </section>
 
