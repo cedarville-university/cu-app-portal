@@ -35,7 +35,7 @@ The resource uses the managed Azure hostname. If tenant policy or a host rejects
 
 Use ordinary launch, customize, and separately requested first publish. Creation never deploys. Identity setup precedes runtime settings; unresolved client enrollment blocks a usable publish. Repair preserves IDs and dispatches no deployment. Normal saved push-to-deploy behavior applies after the first publish.
 
-The MCP deployment probe requires exact health 200, matching discovery, and an unauthenticated 401 bearer challenge, without logging in or calling tools. `get_app.mcp` and the accessible details card return nonsecret connection data after identity READY and successful publishing. Probe status/attempt/time are `HISTORICAL_ONLY`: independent default-branch pushes are not reconciled automatically. Unknown commit SHA is null. Current client verification is always REQUIRED.
+The MCP deployment probe requires exact health 200, matching discovery, and an unauthenticated 401 bearer challenge, without logging in or calling tools. `get_app.mcp` and the accessible details card return nonsecret connection data after identity READY and successful publishing. Probe status/attempt/time are `HISTORICAL_ONLY`: independent default-branch pushes are not reconciled automatically. Unknown commit SHA is null. Interrupted and terminal-state publish recovery use the same app-specific MCP verifier. Current client verification is always REQUIRED.
 
 Report repository readiness, Azure deployment, authenticated host connection, plugin save/update, and post-install harmless call separately. Health or package creation proves neither OAuth nor tool access.
 
@@ -54,3 +54,5 @@ If installation must precede OAuth, save the authorized endpoint-based package w
 Preflight compares reserved identity settings against Azure; missing registration/enrollment requires operator action. Repair cannot replace resource identity or grant consent. The Azure deletion scope also deletes the marked resource application and its home-tenant service principal. Ownership mismatch stops deletion; shared clients are untouched. Portal-only deletion is blocked while an owned application ID remains, preserving ownership evidence until identity/Azure removal.
 
 Rollback new availability by restoring catalog DISABLED and reverting the managed plugin release if needed. Retain existing servers and identities for investigation; deletion is a separate explicitly scoped action.
+
+Owned identity removal is fenced by the setup lease. Successful provider removal retires the stored IDs (`REMOVED`), making later portal-only cleanup possible; failed removal preserves the IDs for retry. A removed identity is not silently recreated by repair. First publish/repair saves Azure cleanup targets before suspending for operator client enrollment.

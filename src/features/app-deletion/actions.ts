@@ -232,6 +232,7 @@ async function deleteApp(requestId: string, formData: FormData) {
   const { appRequest, actorUserId, actorIsAdmin } =
     await loadDeletableAppRequest(requestId);
   const adminInitiated = actorIsAdmin && appRequest.userId !== actorUserId;
+  if (appRequest.mcpConfiguration?.leaseToken && appRequest.mcpConfiguration.leaseExpiresAt && appRequest.mcpConfiguration.leaseExpiresAt > new Date()) throw new Error("MCP identity setup is in progress. Wait for it to finish before deleting this app.");
   if (targets.portal && !targets.azure && appRequest.mcpConfiguration?.applicationObjectId) throw new Error("Delete the Azure deployment and its owned MCP identity before removing this portal record.");
   let githubRepository: { owner: string; name: string } | null = null;
   let azureDeployment: DeleteAzureDeploymentInput | null = null;

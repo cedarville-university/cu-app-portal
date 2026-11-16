@@ -40,6 +40,8 @@ export type AuthorizeProviderMutation = () => Promise<void>;
 
 export type ProvisionInfrastructureOptions = {
   authorizeProviderMutation?: AuthorizeProviderMutation;
+  onTargetCreated?: (target: Partial<ProvisionedPublishTarget>) => Promise<void>;
+  onSetupStep?: (step: PublishingSetupCheckKey) => void;
 };
 
 export type DeployRepositoryOptions = {
@@ -206,7 +208,7 @@ export async function runPublishAttempt(
     await authorizeMutation?.();
     const publishTarget = await effectiveRuntime.provisionInfrastructure(
       attempt.appRequestId,
-      { authorizeProviderMutation: authorizeMutation },
+      { authorizeProviderMutation: authorizeMutation, onTargetCreated: async (target) => { await persist({}, target); }, onSetupStep: (step) => { currentSetupStep = step; } },
     );
 
     logPublishWorker("provisioning completed", {

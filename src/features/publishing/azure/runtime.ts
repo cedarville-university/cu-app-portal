@@ -567,6 +567,14 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const azureDefaultHostName =
         webApp.properties?.defaultHostName ?? names.azureDefaultHostName;
       const primaryPublishUrl = `https://${azureDefaultHostName}`;
+      if (appRequest.template.slug === "mcp-server") {
+        const partialTarget={azureResourceGroup:deps.config.resourceGroup,azureAppServicePlan:deps.config.appServicePlan,azureWebAppName:names.webAppName,azureDefaultHostName,primaryPublishUrl};
+        // Enrollment normally suspends first publish. Retain cleanup targets
+        // before that stage, fenced by the worker when available.
+        if (options?.onTargetCreated) await options.onTargetCreated(partialTarget);
+        else { await options?.authorizeProviderMutation?.(); await deps.prisma.appRequest.update({where:{id:appRequest.id},data:partialTarget}); }
+        options?.onSetupStep?.("mcp_identity");
+      }
       const mcpSettings = appRequest.template.slug === "mcp-server"
         ? await (deps.ensureMcpIdentity ?? ensureDefaultMcpIdentity)({ appId: appRequest.id, endpointUrl: `${primaryPublishUrl}/api/mcp`, tenantId: deps.config.azureTenantId, authorizeProviderMutation: options?.authorizeProviderMutation })
         : {};

@@ -1341,6 +1341,7 @@ export async function repairPublishingSetup(
     if (appRequest.template.slug === "mcp-server") {
       repairStep = "mcp_identity";
       if (effectivePublishUrl !== azurePublishUrl) throw new Error("MCP custom-domain migration requires operator review.");
+      await persistRepairAppRequestWrite({appRequestId,db,claimedRepairAttempt,preserveAttemptIdentity:true,data:{azureResourceGroup:deps.config.resourceGroup,azureAppServicePlan:deps.config.appServicePlan,azureWebAppName:names.webAppName,azureDefaultHostName,primaryPublishUrl:azurePublishUrl}});
       mcpSettings = await (deps.ensureMcpIdentity ?? ensureDefaultMcpIdentity)({ appId:appRequest.id,endpointUrl:`${azurePublishUrl}/api/mcp`,tenantId:deps.config.azureTenantId,authorizeProviderMutation:options.authorizeProviderMutation });
     }
 

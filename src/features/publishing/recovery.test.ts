@@ -1,11 +1,15 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { recoverPublishAttempt, reconcileClaimedPublish, type RecoveryAttempt, type RecoveryEvidence } from "./recovery";
+import { recoverPublishAttempt, reconcileClaimedPublish, defaultRecoveryEvidence, type RecoveryAttempt, type RecoveryEvidence } from "./recovery";
+import { verifyMcpDeployment } from "@/features/mcp-servers/verify-deployment";
+import { verifyPublishedUrl } from "./azure/verify-deployment";
+vi.mock("@/features/mcp-servers/verify-deployment", () => ({ verifyMcpDeployment: vi.fn() }));
+vi.mock("./azure/verify-deployment", () => ({ verifyPublishedUrl: vi.fn() }));
 import { prisma } from "@/lib/db";
 import { persistPublishProgress } from "./worker-lease";
 vi.mock("@/lib/db", () => ({ prisma: {
   publishAttempt: { findUnique: vi.fn(), findFirst: vi.fn() },
-  appRequest: { updateMany: vi.fn() },
+  appRequest: { updateMany: vi.fn(), findUnique: vi.fn() },
   $transaction: vi.fn(),
 } }));
 vi.mock("@/lib/audit", () => ({ recordAuditEvent: vi.fn() }));
@@ -21,6 +25,14 @@ let evidence: RecoveryEvidence;
 beforeEach(() => { vi.clearAllMocks(); evidence = { workflow: vi.fn().mockResolvedValue({ status: "completed", conclusion: "success" }), health: vi.fn().mockResolvedValue({ verifiedAt: new Date() }) }; });
 
 describe("interrupted publishing recovery", () => {
+  it("does not recover an MCP attempt through the generic health fallback", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({template:{slug:"mcp-server"}} as never);
+    vi.mocked(verifyPublishedUrl).mockResolvedValue({verifiedAt:new Date()});
+    vi.mocked(verifyMcpDeployment).mockRejectedValue(new Error("MCP discovery failed"));
+    expect(await reconcileClaimedPublish(attempt,claim,{}, {...defaultRecoveryEvidence,workflow:evidence.workflow})).toBe("failed");
+    expect(verifyMcpDeployment).toHaveBeenCalledWith("app","https://app.azurewebsites.net");
+    expect(verifyPublishedUrl).not.toHaveBeenCalled();
+  });
   it("repairs a completed attempt whose app record was stranded by an older worker", async () => {
     const settled = { ...attempt, status: "SUCCEEDED", finishedAt: new Date("2026-01-01"), appRequestId: "app", appRequest: { ...attempt.appRequest, publishStatus: "DEPLOYING", updatedAt: new Date("2026-01-01") } } as RecoveryAttempt;
     vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue(settled);
@@ -38,7 +50,7 @@ describe("interrupted publishing recovery", () => {
   });
   it("requires a successful recorded workflow and current healthy URL before completing both records", async () => {
     expect(await reconcileClaimedPublish(attempt, claim, {}, evidence)).toBe("succeeded");
-    expect(evidence.health).toHaveBeenCalledWith("https://app.azurewebsites.net");
+    expect(evidence.health).toHaveBeenCalledWith("https://app.azurewebsites.net","app");
     expect(persistPublishProgress).toHaveBeenCalledWith(claim, "app", expect.objectContaining({ status: "SUCCEEDED", stage: "COMPLETED", verifiedAt: expect.any(Date) }), expect.objectContaining({ publishStatus: "SUCCEEDED", publishingSetupStatus: "READY" }));
   });
   it("preserves the root fallback warning when recovering a successful deployment", async () => {

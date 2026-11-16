@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { createMcpIdentityClient } from "@/features/publishing/azure/mcp-identity-client";
 import { createMcpIdentityStore } from "./identity-store";
 import { buildMcpRuntimeSettings, ensureMcpIdentity } from "./identity-service";
+import { deleteMcpIdentity } from "./delete-identity";
 
 function client(authorizeMutation?: () => Promise<void>) {
   const credential = new DefaultAzureCredential();
@@ -23,5 +24,5 @@ export async function getMcpIdentitySettings(appId: string) {
 }
 export async function deleteDefaultMcpIdentity(appId: string) {
   const record=await prisma.appMcpConfiguration.findUnique({where:{appRequestId:appId}});
-  if (record?.applicationObjectId) await client().deleteOwnedApplication(appId,record.applicationObjectId);
+  if (record) await deleteMcpIdentity(record,{store:createMcpIdentityStore(),graph:client()});
 }

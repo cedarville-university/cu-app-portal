@@ -248,6 +248,7 @@ describe("createAzurePublishRuntime", () => {
     const { deps, arm } = createDeps({appRequest:{...readyAppRequest,template:{slug:"mcp-server"}}});
     await expect(createAzurePublishRuntime({...deps,ensureMcpIdentity:vi.fn().mockRejectedValue(new Error("pilot required"))}).provisionInfrastructure(readyAppRequest.id)).rejects.toThrow("pilot required");
     expect(arm.putAppSettings).not.toHaveBeenCalled();
+    expect(deps.prisma.appRequest.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({azureWebAppName:expect.any(String),azureResourceGroup:config.resourceGroup})}));
   });
   it("stores managed credentials in Key Vault without custom secret variables", async () => {
     const { deps, arm } = createDeps();

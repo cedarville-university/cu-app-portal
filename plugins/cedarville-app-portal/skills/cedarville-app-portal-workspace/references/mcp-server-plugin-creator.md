@@ -1,5 +1,7 @@
 # Host an MCP server for a user-owned plugin
 
+For an already identified server, use `get_app` and begin at connection verification and the Plugin Creator handoff. Skip server creation, template discovery, customization, and republishing unless the user requests those actions. A catalog rollback does not prevent packaging an existing accessible server.
+
 ## Responsibilities
 
 CU Launch manages the server repository, Azure publishing, and Entra resource configuration. Plugin Creator manages the user's plugin package and its account creation or update. Each plugin user signs in to the server with their own Cedarville account. The server enforces every tool's permissions.

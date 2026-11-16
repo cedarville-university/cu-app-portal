@@ -2,6 +2,7 @@
   {
     "date": "2026-11-16",
     "notes": [
+      "Prepare MCP servers on Azure for use in your own plugins.",
       "After signing in, you can save your GitHub username for future apps or skip and add it later.",
       "New apps can check a signed-in user's Cedarville group memberships to control access."
     ]

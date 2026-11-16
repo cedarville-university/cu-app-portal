@@ -5,6 +5,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { verifyPublishedUrl } from "./azure/verify-deployment";
+import { verifyMcpDeployment } from "@/features/mcp-servers/verify-deployment";
 import { createPublishQueue } from "./queue";
 import {
   claimPublishAttempt, persistPublishProgress, releasePublishClaim,
@@ -16,7 +17,7 @@ export type RecoveryResult = "succeeded" | "failed" | "requeued" | "waiting" | "
 export type RecoveryOptions = { actorUserId?: string; markFailed?: boolean; reason?: string };
 export type RecoveryEvidence = {
   workflow(attempt: RecoveryAttempt): Promise<{ status: string; conclusion: string | null }>;
-  health(url: string): Promise<VerificationResult>;
+  health(url: string, appId: string): Promise<VerificationResult>;
 };
 
 export const defaultRecoveryEvidence: RecoveryEvidence = {
@@ -32,7 +33,11 @@ export const defaultRecoveryEvidence: RecoveryEvidence = {
     });
     return github.getWorkflowRun({ owner: app.repositoryOwner, name: app.repositoryName, runId: attempt.githubWorkflowRunId });
   },
-  health: verifyPublishedUrl,
+  async health(url, appId) {
+    const app=await prisma.appRequest.findUnique({where:{id:appId},select:{template:{select:{slug:true}}}});
+    if (!app) throw new Error("The recovery app is unavailable.");
+    return app.template.slug === "mcp-server" ? verifyMcpDeployment(appId,url) : verifyPublishedUrl(url);
+  },
 };
 
 export async function reconcileClaimedPublish(
@@ -52,7 +57,7 @@ export async function reconcileClaimedPublish(
       if (!url) return "review";
       let verification: VerificationResult | undefined;
       try {
-        verification = await evidence.health(url);
+        verification = await evidence.health(url,app.id);
       } catch {
         if (!options.markFailed && Date.now() - (attempt.startedAt ?? attempt.createdAt).getTime() < 2 * 60 * 60_000) return "waiting";
       }
@@ -88,7 +93,7 @@ async function synchronizeSettledApp(attempt: RecoveryAttempt, options: Recovery
     const run = await evidence.workflow(attempt);
     const url = app.primaryPublishUrl ?? app.publishUrl;
     if (run.status !== "completed" || run.conclusion !== "success" || !url) return "review";
-    const { verifiedAt, warningSummary } = await evidence.health(url);
+    const { verifiedAt, warningSummary } = await evidence.health(url,app.id);
     data = { publishStatus: "SUCCEEDED", publishUrl: url, publishingSetupStatus: "READY", publishErrorSummary: null, publishWarningSummary: warningSummary ?? null, publishingSetupErrorSummary: null, lastPublishedAt: attempt.finishedAt ?? verifiedAt };
   } else {
     data = { publishStatus: "FAILED", publishErrorSummary: attempt.errorSummary ?? "The interrupted attempt failed. Review the deployment log before retrying." };

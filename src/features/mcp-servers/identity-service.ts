@@ -17,6 +17,7 @@ export async function ensureMcpIdentity(input: { appId: string; endpointUrl: str
   let record = lease.record;
   try {
     if (record.endpointUrl !== endpointUrl || record.tenantId !== deps.tenantId) throw new Error("MCP resource identity cannot change during repair.");
+    if (record.setupStatus === "REMOVED") throw new Error("This MCP resource was deleted. Create a new server request instead of replacing its identity during repair.");
     try {
       const application = await deps.graph.ensureApplication({ ...input, endpointUrl, applicationObjectId: record.applicationObjectId, scopeId: record.scopeId, authorizeMutation: () => lease.assertCurrent() });
       if (record.applicationObjectId && (record.applicationObjectId !== application.applicationObjectId || record.applicationClientId !== application.applicationClientId || record.scopeId !== application.scopeId)) throw new Error("MCP identity changed.");

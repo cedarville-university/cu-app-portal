@@ -133,7 +133,7 @@ batch with a different key. Respect quiet not-found and permission denials.
 
 Use CU Launch when a user wants an Azure-hosted MCP backend for their own plugin. Read `references/mcp-server-plugin-creator.md` for the workflow. CU Launch hosts and publishes the server; Plugin Creator packages and installs the user's plugin connected to that server.
 
-First call `list_app_templates`. Recommend `MCP Server (Advanced)` only if an active MCP-server template is returned. The user must explicitly select the template before creation. If it is unavailable, say that this CU Launch capability is unavailable in the connected deployment. Do not invent its availability, substitute another template, weaken authentication, or create a Site as a fallback.
+For an existing identified server, call `get_app` and use its accessible connection metadata; a disabled creation template does not disable packaging for an existing server. Apply template discovery only when creating a server: first call `list_app_templates`. Recommend `MCP Server (Advanced)` only if an active MCP-server template is returned. The user must explicitly select the template before creation. If it is unavailable, say that this CU Launch capability is unavailable in the connected deployment. Do not invent its availability, substitute another template, weaken authentication, or create a Site as a fallback.
 
 For this workflow, use Plugin Creator's existing-MCP-server route and retain Azure hosting. A CU Launch hosting request is a reason to bypass Plugin Creator's Sites hosting default. Do not call Sites tools, create a Site, or move the server to Sites. If the user later explicitly requests Sites instead, explain that this changes the hosting approach before following that request.
 
