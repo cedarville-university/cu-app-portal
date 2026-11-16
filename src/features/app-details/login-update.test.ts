@@ -19,12 +19,12 @@ describe("login update notice eligibility", () => {
         importRuntime: { framework },
       },
     })),
-  ])("only includes $label apps created before the login update", (app) => {
+  ])("uses the login contract instead of the creation date for $label apps", (app) => {
     expect(needsLoginUpdateNotice({
       ...app, createdAt: new Date("2026-10-28T14:33:19.999Z"),
     })).toBe(true);
     for (const createdAt of ["2026-10-28T14:33:20Z", "2026-10-28T14:33:20.001Z", "2026-11-02T12:00:00Z"]) {
-      expect(needsLoginUpdateNotice({ ...app, createdAt: new Date(createdAt) })).toBe(false);
+      expect(needsLoginUpdateNotice({ ...app, createdAt: new Date(createdAt) })).toBe(true);
     }
   });
 

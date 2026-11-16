@@ -16,6 +16,7 @@ export default defineConfig({
     "@azure/service-bus",
     "@prisma/client",
     "nodemailer",
+    "yaml",
   ],
   noExternal: ["libsodium-wrappers", "zod"],
 });

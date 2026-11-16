@@ -5,6 +5,8 @@ import { scanRepositoryCompatibility } from "./compatibility";
 import { importedFeaturesIssue, savedImportedFeatures } from "./features";
 import { IMPORT_COMPATIBILITY_READ_PATHS } from "./prepare-repository";
 import { createGitHubClientForOwner, type ImportActor } from "./service";
+import { buildImportLoginGuidance } from "./import-login-guidance";
+import { getImportedLoginReview } from "./login-review";
 
 export async function getAppImportStatus(actor: ImportActor, appId: string) {
   const app = await prisma.appRequest.findFirst({
@@ -36,13 +38,15 @@ export async function getAppImportStatus(actor: ImportActor, appId: string) {
     compatibilityCheck = "scanned";
     } catch { compatibilityCheck = "unavailable"; }
   }
+  const loginReview = await getImportedLoginReview(actor, appId);
   return {
+    loginGuidance: buildImportLoginGuidance(app), loginReview,
     appId, importStatus: imported.importStatus, repositoryStatus: app.repositoryStatus,
     preparationStatus: imported.preparationStatus, preparationMode: imported.preparationMode,
     preparationPullRequestUrl: imported.preparationPullRequestUrl,
     recordedCompatibilityStatus: imported.compatibilityStatus, compatibility, compatibilityCheck,
     diagnostics: safeImportDiagnostics(imported),
-    needsAttention: ["FAILED", "BLOCKED"].includes(imported.preparationStatus) || imported.importStatus === "FAILED",
+    needsAttention: ["FAILED", "BLOCKED"].includes(imported.preparationStatus) || imported.importStatus === "FAILED" || ["NEEDS_REVIEW", "UNAVAILABLE"].includes(loginReview.status) || loginReview.publishingUpdateRequired === true,
     updatedAt: imported.updatedAt.toISOString(),
     evidence: compatibility ? "Live compatibility scan of the identified commit; other fields are recorded portal state." : "Recorded portal state; no fresh compatibility scan or live deployment check.",
   };

@@ -60,6 +60,7 @@ describe("CU Launch workspace plugin package", () => {
       "get_app_import_status",
       "prepare_imported_app",
       "verify_imported_app",
+      "review_imported_app_login",
       "list_app_templates",
       "list_my_apps",
       "create_app",

@@ -45,6 +45,9 @@ import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
 import { AppReadinessChecklist } from "@/features/app-details/app-readiness-checklist";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
 import { getLoginUpdateFramework } from "@/features/app-details/login-update";
+import { getImportedLoginReview, needsImportedLoginReview } from "@/features/repository-imports/login-review";
+import { buildImportedLoginReviewPrompt } from "@/features/repository-imports/import-login-guidance";
+import { LoginReviewPanel } from "@/features/repository-imports/login-review-panel";
 import { PublicListingPanel } from "@/features/public-apps/public-listing-panel";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import {
@@ -1045,6 +1048,7 @@ export default async function DownloadPage({
   const isLocalCodexApp = isLocalCodexSource(appRequest.submittedConfig);
   const appAudience = getAppAudience(appRequest.submittedConfig);
   const loginUpdateFramework = getLoginUpdateFramework(appRequest);
+  const loginReview = needsImportedLoginReview(appRequest) ? await getImportedLoginReview({ userId, isAdmin }, appRequest.id) : null;
   const codexHandoffPrompt =
     isLocalCodexApp && appRequest.repositoryUrl
       ? buildLocalCodexGitSetupPrompt({
@@ -1119,6 +1123,7 @@ export default async function DownloadPage({
           prompt={buildLoginUpdatePrompt({ repositoryUrl: appRequest.repositoryUrl, appName: appRequest.appName, framework: loginUpdateFramework })}
         />
       ) : null}
+      {loginReview ? <LoginReviewPanel appId={appRequest.id} review={loginReview} prompt={buildImportedLoginReviewPrompt(appRequest)} /> : null}
 
       <div style={{ display: "grid", gap: "1.25rem" }}>
         <AppReadinessChecklist
@@ -1195,14 +1200,14 @@ export default async function DownloadPage({
             publishingSetupStatus: effectivePublishingSetupStatus,
           })}
 
-          {renderPublishAction({
+          {!loginReview || (!loginReview.publishingUpdateRequired && ["REVIEWED", "NOT_REQUIRED"].includes(loginReview.status)) ? renderPublishAction({
             requestId,
             publishStatus: appRequest.publishStatus,
             repositoryStatus: appRequest.repositoryStatus,
             sourceOfTruth: appRequest.sourceOfTruth,
             preparationStatus: appRequest.repositoryImport?.preparationStatus,
             publishingSetupStatus: effectivePublishingSetupStatus,
-          })}
+          }) : <p>Complete the sign-in review above before the first publish.</p>}
           {renderPushToDeployButton({
             id: appRequest.id,
             sourceOfTruth: appRequest.sourceOfTruth,

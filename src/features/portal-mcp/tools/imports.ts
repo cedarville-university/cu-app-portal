@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { adoptionInputSchema } from "@/features/repository-imports/adoption";
+import { loginReviewInputSchema } from "@/features/repository-imports/login-review";
 import { portalMcpInputSchema, portalToolFailure, portalToolSuccess } from "../result";
 import type { PortalMcpServer, PortalMcpToolContext } from "../server";
 
 const appInput = z.object({ appId: z.string().min(1).max(128) }).strict();
 const mutationInput = appInput.extend({ idempotencyKey: z.string().uuid() });
 const prepareInput = mutationInput.extend({ mode: z.enum(["DIRECT_COMMIT", "PULL_REQUEST"]) }).strict();
+const reviewInput = loginReviewInputSchema.extend({ idempotencyKey: z.string().uuid() }).strict();
 
 export function registerImportTools(server: PortalMcpServer, context: PortalMcpToolContext) {
   const actor = { ...context.actor, source: "codex-mcp" as const };
@@ -19,7 +21,8 @@ export function registerImportTools(server: PortalMcpServer, context: PortalMcpT
       await context.claimPortalRateLimit(actor.userId, "adopt_existing_app");
       const result = await context.adoptExistingApp(actor, input);
       const app = await context.getAccessibleAppSummary(actor, result.requestId);
-      return portalToolSuccess({ ...result, app }, "The adoption request is recorded. Check repository and import status; this has not published the app.");
+      const loginGuidance = await context.getImportLoginGuidance(actor, result.requestId);
+      return portalToolSuccess({ ...result, app, loginGuidance }, "The adoption request is recorded. Follow the returned loginGuidance even if the app-local skill is missing. Check repository and import status; this has not published the app.");
     } catch (error) { return portalToolFailure(error); }
   });
   server.registerTool("get_app_import_status", {
@@ -31,6 +34,25 @@ export function registerImportTools(server: PortalMcpServer, context: PortalMcpT
     try {
       await context.claimPortalRateLimit(actor.userId, "read");
       return portalToolSuccess(await context.getAppImportStatus(actor, input.appId), "Import status checked.");
+    } catch (error) { return portalToolFailure(error); }
+  });
+  server.registerTool("review_imported_app_login", {
+    title: "Record Imported App Sign-in Review",
+    description: "After inspecting and testing actual login code, confirm the review of the current managed commit. Read get_app_import_status first. checksConfirmed means the public login page, server-side sign-in, protected routes, safe returns, OAuth validation and relevant tests were reviewed. Never infer success from filenames or a build alone. Does not publish or certify live login/browser classification.",
+    inputSchema: portalMcpInputSchema(reviewInput),
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  }, async (input: z.infer<typeof reviewInput>) => {
+    try {
+      await context.getAccessibleAppSummary(actor, input.appId);
+      const { idempotencyKey, ...choices } = input;
+      const recordedReview = await context.executeIdempotentMutation({
+        actorUserId: actor.userId, operation: "review_imported_app_login", idempotencyKey, input: choices,
+        expiresInSeconds: 604800,
+        claimRateLimit: () => context.claimPortalRateLimit(actor.userId, "review_imported_app_login"),
+        execute: () => context.reviewImportedAppLogin(actor, choices),
+        resultReferences: () => ({ appRequestId: input.appId }),
+      });
+      return portalToolSuccess({ recordedReview, status: await context.getAppImportStatus(actor, input.appId) }, "Review confirmation recorded for the requested commit. The returned current status can require another review if code changed. Nothing was published.");
     } catch (error) { return portalToolFailure(error); }
   });
   server.registerTool("prepare_imported_app", {

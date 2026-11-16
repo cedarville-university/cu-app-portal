@@ -14,6 +14,9 @@ import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { PublishingRecoveryPanel } from "@/features/admin/publishing-recovery-panel";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
 import { getLoginUpdateFramework } from "@/features/app-details/login-update";
+import { getImportedLoginReview, needsImportedLoginReview } from "@/features/repository-imports/login-review";
+import { buildImportedLoginReviewPrompt } from "@/features/repository-imports/import-login-guidance";
+import { LoginReviewPanel } from "@/features/repository-imports/login-review-panel";
 import { buildLoginUpdatePrompt } from "@/features/repositories/codex-handoff";
 import { prisma } from "@/lib/db";
 
@@ -80,6 +83,7 @@ export default async function AdminAppDetailPage({
 
   const displayPublishUrl = request.publishUrl ?? request.primaryPublishUrl;
   const loginUpdateFramework = getLoginUpdateFramework(request);
+  const loginReview = needsImportedLoginReview(request) ? await getImportedLoginReview({ userId: adminUserId, isAdmin: true }, request.id) : null;
   const isImportedApp = request.sourceOfTruth === "IMPORTED_REPOSITORY";
   const sourceRepositoryUrl = request.repositoryImport?.sourceRepositoryUrl;
   const collaborators = request.collaborators.map((access) => access.user);
@@ -122,6 +126,7 @@ export default async function AdminAppDetailPage({
           prompt={buildLoginUpdatePrompt({ repositoryUrl: request.repositoryUrl, appName: request.appName, framework: loginUpdateFramework })}
         />
       ) : null}
+      {loginReview ? <LoginReviewPanel appId={request.id} review={loginReview} prompt={buildImportedLoginReviewPrompt(request)} /> : null}
 
       <section className="card">
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>

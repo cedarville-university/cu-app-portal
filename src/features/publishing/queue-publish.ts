@@ -18,6 +18,7 @@ import {
   type PublishEligibilityReason,
 } from "./eligibility";
 import { createPublishQueue, type PublishQueue } from "./queue";
+import { assertImportedLoginReviewForFirstPublish, needsImportedLoginReview } from "@/features/repository-imports/login-review";
 
 type QueueablePublishStatus = "NOT_STARTED" | "SUCCEEDED" | "FAILED";
 type QueueablePublishingSetupStatus =
@@ -27,6 +28,9 @@ type QueueablePublishingSetupStatus =
   | "BLOCKED";
 
 type PublishAppRequest = {
+  submittedConfig?: unknown;
+  lastPublishedAt?: Date | null;
+  publishedAt?: Date | null;
   id: string;
   sourceOfTruth: SourceOfTruth;
   repositoryStatus: RepositoryStatus;
@@ -73,6 +77,7 @@ export type PublishActorInput = {
 };
 
 export type QueuePublishDependencies = {
+  assertImportedLoginReviewForFirstPublish: typeof assertImportedLoginReviewForFirstPublish;
   prisma: QueuePublishDb;
   appAccessWhere: typeof appAccessWhere;
   userHasAdminRole: typeof userHasAdminRole;
@@ -82,6 +87,7 @@ export type QueuePublishDependencies = {
 };
 
 export const defaultQueuePublishDependencies: QueuePublishDependencies = {
+  assertImportedLoginReviewForFirstPublish,
   prisma: prisma as unknown as QueuePublishDb,
   appAccessWhere,
   userHasAdminRole,
@@ -261,6 +267,9 @@ export async function queuePublishAttemptForActor(
     dependencies,
   );
   requirePublishEligibility(authorizedAppRequest, policy, dependencies);
+  if (needsImportedLoginReview(authorizedAppRequest)) {
+    await dependencies.assertImportedLoginReviewForFirstPublish(input.requestId);
+  }
 
   const attemptId = await dependencies.prisma.$transaction(async (tx) => {
     const queuedRequest = await tx.appRequest.updateMany({

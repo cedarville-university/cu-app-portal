@@ -79,6 +79,8 @@ function fakeServer() {
 
 function dependencies(): PortalMcpDependencies {
   return {
+    getImportLoginGuidance: vi.fn().mockResolvedValue({ required: true, framework: "nextjs", requirements: ["Use a public /login page"], updatePrompt: "Inspect and update the app", reviewInstructions: "Review code and tests before first publish" }),
+    reviewImportedAppLogin: vi.fn().mockResolvedValue({ appId: "app-1", status: "REVIEWED", commitSha: "a".repeat(40) }),
     adoptExistingApp: vi.fn(async () => ({ requestId: "app-1" })),
     getAppImportStatus: vi.fn() as PortalMcpDependencies["getAppImportStatus"],
     prepareExistingAppForActor: vi.fn(),
@@ -193,12 +195,13 @@ function modernRequest(method: string, params: Record<string, unknown>) {
 }
 
 describe("portal MCP server contract", () => {
-  it("registers the twenty-one approved tools in workflow order", () => {
+  it("registers the approved tools in workflow order", () => {
     const { tools } = registeredPortalTools();
 
     expect([...tools.keys()]).toEqual([
       "adopt_existing_app",
       "get_app_import_status",
+      "review_imported_app_login",
       "prepare_imported_app",
       "verify_imported_app",
       "get_my_profile",
@@ -737,12 +740,18 @@ describe("existing app MCP lifecycle", () => {
   it("records local adoption without template creation or deployment", async () => {
     const { deps, tools } = registeredPortalTools();
     const result = await tool(tools, "adopt_existing_app").handler({ idempotencyKey: key, appName: "Local app", description: "Existing code", databaseProvider: "none", entraLogin: true });
-    expect(result).toMatchObject({ structuredContent: { requestId: "app-1" } });
+    expect(result).toMatchObject({ structuredContent: { requestId: "app-1", loginGuidance: { required: true, updatePrompt: expect.any(String) } } });
     expect(deps.adoptExistingApp).toHaveBeenCalledWith(expect.objectContaining({ userId: actor.userId, source: "codex-mcp" }), expect.objectContaining({ idempotencyKey: key }));
     expect(deps.createGeneratedApp).not.toHaveBeenCalled();
     expect(deps.queuePublishForActor).not.toHaveBeenCalled();
   });
-  it.each(["prepare_imported_app", "verify_imported_app"])("reauthorizes %s before a cached replay", async name => {
+  it("records login review without publishing or relying on the app-local skill", async () => {
+    const { deps, tools } = registeredPortalTools();
+    const result = await tool(tools, "review_imported_app_login").handler({ appId: "app-1", idempotencyKey: key, commitSha: "a".repeat(40), sourcePaths: ["src/auth.ts"], checksConfirmed: true });
+    expect(result).toMatchObject({ structuredContent: { recordedReview: { status: "REVIEWED", commitSha: "a".repeat(40) } } });
+    expect(deps.queuePublishForActor).not.toHaveBeenCalled();
+  });
+  it.each(["prepare_imported_app", "verify_imported_app", "review_imported_app_login"])("reauthorizes %s before a cached replay", async name => {
     const deps = dependencies();
     vi.mocked(deps.getAccessibleAppSummary).mockRejectedValue(new PortalApiError("NOT_FOUND", "App not found."));
     const { tools } = registeredPortalTools(deps);
@@ -765,6 +774,8 @@ describe("existing app MCP lifecycle", () => {
     { name: "get_app_import_status", arguments: { appId: "x".repeat(129) } },
     { name: "prepare_imported_app", arguments: { appId: "app", idempotencyKey: key, mode: "OVERWRITE" } },
     { name: "verify_imported_app", arguments: { appId: "app", idempotencyKey: "invalid" } },
+    { name: "review_imported_app_login", arguments: { appId: "app", idempotencyKey: key, commitSha: "a".repeat(40), sourcePaths: [".env"], checksConfirmed: true } },
+    { name: "review_imported_app_login", arguments: { appId: "app", idempotencyKey: key, commitSha: "a".repeat(40), sourcePaths: ["src/auth.ts"], checksConfirmed: false } },
   ])("validates $name before any side effects", async input => {
     const deps = dependencies();
     const response = await createPortalMcpHandler(actor, deps)(modernRequest("tools/call", input));

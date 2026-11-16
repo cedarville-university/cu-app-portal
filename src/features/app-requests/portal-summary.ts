@@ -15,9 +15,11 @@ import {
 } from "@/features/publishing/eligibility";
 import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/status";
 import type { ActorRepositoryAccess } from "@/features/repositories/actor-access";
+import { needsImportedLoginReview } from "@/features/repository-imports/login-review";
 
 export type PortalNextAction =
   | "get_app_import_status"
+  | "review_imported_app_login"
   | "prepare_imported_app"
   | "verify_imported_app"
   | "request_github_access"
@@ -59,6 +61,9 @@ export type PortalAppSummary = {
 };
 
 type PortalAppReadRecord = {
+  submittedConfig?: unknown;
+  lastPublishedAt?: Date | null;
+  publishedAt?: Date | null;
   id: string;
   appName: string;
   sourceOfTruth: SourceOfTruth;
@@ -109,9 +114,10 @@ function allowedNextActions(
   const actions: PortalNextAction[] = [];
   if (app.sourceOfTruth === "IMPORTED_REPOSITORY") {
     actions.push("get_app_import_status");
+    if (needsImportedLoginReview(app)) actions.push("review_imported_app_login");
     const status = app.repositoryImport?.preparationStatus;
     if (app.repositoryStatus === "READY" && repositoryAccess.status === "GRANTED" &&
-      (status === "PENDING_USER_CHOICE" || status === "FAILED" || status === "BLOCKED")) actions.push("prepare_imported_app");
+      (status === "PENDING_USER_CHOICE" || status === "FAILED" || status === "BLOCKED" || (status === "COMMITTED" && needsImportedLoginReview(app)))) actions.push("prepare_imported_app");
     if (status === "PULL_REQUEST_OPENED") actions.push("verify_imported_app");
   }
   const eligibilityInput = {

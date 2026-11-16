@@ -27,6 +27,7 @@ import { importRepositoryWithHistory } from "./import-repository";
 import { createImportAttempt } from "./attempts";
 import { prepareImportedRepository } from "./prepare-repository";
 import { verifyImportedPublishReadiness } from "./publish-readiness";
+import { needsImportedLoginReview } from "./login-review";
 import {
   createRepositoryImportQueue,
   type RepositoryImportQueue,
@@ -861,7 +862,7 @@ export async function prepareExistingAppForActor(
   const isAdmin = actor.isAdmin;
   const appRequest = await prisma.appRequest.findFirst({
     where: appAccessWhere(requestId, userId, isAdmin),
-    include: { repositoryImport: true },
+    include: { repositoryImport: true, publishAttempts: { where: { status: "SUCCEEDED" }, take: 1, select: { status: true } } },
   });
 
   if (!appRequest) throw new PortalApiError("NOT_FOUND", "App not found.");
@@ -886,6 +887,7 @@ export async function prepareExistingAppForActor(
     preparation.preparationStatus === "BLOCKED" &&
     preparation.compatibilityStatus === "CONFLICTED" &&
     mode === "PULL_REQUEST";
+  const isLoginPreparationRefresh = preparation.preparationStatus === "COMMITTED" && mode === "PULL_REQUEST" && needsImportedLoginReview(appRequest);
   const isLocalUploadConfirmation =
     isInitialDirectPreparation &&
     hasLocalOnlySource(appRequest.submittedConfig);
@@ -893,13 +895,14 @@ export async function prepareExistingAppForActor(
   const isLocalPreparationRetry =
     isSameModeRetry && hasLocalOnlySource(appRequest.submittedConfig);
 
-  if (!isInitialDirectPreparation && !isSameModeRetry && !isConflictReview) {
+  if (!isInitialDirectPreparation && !isSameModeRetry && !isConflictReview && !isLoginPreparationRefresh) {
     throw new Error("Imported app preparation is not awaiting this action.");
   }
 
   if (
     ("source" in actor && actor.source === "codex-mcp") ||
     isConflictReview ||
+    isLoginPreparationRefresh ||
     isLocalUploadConfirmation ||
     isPullRequestRetry ||
     isLocalPreparationRetry
@@ -918,7 +921,7 @@ export async function prepareExistingAppForActor(
     const actorHasAccess = actorAccess.status === "GRANTED";
 
     if (!actorHasAccess) {
-      const message = isConflictReview
+      const message = isConflictReview || isLoginPreparationRefresh
         ? "GitHub access for the signed-in user is required before opening a review."
         : isLocalPreparationRetry
           ? "GitHub access for the signed-in user is required before retrying a local upload."

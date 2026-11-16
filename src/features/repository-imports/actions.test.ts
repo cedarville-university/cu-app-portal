@@ -1219,6 +1219,32 @@ describe("repository import actions", () => {
     });
   });
 
+  it("can refresh publishing support through review for an already prepared never-published sign-in app", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_login_refresh", userId: "user-123", appName: "Campus Dashboard", sourceOfTruth: "IMPORTED_REPOSITORY",
+      repositoryOwner: "cedarville-it", repositoryName: "campus-dashboard", repositoryDefaultBranch: "main",
+      repositoryAccessStatus: "GRANTED", repositoryAccessNote: "GitHub access is ready for @owner-name.",
+      submittedConfig: { entraLogin: true },
+      repositoryImport: { id: "import_login_refresh", preparationStatus: "COMMITTED" },
+    } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ githubUsername: "owner-name" } as never);
+    vi.mocked(prepareImportedRepository).mockResolvedValue({ status: "PULL_REQUEST_OPENED", commitSha: "commit-sha", pullRequestUrl: "https://github.com/cu/app/pull/1", runtime: IMPORTED_NEXT_RUNTIME, databaseProvider: "none", entraLogin: true });
+    const form = new FormData(); form.set("preparationMode", "PULL_REQUEST");
+    await prepareExistingAppAction("req_login_refresh", form, { github: {} as never });
+    expect(prepareImportedRepository).toHaveBeenCalledWith(expect.objectContaining({ mode: "PULL_REQUEST" }));
+  });
+  it("does not refresh preparation for a legacy previously published app", async () => {
+    vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
+      id: "req_published", sourceOfTruth: "IMPORTED_REPOSITORY", appName: "Published", publishStatus: "FAILED",
+      repositoryOwner: "cu", repositoryName: "app", repositoryDefaultBranch: "main", submittedConfig: { entraLogin: true },
+      publishAttempts: [{ status: "SUCCEEDED" }], repositoryImport: { id: "import", preparationStatus: "COMMITTED" },
+    } as never);
+    const form = new FormData(); form.set("preparationMode", "PULL_REQUEST");
+    await expect(prepareExistingAppAction("req_published", form)).rejects.toThrow("not awaiting this action");
+    expect(prepareImportedRepository).not.toHaveBeenCalled();
+  });
   it("rejects pull-request mode while preparation is awaiting its initial choice", async () => {
     vi.mocked(resolveCurrentUserId).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue({
@@ -1647,7 +1673,7 @@ describe("repository import actions", () => {
           },
         ],
       },
-      include: { repositoryImport: true },
+      include: { repositoryImport: true, publishAttempts: { where: { status: "SUCCEEDED" }, take: 1, select: { status: true } } },
     });
     expect(prepareImportedRepository).toHaveBeenCalled();
   });

@@ -33,7 +33,7 @@ and use the UI-equivalent local Git setup guidance. See
 [plugin GitHub onboarding](codex-workspace-plugin.md#github-identity-and-automatic-invitations)
 for contracts, replay behavior, and rollout verification.
 
-Generated Next.js sign-in apps now use a custom `/login` page (starter version 1.1.0). This update needs no Azure settings or database migration. Existing apps are not rewritten: eligible apps created before the October 28, 2026 login update have a dismissible sign-in notice and a Codex update prompt on their management pages. Apps created at or after the update are excluded. See [Cedarville login pages](template-authoring.md#cedarville-login-pages) for the exact cutoff, eligibility, and verification details.
+Generated Next.js sign-in apps now use a custom `/login` page (starter version 1.1.0). This update needs no Azure settings or database migration. Existing apps are not rewritten: older generated apps and imported Next.js/Express sign-in apps have a dismissible notice and Codex update prompt regardless of import date. Updated generated starters remain excluded. Before first publish, imported sign-in apps also require explicit code/test review of the current managed commit. The portal and plugin return shared guidance and reject missing or stale review; review evidence uses the existing audit table, so no database migration is required. See [Cedarville login pages](template-authoring.md#cedarville-login-pages) for eligibility and verification details.
 
 This guide explains local development, required environment variables, and database setup for CU Launch.
 

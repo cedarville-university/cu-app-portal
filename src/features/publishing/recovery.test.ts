@@ -21,6 +21,11 @@ let evidence: RecoveryEvidence;
 beforeEach(() => { vi.clearAllMocks(); evidence = { workflow: vi.fn().mockResolvedValue({ status: "completed", conclusion: "success" }), health: vi.fn().mockResolvedValue({ verifiedAt: new Date() }) }; });
 
 describe("interrupted publishing recovery", () => {
+  it("keeps an actionable auto-deploy warning when a reviewed first publish is recovered", async () => {
+    const first = { ...attempt, appRequest: { ...attempt.appRequest, sourceOfTruth: "IMPORTED_REPOSITORY", deploymentTriggerMode: "PUSH_TO_DEPLOY", submittedConfig: { entraLogin: true }, lastPublishedAt: null } } as RecoveryAttempt;
+    expect(await reconcileClaimedPublish(first, claim, {}, evidence)).toBe("succeeded");
+    expect(persistPublishProgress).toHaveBeenCalledWith(claim, "app", expect.any(Object), expect.objectContaining({ publishWarningSummary: expect.stringMatching(/automatic updates.*disable and re-enable/i) }));
+  });
   it("repairs a completed attempt whose app record was stranded by an older worker", async () => {
     const settled = { ...attempt, status: "SUCCEEDED", finishedAt: new Date("2026-01-01"), appRequestId: "app", appRequest: { ...attempt.appRequest, publishStatus: "DEPLOYING", updatedAt: new Date("2026-01-01") } } as RecoveryAttempt;
     vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue(settled);
@@ -35,6 +40,16 @@ describe("interrupted publishing recovery", () => {
       where: { id: "app", publishStatus: "DEPLOYING", updatedAt: settled.appRequest.updatedAt },
       data: expect.objectContaining({ publishStatus: "SUCCEEDED", lastPublishedAt: settled.finishedAt, publishWarningSummary: "Health warning" }),
     }));
+  });
+  it("does not erase a saved auto-deploy activation warning during terminal synchronization", async () => {
+    const warning = "The app was published, but automatic updates could not be enabled. Disable and re-enable auto-deploy.";
+    const settled = { ...attempt, status: "SUCCEEDED", finishedAt: new Date("2026-01-01"), appRequestId: "app", appRequest: { ...attempt.appRequest, publishStatus: "DEPLOYING", publishWarningSummary: warning, updatedAt: new Date("2026-01-01") } } as RecoveryAttempt;
+    vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue(settled);
+    vi.mocked(prisma.publishAttempt.findFirst).mockResolvedValue({ id: "attempt", status: "SUCCEEDED" } as never);
+    vi.mocked(prisma.appRequest.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback: unknown) => (callback as (tx: unknown) => Promise<unknown>)(prisma) as never);
+    expect(await recoverPublishAttempt("attempt", {}, evidence)).toBe("succeeded");
+    expect(prisma.appRequest.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ publishWarningSummary: warning }) }));
   });
   it("requires a successful recorded workflow and current healthy URL before completing both records", async () => {
     expect(await reconcileClaimedPublish(attempt, claim, {}, evidence)).toBe("succeeded");

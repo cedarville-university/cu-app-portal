@@ -59,6 +59,7 @@ describe("portal API rate-limit policies", () => {
       adopt_existing_app: { limit: 3, windowSeconds: 3600 },
       prepare_imported_app: { limit: 6, windowSeconds: 3600 },
       verify_imported_app: { limit: 10, windowSeconds: 3600 },
+      review_imported_app_login: { limit: 10, windowSeconds: 3600 },
       read: { limit: 120, windowSeconds: 600 },
       create_app: { limit: 3, windowSeconds: 3600 },
       request_github_access: { limit: 10, windowSeconds: 3600 },

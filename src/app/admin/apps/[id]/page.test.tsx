@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getAdminUserIdOrNull } from "@/features/admin/guard";
 import { prisma } from "@/lib/db";
 import AdminAppDetailPage from "./page";
+vi.mock("@/features/repository-imports/login-review", async importOriginal => ({
+  ...await importOriginal<typeof import("@/features/repository-imports/login-review")>(),
+  getImportedLoginReview: vi.fn().mockResolvedValue({ status: "NEEDS_REVIEW", commitSha: "a".repeat(40), sourcePaths: ["src/auth.ts"], findings: [], evidence: "Code review required" }),
+}));
 
 vi.mock("@/features/app-requests/current-user", () => ({
   getCurrentUserIdOrNull: vi.fn(),
@@ -112,7 +116,7 @@ describe("AdminAppDetailPage", () => {
     render(await AdminAppDetailPage({ params: Promise.resolve({ id: "app-1" }) }));
     expect(screen.getByRole("region", { name: "Sign-in update" })).toBeInTheDocument();
   });
-  it.each(["nextjs", "express"])("does not show the sign-in update for newly imported %s apps", async (framework) => {
+  it.each(["nextjs", "express"])("shows the sign-in update for newly imported %s apps", async (framework) => {
     mockAppDetail();
     const request = await prisma.appRequest.findUnique({ where: { id: "app-1" } });
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({
@@ -122,7 +126,7 @@ describe("AdminAppDetailPage", () => {
       submittedConfig: { entraLogin: true, importRuntime: { framework } },
     } as NonNullable<typeof request>);
     render(await AdminAppDetailPage({ params: Promise.resolve({ id: "app-1" }) }));
-    expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Sign-in update" })).toBeInTheDocument();
   });
   beforeEach(() => {
     mockUseFormStatus.mockReturnValue({ pending: false });

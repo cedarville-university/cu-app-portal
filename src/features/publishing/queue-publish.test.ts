@@ -42,6 +42,7 @@ function createDependencies(): QueuePublishDependencies {
     userHasAdminRole: vi.fn().mockResolvedValue(false),
     getPublishEligibility,
     recordAuditEvent: vi.fn(recordAuditEvent).mockResolvedValue(undefined),
+    assertImportedLoginReviewForFirstPublish: vi.fn().mockResolvedValue(null),
     queue: { send: vi.fn().mockResolvedValue(undefined) },
   } as unknown as QueuePublishDependencies;
 }
@@ -51,6 +52,16 @@ describe("queuePublishForActor", () => {
 
   beforeEach(() => {
     dependencies = createDependencies();
+  });
+  it("does not queue an imported sign-in app without a current login review", async () => {
+    vi.mocked(dependencies.prisma.appRequest.findFirst).mockResolvedValue({
+      ...generatedRequest, sourceOfTruth: "IMPORTED_REPOSITORY", submittedConfig: { entraLogin: true },
+      repositoryImport: { preparationStatus: "COMMITTED" },
+    });
+    vi.mocked(dependencies.assertImportedLoginReviewForFirstPublish).mockRejectedValue(new PortalApiError("ACTION_REQUIRED", "Review sign-in first."));
+    await expect(queuePublishForActor({ requestId: "request-123", actorUserId: "owner", source: "codex-mcp" }, dependencies)).rejects.toMatchObject({ code: "ACTION_REQUIRED" });
+    expect(dependencies.prisma.$transaction).not.toHaveBeenCalled();
+    expect(dependencies.queue!.send).not.toHaveBeenCalled();
   });
 
   it.each([

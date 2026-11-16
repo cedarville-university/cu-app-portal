@@ -153,7 +153,7 @@ describe("Codex workspace plugin operator documentation", () => {
     expect(docs).toMatch(/`get_app`.*recorded.*not.*live/i);
     expect(docs).toContain("git config --local");
     expect(docs).toMatch(/no.*database migration/i);
-    expect(docs).toContain("1.0.4+codex.20261116");
+    expect(docs).toContain("1.0.5+codex.20261116");
   });
 
   it("does not claim administrator-owned rollout evidence or leak placeholder credentials", () => {
