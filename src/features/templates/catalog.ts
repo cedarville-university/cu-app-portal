@@ -218,7 +218,7 @@ const templateGroupLabels: Record<TemplateCategory, string> = {
 
 export function getActiveTemplates() {
   const testingPreview =
-    process.env.WEBSITE_SLOT_NAME === "testing" &&
+    process.env.WEBSITE_HOSTNAME === "cu-app-portal-testing.azurewebsites.net" &&
     process.env.CU_LAUNCH_MCP_TEMPLATE_PREVIEW === "true";
   return templates
     .filter(

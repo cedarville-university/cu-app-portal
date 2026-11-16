@@ -12,9 +12,9 @@ describe("getActiveTemplates", () => {
 
   it("permits the explicit MCP preview only in Azure's testing slot", () => {
     vi.stubEnv("CU_LAUNCH_MCP_TEMPLATE_PREVIEW", "true");
-    vi.stubEnv("WEBSITE_SLOT_NAME", "Production");
+    vi.stubEnv("WEBSITE_HOSTNAME", "cu-app-portal.azurewebsites.net");
     expect(getActiveTemplateBySlug("mcp-server")).toBeNull();
-    vi.stubEnv("WEBSITE_SLOT_NAME", "testing");
+    vi.stubEnv("WEBSITE_HOSTNAME", "cu-app-portal-testing.azurewebsites.net");
     expect(getActiveTemplateBySlug("mcp-server")).toMatchObject({
       slug: "mcp-server",
       status: "ACTIVE",

@@ -28,7 +28,7 @@ Attach safe timestamps/commit IDs/support references when testing. Do not record
 
 ## Testing-slot catalog preview
 
-`CU_LAUNCH_MCP_TEMPLATE_PREVIEW=true` exposes the advanced MCP template only when Azure's `WEBSITE_SLOT_NAME` is exactly `testing`. The catalog entry remains disabled everywhere else, including production. This preview allows inspection of the create form and its optional PostgreSQL choice; it does not satisfy the live OAuth or Plugin Creator gates above.
+`CU_LAUNCH_MCP_TEMPLATE_PREVIEW=true` exposes the advanced MCP template only when Azure's `WEBSITE_HOSTNAME` is exactly `cu-app-portal-testing.azurewebsites.net`. The catalog entry remains disabled everywhere else, including production. Using the platform hostname also works on Linux App Service, where `WEBSITE_SLOT_NAME` may be absent. This preview allows inspection of the create form and its optional PostgreSQL choice; it does not satisfy the live OAuth or Plugin Creator gates above.
 
 Use a separate empty testing database and testing-origin auth/link URLs. Keep `PUBLISH_TRANSPORT=disabled`, `REPOSITORY_IMPORT_TRANSPORT=disabled`, `PORTAL_MCP_ENABLED=false`, and `AZURE_PUBLISH_MCP_AUTOMATION_ENABLED=false`. Remove copied SMTP, GitHub App, publishing, queue, and directory automation credentials from the testing slot. Do not enable the test auth bypass, swap slots, or route production traffic to testing. Shared App Service and PostgreSQL compute still require bounded testing.
 
