@@ -54,7 +54,8 @@ describe("Codex workspace plugin operator documentation", () => {
   it("routes excluded workflows to the portal UI without provider shortcuts", () => {
     const docs = readDoc(runbookPath);
 
-    expect(docs).toMatch(/existing[\s/]+local app imports[\s\S]{0,220}CU Launch UI/i);
+    expect(docs).toContain("adopt_existing_app");
+    expect(docs).toContain("get_app_import_status");
     expect(docs).toMatch(/collaborator management[\s\S]{0,220}secret environment-variable\s+management[\s\S]{0,220}push-to-deploy[\s\S]{0,220}deletion/i);
     expect(docs).toMatch(/must not substitute\s+template-based launch[\s\S]{0,160}direct provider\s+operations/i);
   });
@@ -152,7 +153,7 @@ describe("Codex workspace plugin operator documentation", () => {
     expect(docs).toMatch(/`get_app`.*recorded.*not.*live/i);
     expect(docs).toContain("git config --local");
     expect(docs).toMatch(/no.*database migration/i);
-    expect(docs).toContain("1.0.3+codex.20261113");
+    expect(docs).toContain("1.0.4+codex.20261116");
   });
 
   it("does not claim administrator-owned rollout evidence or leak placeholder credentials", () => {

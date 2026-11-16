@@ -58,6 +58,8 @@ The portal supports an admin and collaboration model for managing shared app wor
 
 The portal sends immediate SMTP email notifications for app lifecycle, collaboration, and publishing events. Users can manage notification preferences from Settings, while collaboration invite emails always send because they grant access. Owners and admins can invite Cedarville coworkers by email; invitees must accept through Entra before they become collaborators. Owners and admins can also remove accepted collaborators from the app details screen (portal access is removed immediately; every recorded GitHub repository identity for that app and actor is revoked best-effort when the managed repository exists).
 
+The CU Launch Codex plugin also supports **“add this to CU Launch”** from an existing project: it checks GitHub remotes, creates a managed repository directly for local apps when needed, assesses compatibility, and offers architecture migration with explicit approval. It preserves source remotes and history, prepares imports through plugin tools, and keeps first publish separate. Portal deployment and plugin refresh are required to enable the updated tools and skill; see [workspace plugin operations](docs/portal/codex-workspace-plugin.md#adopt-an-existing-codex-project).
+
 ## Local Setup
 
 The admin Users page shows each user's last recorded portal sign-in in Eastern time. `User.lastLoginAt` is refreshed during Entra sign-in; existing users show **Never recorded** until they next sign in. Apply the database migrations before running code that uses this field.

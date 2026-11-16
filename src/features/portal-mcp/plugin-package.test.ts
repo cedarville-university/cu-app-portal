@@ -26,7 +26,7 @@ describe("CU Launch workspace plugin package", () => {
       interface: {
         displayName: "CU Launch",
         shortDescription: "Launch and publish Cedarville-managed apps from Codex.",
-        defaultPrompt: "Launch a new Cedarville app from an approved template.",
+        defaultPrompt: "Add this project to CU Launch or launch a new app.",
       },
     });
     expect(String(plugin.version)).toMatch(/^1\.0\.\d+\+codex\./);
@@ -56,6 +56,10 @@ describe("CU Launch workspace plugin package", () => {
   it("keeps the workspace skill distinct and exposes every MCP tool", () => {
     const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
     const tools = [
+      "adopt_existing_app",
+      "get_app_import_status",
+      "prepare_imported_app",
+      "verify_imported_app",
       "list_app_templates",
       "list_my_apps",
       "create_app",
@@ -214,8 +218,23 @@ describe("CU Launch workspace plugin package", () => {
       'short_description: "Launch and publish Cedarville-managed apps from Codex."',
     );
     expect(metadata).toContain(
-      'default_prompt: "Launch a new Cedarville app from an approved template."',
+      'default_prompt: "Add this project to CU Launch or launch a new app."',
     );
     expect(metadata).toContain("allow_implicit_invocation: true");
+  });
+});
+
+
+describe("existing-project adoption guidance", () => {
+  it("supports adoption and requires approval for architectural migration", () => {
+    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8").replace(/\s+/g, " ");
+    expect(skill).toMatch(/add this to CU Launch/i);
+    expect(skill).toMatch(/no.*remote.*omit.*repositoryUrl/i);
+    expect(skill).toMatch(/explicit.*approval before.*architectur/i);
+    expect(skill).toMatch(/preserve.*remotes.*portal/i);
+    expect(skill).toMatch(/private.*source.*local upload/i);
+    expect(skill).toMatch(/declines.*migration.*stop/i);
+    expect(skill).toContain("verify_imported_app");
+    expect(skill).not.toContain("Route existing GitHub or local app imports");
   });
 });

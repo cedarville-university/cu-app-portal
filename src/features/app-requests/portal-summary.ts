@@ -17,6 +17,9 @@ import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/s
 import type { ActorRepositoryAccess } from "@/features/repositories/actor-access";
 
 export type PortalNextAction =
+  | "get_app_import_status"
+  | "prepare_imported_app"
+  | "verify_imported_app"
   | "request_github_access"
   | "publish_app_to_azure"
   | "get_publish_status"
@@ -99,11 +102,18 @@ function allowedNextActions(
   app: PortalAppReadRecord,
   repositoryAccess: ActorRepositoryAccess,
 ): PortalNextAction[] {
-  if (app.sourceOfTruth !== "PORTAL_MANAGED_REPO") {
+  if (app.sourceOfTruth !== "PORTAL_MANAGED_REPO" && app.sourceOfTruth !== "IMPORTED_REPOSITORY") {
     return ["open_portal_for_advanced_management"];
   }
 
   const actions: PortalNextAction[] = [];
+  if (app.sourceOfTruth === "IMPORTED_REPOSITORY") {
+    actions.push("get_app_import_status");
+    const status = app.repositoryImport?.preparationStatus;
+    if (app.repositoryStatus === "READY" && repositoryAccess.status === "GRANTED" &&
+      (status === "PENDING_USER_CHOICE" || status === "FAILED" || status === "BLOCKED")) actions.push("prepare_imported_app");
+    if (status === "PULL_REQUEST_OPENED") actions.push("verify_imported_app");
+  }
   const eligibilityInput = {
     sourceOfTruth: app.sourceOfTruth,
     repositoryStatus: app.repositoryStatus,

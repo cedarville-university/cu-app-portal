@@ -47,7 +47,7 @@ export function registerRequestGitHubAccessTool(
           context.actor,
           input.appId,
         );
-        if (app.sourceOfTruth !== "PORTAL_MANAGED_REPO") {
+        if (app.sourceOfTruth !== "PORTAL_MANAGED_REPO" && app.sourceOfTruth !== "IMPORTED_REPOSITORY") {
           throw new PortalApiError(
             "ACTION_REQUIRED",
             "Open CU Launch for this app workflow.",

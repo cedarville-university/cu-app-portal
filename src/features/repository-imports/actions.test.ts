@@ -3005,3 +3005,19 @@ describe("repository import actions", () => {
     );
   });
 });
+
+describe("MCP import source identity", () => {
+  it("rejects a transferred source before it can become in-place adoption", async () => {
+    vi.clearAllMocks();
+    const { addExistingAppForActor } = await import("./service");
+    const form = new FormData();
+    form.set("repositoryUrl", "https://github.com/outside/old-name");
+    form.set("appName", "Existing app");
+    await expect(addExistingAppForActor({ userId: "user-1", isAdmin: false, source: "codex-mcp" }, form, {
+      requestIdentity: { requestId: "stable-app", digest: "digest" },
+      repository: { owner: "cedarville", name: "managed-app", url: "https://github.com/cedarville/managed-app", defaultBranch: "main" },
+    })).rejects.toMatchObject({ name: "RepositoryImportInputError" });
+    expect(queueExternalRepositoryImport).not.toHaveBeenCalled();
+    expect(prisma.appRequest.create).not.toHaveBeenCalled();
+  });
+});

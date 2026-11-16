@@ -1,0 +1,1178 @@
+export type ImportActor = { userId: string; isAdmin: boolean; source?: "codex-mcp" };
+
+import type { Prisma } from "@prisma/client";
+import { z } from "zod";
+import { PortalApiError } from "@/features/portal-api/errors";
+import {
+  appAccessWhere,
+} from "@/features/app-requests/access";
+import {
+  PORTAL_SKILL_PATH,
+  buildManagedAppPortalSkill,
+} from "@/features/generation/portal-skill";
+import { safeNotifyAppEvent } from "@/features/notifications/safe-notify";
+import { repairPublishingSetupForActor } from "@/features/publishing/setup/repair-publishing-setup";
+import { loadGitHubAppConfig } from "@/features/repositories/config";
+import { resolveRepositoryAccessForActor } from "@/features/repositories/actor-access";
+import { createGitHubAppClient } from "@/features/repositories/github-app";
+import { recordAuditEvent } from "@/lib/audit";
+import { prisma } from "@/lib/db";
+import { createSupportReference } from "@/lib/support-reference";
+import { IMPORTED_NEXT_RUNTIME, type ImportedAppRuntime } from "./compatibility";
+import {
+  isRepositoryCompatibilityError,
+  repositoryImportInputError,
+} from "./errors";
+import { importRepositoryWithHistory } from "./import-repository";
+import { createImportAttempt } from "./attempts";
+import { prepareImportedRepository } from "./prepare-repository";
+import { verifyImportedPublishReadiness } from "./publish-readiness";
+import {
+  createRepositoryImportQueue,
+  type RepositoryImportQueue,
+} from "./queue";
+import {
+  finalizeRepositoryImportEnqueueFailure,
+  queueExternalRepositoryImport,
+} from "./queue-import";
+import { parseGitHubRepositoryUrl } from "./repo-url";
+import { buildSharedOrgTargetName, isRepositoryInOrg } from "./target-name";
+
+import {
+  readImportedFeatures,
+  savedImportedFeatures,
+  type ImportedAppFeatures,
+} from "./features";
+
+const addExistingAppSchema = z.object({
+  repositoryUrl: z.string().min(1),
+  appName: z.string().trim().min(2).max(80),
+  description: z.string().trim().max(500).optional(),
+});
+
+const localCodexAppSchema = z.object({
+  appName: z.string().trim().min(2).max(80),
+  description: z.string().trim().max(500).optional(),
+});
+
+const preparationModeSchema = z.enum(["DIRECT_COMMIT", "PULL_REQUEST"]);
+
+export type AddExistingAppDeps = {
+  requestIdentity?: { requestId: string; digest: string };
+  defaultOrg?: string;
+  repository?: {
+    owner: string;
+    name: string;
+    url: string;
+    defaultBranch: string;
+  };
+  publicRepositoryFetch?: typeof fetch;
+  importRepository?: typeof importRepositoryWithHistory;
+  queue?: RepositoryImportQueue;
+};
+
+export type PrepareExistingAppDeps = {
+  github?: Parameters<typeof prepareImportedRepository>[0]["github"];
+};
+
+export type VerifyExistingAppPreparationDeps = {
+  github?: Parameters<typeof verifyImportedPublishReadiness>[0]["github"];
+};
+
+type RepositoryImportWriteClient = Pick<
+  typeof prisma,
+  "appRequest" | "repositoryImport" | "template"
+>;
+
+type RepositoryMetadata = {
+  owner: string;
+  name: string;
+  url: string;
+  defaultBranch: string;
+};
+
+type ResolvedRepository = {
+  repository: RepositoryMetadata;
+  github?: ReturnType<typeof createGitHubAppClient>;
+};
+
+type GitHubPublicRepositoryResponse = {
+  html_url: string;
+  default_branch: string;
+  name: string;
+  owner: {
+    login: string;
+  };
+};
+
+async function upsertImportedTemplate(db: RepositoryImportWriteClient) {
+  return db.template.upsert({
+    where: { slug: "imported-web-app" },
+    update: {
+      slug: "imported-web-app",
+      name: "Imported Web App",
+      description:
+        "Existing GitHub app prepared for Azure App Service publishing.",
+      version: "1.0.0",
+      status: "ACTIVE",
+      inputSchema: {},
+      hostingOptions: ["Azure App Service"],
+    },
+    create: {
+      slug: "imported-web-app",
+      name: "Imported Web App",
+      description:
+        "Existing GitHub app prepared for Azure App Service publishing.",
+      version: "1.0.0",
+      status: "ACTIVE",
+      inputSchema: {},
+      hostingOptions: ["Azure App Service"],
+    },
+  });
+}
+
+function resolveInstallationId(
+  installationIdsByOrg: Record<string, string>,
+  owner: string,
+) {
+  const installation = Object.entries(installationIdsByOrg).find(
+    ([org]) => org.toLowerCase() === owner.toLowerCase(),
+  );
+
+  return installation?.[1] ?? null;
+}
+
+export function createGitHubClientForOwner(
+  owner: string,
+  config = loadGitHubAppConfig(),
+) {
+  const installationId = resolveInstallationId(config.installationIdsByOrg, owner);
+
+  if (!installationId) {
+    throw new Error(
+      `No GitHub App installation is configured for org "${owner}".`,
+    );
+  }
+
+  return createGitHubAppClient({
+    appId: config.appId,
+    privateKey: config.privateKey,
+    installationId,
+  });
+}
+
+function tryCreateGitHubClientForOwner(
+  owner: string,
+  config: ReturnType<typeof loadGitHubAppConfig>,
+) {
+  const installationId = resolveInstallationId(config.installationIdsByOrg, owner);
+
+  if (!installationId) {
+    return null;
+  }
+
+  return createGitHubAppClient({
+    appId: config.appId,
+    privateKey: config.privateKey,
+    installationId,
+  });
+}
+
+async function fetchPublicRepositoryMetadata(
+  source: ReturnType<typeof parseGitHubRepositoryUrl>,
+  fetchImpl: typeof fetch,
+): Promise<RepositoryMetadata> {
+  const response = await fetchImpl(
+    `https://api.github.com/repos/${encodeURIComponent(source.owner)}/${encodeURIComponent(source.name)}`,
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    },
+  );
+  const responseText = await response.text();
+  const data = responseText
+    ? (JSON.parse(responseText) as GitHubPublicRepositoryResponse)
+    : null;
+
+  if (response.status === 404) {
+    throw repositoryImportInputError(
+      "The portal could not find that repository on GitHub. Double-check the repository URL and make sure the repository is public so the portal can read it.",
+    );
+  }
+
+  if (!response.ok || !data) {
+    throw new Error(
+      `GitHub public repository metadata lookup failed: ${response.status} ${response.statusText}`.trim(),
+    );
+  }
+
+  return {
+    owner: data.owner.login,
+    name: data.name,
+    url: data.html_url,
+    defaultBranch: data.default_branch,
+  };
+}
+
+async function resolveRepository(
+  source: ReturnType<typeof parseGitHubRepositoryUrl>,
+  deps: AddExistingAppDeps,
+  config: ReturnType<typeof loadGitHubAppConfig>,
+): Promise<ResolvedRepository> {
+  if (deps.repository) {
+    return { repository: deps.repository };
+  }
+
+  const sourceGithub = tryCreateGitHubClientForOwner(source.owner, config);
+
+  if (sourceGithub) {
+    try {
+      return {
+        repository: await sourceGithub.getRepository({
+          owner: source.owner,
+          name: source.name,
+        }),
+        github: sourceGithub,
+      };
+    } catch {
+      // Public metadata fallback below intentionally avoids leaking private lookup details.
+    }
+  }
+
+  return {
+    repository: await fetchPublicRepositoryMetadata(
+      source,
+      deps.publicRepositoryFetch ?? fetch,
+    ),
+  };
+}
+
+function summarizeError(error: unknown) {
+  return error instanceof Error ? error.message : "unknown";
+}
+
+function getErrorStatus(error: unknown) {
+  return (
+    error instanceof Error &&
+    "status" in error &&
+    typeof error.status === "number"
+  )
+    ? error.status
+    : null;
+}
+
+function isGitHubAuthenticationError(error: unknown) {
+  return (
+    getErrorStatus(error) === 401 &&
+    summarizeError(error).startsWith("GitHub API request failed:")
+  );
+}
+
+function isGitHubIntegrationPermissionError(error: unknown) {
+  const message = summarizeError(error);
+
+  return (
+    getErrorStatus(error) === 403 &&
+    message.startsWith("GitHub API request failed:") &&
+    message.includes("Resource not accessible by integration")
+  );
+}
+
+function summarizePreparationError(error: unknown) {
+  if (isGitHubAuthenticationError(error)) {
+    return "GitHub App authentication failed while preparing the repository (GitHub returned 401 Requires authentication). Ask an administrator to verify the GitHub App ID, private key, installation mapping, and repository permissions, then retry publishing setup.";
+  }
+
+  if (isGitHubIntegrationPermissionError(error)) {
+    return "GitHub App permissions are missing for this repository (GitHub returned 403 Resource not accessible by integration). Ask an administrator to update the GitHub App installation with repository contents and pull request access, then retry publishing setup.";
+  }
+
+  return summarizeError(error);
+}
+
+async function completePublishingSetupBestEffort(requestId: string, actorUserId: string) {
+  try {
+    // This service creates missing resources before checking readiness, with
+    // an atomic claim and fresh actor authorization for provider mutations.
+    await repairPublishingSetupForActor({
+      requestId,
+      actorUserId,
+      source: "portal-ui",
+    });
+  } catch {
+    // Setup owns its failure state. A concurrent claim or lost authorization
+    // must not overwrite it or turn successful repository prep into a failure.
+    console.error("Automatic publishing setup could not be started.", { requestId });
+  }
+}
+
+function isPublishingFileConflictError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.startsWith("Repository has publishing file conflicts.")
+  );
+}
+
+function buildPublishingFileConflictFeedback(message: string) {
+  return `${message} The portal will not overwrite existing publishing files directly. Open a safe GitHub review to compare and approve the proposed publishing changes.`;
+}
+
+function buildImportedSubmittedConfig({
+  repositoryUrl,
+  description,
+  localOnlySource = false,
+  features,
+}: {
+  repositoryUrl: string;
+  description: string;
+  localOnlySource?: boolean;
+  features?: ImportedAppFeatures;
+}) {
+  return {
+    repositoryUrl,
+    description,
+    hostingTarget: "Azure App Service",
+    templateSlug: "imported-web-app",
+    importRuntime: IMPORTED_NEXT_RUNTIME,
+    databaseProvider: features?.databaseProvider ?? "postgresql",
+    entraLogin: features?.entraLogin ?? true,
+    ...(features ? { importFeatures: features } : {}),
+    ...(localOnlySource ? { localOnlySource: true } : {}),
+  };
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function mergeDetectedImportedConfig({
+  submittedConfig,
+  runtime,
+  databaseProvider,
+  entraLogin,
+}: {
+  submittedConfig: unknown;
+  runtime: ImportedAppRuntime;
+  databaseProvider: "postgresql" | "none";
+  entraLogin: boolean;
+}) {
+  return {
+    ...(isJsonObject(submittedConfig) ? submittedConfig : {}),
+    templateSlug: "imported-web-app",
+    importRuntime: runtime,
+    databaseProvider,
+    entraLogin,
+  };
+}
+
+async function persistDetectedImportedConfig({
+  requestId,
+  submittedConfig,
+  runtime,
+  databaseProvider,
+  entraLogin,
+}: {
+  requestId: string;
+  submittedConfig: unknown;
+  runtime: ImportedAppRuntime;
+  databaseProvider: "postgresql" | "none";
+  entraLogin: boolean;
+}) {
+  await prisma.appRequest.update({
+    where: { id: requestId },
+    data: {
+      submittedConfig: mergeDetectedImportedConfig({
+        submittedConfig,
+        runtime,
+        databaseProvider,
+        entraLogin,
+      }),
+    },
+  });
+}
+
+function getFailedTargetRepository({
+  error,
+  fallback,
+}: {
+  error: unknown;
+  fallback: RepositoryMetadata;
+}) {
+  if (
+    error instanceof Error &&
+    "targetRepository" in error &&
+    error.targetRepository &&
+    typeof error.targetRepository === "object"
+  ) {
+    return error.targetRepository as RepositoryMetadata;
+  }
+
+  return fallback;
+}
+
+function isTargetNameCollision(error: unknown) {
+  return (
+    error instanceof Error &&
+      "code" in error &&
+      error.code === "TARGET_REPOSITORY_ALREADY_EXISTS"
+  );
+}
+
+export async function addExistingAppForActor(
+  actor: ImportActor,
+  formData: FormData,
+  deps: AddExistingAppDeps = {},
+) {
+  const parsed = addExistingAppSchema.parse({
+    repositoryUrl: String(formData.get("repositoryUrl") ?? ""),
+    appName: String(formData.get("appName") ?? ""),
+    description: String(formData.get("description") ?? ""),
+  });
+  const features = readImportedFeatures(formData);
+  const userId = actor.userId;
+  const source = parseGitHubRepositoryUrl(parsed.repositoryUrl);
+  const githubConfig = loadGitHubAppConfig();
+  const defaultOrg = deps.defaultOrg ?? githubConfig.defaultOrg;
+  const repositoryVisibility = githubConfig.defaultRepoVisibility;
+  const { repository, github: sourceGithub } = await resolveRepository(
+    source,
+    deps,
+    githubConfig,
+  );
+  if (deps.requestIdentity &&
+    (repository.owner.toLowerCase() !== source.owner.toLowerCase() || repository.name.toLowerCase() !== source.name.toLowerCase())) {
+    throw repositoryImportInputError("The source repository identity changed. Use its current GitHub URL or local upload.");
+  }
+  const supportReference = createSupportReference();
+  const isSharedOrgRepo = isRepositoryInOrg(repository.owner, defaultOrg);
+  let targetName = isSharedOrgRepo
+    ? repository.name
+    : buildSharedOrgTargetName({
+        sourceName: repository.name,
+        existingNames: [],
+      });
+
+  if (
+    !isSharedOrgRepo &&
+    (deps.queue !== undefined ||
+      deps.importRepository === undefined ||
+      process.env.NODE_ENV === "production")
+  ) {
+    const result = await queueExternalRepositoryImport(
+      {
+        userId,
+        requestIdentity: deps.requestIdentity,
+        appName: parsed.appName,
+        description: parsed.description ?? "",
+        source: repository,
+        targetOwner: defaultOrg,
+        targetName,
+        targetVisibility: repositoryVisibility,
+        supportReference,
+        ...(features ? { features } : {}),
+      },
+      deps.queue ? { queue: deps.queue } : undefined,
+    );
+
+    return { requestId: result.requestId };
+  }
+
+  let targetRepository = repository;
+  let repositoryStatus: "READY" | "FAILED" = "READY";
+  let importStatus: "NOT_REQUIRED" | "SUCCEEDED" | "FAILED" = isSharedOrgRepo
+    ? "NOT_REQUIRED"
+    : "SUCCEEDED";
+  let importErrorSummary: string | null = null;
+  let preparationStatus: "PENDING_USER_CHOICE" | "BLOCKED" =
+    "PENDING_USER_CHOICE";
+  let publishErrorSummary: string | null = null;
+
+  if (!isSharedOrgRepo) {
+    const targetGithub = createGitHubClientForOwner(defaultOrg, githubConfig);
+    const existingNames: string[] = [];
+    let importSucceeded = false;
+
+    try {
+      for (let attempt = 0; attempt < 99; attempt += 1) {
+        targetName = buildSharedOrgTargetName({
+          sourceName: repository.name,
+          existingNames,
+        });
+
+        try {
+          targetRepository = await (deps.importRepository ?? importRepositoryWithHistory)({
+            appRequestId: supportReference,
+            source: repository,
+            target: {
+              owner: defaultOrg,
+              name: targetName,
+              visibility: repositoryVisibility,
+            },
+            sourceGithub,
+            github: targetGithub,
+          });
+          importSucceeded = true;
+          break;
+        } catch (error) {
+          if (isTargetNameCollision(error)) {
+            existingNames.push(targetName);
+            continue;
+          }
+
+          throw error;
+        }
+      }
+
+      if (!importSucceeded) {
+        throw new Error(
+          `Could not choose an available target repository name for "${repository.name}".`,
+        );
+      }
+    } catch (error) {
+      const message = summarizeError(error);
+
+      targetRepository = getFailedTargetRepository({
+        error,
+        fallback: {
+          owner: defaultOrg,
+          name: targetName,
+          url: "",
+          defaultBranch: "",
+        },
+      });
+      repositoryStatus = "FAILED";
+      importStatus = "FAILED";
+      importErrorSummary = message;
+      preparationStatus = "BLOCKED";
+      publishErrorSummary = message;
+    }
+  }
+
+  const request = await prisma.$transaction(async (tx) => {
+    const template = await upsertImportedTemplate(tx);
+    const appRequest = await tx.appRequest.create({
+      data: {
+        userId,
+        templateId: template.id,
+        templateVersion: "1.0.0",
+        appName: parsed.appName,
+        submittedConfig: buildImportedSubmittedConfig({
+          repositoryUrl: source.normalizedUrl,
+          description: parsed.description ?? "",
+          features,
+        }),
+        generationStatus: "SUCCEEDED",
+        supportReference,
+        deploymentTarget: "Azure App Service",
+        sourceOfTruth: "IMPORTED_REPOSITORY",
+        repositoryProvider: "GITHUB",
+        repositoryOwner: targetRepository.owner,
+        repositoryName: targetRepository.name,
+        repositoryUrl: targetRepository.url || null,
+        repositoryDefaultBranch: targetRepository.defaultBranch || null,
+        repositoryVisibility: isSharedOrgRepo ? null : repositoryVisibility,
+        repositoryStatus,
+        publishStatus: "NOT_STARTED",
+        publishErrorSummary,
+      },
+    });
+
+    await tx.repositoryImport.create({
+      data: {
+        appRequestId: appRequest.id,
+        sourceRepositoryUrl: source.normalizedUrl,
+        sourceRepositoryOwner: source.owner,
+        sourceRepositoryName: source.name,
+        sourceRepositoryDefaultBranch: repository.defaultBranch,
+        targetRepositoryOwner: targetRepository.owner,
+        targetRepositoryName: targetRepository.name,
+        targetRepositoryUrl: targetRepository.url || null,
+        targetRepositoryDefaultBranch: targetRepository.defaultBranch || null,
+        importStatus,
+        importErrorSummary,
+        compatibilityStatus: "NOT_SCANNED",
+        compatibilityFindings: [],
+        preparationStatus,
+      },
+    });
+
+    return appRequest;
+  });
+
+  await recordAuditEvent("EXISTING_APP_ADD_REQUESTED", {
+    requestId: request.id,
+    supportReference,
+    sourceRepositoryUrl: source.normalizedUrl,
+    targetRepositoryUrl: targetRepository.url || null,
+  });
+
+  if (!isSharedOrgRepo) {
+    await recordAuditEvent(
+      importStatus === "SUCCEEDED"
+        ? "EXISTING_APP_IMPORT_SUCCEEDED"
+        : "EXISTING_APP_IMPORT_FAILED",
+      {
+        requestId: request.id,
+        sourceRepository: `${source.owner}/${source.name}`,
+        targetRepository: `${targetRepository.owner}/${targetRepository.name}`,
+        error: importErrorSummary,
+      },
+    );
+  }
+
+  await safeNotifyAppEvent({
+    appRequestId: request.id,
+    eventKey:
+      repositoryStatus === "FAILED"
+        ? "REPOSITORY_FAILED"
+        : "EXISTING_APP_IMPORTED",
+    actorUserId: userId,
+    directRecipientUserIds: [userId],
+  });
+
+
+  return { requestId: request.id };
+}
+
+export async function retryRepositoryImportForActor(
+  actor: ImportActor,
+  requestId: string,
+  deps: { queue?: RepositoryImportQueue; now?: () => Date } = {},
+) {
+  const userId = actor.userId;
+  const isAdmin = actor.isAdmin;
+  const app = await prisma.appRequest.findFirst({
+    where: isAdmin ? { id: requestId } : { id: requestId, userId },
+    include: { repositoryImport: true },
+  });
+
+  if (!app) {
+    throw new Error("App not found.");
+  }
+  if (!app.repositoryImport || app.sourceOfTruth !== "IMPORTED_REPOSITORY") {
+    throw new Error("This app does not have a repository import to retry.");
+  }
+  if (app.repositoryImport.activeAttemptId) {
+    throw new Error("A repository import attempt is already active.");
+  }
+  if (
+    app.repositoryStatus !== "FAILED" ||
+    app.repositoryImport.importStatus !== "FAILED"
+  ) {
+    throw new Error("Repository import retry requires a failed import.");
+  }
+
+  const now = deps.now ?? (() => new Date());
+  const queuedAt = now();
+  const attempt = await prisma.$transaction(async (tx) => {
+    const resetImport = await tx.repositoryImport.updateMany({
+      where: {
+        id: app.repositoryImport!.id,
+        activeAttemptId: null,
+        importStatus: "FAILED",
+      },
+      data: {
+        importStatus: "PENDING",
+        importErrorSummary: null,
+        preparationStatus: "NOT_STARTED",
+        preparationErrorSummary: null,
+      },
+    });
+    if (resetImport.count !== 1) {
+      throw new Error("A repository import attempt is already active.");
+    }
+
+    const resetRequest = await tx.appRequest.updateMany({
+      where: { id: app.id, repositoryStatus: "FAILED" },
+      data: { repositoryStatus: "PENDING", publishErrorSummary: null },
+    });
+    if (resetRequest.count !== 1) {
+      throw new Error("Repository import retry state changed. Refresh and try again.");
+    }
+
+    return createImportAttempt(tx, {
+      repositoryImportId: app.repositoryImport!.id,
+      now: queuedAt,
+    });
+  });
+
+  const queue = deps.queue ?? createRepositoryImportQueue();
+  let queued = true;
+  try {
+    await queue.send({ attemptId: attempt.attemptId });
+  } catch {
+    queued = !(await finalizeRepositoryImportEnqueueFailure(
+      {
+        requestId: app.id,
+        repositoryImportId: app.repositoryImport.id,
+        attemptId: attempt.attemptId,
+        userId,
+        sourceOwner: app.repositoryImport.sourceRepositoryOwner,
+        sourceName: app.repositoryImport.sourceRepositoryName,
+        targetOwner: app.repositoryImport.targetRepositoryOwner,
+        targetName: app.repositoryImport.targetRepositoryName,
+      },
+      { now },
+    ));
+  }
+
+  return { requestId, queued };
+}
+
+export async function createManagedRepositoryForLocalAppForActor(
+  actor: ImportActor,
+  formData: FormData,
+) {
+  const parsed = localCodexAppSchema.parse({
+    appName: String(formData.get("appName") ?? ""),
+    description: String(formData.get("description") ?? ""),
+  });
+  const features = readImportedFeatures(formData);
+  const userId = actor.userId;
+  const githubConfig = loadGitHubAppConfig();
+  const owner = githubConfig.defaultOrg;
+
+  if (!githubConfig.allowedOrgs.includes(owner)) {
+    throw new Error(`Configured GitHub org "${owner}" is not allowed.`);
+  }
+
+  const github = createGitHubClientForOwner(owner, githubConfig);
+  const repositoryName = buildSharedOrgTargetName({
+    sourceName: parsed.appName,
+    existingNames: [],
+  });
+  const repository = await github.createRepository({
+    owner,
+    name: repositoryName,
+    visibility: githubConfig.defaultRepoVisibility,
+    files: {
+      [PORTAL_SKILL_PATH]: buildManagedAppPortalSkill(),
+    },
+    defaultBranch: "main",
+    autoInit: false,
+  });
+  const defaultBranch = repository.defaultBranch || "main";
+  const supportReference = createSupportReference();
+
+  const request = await prisma.$transaction(async (tx) => {
+    const template = await upsertImportedTemplate(tx);
+    const appRequest = await tx.appRequest.create({
+      data: {
+        userId,
+        templateId: template.id,
+        templateVersion: "1.0.0",
+        appName: parsed.appName,
+        submittedConfig: buildImportedSubmittedConfig({
+          repositoryUrl: repository.url,
+          description: parsed.description ?? "",
+          features,
+          localOnlySource: true,
+        }),
+        generationStatus: "SUCCEEDED",
+        supportReference,
+        deploymentTarget: "Azure App Service",
+        sourceOfTruth: "IMPORTED_REPOSITORY",
+        repositoryProvider: "GITHUB",
+        repositoryOwner: repository.owner,
+        repositoryName: repository.name,
+        repositoryUrl: repository.url,
+        repositoryDefaultBranch: defaultBranch,
+        repositoryVisibility: githubConfig.defaultRepoVisibility,
+        repositoryStatus: "READY",
+        publishStatus: "NOT_STARTED",
+      },
+    });
+
+    await tx.repositoryImport.create({
+      data: {
+        appRequestId: appRequest.id,
+        sourceRepositoryUrl: repository.url,
+        sourceRepositoryOwner: repository.owner,
+        sourceRepositoryName: repository.name,
+        sourceRepositoryDefaultBranch: defaultBranch,
+        targetRepositoryOwner: repository.owner,
+        targetRepositoryName: repository.name,
+        targetRepositoryUrl: repository.url,
+        targetRepositoryDefaultBranch: defaultBranch,
+        importStatus: "NOT_REQUIRED",
+        importErrorSummary: null,
+        compatibilityStatus: "NOT_SCANNED",
+        compatibilityFindings: [],
+        preparationStatus: "PENDING_USER_CHOICE",
+      },
+    });
+
+    return appRequest;
+  });
+
+  await recordAuditEvent("EXISTING_APP_ADD_REQUESTED", {
+    requestId: request.id,
+    supportReference,
+    source: "local-codex-app",
+    targetRepositoryUrl: repository.url,
+  });
+
+  await recordAuditEvent("EXISTING_APP_IMPORT_SUCCEEDED", {
+    requestId: request.id,
+    source: "local-codex-app",
+    targetRepository: `${repository.owner}/${repository.name}`,
+  });
+  await safeNotifyAppEvent({
+    appRequestId: request.id,
+    eventKey: "EXISTING_APP_IMPORTED",
+    actorUserId: userId,
+    directRecipientUserIds: [userId],
+  });
+  await safeNotifyAppEvent({
+    appRequestId: request.id,
+    eventKey: "REPOSITORY_READY",
+    actorUserId: userId,
+    directRecipientUserIds: [userId],
+  });
+
+
+  return { requestId: request.id };
+}
+
+function createDefaultPreparationGitHubClient(owner: string) {
+  return createGitHubClientForOwner(owner);
+}
+
+function hasLocalOnlySource(submittedConfig: unknown) {
+  return Boolean(
+    submittedConfig &&
+      typeof submittedConfig === "object" &&
+      "localOnlySource" in submittedConfig &&
+      submittedConfig.localOnlySource === true,
+  );
+}
+
+export async function prepareExistingAppForActor(
+  actor: ImportActor,
+  requestId: string,
+  formData: FormData,
+  deps: PrepareExistingAppDeps = {},
+) {
+  const mode = preparationModeSchema.parse(formData.get("preparationMode"));
+  const userId = actor.userId;
+  const isAdmin = actor.isAdmin;
+  const appRequest = await prisma.appRequest.findFirst({
+    where: appAccessWhere(requestId, userId, isAdmin),
+    include: { repositoryImport: true },
+  });
+
+  if (!appRequest) throw new PortalApiError("NOT_FOUND", "App not found.");
+
+  if (
+    !appRequest.repositoryOwner ||
+    !appRequest.repositoryName ||
+    !appRequest.repositoryDefaultBranch ||
+    !appRequest.repositoryImport
+  ) {
+    throw new Error("Imported app repository is not ready for preparation.");
+  }
+
+  const preparation = appRequest.repositoryImport;
+  const isInitialDirectPreparation =
+    preparation.preparationStatus === "PENDING_USER_CHOICE" &&
+    (mode === "DIRECT_COMMIT" || actor.source === "codex-mcp");
+  const isSameModeRetry =
+    preparation.preparationStatus === "FAILED" &&
+    preparation.preparationMode === mode;
+  const isConflictReview =
+    preparation.preparationStatus === "BLOCKED" &&
+    preparation.compatibilityStatus === "CONFLICTED" &&
+    mode === "PULL_REQUEST";
+  const isLocalUploadConfirmation =
+    isInitialDirectPreparation &&
+    hasLocalOnlySource(appRequest.submittedConfig);
+  const isPullRequestRetry = isSameModeRetry && mode === "PULL_REQUEST";
+  const isLocalPreparationRetry =
+    isSameModeRetry && hasLocalOnlySource(appRequest.submittedConfig);
+
+  if (!isInitialDirectPreparation && !isSameModeRetry && !isConflictReview) {
+    throw new Error("Imported app preparation is not awaiting this action.");
+  }
+
+  if (
+    ("source" in actor && actor.source === "codex-mcp") ||
+    isConflictReview ||
+    isLocalUploadConfirmation ||
+    isPullRequestRetry ||
+    isLocalPreparationRetry
+  ) {
+    const actor = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { githubUsername: true },
+    });
+    const actorAccess = await resolveRepositoryAccessForActor({
+      requestId: appRequest.id,
+      actorUserId: userId,
+      githubUsername: actor?.githubUsername ?? null,
+      legacyStatus: appRequest.repositoryAccessStatus,
+      legacyNote: appRequest.repositoryAccessNote,
+    });
+    const actorHasAccess = actorAccess.status === "GRANTED";
+
+    if (!actorHasAccess) {
+      const message = isConflictReview
+        ? "GitHub access for the signed-in user is required before opening a review."
+        : isLocalPreparationRetry
+          ? "GitHub access for the signed-in user is required before retrying a local upload."
+          : isPullRequestRetry
+            ? "GitHub access for the signed-in user is required before retrying a review."
+            : "GitHub access for the signed-in user is required before confirming a local upload.";
+
+      throw new Error(message);
+    }
+  }
+
+  const preparationTransitionWhere: Prisma.RepositoryImportWhereInput = {
+    id: preparation.id,
+    preparationStatus: preparation.preparationStatus,
+    ...(isSameModeRetry ? { preparationMode: mode } : {}),
+    ...(isConflictReview ? { compatibilityStatus: "CONFLICTED" } : {}),
+  };
+
+  const runningImport = await prisma.repositoryImport.updateMany({
+    where: preparationTransitionWhere,
+    data: {
+      preparationMode: mode,
+      preparationStatus: "RUNNING",
+      preparationErrorSummary: null,
+    },
+  });
+
+  if (runningImport.count !== 1) {
+    throw new Error("Imported app preparation is no longer awaiting this action.");
+  }
+
+  try {
+    const features = savedImportedFeatures(appRequest.submittedConfig);
+    const result = await prepareImportedRepository({
+      appName: appRequest.appName,
+      owner: appRequest.repositoryOwner,
+      name: appRequest.repositoryName,
+      defaultBranch: appRequest.repositoryDefaultBranch,
+      mode,
+      ...(features ? { features } : {}),
+      github:
+        deps.github ?? createDefaultPreparationGitHubClient(appRequest.repositoryOwner),
+    });
+
+    await prisma.repositoryImport.update({
+      where: { id: appRequest.repositoryImport.id },
+      data: {
+        preparationMode: mode,
+        ...(result.status === "COMMITTED"
+          ? { compatibilityStatus: "COMPATIBLE" as const }
+          : {}),
+        preparationStatus: result.status,
+        preparationPullRequestUrl: result.pullRequestUrl,
+        preparationErrorSummary: null,
+      },
+    });
+    await persistDetectedImportedConfig({
+      requestId,
+      submittedConfig: appRequest.submittedConfig,
+      runtime: result.runtime,
+      databaseProvider: result.databaseProvider,
+      entraLogin: result.entraLogin,
+    });
+
+    await recordAuditEvent(
+      result.status === "COMMITTED"
+        ? "REPOSITORY_PREPARATION_COMMITTED"
+        : "REPOSITORY_PREPARATION_PR_OPENED",
+      {
+        requestId,
+        pullRequestUrl: result.pullRequestUrl,
+      },
+    );
+
+    if (result.status === "COMMITTED") {
+      await completePublishingSetupBestEffort(requestId, userId);
+      await safeNotifyAppEvent({
+        appRequestId: requestId,
+        eventKey: "REPOSITORY_READY",
+        actorUserId: userId,
+        directRecipientUserIds: [userId],
+      });
+    }
+  } catch (error) {
+    const isPublishingConflict = isPublishingFileConflictError(error);
+    const isCompatibilityFailure = isRepositoryCompatibilityError(error);
+    const isLocalCompatibilityFailure =
+      hasLocalOnlySource(appRequest.submittedConfig) &&
+      isCompatibilityFailure;
+    const isGitHubAuthFailure = isGitHubAuthenticationError(error);
+    const isGitHubPermissionFailure =
+      isGitHubIntegrationPermissionError(error);
+    const message = isPublishingConflict
+      ? buildPublishingFileConflictFeedback(summarizeError(error))
+      : summarizePreparationError(error);
+
+    await prisma.repositoryImport.update({
+      where: { id: appRequest.repositoryImport.id },
+      data: {
+        preparationMode: mode,
+        ...(isPublishingConflict
+          ? { compatibilityStatus: "CONFLICTED" as const }
+          : isCompatibilityFailure
+            ? { compatibilityStatus: "UNSUPPORTED" as const }
+          : {}),
+        preparationStatus: isPublishingConflict
+          ? "BLOCKED"
+          : isLocalCompatibilityFailure
+            ? "PENDING_USER_CHOICE"
+            : "FAILED",
+        preparationErrorSummary: message,
+      },
+    });
+
+    await recordAuditEvent("REPOSITORY_PREPARATION_FAILED", {
+      requestId,
+      mode,
+      targetRepository: `${appRequest.repositoryOwner}/${appRequest.repositoryName}`,
+      error: message,
+    });
+    await safeNotifyAppEvent({
+      appRequestId: requestId,
+      eventKey: "REPOSITORY_FAILED",
+      actorUserId: userId,
+      directRecipientUserIds: [userId],
+    });
+
+    if (
+      isPublishingConflict ||
+      isCompatibilityFailure ||
+      isGitHubAuthFailure ||
+      isGitHubPermissionFailure
+    ) {
+      return;
+    }
+
+    throw error;
+  }
+
+}
+
+function formatPublishReadinessError(readiness: {
+  missingPaths: string[];
+  packageIssues: string[];
+}) {
+  if (readiness.packageIssues.length > 0) {
+    return `Repository is not ready for publishing: ${readiness.packageIssues.join("; ")}`;
+  }
+
+  return `Missing publishing files on default branch: ${readiness.missingPaths.join(", ")}`;
+}
+
+export async function verifyExistingAppPreparationForActor(
+  actor: ImportActor,
+  requestId: string,
+  deps: VerifyExistingAppPreparationDeps = {},
+) {
+  const userId = actor.userId;
+  const isAdmin = actor.isAdmin;
+  const appRequest = await prisma.appRequest.findFirst({
+    where: appAccessWhere(requestId, userId, isAdmin),
+    include: { repositoryImport: true },
+  });
+
+  if (!appRequest) throw new PortalApiError("NOT_FOUND", "App not found.");
+
+  if (
+    !appRequest.repositoryOwner ||
+    !appRequest.repositoryName ||
+    !appRequest.repositoryDefaultBranch ||
+    !appRequest.repositoryImport
+  ) {
+    throw new Error("Imported app repository is not ready for verification.");
+  }
+
+  const canVerifyPreparation =
+    appRequest.repositoryImport.preparationStatus === "PULL_REQUEST_OPENED";
+
+  if (!canVerifyPreparation) {
+    throw new Error(
+      "Imported app preparation is not awaiting PR merge verification.",
+    );
+  }
+
+  const features = savedImportedFeatures(appRequest.submittedConfig);
+  const readiness = await verifyImportedPublishReadiness({
+    ...(features ? { features } : {}),
+    owner: appRequest.repositoryOwner,
+    name: appRequest.repositoryName,
+    defaultBranch: appRequest.repositoryDefaultBranch,
+    github:
+      deps.github ?? createDefaultPreparationGitHubClient(appRequest.repositoryOwner),
+  });
+
+  if (!readiness.ready) {
+    await prisma.repositoryImport.updateMany({
+      where: {
+        id: appRequest.repositoryImport.id,
+        preparationStatus: appRequest.repositoryImport.preparationStatus,
+        ...(appRequest.repositoryImport.preparationPullRequestUrl
+          ? {
+              preparationPullRequestUrl:
+                appRequest.repositoryImport.preparationPullRequestUrl,
+            }
+          : {}),
+      },
+      data: {
+        preparationErrorSummary: formatPublishReadinessError(readiness),
+      },
+    });
+
+    return;
+  }
+
+  if (!readiness.runtime) {
+    throw new Error("Imported app readiness did not identify a runtime.");
+  }
+
+  const verifiedImport = await prisma.repositoryImport.updateMany({
+    where: {
+      id: appRequest.repositoryImport.id,
+      preparationStatus: appRequest.repositoryImport.preparationStatus,
+    },
+    data: {
+      preparationStatus: "COMMITTED",
+      preparationErrorSummary: null,
+    },
+  });
+
+  if (verifiedImport.count !== 1) {
+    throw new Error(
+      "Imported app preparation is not awaiting PR merge verification.",
+    );
+  }
+
+  await persistDetectedImportedConfig({
+    requestId,
+    submittedConfig: appRequest.submittedConfig,
+    runtime: readiness.runtime,
+    databaseProvider: readiness.databaseProvider,
+    entraLogin: readiness.entraLogin,
+  });
+
+  await recordAuditEvent("REPOSITORY_PREPARATION_VERIFIED", {
+    requestId,
+    targetRepository: `${appRequest.repositoryOwner}/${appRequest.repositoryName}`,
+  });
+
+  await completePublishingSetupBestEffort(requestId, userId);
+  await safeNotifyAppEvent({
+    appRequestId: requestId,
+    eventKey: "REPOSITORY_READY",
+    actorUserId: userId,
+    directRecipientUserIds: [userId],
+  });
+
+}

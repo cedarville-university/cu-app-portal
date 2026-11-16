@@ -79,6 +79,10 @@ function fakeServer() {
 
 function dependencies(): PortalMcpDependencies {
   return {
+    adoptExistingApp: vi.fn(async () => ({ requestId: "app-1" })),
+    getAppImportStatus: vi.fn() as PortalMcpDependencies["getAppImportStatus"],
+    prepareExistingAppForActor: vi.fn(),
+    verifyExistingAppPreparationForActor: vi.fn(),
     getMyProfile: vi.fn(async () => ({ displayName: actor.displayName, email: actor.email, githubUsername: "portal-user" })),
     setMyGitHubUsername: vi.fn(async (_actor, githubUsername) => ({ githubUsername })),
     authorizeEnvironmentApp: vi.fn().mockResolvedValue({ id: "app-1" }) as PortalMcpDependencies["authorizeEnvironmentApp"],
@@ -189,10 +193,14 @@ function modernRequest(method: string, params: Record<string, unknown>) {
 }
 
 describe("portal MCP server contract", () => {
-  it("registers the seventeen approved tools in workflow order", () => {
+  it("registers the twenty-one approved tools in workflow order", () => {
     const { tools } = registeredPortalTools();
 
     expect([...tools.keys()]).toEqual([
+      "adopt_existing_app",
+      "get_app_import_status",
+      "prepare_imported_app",
+      "verify_imported_app",
       "get_my_profile",
       "set_my_github_username",
       "list_app_templates",
@@ -655,7 +663,7 @@ describe("portal MCP mutation adapters", () => {
     "publish_app_to_azure",
     "repair_publishing_setup",
     "retry_publish",
-  ])("keeps imported and local app workflows out of %s", async (toolName) => {
+  ])("supports imported app workflows through %s", async (toolName) => {
     const importedApp = {
       ...managedApp,
       sourceOfTruth: "IMPORTED_REPOSITORY" as const,
@@ -672,25 +680,9 @@ describe("portal MCP mutation adapters", () => {
 
     const result = await tool(tools, toolName).handler(input);
 
-    expect(result).toEqual({
-      isError: true,
-      content: [
-        {
-          type: "text",
-          text: "Open CU Launch for this app workflow.",
-        },
-      ],
-      structuredContent: {
-        code: "ACTION_REQUIRED",
-        message: "Open CU Launch for this app workflow.",
-        retryAfterSeconds: null,
-      },
-    });
-    expect(deps.executeIdempotentMutation).not.toHaveBeenCalled();
-    expect(deps.grantRepositoryAccessForActor).not.toHaveBeenCalled();
-    expect(deps.queuePublishForActor).not.toHaveBeenCalled();
-    expect(deps.repairPublishingSetupForActor).not.toHaveBeenCalled();
-    expect(deps.retryPublishForActor).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ structuredContent: expect.any(Object) });
+
+    expect(deps.executeIdempotentMutation).toHaveBeenCalled();
   });
 });
 
@@ -736,5 +728,47 @@ describe("admin MCP successful and invalid calls", () => {
     const response = await createPortalMcpHandler({ ...actor, isAdmin: true }, deps)(modernRequest("tools/call", { name: "admin_find_users", arguments: {} }));
     expect((await response.json()).result.structuredContent).toMatchObject({ code: "RATE_LIMITED", retryAfterSeconds: 60 });
     expect(deps.adminFindUsers).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("existing app MCP lifecycle", () => {
+  const key = "53b6240b-2f6f-4ab8-bf70-3458b861bf3f";
+  it("records local adoption without template creation or deployment", async () => {
+    const { deps, tools } = registeredPortalTools();
+    const result = await tool(tools, "adopt_existing_app").handler({ idempotencyKey: key, appName: "Local app", description: "Existing code", databaseProvider: "none", entraLogin: true });
+    expect(result).toMatchObject({ structuredContent: { requestId: "app-1" } });
+    expect(deps.adoptExistingApp).toHaveBeenCalledWith(expect.objectContaining({ userId: actor.userId, source: "codex-mcp" }), expect.objectContaining({ idempotencyKey: key }));
+    expect(deps.createGeneratedApp).not.toHaveBeenCalled();
+    expect(deps.queuePublishForActor).not.toHaveBeenCalled();
+  });
+  it.each(["prepare_imported_app", "verify_imported_app"])("reauthorizes %s before a cached replay", async name => {
+    const deps = dependencies();
+    vi.mocked(deps.getAccessibleAppSummary).mockRejectedValue(new PortalApiError("NOT_FOUND", "App not found."));
+    const { tools } = registeredPortalTools(deps);
+    const result = await tool(tools, name).handler({ appId: "denied", idempotencyKey: key, ...(name === "prepare_imported_app" ? { mode: "DIRECT_COMMIT" } : {}) });
+    expect(result).toMatchObject({ isError: true, structuredContent: { code: "NOT_FOUND" } });
+    expect(deps.executeIdempotentMutation).not.toHaveBeenCalled();
+    expect(deps.prepareExistingAppForActor).not.toHaveBeenCalled();
+    expect(deps.verifyExistingAppPreparationForActor).not.toHaveBeenCalled();
+  });
+  it.each(["prepare_imported_app", "verify_imported_app"])("supports %s without deployment", async name => {
+    const { deps, tools } = registeredPortalTools({ getAppImportStatus: vi.fn().mockResolvedValue({ preparationStatus: "PULL_REQUEST_OPENED" }) });
+    const result = await tool(tools, name).handler({ appId: "app-1", idempotencyKey: key, ...(name === "prepare_imported_app" ? { mode: "PULL_REQUEST" } : {}) });
+    expect(result).toMatchObject({ structuredContent: { status: { preparationStatus: "PULL_REQUEST_OPENED" } } });
+    expect(name === "prepare_imported_app" ? deps.prepareExistingAppForActor : deps.verifyExistingAppPreparationForActor).toHaveBeenCalled();
+    expect(deps.executeIdempotentMutation).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: key, operation: name }));
+    expect(deps.queuePublishForActor).not.toHaveBeenCalled();
+  });
+  it.each([
+    { name: "adopt_existing_app", arguments: { idempotencyKey: key, appName: "App", description: "x", databaseProvider: "none", entraLogin: true, actorUserId: "other" } },
+    { name: "get_app_import_status", arguments: { appId: "x".repeat(129) } },
+    { name: "prepare_imported_app", arguments: { appId: "app", idempotencyKey: key, mode: "OVERWRITE" } },
+    { name: "verify_imported_app", arguments: { appId: "app", idempotencyKey: "invalid" } },
+  ])("validates $name before any side effects", async input => {
+    const deps = dependencies();
+    const response = await createPortalMcpHandler(actor, deps)(modernRequest("tools/call", input));
+    expect((await response.json()).result.isError).toBe(true);
+    expect(deps.adoptExistingApp).not.toHaveBeenCalled(); expect(deps.claimPortalRateLimit).not.toHaveBeenCalled();
   });
 });

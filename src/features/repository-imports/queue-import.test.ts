@@ -125,6 +125,12 @@ describe("queueExternalRepositoryImport", () => {
     expect(queue.send).toHaveBeenCalledWith({ attemptId: "attempt-123" });
   });
 
+  it("persists the caller creation identity and digest in the import transaction", async () => {
+    const { tx, db, queue } = createDependencies();
+    await queueExternalRepositoryImport({ ...input, requestIdentity: { requestId: "stable-request", digest: "choices-digest" } }, { db: db as never, queue, now: () => now });
+    expect(tx.appRequest.create).toHaveBeenCalledWith({ data: expect.objectContaining({ id: "stable-request", submittedConfig: expect.objectContaining({ adoptionDigest: "choices-digest" }) }) });
+  });
+
   it("returns pending after queue acceptance without running Git work", async () => {
     const { db, queue } = createDependencies();
 

@@ -10,7 +10,7 @@ instructions, and it does not authorize changes to portal UI workflows.
 The following is **locally verified** in the repository: disabled-by-default
 MCP configuration parsing; the protected `/api/mcp` route and
 `/.well-known/oauth-protected-resource` metadata route; bearer-token claim
-validation; seventeen tool adapters; rate-limit and idempotency contracts; the
+validation; twenty-one tool adapters; rate-limit and idempotency contracts; the
 skills-only plugin package; its marketplace descriptor; and the guarded
 finalizer script.
 
@@ -53,6 +53,10 @@ The supported tool list is deliberately narrow:
 15. `set_app_environment`
 16. `get_my_profile`
 17. `set_my_github_username`
+18. `adopt_existing_app`
+19. `get_app_import_status`
+20. `prepare_imported_app`
+21. `verify_imported_app`
 
 `request_github_access` accepts only the signed-in actor's GitHub username already saved in CU Launch settings. The portal records the app, actor, and normalized username before asking GitHub to grant access so later collaborator removal can revoke every recorded identity even if the profile changes.
 
@@ -113,25 +117,45 @@ plugin fallback, and official GitHub CLI recovery with secure sign-in and
 scoped helpers. It preserves existing work, remotes, and unrelated settings;
 it does not make blanket global Git changes or request secrets.
 
-Package `1.0.3+codex.20261113` and MCP server version `1.1.0` contain this source
+Package `1.0.4+codex.20261116` and MCP server version `1.2.0` contain this source
 update. Deploy the portal, refresh connected MCP tool metadata, and sync/review
 the updated workspace skill through the existing plugin release process before
 expecting installed users to receive both capabilities and instructions. Verify
 saved/missing identities, invitation acceptance, and local Git setup with a
 disposable app in the intended host; local tests alone do not prove that rollout.
 
-There is no delete, import, collaborator-management, secret-environment-variable, or
+There is no delete, collaborator-management, secret-environment-variable, or
 push-to-deploy tool. Launching a new app never publishes. The technical
 `create_app` tool stops after the app record and private managed repository are
 created. The approved launch workflow then requests the actor's repository
 access separately through `request_github_access`. Publish, repair, and retry each
 need a separate explicit request and a caller-provided idempotency UUID.
 
-Existing/local app imports, collaborator management, secret environment-variable
+Collaborator management, secret environment-variable
 management, push-to-deploy, deletion, and other excluded workflows must be
 completed in the CU Launch UI. The plugin must not substitute
 template-based launch for an excluded workflow or perform direct provider
 operations against GitHub, Azure, Entra, or other external services.
+
+## Adopt an existing Codex project
+
+Users can say **add this to CU Launch** inside their existing app project. The workspace skill inspects Git status/history/remotes and runtime compatibility, resolves GitHub identity and secure connection setup, and offers a concrete migration plan for incompatible architectures. Migration requires explicit approval before code changes. Declining leaves the app intact and reports the blocker. Template creation is never substituted for import.
+
+`adopt_existing_app` accepts `idempotencyKey` (UUID), `appName` (2–80 characters), `description` (up to 500), `databaseProvider` (`none` or `postgresql`), `entraLogin`, and optional `repositoryUrl` and `publicAcknowledgement: true`. All choices are explicit; public audience requires acknowledgement. Omit the URL for local upload: CU Launch creates the managed repository directly, then Codex preserves local history, loads the app-local skill, tests, and uploads intended files. An external GitHub source uses the existing durable import queue. Only remote history is mirrored. Preserve source remotes and add a verified `portal` remote in the same checkout.
+
+Creation uses a durable actor/UUID-derived app identity and input digest rather than an expiring response cache. Local provisioning persists the app before GitHub creation and uses its existing ownership marker for recovery. Reuse identical choices and UUID after interruption: this resumes that app, never a replacement. Changed input conflicts. A pending external attempt can be resent using the same attempt ID and atomic runner claim. A failed import is reviewed/retried through the UI; do not generate a new creation key to bypass failure. Import creation replay identity remains bound for the app's lifetime; other mutation response caches retain their seven-day boundary. Repeated creation/resume calls consume the import rate limit.
+
+A GitHub installation's private repository access does not establish the caller's authority. A source in a configured installation is resumed only when an existing portal app grants that actor access; otherwise the tool directs them to local upload or their app owner. Unreadable private sources never become public automatically and no credentials are accepted. Local upload must not bypass a denied managed-app lookup. Existing app authorization is checked before resuming or returning results, and before preparation/verification cache lookup.
+
+`get_app_import_status` accepts `appId`. It returns recorded import/preparation states, PR URL, attention flag, timestamps, and a fresh remote compatibility scan before preparation when the repository is ready. The scan is pinned to a Git commit and returns at most 50 fixed-schema findings plus a service-integration blocker; it never returns source files or raw provider errors. Fixed diagnostic codes/messages explain import failures, GitHub App authentication/permissions, compatibility, publishing-file conflicts, and merge verification blockers. A provider scan failure reports `compatibilityCheck: unavailable` while preserving recorded status. Already prepared or running states do not rerun the initial file-conflict scan. Status is not proof of application behavior, publishing-setup readiness, or live deployment health. Check `get_app` for setup and lifecycle actions.
+
+`prepare_imported_app` accepts `appId`, `mode` (`DIRECT_COMMIT` or `PULL_REQUEST`), and a separate UUID `idempotencyKey`. It requires current app authorization and actor-specific repository access. Preparation uses the shared server-side scanner and existing publishing bundle; direct writes stop on conflicts. A review can propose publishing changes for explicit review. After merge confirmation, `verify_imported_app` accepts `appId` and another UUID to verify default-branch publishing readiness and complete setup. Setup can provision app resources, so include it in import approval. Neither operation deploys. A new deliberate verification after a later merge uses a new key; uncertain transport responses reuse it. Inspect status after partial/uncertain results. An operation interrupted while preparation is RUNNING requires operator review; do not create another app or reset its state automatically.
+
+The existing access, publish, repair, and retry tools now accept authorized imported apps too. Publishing still requires a separate explicit request. Compatibility migration and database/authentication code integration happen locally under approved scope; the tool does not automatically copy data or implement sign-in.
+
+Dedicated per-actor limits are 3 adoption calls/hour (`PORTAL_MCP_RATE_IMPORT_MAX`), 6 preparations/hour (`PORTAL_MCP_RATE_PREPARE_MAX`), and 10 verifications/hour (`PORTAL_MCP_RATE_VERIFY_IMPORT_MAX`). Overrides may only lower defaults. Status uses the read limiter. No database migration is required.
+
+Release this through the existing portal deployment and workspace marketplace sync/review, preserving plugin/App identity and sharing. The previous source package was `1.0.3+codex.20261113`. Local tests are source evidence only. Verify no-remote upload, external import, migration acceptance/refusal, private-source fallback, invitation acceptance, PR merge verification, and separately requested publishing with disposable apps after deployment and refreshed MCP metadata/skills.
 
 ## Configuration and delegated identity gate
 

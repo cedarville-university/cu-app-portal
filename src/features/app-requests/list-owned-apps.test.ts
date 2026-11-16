@@ -78,7 +78,7 @@ describe("listOwnedAppSummaries", () => {
     expect(result.map((item) => item.id)).toEqual(["PORTAL_MANAGED_REPO-1"]);
     expect(mocks.appRequestFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "owner-1" } }));
   });
-  it("includes owned generated and imported apps but limits imported records to advanced portal management", async () => {
+  it("includes owned generated and imported apps with their supported lifecycle actions", async () => {
     mocks.appRequestFindMany.mockResolvedValue([
       app("PORTAL_MANAGED_REPO"),
       app("IMPORTED_REPOSITORY"),
@@ -92,7 +92,7 @@ describe("listOwnedAppSummaries", () => {
         }),
         expect.objectContaining({
           id: "IMPORTED_REPOSITORY-1",
-          allowedNextActions: ["open_portal_for_advanced_management"],
+          allowedNextActions: expect.arrayContaining(["get_app_import_status", "request_github_access", "repair_publishing_setup"]),
         }),
       ]),
     );

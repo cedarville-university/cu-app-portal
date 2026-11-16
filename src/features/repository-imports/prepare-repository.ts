@@ -59,7 +59,7 @@ type PrepareImportedRepositoryInput = {
   github: GitHubPreparationClient;
 };
 
-const READ_PATHS = [
+export const IMPORT_COMPATIBILITY_READ_PATHS = [
   "package.json",
   "package-lock.json",
   "pnpm-lock.yaml",
@@ -145,7 +145,7 @@ export async function prepareImportedRepository({
     owner,
     name,
     ref: head.sha,
-    paths: READ_PATHS,
+    paths: IMPORT_COMPATIBILITY_READ_PATHS,
   });
   const compatibility = scanRepositoryCompatibility(files);
 
