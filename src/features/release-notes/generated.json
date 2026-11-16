@@ -2,6 +2,7 @@
   {
     "date": "2026-11-16",
     "notes": [
+      "Try the advanced MCP server setup in the isolated testing preview, with an optional PostgreSQL database.",
       "MCP server starters can include managed PostgreSQL storage.",
       "Prepare MCP servers on Azure for use in your own plugins.",
       "After signing in, you can save your GitHub username for future apps or skip and add it later.",
