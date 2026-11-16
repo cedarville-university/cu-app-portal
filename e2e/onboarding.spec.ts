@@ -160,22 +160,52 @@ test.describe("novice onboarding", () => {
     await prisma.$disconnect();
   });
 
+  test("post-sign-in GitHub setup can be skipped or saved and reuses a saved username", async ({ page }) => {
+    const user = await prisma.user.findUniqueOrThrow({ where: { entraOid: "e2e-bypass-user" } });
+    try {
+      await prisma.user.update({ where: { id: user.id }, data: { githubUsername: null } });
+      await page.goto("/onboarding/github?returnTo=%2Fonboarding");
+      await expect(page.getByRole("heading", { name: "What's your GitHub username?" })).toBeVisible();
+      await expect(page.getByRole("link", { name: /open github/i })).toHaveAttribute("href", "https://github.com");
+      await expect(page.getByRole("link", { name: /open github/i })).toHaveAttribute("target", "_blank");
+      await page.screenshot({ path: test.info().outputPath("github-setup-desktop.png"), fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.screenshot({ path: test.info().outputPath("github-setup-mobile.png"), fullPage: true });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.getByRole("link", { name: "Skip for now" }).click();
+      await expect(page).toHaveURL(/\/onboarding$/);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).githubUsername).toBeNull();
+
+      await page.goto("/onboarding/github?returnTo=%2Fonboarding");
+      await page.getByRole("textbox", { name: "GitHub username", exact: true }).fill("not@valid");
+      await page.getByRole("button", { name: "Save and continue" }).click();
+      await expect(page.getByRole("main").getByRole("alert")).toContainText("Enter a valid GitHub username.");
+      await expect(page.getByRole("textbox", { name: "GitHub username", exact: true })).toHaveValue("not@valid");
+      await expect(page.getByRole("link", { name: "Skip for now" })).toBeVisible();
+
+      await page.getByRole("textbox", { name: "GitHub username", exact: true }).fill("E2E-GitHub-User");
+      await page.getByRole("button", { name: "Save and continue" }).click();
+      await expect(page).toHaveURL(/\/onboarding$/);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).githubUsername).toBe("e2e-github-user");
+      await page.goto("/onboarding/github?returnTo=%2Fapps");
+      await expect(page).toHaveURL(/\/apps$/);
+      await page.goto("/settings");
+      await expect(page.getByLabel("GitHub username")).toHaveValue("e2e-github-user");
+    } finally {
+      await prisma.user.update({ where: { id: user.id }, data: { githubUsername: user.githubUsername } });
+    }
+  });
+
   test("routes new and existing apps to the intended beginner forms", async ({
     page,
   }) => {
     await page.goto("/");
     await page
       .getByRole("main")
-      .getByRole("link", { name: "Launch New App", exact: true })
+      .getByRole("link", { name: "Launch Your App", exact: true })
       .click();
+    await page.getByRole("link", { name: /i need a new app/i }).click();
 
-    await expect(
-      page.getByRole("heading", { name: "Choose a starting point" }),
-    ).toBeVisible();
-    await expect(
-      page.getByText(/template gives you a ready-to-customize starting version/i),
-    ).toBeVisible();
-    await page.getByRole("link", { name: "Choose an app template" }).click();
     await expect(page.getByRole("heading", { name: "Launch New App" })).toBeVisible();
     await page
       .getByText("Public Information Page", { exact: true })
@@ -189,17 +219,15 @@ test.describe("novice onboarding", () => {
     await expect(page.getByRole("button", { name: "Launch App" })).toBeVisible();
 
     await page.goto("/");
-    await page.getByRole("link", { name: "Add Existing App", exact: true }).click();
-    await expect(page.getByRole("link", { name: "Already on GitHub" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Only on my computer" })).toBeVisible();
-
-    await page.getByRole("link", { name: "Already on GitHub" }).click();
+    await page.getByRole("main").getByRole("link", { name: "Launch Your App", exact: true }).click();
+    await page.getByRole("link", { name: /my app is already on github/i }).click();
     await expect(page).toHaveURL(/\/apps\/add\?source=github$/);
     await expect(page.getByRole("heading", { name: "Already on GitHub" })).toBeVisible();
     await expect(page.getByLabel("GitHub Repository URL")).toBeVisible();
 
     await page.goto("/onboarding?start=existing");
-    await page.getByRole("link", { name: "Only on my computer" }).click();
+    await expect(page).toHaveURL(/\/apps\/add\?source=github$/);
+    await page.goto("/onboarding?start=local");
     await expect(page).toHaveURL(/\/apps\/add\?source=local$/);
     await expect(page.getByRole("heading", { name: "Only on my computer" })).toBeVisible();
     await expect(page.getByLabel("Local App Name")).toBeVisible();
@@ -305,7 +333,7 @@ test.describe("novice onboarding", () => {
       .locator("..")
       .locator("..");
     const publishedManageLink = publishedCard.getByRole("link", {
-      name: "Manage App",
+      name: "E2E Published Starter", exact: true,
     });
     await expect(publishedManageLink).toHaveAttribute(
       "href",

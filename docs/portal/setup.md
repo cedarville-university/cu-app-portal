@@ -1,5 +1,24 @@
 # CU Launch Setup
 
+## Optional GitHub profile step after UI sign-in
+
+UI sign-in passes through `/onboarding/github` before resuming the original safe
+local destination. Users with a saved `User.githubUsername` continue immediately.
+Otherwise the step offers **Save and continue**, **Skip for now**, and an
+**Open GitHub** link to `https://github.com` in a separate tab. The page explains
+how to sign in or create an account, find the username on the profile, and return.
+Save updates only the signed-in user's username using the shared validator.
+Validation and save errors retain the input and keep skip available. Skipping
+writes nothing and applies to this sign-in; users can add the username later in
+Settings or complete a later prompt. Repository invitations remain app-specific
+and are not sent from this account step.
+
+The normal login button, protected-page login, and collaboration-invitation
+sign-in share this routing. Return paths reject external origins and auth/setup
+loops. `AUTH_URL` (or `NEXTAUTH_URL` / `PORTAL_APP_URL`) supplies the trusted origin
+for absolute same-origin callbacks from Auth.js. No schema migration or new
+environment setting is required. MCP bearer authentication remains unchanged.
+
 New Next.js and FastAPI starters with Cedarville sign-in request delegated Microsoft Graph `User.Read` and include server-side group membership helpers. See [the starter contract and validation steps](template-authoring.md#server-side-group-membership-checks). This does not change the portal's registration or tenant consent grants. Configure each hosted app's `AUTH_URL` as its public HTTPS URL and a strong random `AUTH_SECRET` (at least 32 characters for FastAPI). Users with older sessions must sign out and sign in again after an app adopts the helpers.
 
 The optional workspace plugin now includes self-profile tools for GitHub

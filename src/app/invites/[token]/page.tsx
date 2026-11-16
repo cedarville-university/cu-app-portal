@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import React from "react";
-import { getServerSession, signIn } from "@/auth/session";
+import { getServerSession } from "@/auth/session";
+import { loginAction } from "@/features/auth/login";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { acceptInviteFormAction } from "./actions";
 
@@ -19,9 +20,9 @@ export default async function InviteAcceptPage({
   if (!session?.user) {
     async function signInAction() {
       "use server";
-      await signIn("microsoft-entra-id", {
-        redirectTo: `/invites/${encodeURIComponent(token)}`,
-      });
+      const formData = new FormData();
+      formData.set("redirectTo", `/invites/${encodeURIComponent(token)}`);
+      await loginAction(formData);
     }
 
     return (
