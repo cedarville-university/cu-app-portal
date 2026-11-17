@@ -1,6 +1,6 @@
 # MCP server live pilot
 
-Status November 17, 2026: **Both isolated MCP servers published; diagnostic Entra/PKCE, MCP calls, refresh, PostgreSQL persistence after restart/reconnection, and wrong-server denial passed. Native host/Plugin Creator gates remain open. Template DISABLED outside the testing preview.** The [isolated portal testing deployment](mcp-server-testing-deployment-2026-11-16.md) verifies the portal form and portal sign-in. The separate [live pilot record](mcp-server-live-pilot-2026-11-17.md) records exact resources, successful workflows, the startup-probe repair, scoped access removal, and remaining verification.
+Status November 17, 2026: **Both isolated MCP servers published; private Plugin Creator save/update, native ChatGPT Work and Codex calls, and PostgreSQL persistence passed. Guest/two-user admission, prompted MFA/consent, native refresh, and representative publishing-identity checks remain. Template DISABLED outside the testing preview.** The [isolated portal testing deployment](mcp-server-testing-deployment-2026-11-16.md) verifies the portal form and portal sign-in. The separate [live pilot record](mcp-server-live-pilot-2026-11-17.md) records exact resources, successful workflows, the startup-probe repair, scoped access removal, and remaining verification.
 
 Local evidence covers the locked SDK 1.30.0, jose 6.2.10, zod 3.25.76, and Next.js 15.5.19; real locally signed JWTs; SDK initialization/tool listing/harmless call with protocol 2025-11-25; generated tests/typecheck/build without production credentials; and migration/lease checks on disposable PostgreSQL. These do not establish OAuth interoperability in Codex or ChatGPT.
 
@@ -17,12 +17,12 @@ Before activation:
 
 | Gate | Codex | ChatGPT |
 | --- | --- | --- |
-| Managed resource URL accepted | Entra accepted; native host pending | Entra accepted; native host pending |
-| Supported client binding and PKCE discovery | Pending | Pending |
-| Cedarville login, guest denial, two users | Pending | Pending |
-| Refresh, reconnect, restart | Pending | Pending |
-| MCP initialize, tools/list, harmless call | Pending | Pending |
-| Plugin Creator save/update and post-install call | Pending | Pending |
+| Managed resource URL accepted | Passed | Passed |
+| Supported client binding and PKCE discovery | Registered App binding passed; S256 confirmed and explicitly enabled | Registered App binding passed; S256 confirmed and explicitly enabled |
+| Cedarville login, guest denial, two users | Sign-in passed; guests/two users pending | Sign-in passed; guests/two users pending |
+| Refresh, reconnect, restart | SDK passed; host-managed behavior pending | SDK passed; host-managed behavior pending |
+| MCP initialize, tools/list, harmless call | SDK initialization and native tool discovery/calls passed | SDK initialization and native tool discovery/calls passed |
+| Plugin Creator save/update and post-install call | Private 0.1.1, same plugin ID, native calls passed | Private 0.1.1, same plugin ID, native calls passed |
 
 Attach safe timestamps/commit IDs/support references when testing. Do not record tokens, secrets, raw headers, or personal claims.
 

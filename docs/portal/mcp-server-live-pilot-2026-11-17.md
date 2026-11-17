@@ -1,6 +1,6 @@
 # Isolated MCP live pilot — November 17, 2026
 
-Status: **Both isolated servers published successfully; delegated MCP and PostgreSQL checks passed. Native Plugin Creator/host verification remains incomplete.** Production availability remains disabled.
+Status: **Both isolated servers published successfully; Plugin Creator save/update, native ChatGPT Work and local Codex tool calls, and PostgreSQL persistence passed.** Remaining admission and representative publishing-identity checks keep production availability disabled.
 
 ## Isolated resources
 
@@ -27,7 +27,7 @@ Both requests were submitted through the testing UI under the signed-in owner. G
 - Public health returned 200, resource discovery matched the exact endpoint/tenant/scope, and unauthenticated MCP POST returned 401 with the resource-metadata challenge. The no-database Web App has no `DATABASE_URL`; the PostgreSQL Web App uses a Key Vault reference. Neither has browser-auth credentials.
 - A real MCP SDK client completed authorization-code/PKCE S256 through Cedarville Entra, initialized both servers, listed tools, called `get_server_info`, refreshed each token, and called again. A token issued for the no-database server was rejected by the PostgreSQL server with 401. This is diagnostic-client evidence, not native Codex or ChatGPT evidence.
 - The PostgreSQL server's read-only tool retrieved the synthetic `cu-mcp-pilot-20261117-persisted` fixture using the authenticated tenant/object ID. Azure recorded the isolated app restart as successful at 17:26:53 UTC. The existing diagnostic session's first post-restart call timed out; a fresh Entra/PKCE connection then initialized, read the same persisted row, refreshed its token, and called successfully at 17:30:31 UTC. Access and refresh tokens stayed in process memory; no token was put in a plugin, file, or evidence report. Both diagnostic processes exited, discarding their in-memory credentials.
-- At 17:27 UTC, production app-setting, site-configuration, deployment-history, and traffic fingerprints still matched the fresh pre-pilot baseline. Both production health URLs returned HTTP 200 with `{"status":"ok"}`. The latest production deployment remained `864b4e45-2fe0-49bb-b623-cca678613918`.
+- The final post-native comparison, started at 18:15 UTC, confirmed production app-setting, site-configuration, deployment-history, and traffic fingerprints still matched the fresh pre-pilot baseline. Both production health URLs returned HTTP 200 with `{"status":"ok"}`. The latest production deployment remained `864b4e45-2fe0-49bb-b623-cca678613918`; the removed temporary vault grant was still absent.
 
 | Variant | Successful publish attempt | Terminal successful GitHub run |
 | --- | --- | --- |
@@ -53,7 +53,7 @@ The pilot instead uses two new **private personal repositories** under `mhollins
 
 The user explicitly approved and the operator applied preauthorization of only these two clients for the new APIs' `mcp.access` scopes, plus assignment of only Marc Hollins (`5cd2ddc7-1ef9-4f45-8fed-41d0cbb5b1ea`) to the four new enterprise applications. Assignment remains required. No shared registration, directory API permission, or tenant-wide consent grant changed. Automatic approval review rejected the enrollment before that exact approval; it was applied only after approval.
 
-The diagnostic flow used the new Codex pilot public client with `tokenEndpointAuthMethod: none`, `http://localhost:51857/callback`, the exact server's `<endpoint>/mcp.access` scope, `openid profile email offline_access`, and the endpoint as the resource indicator. Discovery used `https://login.microsoftonline.com/<tenant>/v2.0`; Entra accepted PKCE and the resource indicator. Native host callbacks must be obtained from their actual connection flows before registration. This localhost diagnostic recipe does not establish native host support.
+The diagnostic flow used the new Codex pilot public client with `tokenEndpointAuthMethod: none`, `http://localhost:51857/callback`, the exact server's `<endpoint>/mcp.access` scope, `openid profile email offline_access`, and the endpoint as the resource indicator. Discovery used `https://login.microsoftonline.com/<tenant>/v2.0`; Entra accepted PKCE and the resource indicator. These diagnostic results are separate from the later native host verification below.
 
 The operator separately approved temporary **Key Vault Secrets Officer** on the single pilot vault above. Assignment `d188c147-6e72-47f7-970c-63a04e7658c1` was removed after publishing and its absence read back. Workload access remains intact. The broader resource-group grant was rejected and was not applied.
 
@@ -61,10 +61,30 @@ The operator separately approved temporary **Key Vault Secrets Officer** on the 
 
 Two complete private-test packages were built and inspected using Plugin Creator's existing-server instructions and the documented portable manifests. Each contains the two verified Azure endpoints, one of the new public OAuth client IDs, explicit scopes, and a read-only verification skill. No Sites server, client secret, or bearer token is included.
 
-Plugin Creator returned `502: Plugin archive is unavailable` for both a readable temporary path and a readable worktree path. No plugin ID or successful save was returned. The packages remain in the ignored pilot workspace for retry; creation, update, sharing preservation, installation, native OAuth, and post-install calls are **unverified**. Native Codex UI automation was unavailable; the ChatGPT browser fallback requires the operator's sign-in. Do not create placeholder plugins or claim native host success from the diagnostic client results.
+Initial `create_plugin` calls returned `502: Plugin archive is unavailable`; no creation was repeated while uncertain. After the user's ChatGPT browser sign-in, the supported archive uploader saved [CU MCP Pilot ChatGPT](https://chatgpt.com/plugins/Plugin_d4c630c9c84881918f90bebcdea1fca1), version 0.1.0, under exact ID `Plugin_d4c630c9c84881918f90bebcdea1fca1`. Source inspection confirmed both MCP definitions and the verification skill. The package initially offered only **Open in desktop app**, demonstrating that portable MCP packaging alone did not register a cloud connection.
+
+Both existing Azure endpoints were then registered through ChatGPT's custom MCP flow. The actual callbacks were appended only to the new ChatGPT pilot client, preserving all other client settings. Both connections show the intended Cedarville account and **Authorization used OAuth**. They remain user-owned development connections; **Publish to workspace** was not used.
+
+| Connection | Actual App ID from settings | Actual generated callback |
+| --- | --- | --- |
+| No database | `asdk_app_6afc95faeb248191a3c6c4d62125ffbe` | `https://chatgpt.com/connector/oauth/6dvcjkGL8l4j` |
+| PostgreSQL | `asdk_app_6afc96fe0f0c819197872d864a135fa8` | `https://chatgpt.com/connector/oauth/Ko4Cy5HmK0Nm` |
+
+The native flow uses the ChatGPT pilot OAuth client `f30c43d6-9714-4d12-a546-5c16f28f5750` with token endpoint auth `none`, no secret, the matching server/resource endpoints, its full custom scope selected as the default, and `openid profile email offline_access` base scopes. OIDC discovery stayed enabled. S256 was enabled after the real diagnostic proved support, because Entra v2 metadata left the host's S256 option unchecked. Callbacks were registered as public-client redirects. The same registered App connections are usable from ChatGPT Work and Codex; a separate Codex OAuth client was not needed for that App-binding route.
+
+`update_plugin` successfully updated the **same** plugin to 0.1.1, release `pluginrel_6afc97c8caa88191990d970c4efc84ad`. Root `.app.json` binds these verified App IDs; both raw MCP maps are empty to avoid duplicate server connections. Read-back confirmed the complete default prompt and skill were preserved, and sharing remained **PRIVATE, owner only**. The browser then offered **Install plugin**, and installation succeeded with both apps showing **Connected**. No Sites call or second Azure server was needed for registration.
+
+With the user's explicit approval for each new chat, the installed plugin was tested separately:
+
+| Host | Verification chat | Actual completed MCP calls |
+| --- | --- | --- |
+| ChatGPT Work | `6afc9847-b6d8-83ea-a2f4-b5ba2b240669`, **Pilot verification report**; backing execution `6afc9853-8f38-8191-abdc-bb767093400f` | Both `get_server_info` calls and PostgreSQL `get_pilot_storage_check({})` |
+| Local Codex | `01a1eab4-b151-7f10-9325-a9ee27338090`, **Verify CU Launch MCP in Codex** | Both `get_server_info` calls and PostgreSQL `get_pilot_storage_check({})` |
+
+Both execution records contain the three completed `codex_apps` MCP calls. Both hosts reported `isError: false`, the correct server names, and the actual storage result `{"storage":"postgresql","rowPresent":true,"value":"cu-mcp-pilot-20261117-persisted"}`. No authentication/discovery error or mutation occurred. Tool results report server version 1.0.0; package version 0.1.1 was verified separately through Plugin Creator source and metadata. Host-side wire initialization and native refresh behavior were not separately captured; the real SDK refresh/reconnect evidence above remains distinct.
 
 ## Remaining live checks
 
-Complete private Plugin Creator save/update, host installation/OAuth, and actual post-install tool calls when the upload/host prerequisites are available. Codex and ChatGPT must be verified independently. Real two-user, guest-admission, and prompted MFA/consent tests require additional operator participation; configured assignment requirements and automated JWT tests are not substitutes.
+Real two-user, guest-admission, prompted MFA/consent, and host-managed refresh/reconnect tests remain. They require additional operator participation or a longer-lived native session; configured assignment requirements and automated JWT tests are not substitutes. Normal managed-organization GitHub App bootstrap and representative publishing-identity directory permissions remain unverified by the local operator adapter.
 
-No test plugin has been created yet. Keep the production template disabled until the remaining pilot gates and representative publishing-identity permissions are proven. Retain the dedicated test resources and private repositories for host verification; they are isolated but continue to incur Azure charges. Remove them through a deliberate cleanup after that verification. Local diagnostic clients, SSH forwarding, and the Azure tunnel were stopped; their three loopback ports no longer listen. The temporary public SSH host-key helper was removed from testing and an authenticated read returned 404. No production credential was copied into testing or plugin files.
+Keep the production template disabled until the remaining pilot gates and representative publishing-identity permissions are proven. Retain the private plugin, development connections, dedicated test resources, and private repositories for these checks; Azure resources continue to incur charges. Remove them through deliberate scoped cleanup afterward. Local diagnostic clients, SSH forwarding, and the Azure tunnel were stopped; their three loopback ports no longer listen. The temporary public SSH host-key helper was removed from testing and an authenticated read returned 404. No production credential was copied into testing or plugin files. CU Launch's source plugin guidance now includes this tested cloud-registration handoff; this pilot does not publish that update to the production CU Launch plugin.

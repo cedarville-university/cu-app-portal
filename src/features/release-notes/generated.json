@@ -2,6 +2,7 @@
   {
     "date": "2026-11-17",
     "notes": [
+      "CU Launch now explains how to connect Azure-hosted MCP servers to plugins in ChatGPT and Codex.",
       "New MCP servers have more time to start before publishing is marked unsuccessful."
     ]
   },

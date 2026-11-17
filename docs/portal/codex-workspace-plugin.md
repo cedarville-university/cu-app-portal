@@ -1,6 +1,6 @@
 # CU Launch Codex Workspace Plugin Operations
 
-The source plugin now includes an advanced MCP-server/Plugin Creator route. The MCP template remains disabled pending the live pilot. `get_app` adds nullable nonsecret `mcp` connection metadata; existing tools, access checks, and mutation replay rules remain unchanged. See [MCP servers](mcp-servers.md) and [agent evaluations](mcp-agent-evaluations.md). Source version 1.0.4+codex.20261116 does not prove installed workspace availability.
+The source plugin now includes an advanced MCP-server/Plugin Creator route, including the registered App connection needed for ChatGPT cloud. Both pilot variants passed native ChatGPT Work and Codex calls; remaining admission and publishing-identity checks keep the template disabled. `get_app` adds nullable nonsecret `mcp` connection metadata; existing tools, access checks, and mutation replay rules remain unchanged. See [MCP servers](mcp-servers.md) and [agent evaluations](mcp-agent-evaluations.md). Source version 1.0.5+codex.20261117 does not prove installed workspace availability; the production CU Launch plugin has not been updated by this pilot.
 
 This runbook is for portal operations, Entra administrators, and Codex
 workspace administrators. It describes the optional CU Launch
