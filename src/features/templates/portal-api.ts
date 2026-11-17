@@ -1,4 +1,5 @@
 import { getActiveTemplates } from "./catalog";
+import { getTemplatePolicy } from "./policy";
 import type { FeatureMode } from "./types";
 
 export type PortalTemplateSummary = {
@@ -7,7 +8,9 @@ export type PortalTemplateSummary = {
   description: string;
   decisionSummary: string;
   bestFor: string[];
-  category: "recommended" | "developer";
+  category: "recommended" | "developer" | "advanced";
+  applicationKind: "web-app" | "mcp-server";
+  authenticationMode: "browser" | "entra-mcp";
   hostingTarget: "Azure App Service";
   database: {
     mode: FeatureMode;
@@ -32,6 +35,6 @@ export function listPortalTemplateSummaries(): PortalTemplateSummary[] {
         ...(template.features.database.mode === "required" ? [] : ["none" as const]),
       ],
     },
-    audience: { cedarville: true, public: true },
+    ...getTemplatePolicy(template),
   }));
 }

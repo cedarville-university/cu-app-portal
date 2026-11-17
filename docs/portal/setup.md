@@ -1,5 +1,7 @@
 # CU Launch Setup
 
+The advanced MCP template uses per-server delegated Entra resources rather than the shared browser-login registration. It remains disabled pending a live pilot. See [MCP setup](mcp-servers.md#identity-and-operator-setup) for guarded `AZURE_PUBLISH_MCP_AUTOMATION_ENABLED` and `AZURE_PUBLISH_MCP_CLIENT_IDS` operator settings. Apply migration `20261116160000_add_app_mcp_configuration` before this portal/worker version.
+
 ## Optional GitHub profile step after UI sign-in
 
 UI sign-in passes through `/onboarding/github` before resuming the original safe

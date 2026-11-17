@@ -1,5 +1,7 @@
 # CU Launch
 
+The advanced MCP server starter and CU Launch–Plugin Creator handoff are approved for production rollout. The starter retains Azure hosting, requires Cedarville sign-in, and offers optional managed PostgreSQL, defaulting to no database. See [MCP servers](docs/portal/mcp-servers.md) and the [production rollout record](docs/portal/mcp-server-production-rollout-2026-11-17.md) for current deployment status and per-server Entra enrollment.
+
 Azure deployments keep the Next.js runtime cache in writable `/home/cu-app-portal/next-cache` storage. The deployment package links `.next/cache` there, and `npm start` creates the target before starting the server. See [technical operations](docs/portal/technical-operations.md) for deployment details.
 
 CU Launch is Cedarville's internal portal for staff to launch managed GitHub repositories from approved templates and publish them through CU Launch.

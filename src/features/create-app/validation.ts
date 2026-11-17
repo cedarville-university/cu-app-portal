@@ -1,10 +1,11 @@
 import { z } from "zod";
-import type { TemplateFeatures } from "@/features/templates/types";
+import type { TemplateFeatures, TemplateAudience } from "@/features/templates/types";
 
 export type CreateAppSchemaOptions = {
   hostingTarget: "Azure App Service";
   features: TemplateFeatures;
   requirePublicAcknowledgement?: boolean;
+  audience?: TemplateAudience;
 };
 
 function toAzureAppSlug(value: string) {
@@ -59,6 +60,10 @@ export function createAppSchema(options: CreateAppSchemaOptions) {
       .union([z.literal("on"), z.literal(true)])
       .optional(),
   }).superRefine((value, ctx) => {
+    const audience = options.audience ?? { cedarville: true, public: true };
+    if (value.entraLogin ? !audience.cedarville : !audience.public) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["entraLogin"], message: "Choose an audience supported by this template. Cedarville sign-in is required for MCP servers." });
+    }
     if (
       features.database.mode === "unsupported" &&
       value.databaseProvider !== "none"

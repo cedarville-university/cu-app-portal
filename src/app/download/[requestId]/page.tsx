@@ -43,6 +43,8 @@ import { removeAppCollaboratorAction } from "@/features/collaboration-invites/ac
 import { CollaborationInvitePanel } from "@/features/collaboration-invites/invite-panel";
 import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
 import { AppReadinessChecklist } from "@/features/app-details/app-readiness-checklist";
+import { McpConnectionCard } from "@/features/app-details/mcp-connection-card";
+import { buildMcpConnectionSummary } from "@/features/mcp-servers/connection-summary";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
 import { getLoginUpdateFramework } from "@/features/app-details/login-update";
 import { getImportedLoginReview, needsImportedLoginReview } from "@/features/repository-imports/login-review";
@@ -829,6 +831,7 @@ function renderPushToDeployButton(request: {
 }
 
 function renderDeletePanel(request: {
+  mcpIdentity?: boolean;
   id: string;
   repositoryOwner: string | null;
   repositoryName: string | null;
@@ -886,6 +889,7 @@ function renderDeletePanel(request: {
                 <input name="deleteAzure" type="checkbox" />
                 <span>
                   Delete Azure deployment
+                  {request.mcpIdentity ? " and its owned MCP identity" : ""}
                   {request.azureWebAppName ? (
                     <>: Web App {request.azureWebAppName}</>
                   ) : null}
@@ -963,6 +967,7 @@ export default async function DownloadPage({
     where: appAccessWhere(requestId, userId, isAdmin),
     include: {
       template: { select: { slug: true } },
+      mcpConfiguration: true,
       user: {
         select: {
           displayName: true,
@@ -1132,6 +1137,7 @@ export default async function DownloadPage({
           publishStatus={appRequest.publishStatus}
           audience={appAudience}
         />
+        {appRequest.template.slug === "mcp-server" ? <McpConnectionCard connection={buildMcpConnectionSummary(appRequest.mcpConfiguration,{published:appRequest.publishStatus === "SUCCEEDED"})} /> : null}
 
         {appRequest.publishStatus === "SUCCEEDED" && displayPublishUrl ? (
           <a
@@ -1463,6 +1469,7 @@ export default async function DownloadPage({
 
         {canDeleteAppRequest
           ? renderDeletePanel({
+              mcpIdentity: appRequest.template.slug === "mcp-server",
               id: appRequest.id,
               repositoryOwner: appRequest.repositoryOwner,
               repositoryName: appRequest.repositoryName,

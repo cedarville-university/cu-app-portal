@@ -15,6 +15,22 @@ const createdAppNamePrefix = "E2E Created Starter";
 const createdAppName = `${createdAppNamePrefix} Handoff`;
 const createdRequestIds: string[] = [];
 
+test("MCP creation stays gated and a published fixture shows the Plugin Creator handoff", async ({ page }) => {
+  await page.goto("/create");
+  await expect(page.getByText("MCP Server (Advanced)", { exact: true })).toHaveCount(0);
+  const user=await prisma.user.upsert({where:{entraOid:"e2e-bypass-user"},update:{},create:{entraOid:"e2e-bypass-user",email:"e2e-bypass@cedarville.edu",displayName:"E2E Bypass User"}});
+  const template=await prisma.template.upsert({where:{slug:"mcp-server"},update:{},create:{slug:"mcp-server",name:"MCP Server (Advanced)",description:"MCP fixture",version:"1.0.0",status:"DISABLED",inputSchema:{},hostingOptions:[]}});
+  const id="e2e-mcp-connection";
+  await prisma.appRequest.deleteMany({where:{id}});
+  try {
+    await prisma.appRequest.create({data:{id,userId:user.id,templateId:template.id,templateVersion:"1.0.0",appName:"MCP connection fixture",submittedConfig:{templateSlug:"mcp-server",entraLogin:true,databaseProvider:"none"},generationStatus:"SUCCEEDED",repositoryStatus:"READY",publishStatus:"SUCCEEDED",sourceOfTruth:"PORTAL_MANAGED_REPO",supportReference:"E2E-MCP",mcpConfiguration:{create:{endpointUrl:"https://fixture.azurewebsites.net/api/mcp",tenantId:"fixture-tenant",setupStatus:"READY"}}}});
+    await page.goto(`/download/${id}`);
+    await expect(page.getByRole("heading",{name:"Connect your plugin"})).toBeVisible();
+    await expect(page.getByRole("link",{name:"https://fixture.azurewebsites.net/api/mcp"})).toBeVisible();
+    await expect(page.getByText(/Sites is not required/)).toBeVisible();
+  } finally { await prisma.appRequest.deleteMany({where:{id}}); }
+});
+
 function e2eAppRequestWhere() {
   return {
     OR: [

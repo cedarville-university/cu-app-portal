@@ -100,6 +100,28 @@ model AppRequest {
   collaborationInvites CollaborationInvite[]
   notificationDeliveries NotificationDelivery[]
   environmentVariables AppEnvironmentVariable[]
+  mcpConfiguration AppMcpConfiguration?
+}
+
+model AppMcpConfiguration {
+  appRequestId String @id
+  profileVersion String @default("1.0")
+  endpointUrl String
+  tenantId String
+  applicationObjectId String? @unique
+  applicationClientId String? @unique
+  servicePrincipalId String? @unique
+  scopeId String?
+  setupStatus String @default("NOT_STARTED")
+  failureCode String?
+  checkedAt DateTime?
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  probeStatus String @default("NOT_CHECKED")
+  probeAttemptId String?
+  probeCommitSha String?
+  probeCheckedAt DateTime?
+  appRequest AppRequest @relation(fields: [appRequestId], references: [id], onDelete: Cascade)
 }
 
 model RepositoryAccessGrant {

@@ -1,4 +1,5 @@
 import type { AppServiceRuntime, PortalTemplate, TemplateCategory, TemplateField } from "./types";
+import { getTemplatePolicy } from "./policy";
 
 const sharedFields: TemplateField[] = [
   { name: "appName", label: "App Name", type: "text", required: true },
@@ -196,20 +197,43 @@ const templates: PortalTemplate[] = [
     status: "ACTIVE",
     fields: sharedFields,
   },
+  {
+    id: "mcp-server-v1", slug: "mcp-server", name: "MCP Server (Advanced)",
+    description: "Host tools for your own ChatGPT or Codex plugins on Azure.",
+    decisionSummary: "Requires Codex customization and Cedarville sign-in. Connect your Azure-hosted server to your own plugin with Plugin Creator.",
+    bestFor: ["Custom plugin backends", "Internal read-only integrations", "Developer-authored tools"],
+    category: "advanced", applicationKind: "mcp-server", authenticationMode: "entra-mcp",
+    audience: { cedarville: true, public: false },
+    hostingTarget: "Azure App Service", appServiceRuntime: nextAppServiceRuntime,
+    features: { database: { mode: "optional", providerOptions: ["postgresql"], defaultProvider: "none" }, entraLogin: { mode: "required", defaultEnabled: true } },
+    version: "1.0.0", status: "ACTIVE", fields: sharedFields,
+  },
 ];
 
 const templateGroupLabels: Record<TemplateCategory, string> = {
   recommended: "Recommended Templates",
   developer: "Developer Starters",
+  advanced: "Advanced Templates",
 };
 
 export function getActiveTemplates() {
-  return templates.filter((template) => template.status === "ACTIVE");
+  const testingPreview =
+    process.env.WEBSITE_HOSTNAME === "cu-app-portal-testing.azurewebsites.net" &&
+    process.env.CU_LAUNCH_MCP_TEMPLATE_PREVIEW === "true";
+  return templates
+    .filter(
+      (template) =>
+        template.status === "ACTIVE" ||
+        (testingPreview && template.slug === "mcp-server"),
+    )
+    .map((template): PortalTemplate =>
+      template.status === "ACTIVE" ? template : { ...template, status: "ACTIVE" },
+    );
 }
 
 export function getActiveTemplateGroups() {
   const activeTemplates = getActiveTemplates();
-  const categories: TemplateCategory[] = ["recommended", "developer"];
+  const categories: TemplateCategory[] = ["recommended", "developer", "advanced"];
 
   return categories
     .map((category) => ({
@@ -242,6 +266,7 @@ export function serializeTemplateForStorage(template: PortalTemplate) {
     version: template.version,
     status: template.status,
     inputSchema: {
+      ...getTemplatePolicy(template),
       fields: template.fields,
       category: template.category,
       ...(template.sourceTemplateSlug

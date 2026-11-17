@@ -1,15 +1,19 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { recoverPublishAttempt, reconcileClaimedPublish, type RecoveryAttempt, type RecoveryEvidence } from "./recovery";
+import { recoverPublishAttempt, reconcileClaimedPublish, defaultRecoveryEvidence, type RecoveryAttempt, type RecoveryEvidence } from "./recovery";
+import { verifyMcpDeployment } from "@/features/mcp-servers/verify-deployment";
+import { verifyPublishedUrl } from "./azure/verify-deployment";
+vi.mock("@/features/mcp-servers/verify-deployment", () => ({ verifyMcpDeployment: vi.fn() }));
+vi.mock("./azure/verify-deployment", () => ({ verifyPublishedUrl: vi.fn() }));
 import { prisma } from "@/lib/db";
-import { persistPublishProgress } from "./worker-lease";
+import { claimPublishAttempt, persistPublishProgress, releasePublishClaim, renewPublishClaim } from "./worker-lease";
 vi.mock("@/lib/db", () => ({ prisma: {
   publishAttempt: { findUnique: vi.fn(), findFirst: vi.fn() },
-  appRequest: { updateMany: vi.fn() },
+  appRequest: { updateMany: vi.fn(), findUnique: vi.fn() },
   $transaction: vi.fn(),
 } }));
 vi.mock("@/lib/audit", () => ({ recordAuditEvent: vi.fn() }));
-vi.mock("./worker-lease", () => ({ persistPublishProgress: vi.fn().mockResolvedValue(undefined), claimPublishAttempt: vi.fn(), releasePublishClaim: vi.fn() }));
+vi.mock("./worker-lease", () => ({ persistPublishProgress: vi.fn().mockResolvedValue(undefined), claimPublishAttempt: vi.fn(), releasePublishClaim: vi.fn(), renewPublishClaim: vi.fn() }));
 
 const claim = { attemptId: "attempt", token: "lease" };
 const attempt = {
@@ -21,6 +25,43 @@ let evidence: RecoveryEvidence;
 beforeEach(() => { vi.clearAllMocks(); evidence = { workflow: vi.fn().mockResolvedValue({ status: "completed", conclusion: "success" }), health: vi.fn().mockResolvedValue({ verifiedAt: new Date() }) }; });
 
 describe("interrupted publishing recovery", () => {
+  it("keeps its claim alive through slow workflow and MCP startup verification", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({ ...attempt, appRequestId: "app", appRequest: { ...attempt.appRequest, publishStatus: "DEPLOYING" } } as RecoveryAttempt);
+      vi.mocked(prisma.publishAttempt.findFirst).mockResolvedValue({ id: "attempt" } as never);
+      vi.mocked(claimPublishAttempt).mockResolvedValue(claim);
+      let leaseExpiresAt = Date.now() + 120_000;
+      vi.mocked(renewPublishClaim).mockImplementation(async () => { leaseExpiresAt = Date.now() + 120_000; });
+      vi.mocked(evidence.workflow).mockImplementation(async () => {
+        await new Promise(resolve => setTimeout(resolve, 50_000));
+        return { status: "completed", conclusion: "success" };
+      });
+      vi.mocked(evidence.health).mockImplementation(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100_000));
+        return { verifiedAt: new Date() };
+      });
+      vi.mocked(persistPublishProgress).mockImplementationOnce(async () => {
+        if (Date.now() >= leaseExpiresAt) throw new Error("Lease expired");
+      });
+      const result = recoverPublishAttempt("attempt", {}, evidence).then(value => ({ value }), error => ({ error }));
+      await vi.advanceTimersByTimeAsync(150_000);
+      expect(await result).toEqual({ value: "succeeded" });
+      expect(renewPublishClaim).toHaveBeenCalledWith(claim);
+      expect(releasePublishClaim).toHaveBeenCalledWith(claim);
+      const count = vi.mocked(renewPublishClaim).mock.calls.length;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(renewPublishClaim).toHaveBeenCalledTimes(count);
+    } finally { vi.useRealTimers(); }
+  });
+  it("does not recover an MCP attempt through the generic health fallback", async () => {
+    vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({template:{slug:"mcp-server"}} as never);
+    vi.mocked(verifyPublishedUrl).mockResolvedValue({verifiedAt:new Date()});
+    vi.mocked(verifyMcpDeployment).mockRejectedValue(new Error("MCP discovery failed"));
+    expect(await reconcileClaimedPublish(attempt,claim,{}, {...defaultRecoveryEvidence,workflow:evidence.workflow})).toBe("failed");
+    expect(verifyMcpDeployment).toHaveBeenCalledWith("app","https://app.azurewebsites.net");
+    expect(verifyPublishedUrl).not.toHaveBeenCalled();
+  });
   it("keeps an actionable auto-deploy warning when a reviewed first publish is recovered", async () => {
     const first = { ...attempt, appRequest: { ...attempt.appRequest, sourceOfTruth: "IMPORTED_REPOSITORY", deploymentTriggerMode: "PUSH_TO_DEPLOY", submittedConfig: { entraLogin: true }, lastPublishedAt: null } } as RecoveryAttempt;
     expect(await reconcileClaimedPublish(first, claim, {}, evidence)).toBe("succeeded");
@@ -53,7 +94,7 @@ describe("interrupted publishing recovery", () => {
   });
   it("requires a successful recorded workflow and current healthy URL before completing both records", async () => {
     expect(await reconcileClaimedPublish(attempt, claim, {}, evidence)).toBe("succeeded");
-    expect(evidence.health).toHaveBeenCalledWith("https://app.azurewebsites.net");
+    expect(evidence.health).toHaveBeenCalledWith("https://app.azurewebsites.net","app");
     expect(persistPublishProgress).toHaveBeenCalledWith(claim, "app", expect.objectContaining({ status: "SUCCEEDED", stage: "COMPLETED", verifiedAt: expect.any(Date) }), expect.objectContaining({ publishStatus: "SUCCEEDED", publishingSetupStatus: "READY" }));
   });
   it("preserves the root fallback warning when recovering a successful deployment", async () => {

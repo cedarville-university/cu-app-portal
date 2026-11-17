@@ -56,6 +56,12 @@ function buildTemplate(overrides: Partial<PortalTemplate> = {}): PortalTemplate 
 }
 
 describe("TemplateFormFields", () => {
+  it("offers optional PostgreSQL for MCP with no database selected initially", () => {
+    render(<TemplateFormFields template={getTemplateBySlug("mcp-server")!} />);
+    expect(screen.getByRole("radio",{name:"No database"})).toBeChecked();
+    expect(screen.getByRole("radio",{name:"PostgreSQL"})).not.toBeChecked();
+    expect(screen.queryByRole("radio",{name:/Openly public/})).toBeNull();
+  });
   it("shows optional database and an explicit audience choice for the web app template", () => {
     render(<TemplateFormFields template={buildTemplate()} />);
 

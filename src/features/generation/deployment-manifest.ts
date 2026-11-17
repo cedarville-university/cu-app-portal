@@ -11,7 +11,9 @@ export type DeploymentManifestInput = Omit<
 };
 
 export type DeploymentManifest = {
-  schemaVersion: "1.0.0";
+  schemaVersion: "1.0.0" | "1.1.0";
+  applicationKind?: "mcp-server";
+  mcp?: { endpointPath: "/api/mcp"; transport: "streamable-http" };
   templateSlug: string;
   runtime: {
     family: AppServiceRuntime["family"];
@@ -22,7 +24,8 @@ export type DeploymentManifest = {
   };
   auth?: {
     provider: "microsoft-entra-id";
-    callbackPath: AuthCallbackPath;
+    callbackPath?: AuthCallbackPath;
+    mode?: "entra-mcp";
   };
   hosting: {
     provider: "azure";
@@ -117,7 +120,8 @@ export function buildDeploymentManifest(
   const appSlug = toSlug(input.appName);
   const databaseNameSegment = toDatabaseNameSegment(appSlug);
   const hasDatabase = input.databaseProvider === "postgresql";
-  const hasEntraLogin = input.entraLogin;
+  const isMcp = template?.authenticationMode === "entra-mcp";
+  const hasEntraLogin = input.entraLogin && !isMcp;
   const applicationSettings = ["NODE_ENV"];
 
   if (hasDatabase) {
@@ -136,7 +140,8 @@ export function buildDeploymentManifest(
   }
 
   return {
-    schemaVersion: "1.0.0",
+    schemaVersion: isMcp ? "1.1.0" : "1.0.0",
+    ...(isMcp ? { applicationKind: "mcp-server" as const, mcp: { endpointPath: "/api/mcp" as const, transport: "streamable-http" as const }, auth: { provider: "microsoft-entra-id" as const, mode: "entra-mcp" as const } } : {}),
     templateSlug: input.templateSlug,
     runtime: {
       family: runtime.family,
@@ -218,7 +223,7 @@ export function buildDeploymentManifest(
           : {}),
       },
     },
-    applicationSettings,
+    applicationSettings: isMcp ? [...applicationSettings, "MCP_RESOURCE_URL", "MCP_ENTRA_TENANT_ID", "MCP_ENTRA_ISSUER", "MCP_ENTRA_AUDIENCE", "MCP_ENTRA_SCOPE", "MCP_ALLOWED_ORIGINS"] : applicationSettings,
     automation: {
       skillPath: PORTAL_SKILL_PATH,
     },

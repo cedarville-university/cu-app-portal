@@ -82,9 +82,13 @@ export type TemplateFeatures = {
       };
 };
 
-export type TemplateCategory = "recommended" | "developer";
+export type TemplateCategory = "recommended" | "developer" | "advanced";
+export type TemplateAudience = { cedarville: boolean; public: boolean };
 
 export type PortalTemplate = {
+  applicationKind?: "web-app" | "mcp-server";
+  authenticationMode?: "browser" | "entra-mcp";
+  audience?: TemplateAudience;
   id: string;
   slug: string;
   sourceTemplateSlug?: string;

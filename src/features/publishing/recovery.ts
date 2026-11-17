@@ -5,10 +5,11 @@ import { recordAuditEvent } from "@/lib/audit";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
 import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { verifyPublishedUrl } from "./azure/verify-deployment";
+import { verifyMcpDeployment } from "@/features/mcp-servers/verify-deployment";
 import { createPublishQueue } from "./queue";
 import { needsImportedLoginReview } from "@/features/repository-imports/login-review";
 import {
-  claimPublishAttempt, persistPublishProgress, releasePublishClaim,
+  claimPublishAttempt, persistPublishProgress, releasePublishClaim, renewPublishClaim,
   type PublishWorkerClaim,
 } from "./worker-lease";
 
@@ -17,7 +18,7 @@ export type RecoveryResult = "succeeded" | "failed" | "requeued" | "waiting" | "
 export type RecoveryOptions = { actorUserId?: string; markFailed?: boolean; reason?: string };
 export type RecoveryEvidence = {
   workflow(attempt: RecoveryAttempt): Promise<{ status: string; conclusion: string | null }>;
-  health(url: string): Promise<VerificationResult>;
+  health(url: string, appId: string): Promise<VerificationResult>;
 };
 
 export const defaultRecoveryEvidence: RecoveryEvidence = {
@@ -33,7 +34,11 @@ export const defaultRecoveryEvidence: RecoveryEvidence = {
     });
     return github.getWorkflowRun({ owner: app.repositoryOwner, name: app.repositoryName, runId: attempt.githubWorkflowRunId });
   },
-  health: verifyPublishedUrl,
+  async health(url, appId) {
+    const app=await prisma.appRequest.findUnique({where:{id:appId},select:{template:{select:{slug:true}}}});
+    if (!app) throw new Error("The recovery app is unavailable.");
+    return app.template.slug === "mcp-server" ? verifyMcpDeployment(appId,url) : verifyPublishedUrl(url);
+  },
 };
 
 function recoveredWarning(app: RecoveryAttempt["appRequest"], healthWarning?: string) {
@@ -63,7 +68,7 @@ export async function reconcileClaimedPublish(
       if (!url) return "review";
       let verification: VerificationResult | undefined;
       try {
-        verification = await evidence.health(url);
+        verification = await evidence.health(url,app.id);
       } catch {
         if (!options.markFailed && Date.now() - (attempt.startedAt ?? attempt.createdAt).getTime() < 2 * 60 * 60_000) return "waiting";
       }
@@ -99,7 +104,7 @@ async function synchronizeSettledApp(attempt: RecoveryAttempt, options: Recovery
     const run = await evidence.workflow(attempt);
     const url = app.primaryPublishUrl ?? app.publishUrl;
     if (run.status !== "completed" || run.conclusion !== "success" || !url) return "review";
-    const { verifiedAt, warningSummary } = await evidence.health(url);
+    const { verifiedAt, warningSummary } = await evidence.health(url,app.id);
     data = { publishStatus: "SUCCEEDED", publishUrl: url, publishingSetupStatus: "READY", publishErrorSummary: null, publishWarningSummary: recoveredWarning(app, warningSummary), publishingSetupErrorSummary: null, lastPublishedAt: attempt.finishedAt ?? verifiedAt };
   } else {
     data = { publishStatus: "FAILED", publishErrorSummary: attempt.errorSummary ?? "The interrupted attempt failed. Review the deployment log before retrying." };
@@ -122,14 +127,24 @@ export async function recoverPublishAttempt(attemptId: string, options: Recovery
   if (["SUCCEEDED", "FAILED"].includes(attempt.status)) return synchronizeSettledApp(attempt, options, evidence);
   const claim = await claimPublishAttempt(attempt);
   if (!claim) return "busy";
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  let renewing = false;
   try {
     if (!options.markFailed && (attempt.status === "QUEUED" || (!attempt.dispatchStartedAt && !attempt.githubWorkflowRunId && attempt.stage === "PROVISIONING"))) {
       await releasePublishClaim(claim);
       await createPublishQueue().send({ attemptId });
       return "requeued";
     }
+    // Workflow inspection plus startup retries can outlast one claim. Final
+    // writes remain fenced if renewal fails or another worker takes ownership.
+    heartbeat = setInterval(() => {
+      if (renewing) return;
+      renewing = true;
+      void renewPublishClaim(claim).catch(() => {}).finally(() => { renewing = false; });
+    }, 20_000);
     return await reconcileClaimedPublish(attempt, claim, options, evidence);
   } finally {
+    clearInterval(heartbeat);
     await releasePublishClaim(claim);
   }
 }

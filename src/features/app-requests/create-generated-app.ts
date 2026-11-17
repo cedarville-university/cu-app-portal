@@ -20,6 +20,8 @@ import {
 import { recordAuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { createSupportReference } from "@/lib/support-reference";
+import { getTemplatePolicy } from "@/features/templates/policy";
+import { createAppSchema } from "@/features/create-app/validation";
 
 export type CreateGeneratedAppResult = {
   requestId: string;
@@ -72,6 +74,11 @@ export async function createGeneratedApp(
   }
 
   const appName = request.input.appName.trim();
+  const policy = getTemplatePolicy(template);
+  // Validate the restrictive profile again at the shared mutation boundary.
+  if (policy.applicationKind === "mcp-server") {
+    createAppSchema({ hostingTarget: template.hostingTarget, features: template.features, audience: policy.audience }).parse(request.input);
+  }
   if (!(await isAppNameAvailable(appName, dependencies.prisma))) {
     throw new PortalApiError("CONFLICT", APP_NAME_CONFLICT_MESSAGE);
   }
@@ -89,7 +96,7 @@ export async function createGeneratedApp(
       templateVersion: template.version,
       appName,
       appNameKey: appName.toLowerCase(),
-      submittedConfig: { ...request.input, appName },
+      submittedConfig: { ...request.input, appName, ...policy },
       generationStatus: "PENDING",
       supportReference,
       deploymentTarget: request.input.hostingTarget,

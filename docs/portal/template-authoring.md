@@ -1,5 +1,7 @@
 # CU Launch Template Authoring
 
+The separate `templates/mcp-server/` engine is an advanced, Cedarville-only delegated-bearer starter, catalog ACTIVE after the approved live pilot. Explicit catalog `audience`, `applicationKind`, and `authenticationMode` metadata supersede legacy audience defaults for this engine; do not apply ordinary browser Auth.js overrides to it. See [MCP authoring](mcp-servers.md). Legacy templates retain both audience choices.
+
 Templates are metadata-driven starter packages used by the portal to generate managed GitHub repository contents from a rendered source snapshot.
 
 ## Template Structure
@@ -56,7 +58,7 @@ Developer Starters expose the lower-level Custom Web App and API / Automation Se
 
 Python `http.server` support is import-only for plain static repositories. Do not add it to the generated template catalog unless the product scope changes; imported static apps get runtime metadata during repository compatibility scanning and keep PostgreSQL and Microsoft Entra disabled.
 
-`features.database` declares whether PostgreSQL is unsupported, optional, or required, plus the default provider. `features.entraLogin` is retained as legacy compatibility metadata for older saved requests and publishing paths that do not contain an explicit audience choice. For every current active generated template, the create form ignores the legacy mode and default, requires the user to choose either Cedarville sign-in or openly public access, and stores that choice on the request. Any new generated source engine must implement both choices before its templates are activated.
+`features.database` declares whether PostgreSQL is unsupported, optional, or required, plus the default provider. `features.entraLogin` is retained as legacy compatibility metadata for older saved requests and publishing paths that do not contain an explicit audience choice. For existing browser templates without an explicit audience policy, the create form ignores the legacy mode and default, requires either Cedarville sign-in or openly public access, and stores that choice. An explicit catalog audience policy constrains both the form and shared server-side validation. The advanced MCP engine supports Cedarville delegated authentication only and must never be activated with public access.
 
 The seed script stores the user-facing decision metadata, runtime metadata, and feature metadata in `inputSchema` alongside the form fields so database rows stay aligned with the catalog.
 
@@ -142,3 +144,7 @@ Next.js retains the access token and expiry inside Auth.js's encrypted HttpOnly 
 ## Database Sync
 
 Run `npm run prisma:seed` after catalog changes so the database template rows stay aligned with the in-code catalog used by the portal.
+
+### MCP database variants
+
+The MCP template declares PostgreSQL optional with `defaultProvider: "none"`. Conditional PostgreSQL assets contain its schema, migration, and server-only client. `mcp-server-source.ts` supplies database-aware package files, the matching pinned lockfile, and local env examples via generated overrides. No-database output excludes these Prisma assets/dependencies. Publishing and repair reuse existing database and Key Vault support; bearer authentication stays separate from browser login.

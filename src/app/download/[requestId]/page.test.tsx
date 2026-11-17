@@ -96,6 +96,8 @@ function appRequest(overrides: Record<string, unknown> = {}) {
     supportReference: "SUP-20260818-ABC123",
     userId: "user-123",
     appName: "Campus Dashboard",
+    template: { slug: "test-template" },
+    mcpConfiguration: null,
     createdAt: new Date("2026-08-18T12:00:00Z"),
     sourceOfTruth: "PORTAL_MANAGED_REPO",
     submittedConfig: {},

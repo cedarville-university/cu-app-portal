@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 
-export function AudienceField() {
+export function AudienceField({ audience: policy = { cedarville: true, public: true } }: { audience?: { cedarville: boolean; public: boolean } }) {
   const [audience, setAudience] = useState<"cedarville" | "public" | null>(
     null,
   );
@@ -10,7 +10,7 @@ export function AudienceField() {
   return (
     <fieldset className="form-group">
       <legend className="form-label">Who can use this app?</legend>
-      <label className="choice-row">
+      {policy.cedarville ? <label className="choice-row">
         <input
           type="radio"
           name="entraLogin"
@@ -20,12 +20,12 @@ export function AudienceField() {
           onChange={() => setAudience("cedarville")}
         />
         <span>Cedarville sign-in required</span>
-      </label>
+      </label> : null}
       <p className="form-help">
         Only people who can sign in with their Cedarville account can use the
         app.
       </p>
-      <label className="choice-row">
+      {policy.public ? <label className="choice-row">
         <input
           type="radio"
           name="entraLogin"
@@ -35,7 +35,7 @@ export function AudienceField() {
           onChange={() => setAudience("public")}
         />
         <span>Openly public on the internet</span>
-      </label>
+      </label> : null}
       {audience === "public" ? (
         <label className="choice-row">
           <input type="checkbox" name="publicAcknowledgement" required />

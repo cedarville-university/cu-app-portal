@@ -1,5 +1,7 @@
 # CU Launch Codex Workspace Plugin Operations
 
+The source plugin now includes an advanced MCP-server/Plugin Creator route, including the registered App connection needed for ChatGPT cloud. Both pilot variants passed native ChatGPT Work and Codex calls; the user subsequently approved [production rollout](mcp-server-production-rollout-2026-11-17.md). `get_app` adds nullable nonsecret `mcp` connection metadata; existing tools, access checks, and mutation replay rules remain unchanged. See [MCP servers](mcp-servers.md) and [agent evaluations](mcp-agent-evaluations.md). Source version 1.0.6+codex.20261117 does not prove installed workspace availability; the production rollout record distinguishes source version from the saved live plugin release.
+
 This runbook is for portal operations, Entra administrators, and Codex
 workspace administrators. It describes the optional CU Launch
 workspace plugin and its delegated MCP API. It is not end-user publishing
@@ -397,3 +399,5 @@ The database transaction is bounded to two minutes. An Azure update can outlive 
 database rollback, so failures still require checking the app's actual state.
 
 New managed apps default to push-to-deploy after first publish. Explain that a default-branch push to an already published app can deploy changes automatically. The user can select **Disable Auto-Deploy** in CU Launch to require manual publishing, or **Enable Auto-Deploy** to restore it. Existing apps keep their saved mode.
+
+The MCP workflow supports optional PostgreSQL with no database as the default. Use only options returned by the active catalog, include the selected mode in the launch summary, and never pass database credentials to Plugin Creator.

@@ -1,6 +1,8 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import TemplatePage from "./page";
+
+afterEach(cleanup);
 
 const mockNotFound = vi.hoisted(() => vi.fn(() => {
   throw new Error("notFound");
@@ -61,6 +63,15 @@ const webAppTemplate = {
 };
 
 describe("TemplatePage", () => {
+  it("describes a Cedarville-only template without offering public access", async () => {
+    mockGetActiveTemplateBySlug.mockReturnValue({
+      ...webAppTemplate,
+      audience: { cedarville: true, public: false },
+    });
+    render(await TemplatePage({ params: Promise.resolve({ templateSlug: "web-app" }) }));
+    expect(screen.getByText("Access: Cedarville sign-in required")).toBeInTheDocument();
+    expect(screen.queryByText("Access: Choose sign-in or public")).not.toBeInTheDocument();
+  });
   it("renders the selected template form", async () => {
     mockGetActiveTemplateBySlug.mockReturnValue(webAppTemplate);
 

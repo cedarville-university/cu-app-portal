@@ -13,9 +13,19 @@ vi.mock("@/features/auth/logout", () => ({
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
 });
 
 describe("CreatePage", () => {
+  it("describes the MCP preview as requiring Cedarville sign-in", async () => {
+    vi.stubEnv("WEBSITE_HOSTNAME", "cu-app-portal-testing.azurewebsites.net");
+    vi.stubEnv("CU_LAUNCH_MCP_TEMPLATE_PREVIEW", "true");
+    render(await CreatePage());
+    const card = document.querySelector('a[href="/create/mcp-server"]')?.closest(".card");
+    expect(card).not.toBeNull();
+    expect(within(card as HTMLElement).getByText("Access: Cedarville sign-in required"))
+      .toBeInTheDocument();
+  });
   it("lists active templates as selectable links", async () => {
     render(await CreatePage());
     expect(

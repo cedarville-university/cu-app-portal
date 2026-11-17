@@ -2,6 +2,7 @@ import React from "react";
 import type { PortalTemplate } from "@/features/templates/types";
 import { AppNameField } from "./app-name-field";
 import { AudienceField } from "./audience-field";
+import { getTemplatePolicy } from "@/features/templates/policy";
 
 function renderDatabaseField(template: PortalTemplate) {
   if (template.features.database.mode === "unsupported") {
@@ -109,7 +110,7 @@ export function TemplateFormFields({ template }: { template: PortalTemplate }) {
         }
       })}
       {renderDatabaseField(template)}
-      <AudienceField />
+      <AudienceField audience={getTemplatePolicy(template).audience} />
     </>
   );
 }

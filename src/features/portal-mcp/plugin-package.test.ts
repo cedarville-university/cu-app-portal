@@ -14,6 +14,20 @@ function readJson(path: string) {
 }
 
 describe("CU Launch workspace plugin package", () => {
+  it("routes hosted MCP backends to Plugin Creator without Sites or duplicate plugins", () => {
+    const skill = readFileSync(resolve(skillRoot, "SKILL.md"), "utf8");
+    const reference = readFileSync(resolve(skillRoot, "references/mcp-server-plugin-creator.md"), "utf8");
+    expect(skill).toContain("MCP Servers and Plugin Creator");
+    expect(skill).toContain("Do not call Sites tools");
+    expect(reference).toContain("get_app.mcp");
+    expect(reference).toContain("existing MCP server");
+    expect(reference).toMatch(/do not create a duplicate/i);
+    expect(reference).toContain("get_server_info");
+    expect(skill).toMatch(/existing.*server[\s\S]{0,220}get_app/i);
+    expect(skill).toContain("Apply template discovery only when creating a server");
+    expect(reference).toContain("optional PostgreSQL");
+    expect(reference).toContain('default to `databaseProvider: "none"`');
+  });
   it("declares the skills-only plugin and university marketplace contracts", () => {
     const plugin = readJson(resolve(pluginRoot, ".codex-plugin/plugin.json"));
     const marketplace = readJson(

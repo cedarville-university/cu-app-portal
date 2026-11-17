@@ -1,5 +1,7 @@
 # CU Launch Technical Operations and Support Guide
 
+Advanced MCP server resources use a separate owned Entra registration per app. Migration `20261116160000_add_app_mcp_configuration` and the [MCP operator/pilot runbooks](mcp-servers.md) cover guarded setup, lease recovery, client enrollment, deletion, and rollback. The template remains disabled; no live rollout is implied by the source change.
+
 This is the administrative and support runbook for CU Launch. It is for Tier 1 service desk staff, Tier 2 application administrators, and engineers maintaining CU Launch. It is not end-user documentation.
 
 ## Service Overview

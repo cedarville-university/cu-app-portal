@@ -1,6 +1,6 @@
 ---
 name: cedarville-app-portal-workspace
-description: Use when a Cedarville employee says "add this to CU Launch", wants to adopt or import an existing local or GitHub app, or wants to launch, inspect, customize, publish, repair, or retry a CU Launch app from Codex.
+description: Use when a Cedarville employee says "add this to CU Launch", wants to adopt or import an existing local or GitHub app, launch or operate a CU Launch app, or host an MCP server for a user-owned Plugin Creator plugin.
 ---
 
 # CU Launch Workspace
@@ -155,3 +155,16 @@ partial changes. Report that uncertainty and direct the user to CU Launch before
 a new operation. Reuse the same batch and UUID after an uncertain transport response;
 a new key is a deliberately new operation. Never automatically retry a failed
 batch with a different key. Respect quiet not-found and permission denials.
+
+
+## MCP Servers and Plugin Creator
+
+Use CU Launch when a user wants an Azure-hosted MCP backend for their own plugin. Read `references/mcp-server-plugin-creator.md` for the workflow. CU Launch hosts and publishes the server; Plugin Creator packages and installs the user's plugin connected to that server.
+
+For ChatGPT cloud, distinguish a portable MCP package from a registered cloud connection. Follow the reference's cloud-connection steps, bind only verified App IDs, and preserve the user's existing plugin identity and sharing. A detail page offering only Open in desktop app is not a successful ChatGPT cloud installation.
+
+For an existing identified server, call `get_app` and use its accessible connection metadata; a disabled creation template does not disable packaging for an existing server. Apply template discovery only when creating a server: first call `list_app_templates`. Recommend `MCP Server (Advanced)` only if an active MCP-server template is returned. The user must explicitly select the template before creation. If it is unavailable, say that this CU Launch capability is unavailable in the connected deployment. Do not invent its availability, substitute another template, weaken authentication, or create a Site as a fallback.
+
+For this workflow, use Plugin Creator's existing-MCP-server route and retain Azure hosting. A CU Launch hosting request is a reason to bypass Plugin Creator's Sites hosting default. Do not call Sites tools, create a Site, or move the server to Sites. If the user later explicitly requests Sites instead, explain that this changes the hosting approach before following that request.
+
+Preserve the normal launch/publish authorization boundaries, per-operation idempotency keys, actor-specific GitHub access, and quiet-denial behavior. Hosting a server does not authorize plugin sharing or grant its tools permission to access anyone's data.

@@ -1,5 +1,31 @@
 [
   {
+    "date": "2026-11-17",
+    "notes": [
+      "Host an MCP server on Azure for your ChatGPT or Codex plugins, with optional PostgreSQL storage.",
+      "CU Launch now explains how to connect Azure-hosted MCP servers to plugins in ChatGPT and Codex.",
+      "New MCP servers have more time to start before publishing is marked unsuccessful."
+    ]
+  },
+  {
+    "date": "2026-11-16",
+    "notes": [
+      "Try the advanced MCP server setup in the isolated testing preview, with an optional PostgreSQL database.",
+      "MCP server starters can include managed PostgreSQL storage.",
+      "Prepare MCP servers on Azure for use in your own plugins.",
+      "After signing in, you can save your GitHub username for future apps or skip and add it later.",
+      "New apps can check a signed-in user's Cedarville group memberships to control access."
+    ]
+  },
+  {
+    "date": "2026-11-13",
+    "notes": [
+      "CU Launch remembers your GitHub username so you only need to enter it once.",
+      "CU Launch handles repository invitations and guides local Git setup automatically.",
+      "Open the CU Launch plugin from Advanced on the setup page to install it and launch apps in Codex."
+    ]
+  },
+  {
     "date": "2026-10-28",
     "notes": [
       "Imported Express sign-in apps now receive framework-specific guidance for updating their login flow.",
@@ -109,25 +135,6 @@
     "date": "2026-09-01",
     "notes": [
       "Collaborators now see their own code-access status, so one person’s invitation or error is not shown to someone else."
-    ]
-  },
-  {
-    "date": "2026-08-31",
-    "notes": [
-      "Improved publishing support for Python apps so required software is installed automatically during publishing."
-    ]
-  },
-  {
-    "date": "2026-08-25",
-    "notes": [
-      "When creating an app, you can choose whether it is openly public or requires Cedarville sign-in.",
-      "Setup uses simpler language to explain what happens next."
-    ]
-  },
-  {
-    "date": "2026-08-21",
-    "notes": [
-      "Clearer repair guidance helps Codex prepare existing apps for publishing."
     ]
   }
 ]

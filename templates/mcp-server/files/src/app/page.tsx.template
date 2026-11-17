@@ -1,0 +1,1 @@
+export default function Home() { return <main><h1>{ {{APP_NAME_JS}} }</h1><p>{ {{APP_DESCRIPTION_JS}} }</p><p>Cedarville sign-in is required to connect to this MCP server.</p></main>; }

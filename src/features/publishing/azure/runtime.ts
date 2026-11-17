@@ -32,6 +32,8 @@ import {
   type GitHubOidcRepositoryIdentity,
 } from "../github-oidc";
 import { appServiceDeploymentSettings } from "./app-settings";
+import { ensureDefaultMcpIdentity } from "@/features/mcp-servers/default-identity";
+import { verifyMcpDeployment } from "@/features/mcp-servers/verify-deployment";
 import {
   configureAppSecretStore,
   managedSecretValues,
@@ -39,6 +41,8 @@ import {
 } from "./managed-secrets";
 
 type RuntimeDeps = {
+  ensureMcpIdentity?: typeof ensureDefaultMcpIdentity;
+  verifyMcpDeployment?: typeof verifyMcpDeployment;
   assertImportedLoginReviewForFirstPublish?: typeof assertImportedLoginReviewForFirstPublish;
   createKeyVaultClient: AppSecretStoreDeps["createKeyVaultClient"];
   config: AzurePublishConfig;
@@ -298,6 +302,7 @@ function selectedDatabaseProvider(
 }
 
 function selectedEntraLogin(appRequest: PublishableAppRequest): boolean {
+  if (appRequest.template.slug === "mcp-server") return false;
   const value = submittedConfigObject(appRequest)?.entraLogin;
 
   if (typeof value === "boolean") {
@@ -386,6 +391,7 @@ async function defaultSleep(ms: number) {
 }
 
 export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
+  let mcpAppId: string | null = null;
   let lastDeploymentRun:
     | {
         owner: string;
@@ -537,6 +543,11 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       });
 
       const databaseProvider = selectedDatabaseProvider(appRequest);
+      const persistMcpTarget = async (target: Partial<ProvisionedPublishTarget>) => {
+        if (appRequest.template.slug !== "mcp-server") return;
+        if (options?.onTargetCreated) await options.onTargetCreated(target);
+        else { await options?.authorizeProviderMutation?.(); await deps.prisma.appRequest.update({where:{id:appRequest.id},data:target}); }
+      };
 
       if (databaseProvider === "postgresql") {
         await options?.authorizeProviderMutation?.();
@@ -546,6 +557,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
           databaseName: names.databaseName,
           tags,
         });
+        await persistMcpTarget({azureResourceGroup:deps.config.resourceGroup,azurePostgresServer:deps.config.postgresServer,azureDatabaseName:names.databaseName});
       }
 
       const environmentVariables =
@@ -571,6 +583,16 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const azureDefaultHostName =
         webApp.properties?.defaultHostName ?? names.azureDefaultHostName;
       const primaryPublishUrl = `https://${azureDefaultHostName}`;
+      if (appRequest.template.slug === "mcp-server") {
+        const partialTarget={azureResourceGroup:deps.config.resourceGroup,azureAppServicePlan:deps.config.appServicePlan,azureWebAppName:names.webAppName,azureDefaultHostName,primaryPublishUrl};
+        // Enrollment normally suspends first publish. Retain cleanup targets
+        // before that stage, fenced by the worker when available.
+        await persistMcpTarget(partialTarget);
+        options?.onSetupStep?.("mcp_identity");
+      }
+      const mcpSettings = appRequest.template.slug === "mcp-server"
+        ? await (deps.ensureMcpIdentity ?? ensureDefaultMcpIdentity)({ appId: appRequest.id, endpointUrl: `${primaryPublishUrl}/api/mcp`, tenantId: deps.config.azureTenantId, authorizeProviderMutation: options?.authorizeProviderMutation })
+        : {};
 
       // Each app deploys through its own managed identity, which may only
       // touch this app's Web App.
@@ -616,6 +638,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         ...secretStore.settings,
         NODE_ENV: "production",
         ...appServiceDeploymentSettings(appServiceRuntime),
+        ...mcpSettings,
       };
 
       if (selectedEntraLogin(appRequest)) {
@@ -663,6 +686,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       options?: DeployRepositoryOptions,
     ): Promise<DeploymentRun> {
       const appRequest = await loadPublishableRequest(deps, appRequestId);
+      mcpAppId = appRequest.template.slug === "mcp-server" ? appRequest.id : null;
       const names = buildPublishTargetNames({
         requestId: appRequest.id,
         appName: appRequest.appName,
@@ -817,6 +841,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       }
 
       await waitForSuccessfulWorkflowRun(lastDeploymentRun);
+      if (mcpAppId) return (deps.verifyMcpDeployment ?? verifyMcpDeployment)(mcpAppId, publishUrl);
 
       const verifyPublishedUrl =
         deps.verifyPublishedUrl ?? defaultVerifyPublishedUrl;

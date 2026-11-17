@@ -1,0 +1,3 @@
+import { handleMetadata } from "@/mcp/handler";
+export const dynamic = "force-dynamic";
+export function GET() { return handleMetadata(); }
