@@ -17,8 +17,13 @@ import { getEffectivePublishingSetupStatus } from "@/features/publishing/setup/s
 import type { ActorRepositoryAccess } from "@/features/repositories/actor-access";
 import { buildMcpConnectionSummary, type McpConnectionSummary } from "@/features/mcp-servers/connection-summary";
 import type { McpIdentityRecord } from "@/features/mcp-servers/types";
+import { needsImportedLoginReview } from "@/features/repository-imports/login-review";
 
 export type PortalNextAction =
+  | "get_app_import_status"
+  | "review_imported_app_login"
+  | "prepare_imported_app"
+  | "verify_imported_app"
   | "request_github_access"
   | "publish_app_to_azure"
   | "get_publish_status"
@@ -60,6 +65,9 @@ export type PortalAppSummary = {
 
 type PortalAppReadRecord = {
   mcpConfiguration?: McpIdentityRecord | null;
+  submittedConfig?: unknown;
+  lastPublishedAt?: Date | null;
+  publishedAt?: Date | null;
   id: string;
   appName: string;
   sourceOfTruth: SourceOfTruth;
@@ -103,11 +111,19 @@ function allowedNextActions(
   app: PortalAppReadRecord,
   repositoryAccess: ActorRepositoryAccess,
 ): PortalNextAction[] {
-  if (app.sourceOfTruth !== "PORTAL_MANAGED_REPO") {
+  if (app.sourceOfTruth !== "PORTAL_MANAGED_REPO" && app.sourceOfTruth !== "IMPORTED_REPOSITORY") {
     return ["open_portal_for_advanced_management"];
   }
 
   const actions: PortalNextAction[] = [];
+  if (app.sourceOfTruth === "IMPORTED_REPOSITORY") {
+    actions.push("get_app_import_status");
+    if (needsImportedLoginReview(app)) actions.push("review_imported_app_login");
+    const status = app.repositoryImport?.preparationStatus;
+    if (app.repositoryStatus === "READY" && repositoryAccess.status === "GRANTED" &&
+      (status === "PENDING_USER_CHOICE" || status === "FAILED" || status === "BLOCKED" || (status === "COMMITTED" && needsImportedLoginReview(app)))) actions.push("prepare_imported_app");
+    if (status === "PULL_REQUEST_OPENED") actions.push("verify_imported_app");
+  }
   const eligibilityInput = {
     sourceOfTruth: app.sourceOfTruth,
     repositoryStatus: app.repositoryStatus,

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createAzurePublishRuntime } from "./runtime";
+import { planPublishingBundle } from "@/features/repository-imports/publishing-bundle";
+import { IMPORTED_NEXT_RUNTIME } from "@/features/repository-imports/compatibility";
 
 const config = {
   resourceGroup: "rg-cu-apps-published",
@@ -121,6 +123,8 @@ function emptyWorkflowRunsError() {
 
 function createDeps({
   appRequest = readyAppRequest as typeof readyAppRequest & {
+    sourceOfTruth?: string;
+    lastPublishedAt?: Date | null;
     deploymentTriggerMode?: "PUSH_TO_DEPLOY" | "PORTAL_DISPATCH";
     submittedConfig?: unknown;
     azureKeyVaultName?: string;
@@ -272,6 +276,56 @@ describe("createAzurePublishRuntime", () => {
     arm.putWebApp.mockRejectedValueOnce(new Error("web app unavailable"));
     await expect(createAzurePublishRuntime(deps).provisionInfrastructure(readyAppRequest.id)).rejects.toThrow("web app unavailable");
     expect(deps.prisma.appRequest.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({azureDatabaseName:expect.stringMatching(/^db_/)})}));
+  });
+  const reviewedSha = "a".repeat(40);
+  function firstPublishDeps() {
+    const value = createDeps({ appRequest: { ...readyAppRequest, sourceOfTruth: "IMPORTED_REPOSITORY", lastPublishedAt: null, deploymentTriggerMode: "PORTAL_DISPATCH" } });
+    value.github.getBranchHead.mockResolvedValue({ sha: reviewedSha });
+    value.github.readRepositoryTextFiles.mockResolvedValue(planPublishingBundle({ appName: "Reviewed app", repositoryOwner: "cu", repositoryName: "app", runtime: IMPORTED_NEXT_RUNTIME, files: { "package.json": "{}" } }).filesToWrite);
+    return value;
+  }
+  it("refuses first dispatch when the imported login review is missing", async () => {
+    const { deps, github } = firstPublishDeps();
+    const review = vi.fn().mockRejectedValue(new Error("Review sign-in first"));
+    await expect(createAzurePublishRuntime({ ...deps, assertImportedLoginReviewForFirstPublish: review }).deployRepository(readyAppRequest.id)).rejects.toThrow("Review sign-in first");
+    expect(github.dispatchWorkflow).not.toHaveBeenCalled();
+  });
+  it("pins the initial deployment checkout to the reviewed commit", async () => {
+    const { deps, github } = firstPublishDeps();
+    await createAzurePublishRuntime({ ...deps, assertImportedLoginReviewForFirstPublish: vi.fn().mockResolvedValue(reviewedSha) }).deployRepository(readyAppRequest.id);
+    expect(github.dispatchWorkflow).toHaveBeenCalledWith(expect.objectContaining({ inputs: { cu_launch_commit_sha: reviewedSha } }));
+  });
+  it("activates imported push deployment only after verification and rechecks the saved mode", async () => {
+    const { deps, github } = firstPublishDeps();
+    const originalFind = vi.mocked(deps.prisma.appRequest.findUnique);
+    originalFind.mockResolvedValue({ ...readyAppRequest, sourceOfTruth: "IMPORTED_REPOSITORY", lastPublishedAt: null, deploymentTriggerMode: "PUSH_TO_DEPLOY" } as never);
+    const verify = vi.fn().mockResolvedValue({ verifiedAt: new Date() });
+    const runtime = createAzurePublishRuntime({ ...deps, verifyPublishedUrl: verify, assertImportedLoginReviewForFirstPublish: vi.fn().mockResolvedValue(reviewedSha) });
+    await runtime.deployRepository(readyAppRequest.id);
+    expect(github.commitFiles).not.toHaveBeenCalled();
+    await runtime.verifyDeployment("https://example.edu");
+    expect(github.commitFiles).toHaveBeenCalledTimes(1);
+    expect(verify.mock.invocationCallOrder[0]).toBeLessThan(github.commitFiles.mock.invocationCallOrder[0]);
+  });
+  it("respects disabling auto-deploy while the first imported publish runs", async () => {
+    const { deps, github } = firstPublishDeps();
+    const runtime = createAzurePublishRuntime({ ...deps, verifyPublishedUrl: vi.fn().mockResolvedValue({ verifiedAt: new Date() }), assertImportedLoginReviewForFirstPublish: vi.fn().mockResolvedValue(reviewedSha) });
+    await runtime.deployRepository(readyAppRequest.id);
+    vi.mocked(deps.prisma.appRequest.findUnique).mockResolvedValue({ ...readyAppRequest, deploymentTriggerMode: "PORTAL_DISPATCH" } as never);
+    await runtime.verifyDeployment("https://example.edu");
+    expect(github.commitFiles).not.toHaveBeenCalled();
+  });
+  it("does not dispatch if the repository changes after review", async () => {
+    const { deps, github } = firstPublishDeps();
+    github.getBranchHead.mockResolvedValueOnce({ sha: reviewedSha }).mockResolvedValue({ sha: "b".repeat(40) });
+    await expect(createAzurePublishRuntime({ ...deps, assertImportedLoginReviewForFirstPublish: vi.fn().mockResolvedValue(reviewedSha) }).deployRepository(readyAppRequest.id)).rejects.toThrow(/changed/i);
+    expect(github.dispatchWorkflow).not.toHaveBeenCalled();
+  });
+  it("requires a workflow that supports reviewed checkout before first publish", async () => {
+    const { deps, github } = firstPublishDeps();
+    github.readRepositoryTextFiles.mockResolvedValue({ ".github/workflows/deploy-azure-app-service.yml": "on:\n  workflow_dispatch:\n" });
+    await expect(createAzurePublishRuntime({ ...deps, assertImportedLoginReviewForFirstPublish: vi.fn().mockResolvedValue(reviewedSha) }).deployRepository(readyAppRequest.id)).rejects.toThrow(/publishing preparation/i);
+    expect(github.dispatchWorkflow).not.toHaveBeenCalled();
   });
   it("stores managed credentials in Key Vault without custom secret variables", async () => {
     const { deps, arm } = createDeps();

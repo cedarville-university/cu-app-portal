@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 import { IMPORTED_EXPRESS_RUNTIME, IMPORTED_NEXT_RUNTIME } from "./compatibility";
 import { planPublishingBundle } from "./publishing-bundle";
 import { buildManagedAppPortalSkill } from "@/features/generation/portal-skill";
@@ -24,6 +25,13 @@ const HTTP_SERVER_RUNTIME = {
 } as const;
 
 describe("planPublishingBundle", () => {
+  it.each([IMPORTED_NEXT_RUNTIME, IMPORTED_EXPRESS_RUNTIME, FASTAPI_RUNTIME, HTTP_SERVER_RUNTIME])("can check out the reviewed commit for $framework while preserving push builds", runtime => {
+    const plan = planPublishingBundle({ appName: "Reviewed app", repositoryOwner: "cu", repositoryName: "app", runtime, files: { "package.json": "{}" } });
+    const workflow = parseYaml(plan.filesToWrite[".github/workflows/deploy-azure-app-service.yml"]);
+    expect(workflow.on.push).toBeUndefined();
+    expect(workflow.on.workflow_dispatch.inputs.cu_launch_commit_sha).toMatchObject({ required: false, type: "string" });
+    expect(workflow.jobs.deploy.steps.find((step: { uses?: string }) => step.uses?.startsWith("actions/checkout@")).with.ref).toBe("${{ inputs.cu_launch_commit_sha || github.sha }}");
+  });
   it.each([IMPORTED_NEXT_RUNTIME, IMPORTED_EXPRESS_RUNTIME, FASTAPI_RUNTIME])(
     "uses explicit service selections for $framework",
     (runtime) => {

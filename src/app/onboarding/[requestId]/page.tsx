@@ -1,5 +1,8 @@
 import { ImportServicesHandoff } from "@/features/repository-imports/import-services-handoff";
 import { savedImportedFeatures } from "@/features/repository-imports/features";
+import { getImportedLoginReview, needsImportedLoginReview } from "@/features/repository-imports/login-review";
+import { buildImportedLoginReviewPrompt } from "@/features/repository-imports/import-login-guidance";
+import { LoginReviewPanel } from "@/features/repository-imports/login-review-panel";
 import { getAppPageMetadata } from "@/features/navigation/page-metadata";
 import React from "react";
 import Link from "next/link";
@@ -396,6 +399,9 @@ export default async function AppOnboardingPage({
       ? deriveOnboardingState({ ...stateInput, publishStatus: "NOT_STARTED" })
       : derivedState;
   const importFeatures = savedImportedFeatures(app.submittedConfig);
+  const loginReview = needsImportedLoginReview(app) && ["READY_TO_PUBLISH", "PUBLISH_FAILED"].includes(state.kind)
+    ? await getImportedLoginReview({ userId, isAdmin }, app.id) : null;
+  const loginReviewPanel = loginReview ? <LoginReviewPanel appId={app.id} review={loginReview} prompt={buildImportedLoginReviewPrompt(app)} /> : null;
   const showImportHandoff = [
     "PREPARATION_READY", "PREPARATION_FAILED", "PREPARATION_CONFLICT",
     "PREPARATION_REVIEW_OPEN", "PUBLISHING_SETUP_NOT_STARTED",
@@ -1100,7 +1106,8 @@ export default async function AppOnboardingPage({
           {importFeatures && (importFeatures.databaseProvider === "postgresql" || importFeatures.entraLogin) ? (
             <p className="info-box">Before publishing, confirm that Codex connected and tested your selected database and login. Publishing setup supplies the services; your app code must use them.</p>
           ) : null}
-          <PublishForm requestId={app.id} />
+          {loginReviewPanel}
+          {!loginReview || (!loginReview.publishingUpdateRequired && ["REVIEWED", "NOT_REQUIRED"].includes(loginReview.status)) ? <PublishForm requestId={app.id} /> : null}
         </OnboardingStepShell>
       </main>
     );
@@ -1332,7 +1339,8 @@ export default async function AppOnboardingPage({
               Publishing did not complete. Your app code and saved work are
               still safe. Choose Try publishing again to start a fresh attempt.
             </p>
-            <RetryPublishForm requestId={app.id} />
+            {loginReviewPanel}
+            {!loginReview || (!loginReview.publishingUpdateRequired && ["REVIEWED", "NOT_REQUIRED"].includes(loginReview.status)) ? <RetryPublishForm requestId={app.id} /> : null}
             {canOfferSetupRepair ? (
               <form action={repairPublishingSetupAction.bind(null, app.id)}>
                 <PendingSubmitButton

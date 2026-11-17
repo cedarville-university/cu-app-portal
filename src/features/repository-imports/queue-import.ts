@@ -24,6 +24,7 @@ export type RepositoryMetadata = {
 
 export type QueueExternalRepositoryImportInput = {
   userId: string;
+  requestIdentity?: { requestId: string; digest: string };
   appName: string;
   description: string;
   source: RepositoryMetadata;
@@ -64,11 +65,13 @@ export async function queueExternalRepositoryImport(
     const template = await upsertImportedTemplate(tx);
     const appRequest = await tx.appRequest.create({
       data: {
+        ...(input.requestIdentity ? { id: input.requestIdentity.requestId } : {}),
         userId: input.userId,
         templateId: template.id,
         templateVersion: "1.0.0",
         appName: input.appName,
         submittedConfig: {
+          ...(input.requestIdentity ? { adoptionDigest: input.requestIdentity.digest } : {}),
           repositoryUrl: input.source.url,
           description: input.description,
           hostingTarget: "Azure App Service",

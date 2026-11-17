@@ -7,6 +7,7 @@ import { loadGitHubAppConfig } from "@/features/repositories/config";
 import { verifyPublishedUrl } from "./azure/verify-deployment";
 import { verifyMcpDeployment } from "@/features/mcp-servers/verify-deployment";
 import { createPublishQueue } from "./queue";
+import { needsImportedLoginReview } from "@/features/repository-imports/login-review";
 import {
   claimPublishAttempt, persistPublishProgress, releasePublishClaim, renewPublishClaim,
   type PublishWorkerClaim,
@@ -40,6 +41,16 @@ export const defaultRecoveryEvidence: RecoveryEvidence = {
   },
 };
 
+function recoveredWarning(app: RecoveryAttempt["appRequest"], healthWarning?: string) {
+  // Recovery can verify an already dispatched run, but does not replay the
+  // runtime's in-memory post-verification workflow mutation.
+  const activationWarning = needsImportedLoginReview(app) && app.deploymentTriggerMode === "PUSH_TO_DEPLOY"
+    ? "The app was published, but automatic updates could not be enabled during recovery. After checking the app code, disable and re-enable auto-deploy in app details."
+    : null;
+  const existingActivationWarning = app.publishWarningSummary?.includes("automatic updates could not be enabled") ? app.publishWarningSummary : null;
+  return [...new Set([existingActivationWarning, healthWarning, activationWarning].filter(Boolean))].join(" ") || null;
+}
+
 export async function reconcileClaimedPublish(
   attempt: RecoveryAttempt,
   claim: PublishWorkerClaim,
@@ -65,7 +76,7 @@ export async function reconcileClaimedPublish(
         const { verifiedAt } = verification;
         await persistPublishProgress(claim, app.id,
           { status: "SUCCEEDED", stage: "COMPLETED", errorSummary: null, verifiedAt, finishedAt: verifiedAt },
-          { publishStatus: "SUCCEEDED", publishUrl: url, publishErrorSummary: null, publishWarningSummary: verification.warningSummary ?? null, publishingSetupStatus: "READY", publishingSetupErrorSummary: null, lastPublishedAt: verifiedAt },
+          { publishStatus: "SUCCEEDED", publishUrl: url, publishErrorSummary: null, publishWarningSummary: recoveredWarning(app, verification.warningSummary), publishingSetupStatus: "READY", publishingSetupErrorSummary: null, lastPublishedAt: verifiedAt },
         );
         await recordAuditEvent("PUBLISH_RECOVERED", {
           appRequestId: app.id, publishAttemptId: attempt.id, actorUserId: options.actorUserId,
@@ -94,7 +105,7 @@ async function synchronizeSettledApp(attempt: RecoveryAttempt, options: Recovery
     const url = app.primaryPublishUrl ?? app.publishUrl;
     if (run.status !== "completed" || run.conclusion !== "success" || !url) return "review";
     const { verifiedAt, warningSummary } = await evidence.health(url,app.id);
-    data = { publishStatus: "SUCCEEDED", publishUrl: url, publishingSetupStatus: "READY", publishErrorSummary: null, publishWarningSummary: warningSummary ?? null, publishingSetupErrorSummary: null, lastPublishedAt: attempt.finishedAt ?? verifiedAt };
+    data = { publishStatus: "SUCCEEDED", publishUrl: url, publishingSetupStatus: "READY", publishErrorSummary: null, publishWarningSummary: recoveredWarning(app, warningSummary), publishingSetupErrorSummary: null, lastPublishedAt: attempt.finishedAt ?? verifiedAt };
   } else {
     data = { publishStatus: "FAILED", publishErrorSummary: attempt.errorSummary ?? "The interrupted attempt failed. Review the deployment log before retrying." };
   }

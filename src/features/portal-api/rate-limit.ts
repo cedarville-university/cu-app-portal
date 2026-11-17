@@ -2,6 +2,10 @@ import { prisma } from "@/lib/db";
 import { PortalApiError } from "./errors";
 
 export const PORTAL_API_RATE_LIMITS = {
+  adopt_existing_app: { limit: 3, windowSeconds: 3600 },
+  prepare_imported_app: { limit: 6, windowSeconds: 3600 },
+  verify_imported_app: { limit: 10, windowSeconds: 3600 },
+  review_imported_app_login: { limit: 10, windowSeconds: 3600 },
   read: { limit: 120, windowSeconds: 600 },
   create_app: { limit: 3, windowSeconds: 3600 },
   request_github_access: { limit: 10, windowSeconds: 3600 },
@@ -61,6 +65,10 @@ type PrismaRateLimitClient = {
 };
 
 const rateLimitOverrideNames: Record<PortalRateLimitAction, string> = {
+  adopt_existing_app: "PORTAL_MCP_RATE_IMPORT_MAX",
+  prepare_imported_app: "PORTAL_MCP_RATE_PREPARE_MAX",
+  verify_imported_app: "PORTAL_MCP_RATE_VERIFY_IMPORT_MAX",
+  review_imported_app_login: "PORTAL_MCP_RATE_LOGIN_REVIEW_MAX",
   read: "PORTAL_MCP_RATE_READ_MAX",
   create_app: "PORTAL_MCP_RATE_CREATE_MAX",
   request_github_access: "PORTAL_MCP_RATE_GITHUB_ACCESS_MAX",

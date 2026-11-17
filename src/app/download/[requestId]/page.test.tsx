@@ -2,6 +2,10 @@ import React from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DownloadPage from "./page";
+vi.mock("@/features/repository-imports/login-review", async importOriginal => ({
+  ...await importOriginal<typeof import("@/features/repository-imports/login-review")>(),
+  getImportedLoginReview: vi.fn().mockResolvedValue({ status: "NEEDS_REVIEW", commitSha: "a".repeat(40), sourcePaths: ["src/auth.ts"], findings: [], evidence: "Code review required" }),
+}));
 
 const mockUseFormStatus = vi.hoisted(() => vi.fn());
 
@@ -175,13 +179,13 @@ describe("DownloadPage navigation", () => {
     await renderPage({ templateVersion: "1.1.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } });
     expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
   });
-  it.each(["nextjs", "express"])("does not show the sign-in update for newly imported %s apps", async (framework) => {
+  it.each(["nextjs", "express"])("shows the sign-in update for newly imported %s apps", async (framework) => {
     await renderPage({
       createdAt: new Date("2026-11-02T12:00:00Z"),
       sourceOfTruth: "IMPORTED_REPOSITORY",
       submittedConfig: { entraLogin: true, importRuntime: { framework } },
     });
-    expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Sign-in update" })).toBeInTheDocument();
   });
   it.each(["NOT_STARTED", "QUEUED", "PROVISIONING", "DEPLOYING", "DELETED"])("redirects a non-admin to onboarding for %s", async (publishStatus) => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(appRequest({ publishStatus }));
@@ -425,7 +429,7 @@ describe("DownloadPage admin publishing recovery", () => {
       },
     });
 
-    expect(screen.getByText(/publishing setup has been applied/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete the sign-in review above/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Retry Publish" }),
     ).not.toBeInTheDocument();

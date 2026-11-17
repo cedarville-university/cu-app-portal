@@ -1,6 +1,6 @@
 # CU Launch Codex Workspace Plugin Operations
 
-The source plugin now includes an advanced MCP-server/Plugin Creator route, including the registered App connection needed for ChatGPT cloud. Both pilot variants passed native ChatGPT Work and Codex calls; remaining admission and publishing-identity checks keep the template disabled. `get_app` adds nullable nonsecret `mcp` connection metadata; existing tools, access checks, and mutation replay rules remain unchanged. See [MCP servers](mcp-servers.md) and [agent evaluations](mcp-agent-evaluations.md). Source version 1.0.5+codex.20261117 does not prove installed workspace availability; the production CU Launch plugin has not been updated by this pilot.
+The source plugin now includes an advanced MCP-server/Plugin Creator route, including the registered App connection needed for ChatGPT cloud. Both pilot variants passed native ChatGPT Work and Codex calls; remaining admission and publishing-identity checks keep the template disabled. `get_app` adds nullable nonsecret `mcp` connection metadata; existing tools, access checks, and mutation replay rules remain unchanged. See [MCP servers](mcp-servers.md) and [agent evaluations](mcp-agent-evaluations.md). Source version 1.0.6+codex.20261117 does not prove installed workspace availability; the production CU Launch plugin has not been updated by this pilot.
 
 This runbook is for portal operations, Entra administrators, and Codex
 workspace administrators. It describes the optional CU Launch
@@ -12,7 +12,7 @@ instructions, and it does not authorize changes to portal UI workflows.
 The following is **locally verified** in the repository: disabled-by-default
 MCP configuration parsing; the protected `/api/mcp` route and
 `/.well-known/oauth-protected-resource` metadata route; bearer-token claim
-validation; seventeen tool adapters; rate-limit and idempotency contracts; the
+validation; twenty-two tool adapters; rate-limit and idempotency contracts; the
 skills-only plugin package; its marketplace descriptor; and the guarded
 finalizer script.
 
@@ -55,6 +55,11 @@ The supported tool list is deliberately narrow:
 15. `set_app_environment`
 16. `get_my_profile`
 17. `set_my_github_username`
+18. `adopt_existing_app`
+19. `get_app_import_status`
+20. `prepare_imported_app`
+21. `verify_imported_app`
+22. `review_imported_app_login`
 
 `request_github_access` accepts only the signed-in actor's GitHub username already saved in CU Launch settings. The portal records the app, actor, and normalized username before asking GitHub to grant access so later collaborator removal can revoke every recorded identity even if the profile changes.
 
@@ -115,25 +120,57 @@ plugin fallback, and official GitHub CLI recovery with secure sign-in and
 scoped helpers. It preserves existing work, remotes, and unrelated settings;
 it does not make blanket global Git changes or request secrets.
 
-Package `1.0.3+codex.20261113` and MCP server version `1.1.0` contain this source
+Package `1.0.5+codex.20261116` and MCP server version `1.3.0` contain this source
 update. Deploy the portal, refresh connected MCP tool metadata, and sync/review
 the updated workspace skill through the existing plugin release process before
 expecting installed users to receive both capabilities and instructions. Verify
 saved/missing identities, invitation acceptance, and local Git setup with a
 disposable app in the intended host; local tests alone do not prove that rollout.
 
-There is no delete, import, collaborator-management, secret-environment-variable, or
+There is no delete, collaborator-management, secret-environment-variable, or
 push-to-deploy tool. Launching a new app never publishes. The technical
 `create_app` tool stops after the app record and private managed repository are
 created. The approved launch workflow then requests the actor's repository
 access separately through `request_github_access`. Publish, repair, and retry each
 need a separate explicit request and a caller-provided idempotency UUID.
 
-Existing/local app imports, collaborator management, secret environment-variable
+Collaborator management, secret environment-variable
 management, push-to-deploy, deletion, and other excluded workflows must be
 completed in the CU Launch UI. The plugin must not substitute
 template-based launch for an excluded workflow or perform direct provider
 operations against GitHub, Azure, Entra, or other external services.
+
+## Adopt an existing Codex project
+
+Users can say **add this to CU Launch** inside their existing app project. The workspace skill inspects Git status/history/remotes and runtime compatibility, resolves GitHub identity and secure connection setup, and offers a concrete migration plan for incompatible architectures. Migration requires explicit approval before code changes. Declining leaves the app intact and reports the blocker. Template creation is never substituted for import.
+
+`adopt_existing_app` accepts `idempotencyKey` (UUID), `appName` (2–80 characters), `description` (up to 500), `databaseProvider` (`none` or `postgresql`), `entraLogin`, and optional `repositoryUrl` and `publicAcknowledgement: true`. All choices are explicit; public audience requires acknowledgement. Omit the URL for local upload: CU Launch creates the managed repository directly, then Codex preserves local history, loads the app-local skill, tests, and uploads intended files. An external GitHub source uses the existing durable import queue. Only remote history is mirrored. Preserve source remotes and add a verified `portal` remote in the same checkout.
+
+Creation uses a durable actor/UUID-derived app identity and input digest rather than an expiring response cache. Local provisioning persists the app before GitHub creation and uses its existing ownership marker for recovery. Reuse identical choices and UUID after interruption: this resumes that app, never a replacement. Changed input conflicts. A pending external attempt can be resent using the same attempt ID and atomic runner claim. A failed import is reviewed/retried through the UI; do not generate a new creation key to bypass failure. Import creation replay identity remains bound for the app's lifetime; other mutation response caches retain their seven-day boundary. Repeated creation/resume calls consume the import rate limit.
+
+A GitHub installation's private repository access does not establish the caller's authority. A source in a configured installation is resumed only when an existing portal app grants that actor access; otherwise the tool directs them to local upload or their app owner. Unreadable private sources never become public automatically and no credentials are accepted. Local upload must not bypass a denied managed-app lookup. Existing app authorization is checked before resuming or returning results, and before preparation/verification cache lookup.
+
+`get_app_import_status` accepts `appId`. It returns recorded import/preparation states, PR URL, attention flag, timestamps, and a fresh remote compatibility scan before preparation when the repository is ready. The scan is pinned to a Git commit and returns at most 50 fixed-schema findings plus a service-integration blocker; it never returns source files or raw provider errors. Fixed diagnostic codes/messages explain import failures, GitHub App authentication/permissions, compatibility, publishing-file conflicts, and merge verification blockers. A provider scan failure reports `compatibilityCheck: unavailable` while preserving recorded status. Already prepared or running states do not rerun the initial file-conflict scan. Status is not proof of application behavior, publishing-setup readiness, or live deployment health. Check `get_app` for setup and lifecycle actions.
+
+`prepare_imported_app` accepts `appId`, `mode` (`DIRECT_COMMIT` or `PULL_REQUEST`), and a separate UUID `idempotencyKey`. It requires current app authorization and actor-specific repository access. Preparation uses the shared server-side scanner and existing publishing bundle; direct writes stop on conflicts. A review can propose publishing changes for explicit review. After merge confirmation, `verify_imported_app` accepts `appId` and another UUID to verify default-branch publishing readiness and complete setup. Setup can provision app resources, so include it in import approval. Neither operation deploys. A new deliberate verification after a later merge uses a new key; uncertain transport responses reuse it. Inspect status after partial/uncertain results. An operation interrupted while preparation is RUNNING requires operator review; do not create another app or reset its state automatically.
+
+The existing access, publish, repair, and retry tools now accept authorized imported apps too. Publishing still requires a separate explicit request. Compatibility migration and database/authentication code integration happen locally under approved scope; the tool does not automatically copy data or implement sign-in.
+
+### Imported-app sign-in review
+
+Adoption and import status return `loginGuidance` with the saved audience, known framework, shared custom-login requirements, a recovery prompt and review instructions. These instructions remain available before preparation and when the app-local skill is missing or customized. Public apps do not receive login integration work. Imported Next.js and Express sign-in apps retain their dismissible details-page update notice regardless of import date. Generated starters use their recorded template version rather than creation date to decide whether the old-login notice applies.
+
+`get_app_import_status` also returns `loginReview`, including after publishing preparation is COMMITTED. Before the first successful publish of an imported sign-in app, the server reads bounded source files at the current remote commit. `NEEDS_REVIEW` and `UNAVAILABLE` remain actionable; a filename, source pattern, manifest, build or dismissed notice never records approval. Findings are fixed messages, not source contents or provider errors. Dynamic or unrecognized authentication requires inspection of the actual implementation.
+
+After inspecting the public custom sign-in page, server-side initiation, access restrictions, safe return destinations, OAuth/callback validation and passing relevant tests, use `review_imported_app_login` with `{ appId, commitSha, sourcePaths, checksConfirmed: true, idempotencyKey }`. `commitSha` is the current 40-character lowercase Git SHA; `sourcePaths` contains 1–12 relative application source paths ending in JS/TS/Python extensions. The tool rejects traversal, environment files and missing sources. An apparent default Auth.js configuration produces a visible advisory; dynamic or indirect custom configurations remain eligible for explicit code/test review without forced rewriting. It authorizes before idempotency replay and rechecks access, repository identity and current head before persisting `IMPORTED_LOGIN_REVIEWED` in the existing audit table. Persistence must succeed; no database migration is required. A replay returns `recordedReview` plus fresh import `status`, so an old recorded result is not approval of later code.
+
+The portal offers the same review prompt and an explicit confirmation after Codex completes the checks, with the exact checked commit and an editable list of the source files Codex reviewed. Refresh after uploading code and after preparation; another commit makes the review stale. Confirmation records the actor's code/test review, not an automatic proof of authentication or browser reputation. Users must not confirm checks that could not run. The web and MCP first-publish paths fail closed without a current review, and the worker checks again before dispatch. New imported deployment workflows accept `cu_launch_commit_sha` and pin first-publish checkout to the reviewed commit; later push builds continue using their event commit. Imported publishing bundles are staged with manual dispatch only; reviewed first-publish imports activate push only after successful deployment verification and a fresh read of the saved auto-deploy preference. YAML-aware trigger changes preserve dispatch inputs through disable/enable cycles. An older never-published imported app may need its publishing preparation updated through review before that first publish. Status exposes `publishingUpdateRequired` and `canRefreshPublishing`; a prepared COMMITTED sign-in app can explicitly request `prepare_imported_app` in PULL_REQUEST mode to refresh its publishing files. The portal exposes **Review publishing update** for the same transition. Merge and verify the review, then review sign-in at the new commit. Direct overwrites remain disallowed. Already published apps retain their existing deployment behavior.
+
+Sign-in review is limited to 10 confirmations/hour per actor (`PORTAL_MCP_RATE_LOGIN_REVIEW_MAX`, lower-only override). It never grants repository access, changes application authentication, deploys an app or certifies that Google has cleared a warning. Production rollout requires portal/worker deployment and plugin metadata/skill refresh; those steps are separate from source verification.
+
+Dedicated per-actor limits are 3 adoption calls/hour (`PORTAL_MCP_RATE_IMPORT_MAX`), 6 preparations/hour (`PORTAL_MCP_RATE_PREPARE_MAX`), and 10 verifications/hour (`PORTAL_MCP_RATE_VERIFY_IMPORT_MAX`). Overrides may only lower defaults. Status uses the read limiter. No database migration is required.
+
+Release this through the existing portal deployment and workspace marketplace sync/review, preserving plugin/App identity and sharing. The previous source package was `1.0.3+codex.20261113`. Local tests are source evidence only. Verify no-remote upload, external import, migration acceptance/refusal, private-source fallback, invitation acceptance, PR merge verification, and separately requested publishing with disposable apps after deployment and refreshed MCP metadata/skills.
 
 ## Configuration and delegated identity gate
 

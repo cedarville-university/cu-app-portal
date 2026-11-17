@@ -1,7 +1,7 @@
 {
   "name": "cedarville-app-portal",
-  "version": "1.0.5+codex.20261117",
-  "description": "Launch and operate Cedarville-managed apps from approved CU Launch templates.",
+  "version": "1.0.6+codex.20261117",
+  "description": "Adopt existing projects or launch and operate Cedarville-managed apps with CU Launch.",
   "author": {
     "name": "Cedarville University"
   },
@@ -9,7 +9,7 @@
   "interface": {
     "displayName": "CU Launch",
     "shortDescription": "Launch and publish Cedarville-managed apps from Codex.",
-    "longDescription": "Launch a Cedarville-managed app from an approved template, optionally customize its managed GitHub repository, and explicitly publish it to Azure in a separate operation.",
+    "longDescription": "Adopt an existing local or GitHub app with compatibility checks and approved migration, or launch from a template. Prepare its managed repository and explicitly publish to Azure in a separate operation.",
     "developerName": "Cedarville University",
     "category": "Developer Tools",
     "capabilities": [
@@ -17,6 +17,6 @@
       "Read",
       "Write"
     ],
-    "defaultPrompt": "Launch a new Cedarville app from an approved template."
+    "defaultPrompt": "Add this project to CU Launch or launch a new app."
   }
 }

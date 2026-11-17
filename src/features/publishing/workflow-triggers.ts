@@ -24,26 +24,37 @@ export function enablePushTriggerForAzureWorkflow(
 ): WorkflowPatchResult {
   assertPortalManagedAzureWorkflow(workflow);
 
-  if (workflow.includes("push:\n    branches:")) {
+  const document = parseDocument(workflow);
+  const triggers = document.get("on");
+  if (document.errors.length || !isMap(triggers) || !triggers.has("workflow_dispatch")) {
+    throw new Error("Deployment workflow does not have the expected manual dispatch trigger.");
+  }
+  if (triggers.has("push")) {
     return {
       content: workflow,
       changed: false,
     };
   }
 
-  const manualDispatchTrigger = "on:\n  workflow_dispatch:\n";
-
-  if (!workflow.includes(manualDispatchTrigger)) {
-    throw new Error(
-      "Deployment workflow does not have the expected manual dispatch trigger.",
-    );
-  }
-
+  triggers.set("push", { branches: [defaultBranch] });
   return {
     changed: true,
-    content: workflow.replace(
-      manualDispatchTrigger,
-      `on:\n  workflow_dispatch:\n  push:\n    branches:\n      - ${defaultBranch}\n`,
-    ),
+    content: document.toString(),
   };
+}
+import { isMap, parseDocument } from "yaml";
+
+
+export function supportsReviewedCommitCheckout(workflow: string, manualOnly = false) {
+  try {
+    const document = parseDocument(workflow);
+    if (document.errors.length) return false;
+    const value = document.toJS();
+    if (value?.on?.workflow_dispatch?.inputs?.cu_launch_commit_sha?.type !== "string" ||
+        (manualOnly && Object.keys(value.on).some(event => event !== "workflow_dispatch"))) return false;
+    const steps = value?.jobs?.deploy?.steps;
+    if (!Array.isArray(steps)) return false;
+    const checkouts = steps.filter(step => typeof step?.uses === "string" && /^actions\/checkout@/.test(step.uses));
+    return checkouts.length === 1 && checkouts[0].with?.ref === "${{ inputs.cu_launch_commit_sha || github.sha }}";
+  } catch { return false; }
 }

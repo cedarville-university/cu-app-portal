@@ -75,6 +75,7 @@ type DispatchWorkflowInput = {
   name: string;
   workflowFileName: string;
   ref: string;
+  inputs?: Record<string, string>;
 };
 
 type GetLatestWorkflowRunInput = {
@@ -1077,6 +1078,7 @@ export function createGitHubAppClient({
       name,
       workflowFileName,
       ref,
+      inputs,
     }: DispatchWorkflowInput) {
       const headers = await withInstallationHeaders();
       const response = await fetchImpl(
@@ -1084,7 +1086,7 @@ export function createGitHubAppClient({
         {
           method: "POST",
           headers,
-          body: JSON.stringify({ ref }),
+          body: JSON.stringify({ ref, ...(inputs ? { inputs } : {}) }),
         },
       );
 

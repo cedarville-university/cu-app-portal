@@ -68,7 +68,7 @@ export function LoginUpdateNotice({
       </div>
       <p>
         Chrome may show a “Dangerous site” warning when people sign in to some
-        older apps. Updating your app’s sign-in page may help. Copy the instructions
+        apps that use the default sign-in page. Updating your app’s sign-in page may help. Copy the instructions
         below and paste them into Codex in your app’s project. If you’ve already
         made this update, you can dismiss this message.
       </p>

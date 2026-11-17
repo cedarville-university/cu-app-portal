@@ -1,4 +1,5 @@
 import { buildDeploymentManifest } from "@/features/generation/deployment-manifest";
+import { disablePushTriggerForAzureWorkflow } from "@/features/publishing/disable-push-trigger";
 import {
   LEGACY_PUBLISH_SKILL_PATH,
   PORTAL_SKILL_PATH,
@@ -384,7 +385,9 @@ export function planPublishingBundle({
   }
 
   filesToWrite[".github/workflows/deploy-azure-app-service.yml"] =
-    buildDeployWorkflow(runtime);
+    disablePushTriggerForAzureWorkflow(buildDeployWorkflow(runtime)
+      .replace("  workflow_dispatch:\n", "  workflow_dispatch:\n    inputs:\n      cu_launch_commit_sha:\n        description: Reviewed application commit for the first publish\n        required: false\n        type: string\n")
+      .replace("        uses: actions/checkout@v4\n", "        uses: actions/checkout@v4\n        with:\n          ref: ${{ inputs.cu_launch_commit_sha || github.sha }}\n")).content;
   if (runtime.framework === "http-server") {
     filesToWrite[HTTP_SERVER_START_PATH] = HTTP_SERVER_START;
   }

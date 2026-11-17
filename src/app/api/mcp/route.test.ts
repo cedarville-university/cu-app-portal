@@ -354,6 +354,11 @@ describe("portal MCP route authentication", () => {
 
     expect(response.status).toBe(200);
     expect(frame.result.tools.map(({ name }) => name)).toEqual([
+      "adopt_existing_app",
+      "get_app_import_status",
+      "review_imported_app_login",
+      "prepare_imported_app",
+      "verify_imported_app",
       "get_my_profile",
       "set_my_github_username",
       "list_app_templates",

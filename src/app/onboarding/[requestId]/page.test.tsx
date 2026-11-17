@@ -2,6 +2,10 @@ import React from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AppOnboardingPage from "./page";
+vi.mock("@/features/repository-imports/login-review", async importOriginal => ({
+  ...await importOriginal<typeof import("@/features/repository-imports/login-review")>(),
+  getImportedLoginReview: vi.fn().mockResolvedValue({ status: "REVIEWED", commitSha: "a".repeat(40), sourcePaths: ["src/auth.ts"], findings: [], evidence: "Code review confirmed" }),
+}));
 
 const mockUseFormStatus = vi.hoisted(() => vi.fn());
 
@@ -64,6 +68,7 @@ vi.mock("@/lib/db", () => ({
 
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import { prisma } from "@/lib/db";
+import { getImportedLoginReview } from "@/features/repository-imports/login-review";
 
 function generatedApp(
   overrides: Record<string, unknown> = {},
@@ -1260,6 +1265,16 @@ describe("AppOnboardingPage publishing setup and recovery", () => {
     expect(document.body).toHaveTextContent("admin-provider-request");
   });
 
+  it("requires current sign-in review before offering the initial publish", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(importedApp({
+      publishingSetupStatus: "READY",
+      repositoryImport: { ...importedApp().repositoryImport, preparationStatus: "COMMITTED" },
+    }));
+    vi.mocked(getImportedLoginReview).mockResolvedValueOnce({ status: "NEEDS_REVIEW", commitSha: "a".repeat(40), sourcePaths: ["src/auth.ts"], findings: [], evidence: "Review required" });
+    await renderPage();
+    expect(screen.getByRole("region", { name: "Sign-in review" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Publish to Azure" })).not.toBeInTheDocument();
+  });
   it("offers initial publish only after imported setup is ready", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       preparedImportedApp({ publishingSetupStatus: "READY" }),

@@ -1,9 +1,11 @@
 import {
   AZURE_DEPLOY_WORKFLOW_PATH,
   enablePushTriggerForAzureWorkflow,
+  supportsReviewedCommitCheckout,
 } from "../workflow-triggers";
 import type { createGitHubAppClient } from "@/features/repositories/github-app";
 import type { PrismaClient } from "@prisma/client";
+import { assertImportedLoginReviewForFirstPublish, needsImportedLoginReview } from "@/features/repository-imports/login-review";
 
 import type {
   DeployRepositoryOptions,
@@ -41,6 +43,7 @@ import {
 type RuntimeDeps = {
   ensureMcpIdentity?: typeof ensureDefaultMcpIdentity;
   verifyMcpDeployment?: typeof verifyMcpDeployment;
+  assertImportedLoginReviewForFirstPublish?: typeof assertImportedLoginReviewForFirstPublish;
   createKeyVaultClient: AppSecretStoreDeps["createKeyVaultClient"];
   config: AzurePublishConfig;
   prisma: Pick<PrismaClient, "appRequest" | "appEnvironmentVariable">;
@@ -138,6 +141,7 @@ type RuntimeDeps = {
       name: string;
       workflowFileName: string;
       ref: string;
+      inputs?: Record<string, string>;
     }): Promise<void>;
     getLatestWorkflowRun(input: {
       owner: string;
@@ -158,6 +162,9 @@ type RuntimeDeps = {
 };
 
 type PublishableAppRequest = {
+  sourceOfTruth: string;
+  lastPublishedAt: Date | null;
+  publishedAt: Date | null;
   deploymentTriggerMode: "PUSH_TO_DEPLOY" | "PORTAL_DISPATCH";
   id: string;
   appName: string;
@@ -214,6 +221,9 @@ async function loadPublishableRequest(
   }
 
   return {
+    sourceOfTruth: appRequest.sourceOfTruth,
+    lastPublishedAt: appRequest.lastPublishedAt,
+    publishedAt: appRequest.publishedAt,
     deploymentTriggerMode: appRequest.deploymentTriggerMode,
     id: appRequest.id,
     appName: appRequest.appName,
@@ -387,6 +397,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         owner: string;
         name: string;
         runId: string;
+        firstPublish?: { appId: string; branch: string; commitSha: string; authorize?: () => Promise<void> };
       }
     | null = null;
 
@@ -684,6 +695,20 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const name = appRequest.repositoryName;
       const branch = appRequest.repositoryDefaultBranch;
 
+      const reviewedCommit = needsImportedLoginReview(appRequest)
+        ? await (deps.assertImportedLoginReviewForFirstPublish ?? assertImportedLoginReviewForFirstPublish)(appRequestId)
+        : null;
+      let expectedHeadSha = reviewedCommit;
+      if (reviewedCommit) {
+        const head = await deps.github.getBranchHead({ owner, name, branch });
+        if (head.sha !== reviewedCommit) throw new Error("The app code changed after sign-in review. Review its current commit before publishing.");
+        const files = await deps.github.readRepositoryTextFiles({ owner, name, ref: head.sha, paths: [AZURE_DEPLOY_WORKFLOW_PATH] });
+        const workflow = files[AZURE_DEPLOY_WORKFLOW_PATH] ?? "";
+        if (!supportsReviewedCommitCheckout(workflow, true)) {
+          throw new Error("Update this app's publishing preparation to support the reviewed commit before its first publish.");
+        }
+      }
+
       options?.onSetupStep?.("github_federated_credential");
       const oidcIdentity = await deps.github.getRepositoryOidcIdentity({
         owner,
@@ -746,8 +771,9 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         where: { id: appRequestId },
         select: { deploymentTriggerMode: true },
       });
-      if (currentRequest?.deploymentTriggerMode === "PUSH_TO_DEPLOY") {
+      if (currentRequest?.deploymentTriggerMode === "PUSH_TO_DEPLOY" && !reviewedCommit) {
         const head = await deps.github.getBranchHead({ owner, name, branch });
+        if (reviewedCommit && head.sha !== expectedHeadSha) throw new Error("The app code changed after sign-in review. Review its current commit before publishing.");
         const files = await deps.github.readRepositoryTextFiles({
           owner,
           name,
@@ -761,7 +787,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         const patched = enablePushTriggerForAzureWorkflow(workflow, branch);
         if (patched.changed) {
           await options?.authorizeProviderMutation?.();
-          await deps.github.commitFiles({
+          const committed = await deps.github.commitFiles({
             owner,
             name,
             branch,
@@ -769,6 +795,9 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
             message: "Enable push-to-deploy [skip ci]",
             files: { [AZURE_DEPLOY_WORKFLOW_PATH]: patched.content },
           });
+          // Only this portal-authored workflow change may follow the reviewed
+          // application commit; the deployed checkout remains pinned below.
+          if (reviewedCommit) expectedHeadSha = committed.commitSha;
         }
       }
 
@@ -780,19 +809,23 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       };
       const previousRun = await getLatestWorkflowRunOrNull(workflowRunInput);
       await options?.authorizeProviderMutation?.();
+      if (reviewedCommit && (await deps.github.getBranchHead({ owner, name, branch })).sha !== expectedHeadSha) {
+        throw new Error("The app code changed after sign-in review. Review its current commit before publishing.");
+      }
       await options?.onWorkflowDispatching?.();
       await deps.github.dispatchWorkflow({
         owner,
         name,
         workflowFileName: WORKFLOW_FILE_NAME,
         ref: branch,
+        ...(reviewedCommit ? { inputs: { cu_launch_commit_sha: reviewedCommit } } : {}),
       });
       options?.onWorkflowDispatched?.();
       const run = await waitForNewWorkflowRun(
         workflowRunInput,
         previousRun?.id ?? null,
       );
-      lastDeploymentRun = { owner, name, runId: run.id };
+      lastDeploymentRun = { owner, name, runId: run.id, ...(reviewedCommit ? { firstPublish: { appId: appRequestId, branch, commitSha: reviewedCommit, authorize: options?.authorizeProviderMutation } } : {}) };
 
       return {
         publishUrl: appRequest.primaryPublishUrl ?? names.primaryPublishUrl,
@@ -813,7 +846,29 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
       const verifyPublishedUrl =
         deps.verifyPublishedUrl ?? defaultVerifyPublishedUrl;
 
-      return verifyPublishedUrl(publishUrl);
+      const verification = await verifyPublishedUrl(publishUrl);
+      const initial = lastDeploymentRun.firstPublish;
+      if (initial) {
+        try {
+          const current = await deps.prisma.appRequest.findUnique({ where: { id: initial.appId }, select: { deploymentTriggerMode: true } });
+          if (current?.deploymentTriggerMode === "PUSH_TO_DEPLOY") {
+            const target = { owner: lastDeploymentRun.owner, name: lastDeploymentRun.name, branch: initial.branch };
+            const head = await deps.github.getBranchHead(target);
+            if (head.sha !== initial.commitSha) throw new Error("App code changed during the first publish.");
+            const files = await deps.github.readRepositoryTextFiles({ owner: target.owner, name: target.name, ref: head.sha, paths: [AZURE_DEPLOY_WORKFLOW_PATH] });
+            const patched = enablePushTriggerForAzureWorkflow(files[AZURE_DEPLOY_WORKFLOW_PATH] ?? "", initial.branch);
+            if (patched.changed) {
+              await initial.authorize?.();
+              // Re-read the saved preference at the mutation boundary.
+              const latest = await deps.prisma.appRequest.findUnique({ where: { id: initial.appId }, select: { deploymentTriggerMode: true } });
+              if (latest?.deploymentTriggerMode === "PUSH_TO_DEPLOY") await deps.github.commitFiles({ ...target, expectedHeadSha: head.sha, message: "Enable push-to-deploy after verified first publish [skip ci]", files: { [AZURE_DEPLOY_WORKFLOW_PATH]: patched.content } });
+            }
+          }
+        } catch {
+          verification.warningSummary = [verification.warningSummary, "The reviewed app was published, but automatic updates could not be enabled. After checking the app code, disable and re-enable auto-deploy in app details."].filter(Boolean).join(" ");
+        }
+      }
+      return verification;
     },
   };
 }

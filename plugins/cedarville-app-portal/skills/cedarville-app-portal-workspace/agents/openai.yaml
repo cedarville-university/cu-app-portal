@@ -1,6 +1,6 @@
 interface:
   display_name: "CU Launch"
   short_description: "Launch and publish Cedarville-managed apps from Codex."
-  default_prompt: "Launch a new Cedarville app from an approved template."
+  default_prompt: "Add this project to CU Launch or launch a new app."
 policy:
   allow_implicit_invocation: true
