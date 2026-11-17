@@ -11,6 +11,7 @@ describe("seedTemplates", () => {
       "public-information-page",
       "web-app",
       "python-fastapi",
+      "mcp-server",
     ]);
     expect(rows[0]?.status).toBe("ACTIVE");
   });

@@ -4,9 +4,9 @@ import { getTemplatePolicy } from "./policy";
 import { createAppSchema } from "@/features/create-app/validation";
 
 describe("MCP template policy", () => {
-  it("keeps the advanced template disabled pending the live pilot", () => {
-    expect(getActiveTemplateBySlug("mcp-server")).toBeNull();
-    expect(getTemplateBySlug("mcp-server")).toMatchObject({ category: "advanced", status: "DISABLED" });
+  it("enables the advanced template after the approved live pilot", () => {
+    expect(getActiveTemplateBySlug("mcp-server")).toBeTruthy();
+    expect(getTemplateBySlug("mcp-server")).toMatchObject({ category: "advanced", status: "ACTIVE" });
   });
   it("requires delegated Cedarville auth and persists its policy", () => {
     const template = getTemplateBySlug("mcp-server")!;

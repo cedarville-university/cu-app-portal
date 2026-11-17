@@ -10,18 +10,13 @@ import {
 describe("getActiveTemplates", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("permits the explicit MCP preview only in Azure's testing slot", () => {
-    vi.stubEnv("CU_LAUNCH_MCP_TEMPLATE_PREVIEW", "true");
+  it("offers the advanced MCP template in production without a preview flag", () => {
     vi.stubEnv("WEBSITE_HOSTNAME", "cu-app-portal.azurewebsites.net");
-    expect(getActiveTemplateBySlug("mcp-server")).toBeNull();
-    vi.stubEnv("WEBSITE_HOSTNAME", "cu-app-portal-testing.azurewebsites.net");
+    vi.stubEnv("CU_LAUNCH_MCP_TEMPLATE_PREVIEW", "false");
     expect(getActiveTemplateBySlug("mcp-server")).toMatchObject({
-      slug: "mcp-server",
-      status: "ACTIVE",
+      slug: "mcp-server", status: "ACTIVE", category: "advanced",
       features: { database: { mode: "optional", defaultProvider: "none" } },
     });
-    vi.stubEnv("CU_LAUNCH_MCP_TEMPLATE_PREVIEW", "false");
-    expect(getActiveTemplateBySlug("mcp-server")).toBeNull();
   });
 
   it("returns at least one active template", () => {
@@ -58,11 +53,16 @@ describe("getActiveTemplates", () => {
       "public-information-page",
       "web-app",
       "python-fastapi",
+      "mcp-server",
     ]);
     for (const template of templates) {
       expect(template.decisionSummary.length).toBeGreaterThan(20);
       expect(template.decisionSummary).toMatch(/Cedarville sign-in/i);
-      expect(template.decisionSummary).toMatch(/openly public/i);
+      if (template.applicationKind === "mcp-server") {
+        expect(template.decisionSummary).toMatch(/Requires Codex customization/);
+      } else {
+        expect(template.decisionSummary).toMatch(/openly public/i);
+      }
       expect(template.bestFor.length).toBeGreaterThan(0);
       expect(template.appServiceRuntime.azureRuntimeStack).toMatch(/\|/);
       expect(template.features.database.mode).toMatch(
@@ -95,6 +95,11 @@ describe("getActiveTemplates", () => {
             name: "API / Automation Service",
           }),
         ],
+      },
+      {
+        category: "advanced",
+        label: "Advanced Templates",
+        templates: [expect.objectContaining({ slug: "mcp-server" })],
       },
     ]);
   });

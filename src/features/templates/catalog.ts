@@ -39,17 +39,6 @@ const fastApiAppServiceRuntime: AppServiceRuntime = {
 
 const templates: PortalTemplate[] = [
   {
-    id: "mcp-server-v1", slug: "mcp-server", name: "MCP Server (Advanced)",
-    description: "Host tools for your own ChatGPT or Codex plugins on Azure.",
-    decisionSummary: "Requires Codex customization and Cedarville sign-in. Connect your Azure-hosted server to your own plugin with Plugin Creator.",
-    bestFor: ["Custom plugin backends", "Internal read-only integrations", "Developer-authored tools"],
-    category: "advanced", applicationKind: "mcp-server", authenticationMode: "entra-mcp",
-    audience: { cedarville: true, public: false },
-    hostingTarget: "Azure App Service", appServiceRuntime: nextAppServiceRuntime,
-    features: { database: { mode: "optional", providerOptions: ["postgresql"], defaultProvider: "none" }, entraLogin: { mode: "required", defaultEnabled: true } },
-    version: "1.0.0", status: "DISABLED", fields: sharedFields,
-  },
-  {
     id: "department-form-approval-v1",
     slug: "department-form-approval",
     sourceTemplateSlug: "web-app",
@@ -207,6 +196,17 @@ const templates: PortalTemplate[] = [
     version: "1.0.0",
     status: "ACTIVE",
     fields: sharedFields,
+  },
+  {
+    id: "mcp-server-v1", slug: "mcp-server", name: "MCP Server (Advanced)",
+    description: "Host tools for your own ChatGPT or Codex plugins on Azure.",
+    decisionSummary: "Requires Codex customization and Cedarville sign-in. Connect your Azure-hosted server to your own plugin with Plugin Creator.",
+    bestFor: ["Custom plugin backends", "Internal read-only integrations", "Developer-authored tools"],
+    category: "advanced", applicationKind: "mcp-server", authenticationMode: "entra-mcp",
+    audience: { cedarville: true, public: false },
+    hostingTarget: "Azure App Service", appServiceRuntime: nextAppServiceRuntime,
+    features: { database: { mode: "optional", providerOptions: ["postgresql"], defaultProvider: "none" }, entraLogin: { mode: "required", defaultEnabled: true } },
+    version: "1.0.0", status: "ACTIVE", fields: sharedFields,
   },
 ];
 

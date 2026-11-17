@@ -1,6 +1,6 @@
 # CU Launch Template Authoring
 
-The separate `templates/mcp-server/` engine is an advanced, Cedarville-only delegated-bearer starter, catalog DISABLED pending its live pilot. Explicit catalog `audience`, `applicationKind`, and `authenticationMode` metadata supersede legacy audience defaults for this engine; do not apply ordinary browser Auth.js overrides to it. See [MCP authoring](mcp-servers.md). Legacy templates retain both audience choices.
+The separate `templates/mcp-server/` engine is an advanced, Cedarville-only delegated-bearer starter, catalog ACTIVE after the approved live pilot. Explicit catalog `audience`, `applicationKind`, and `authenticationMode` metadata supersede legacy audience defaults for this engine; do not apply ordinary browser Auth.js overrides to it. See [MCP authoring](mcp-servers.md). Legacy templates retain both audience choices.
 
 Templates are metadata-driven starter packages used by the portal to generate managed GitHub repository contents from a rendered source snapshot.
 

@@ -1,6 +1,6 @@
 # Advanced MCP servers
 
-Implemented November 16, 2026. The `mcp-server` template remains **DISABLED** pending the [live pilot](mcp-server-pilot.md). Source implementation does not deploy the portal, activate the template, publish CU Launch's plugin, or create a user plugin.
+Production rollout approved November 17, 2026 after the [live pilot](mcp-server-pilot.md). The `mcp-server` catalog entry is ACTIVE in this release. See the [production rollout record](mcp-server-production-rollout-2026-11-17.md) for deployment/schema/worker/plugin verification; source availability alone is not live deployment evidence.
 
 ## Template and tool authoring
 
@@ -18,8 +18,8 @@ Each server has a single-tenant Entra resource application with v2 tokens and ad
 
 | Operator setting | Meaning |
 | --- | --- |
-| `AZURE_PUBLISH_MCP_AUTOMATION_ENABLED` | Keep unset/false before the approved pilot. `true` allows owned resource reconciliation during an authorized publish/repair, but does not activate the template. |
-| `AZURE_PUBLISH_MCP_CLIENT_IDS` | Comma-separated verified host OAuth client IDs. All listed clients must already be preauthorized for the resource scope before READY. No secrets. |
+| `AZURE_PUBLISH_MCP_AUTOMATION_ENABLED` | `true` allows owned resource reconciliation during an authorized publish/repair. Configure it on the portal and both publishing jobs; it does not activate the catalog or enroll clients/users. |
+| `AZURE_PUBLISH_MCP_CLIENT_IDS` | Comma-separated verified host OAuth client IDs, configured consistently on portal and publishing jobs. Production uses dedicated public client `5a02b6a3-85a5-4224-ab4b-89e103db41f2`. All listed clients must be preauthorized for each server scope before READY. No secrets. |
 
 Validate actual Graph operations with an approved least-privilege permission set before enabling reconciliation; `Application.ReadWrite.OwnedBy` is a proposed starting point, not proof of existing access. [Microsoft Graph permission guidance](https://learn.microsoft.com/en-us/graph/api/application-post-applications?view=graph-rest-1.0) governs the operator review. No permission or consent grants are implemented here.
 

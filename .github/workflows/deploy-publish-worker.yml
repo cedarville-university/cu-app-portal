@@ -8,6 +8,7 @@ on:
       - '.github/workflows/worker-smtp.test.ts'
       - 'scripts/workers/**'
       - 'src/features/publishing/**'
+      - 'src/features/mcp-servers/**'
       - 'src/features/repositories/**'
       - 'src/features/app-requests/access.ts'
       - 'src/features/notifications/**'

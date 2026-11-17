@@ -1,10 +1,10 @@
 # MCP server live pilot
 
-Status November 17, 2026: **Both isolated MCP servers published; private Plugin Creator save/update, native ChatGPT Work and Codex calls, and PostgreSQL persistence passed. Guest/two-user admission, prompted MFA/consent, native refresh, and representative publishing-identity checks remain. Template DISABLED outside the testing preview.** The [isolated portal testing deployment](mcp-server-testing-deployment-2026-11-16.md) verifies the portal form and portal sign-in. The separate [live pilot record](mcp-server-live-pilot-2026-11-17.md) records exact resources, successful workflows, the startup-probe repair, scoped access removal, and remaining verification.
+Status November 17, 2026: **Both isolated MCP servers published; private Plugin Creator save/update, native ChatGPT Work and Codex calls, and PostgreSQL persistence passed. Guest/two-user admission, prompted MFA/consent, native refresh, and representative publishing-identity checks remain. The user accepted these checks as sufficient and explicitly approved production rollout; remaining checks are recorded limitations, not activation blockers. See the [production rollout record](mcp-server-production-rollout-2026-11-17.md).** The [isolated portal testing deployment](mcp-server-testing-deployment-2026-11-16.md) verifies the portal form and portal sign-in. The separate [live pilot record](mcp-server-live-pilot-2026-11-17.md) records exact resources, successful workflows, the startup-probe repair, scoped access removal, and remaining verification.
 
 Local evidence covers the locked SDK 1.30.0, jose 6.2.10, zod 3.25.76, and Next.js 15.5.19; real locally signed JWTs; SDK initialization/tool listing/harmless call with protocol 2025-11-25; generated tests/typecheck/build without production credentials; and migration/lease checks on disposable PostgreSQL. These do not establish OAuth interoperability in Codex or ChatGPT.
 
-Before activation:
+Pilot checklist (historical evidence; production rollout was subsequently authorized):
 
 1. Authorize a named disposable server/identity/client pilot. Record the operator, scope, safe resource references, and supported hosts. A code implementation request does not imply changing shared OAuth clients or granting tenant-wide permissions.
 2. Verify actual Graph operations with approved owned-resource permissions, or exercise the operator-prepared registration path in [MCP setup](mcp-servers.md). Never silently broaden privileges.
@@ -26,9 +26,9 @@ Before activation:
 
 Attach safe timestamps/commit IDs/support references when testing. Do not record tokens, secrets, raw headers, or personal claims.
 
-## Testing-slot catalog preview
+## Original testing-slot catalog preview
 
-`CU_LAUNCH_MCP_TEMPLATE_PREVIEW=true` exposes the advanced MCP template only when Azure's `WEBSITE_HOSTNAME` is exactly `cu-app-portal-testing.azurewebsites.net`. The catalog entry remains disabled everywhere else, including production. Using the platform hostname also works on Linux App Service, where `WEBSITE_SLOT_NAME` may be absent. This preview allows inspection of the create form and its optional PostgreSQL choice; it does not satisfy the live OAuth or Plugin Creator gates above.
+`CU_LAUNCH_MCP_TEMPLATE_PREVIEW=true` exposes the advanced MCP template only when Azure's `WEBSITE_HOSTNAME` is exactly `cu-app-portal-testing.azurewebsites.net`. This was the initial isolated preview gate. The approved production release makes the catalog entry ACTIVE independently of this flag. Using the platform hostname also works on Linux App Service, where `WEBSITE_SLOT_NAME` may be absent. This preview allows inspection of the create form and its optional PostgreSQL choice; it does not satisfy the live OAuth or Plugin Creator gates above.
 
 Use a separate empty testing database and testing-origin auth/link URLs. Keep `PUBLISH_TRANSPORT=disabled`, `REPOSITORY_IMPORT_TRANSPORT=disabled`, `PORTAL_MCP_ENABLED=false`, and `AZURE_PUBLISH_MCP_AUTOMATION_ENABLED=false`. Remove copied SMTP, GitHub App, publishing, queue, and directory automation credentials from the testing slot. Do not enable the test auth bypass, swap slots, or route production traffic to testing. Shared App Service and PostgreSQL compute still require bounded testing.
 
