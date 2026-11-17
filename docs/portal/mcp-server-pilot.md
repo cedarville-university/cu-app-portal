@@ -1,6 +1,6 @@
 # MCP server live pilot
 
-Status November 16, 2026: **MCP hosting pilot pending. Template DISABLED outside the testing preview.** The [isolated portal testing deployment](mcp-server-testing-deployment-2026-11-16.md) verifies the portal form and portal sign-in. It does not create a hosted MCP server, server Entra identity, host connection, or user plugin.
+Status November 17, 2026: **MCP hosting pilot in progress. Template DISABLED outside the testing preview.** The [isolated portal testing deployment](mcp-server-testing-deployment-2026-11-16.md) verifies the portal form and portal sign-in. The separate [live pilot record](mcp-server-live-pilot-2026-11-17.md) tracks the new test resources, verified steps, required access approval, and remaining hosted MCP/Plugin Creator checks.
 
 Local evidence covers the locked SDK 1.30.0, jose 6.2.10, zod 3.25.76, and Next.js 15.5.19; real locally signed JWTs; SDK initialization/tool listing/harmless call with protocol 2025-11-25; generated tests/typecheck/build without production credentials; and migration/lease checks on disposable PostgreSQL. These do not establish OAuth interoperability in Codex or ChatGPT.
 
