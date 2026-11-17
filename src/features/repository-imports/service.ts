@@ -604,6 +604,7 @@ export async function addExistingAppForActor(
   });
 
   await recordAuditEvent("EXISTING_APP_ADD_REQUESTED", {
+    actorUserId: userId,
     requestId: request.id,
     supportReference,
     sourceRepositoryUrl: source.normalizedUrl,
@@ -616,6 +617,7 @@ export async function addExistingAppForActor(
         ? "EXISTING_APP_IMPORT_SUCCEEDED"
         : "EXISTING_APP_IMPORT_FAILED",
       {
+        actorUserId: userId,
         requestId: request.id,
         sourceRepository: `${source.owner}/${source.name}`,
         targetRepository: `${targetRepository.owner}/${targetRepository.name}`,
@@ -810,6 +812,7 @@ export async function createManagedRepositoryForLocalAppForActor(
   });
 
   await recordAuditEvent("EXISTING_APP_ADD_REQUESTED", {
+    actorUserId: userId,
     requestId: request.id,
     supportReference,
     source: "local-codex-app",
@@ -817,6 +820,7 @@ export async function createManagedRepositoryForLocalAppForActor(
   });
 
   await recordAuditEvent("EXISTING_APP_IMPORT_SUCCEEDED", {
+    actorUserId: userId,
     requestId: request.id,
     source: "local-codex-app",
     targetRepository: `${repository.owner}/${repository.name}`,
@@ -991,6 +995,7 @@ export async function prepareExistingAppForActor(
         ? "REPOSITORY_PREPARATION_COMMITTED"
         : "REPOSITORY_PREPARATION_PR_OPENED",
       {
+        actorUserId: userId,
         requestId,
         pullRequestUrl: result.pullRequestUrl,
       },
@@ -1037,6 +1042,7 @@ export async function prepareExistingAppForActor(
     });
 
     await recordAuditEvent("REPOSITORY_PREPARATION_FAILED", {
+      actorUserId: userId,
       requestId,
       mode,
       targetRepository: `${appRequest.repositoryOwner}/${appRequest.repositoryName}`,
@@ -1166,6 +1172,7 @@ export async function verifyExistingAppPreparationForActor(
   });
 
   await recordAuditEvent("REPOSITORY_PREPARATION_VERIFIED", {
+    actorUserId: userId,
     requestId,
     targetRepository: `${appRequest.repositoryOwner}/${appRequest.repositoryName}`,
   });

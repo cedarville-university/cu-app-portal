@@ -80,6 +80,7 @@ describe("saveEnvVarFormAction", () => {
       },
     );
     expect(recordAuditEvent).toHaveBeenCalledWith("ENV_VAR_SET", {
+      actorUserId: "user-1",
       requestId: "req-1",
       key: "API_KEY",
       isSecret: true,
@@ -148,6 +149,7 @@ describe("deleteEnvVarFormAction", () => {
       { appRequest: accessibleAppRequest, key: "API_KEY" },
     );
     expect(recordAuditEvent).toHaveBeenCalledWith("ENV_VAR_DELETED", {
+      actorUserId: "user-1",
       requestId: "req-1",
       key: "API_KEY",
       isSecret: true,
@@ -203,7 +205,7 @@ describe("saveEnvVarsFormAction", () => {
     const state = await saveEnvVarsFormAction("req-1", { error: null, saved: false }, formDataOf({ changes: JSON.stringify(changes) }));
     expect(state).toEqual({ error: null, saved: true });
     expect(saveEnvironmentVariables).toHaveBeenCalledWith({ deps: true }, { appRequest: accessibleAppRequest, changes });
-    expect(recordAuditEvent).toHaveBeenCalledWith("ENV_VAR_DELETED", { requestId: "req-1", key: "OLD", isSecret: false });
+    expect(recordAuditEvent).toHaveBeenCalledWith("ENV_VAR_DELETED", { requestId: "req-1", actorUserId: "user-1", key: "OLD", isSecret: false });
     expect(JSON.stringify(vi.mocked(recordAuditEvent).mock.calls)).not.toContain("s3cret");
     expect(revalidatePath).toHaveBeenCalledWith("/download/req-1");
   });

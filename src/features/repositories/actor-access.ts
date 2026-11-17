@@ -1,11 +1,12 @@
 import type { Prisma, RepositoryAccessStatus } from "@prisma/client";
+import { enrichAuditDetails, type AuditContextDb } from "@/lib/audit-context";
 import { prisma } from "@/lib/db";
 import {
   parseGitHubUsername,
   parseRepositoryAccessActorUsername,
 } from "./access";
 
-type ActorAccessDb = {
+type ActorAccessDb = AuditContextDb & {
   auditLog: {
     findFirst(
       args: Prisma.AuditLogFindFirstArgs,
@@ -70,7 +71,7 @@ function outcomeFromAudit(
   }
 
   const status =
-    audit.event === "REPOSITORY_ACCESS_FAILED"
+    (audit.event === "REPOSITORY_ACCESS_FAILED" || audit.event === "REPOSITORY_ACCESS_CONFIRMATION_FAILED")
       ? "FAILED"
       : details.accessStatus === "INVITED" ||
           details.accessStatus === "GRANTED"
@@ -116,7 +117,7 @@ export async function resolveRepositoryAccessForActor(
   const audit = await db.auditLog.findFirst({
     where: {
       event: {
-        in: ["REPOSITORY_ACCESS_SUCCEEDED", "REPOSITORY_ACCESS_FAILED"],
+        in: ["REPOSITORY_ACCESS_SUCCEEDED", "REPOSITORY_ACCESS_FAILED", "REPOSITORY_ACCESS_CONFIRMATION_SUCCEEDED", "REPOSITORY_ACCESS_CONFIRMATION_FAILED"],
       },
       AND: [
         { details: { path: ["requestId"], equals: input.requestId } },
@@ -141,6 +142,9 @@ export async function persistRepositoryAccessOutcome(
     status: RepositoryAccessOutcomeStatus;
     supportReference: string;
     source: string;
+    accessPurpose?: "invitation" | "confirmation";
+    correlationKey?: string;
+    idempotencyKey?: string;
   },
   db: ActorAccessDb = prisma,
 ) {
@@ -150,10 +154,10 @@ export async function persistRepositoryAccessOutcome(
   await db.auditLog.create({
     data: {
       event:
-        input.status === "FAILED"
-          ? "REPOSITORY_ACCESS_FAILED"
-          : "REPOSITORY_ACCESS_SUCCEEDED",
-      details: {
+        input.accessPurpose === "confirmation"
+          ? (input.status === "FAILED" ? "REPOSITORY_ACCESS_CONFIRMATION_FAILED" : "REPOSITORY_ACCESS_CONFIRMATION_SUCCEEDED")
+          : (input.status === "FAILED" ? "REPOSITORY_ACCESS_FAILED" : "REPOSITORY_ACCESS_SUCCEEDED"),
+      details: await enrichAuditDetails({
         requestId: input.requestId,
         actorUserId: input.actorUserId,
         githubUsername,
@@ -161,7 +165,10 @@ export async function persistRepositoryAccessOutcome(
         safeSummary,
         supportReference: input.supportReference,
         source: input.source,
-      },
+        ...(input.accessPurpose ? { accessPurpose: input.accessPurpose } : {}),
+        ...(input.correlationKey ? { correlationKey: input.correlationKey } : {}),
+        ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+      }, db) as Prisma.InputJsonObject,
     },
   });
 }

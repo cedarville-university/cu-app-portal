@@ -87,6 +87,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
   }
 
   await recordAuditEvent("REPOSITORY_BOOTSTRAP_REQUESTED", {
+    actorUserId,
     requestId,
     supportReference: appRequest.supportReference,
     retried: true,
@@ -119,6 +120,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
     });
     if (failed.count === 1) {
       await recordAuditEvent("APP_REQUEST_FAILED", {
+        actorUserId,
         requestId,
         supportReference: appRequest.supportReference,
         failureStage: "source-generation",
@@ -181,6 +183,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
     }
 
     await recordAuditEvent("REPOSITORY_BOOTSTRAP_SUCCEEDED", {
+      actorUserId,
       requestId,
       supportReference: appRequest.supportReference,
       repositoryUrl: repository.url,
@@ -213,6 +216,7 @@ export async function retryRepositoryBootstrapAction(requestId: string) {
 
     if (failed.count === 1) {
       await recordAuditEvent("REPOSITORY_BOOTSTRAP_FAILED", {
+        actorUserId,
         requestId,
         supportReference: appRequest.supportReference,
         failureStage: "repository-bootstrap",
@@ -255,6 +259,7 @@ export async function saveGitHubUsernameAndGrantAccessAction(
     actorUserId,
     githubUsername,
     source: "portal-ui",
+    accessPurpose: formData.get("accessPurpose") === "confirmation" ? "confirmation" : "invitation",
   });
 
   revalidatePath(`/download/${requestId}`);

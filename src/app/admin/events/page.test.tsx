@@ -78,6 +78,7 @@ describe("AdminEventsPage", () => {
       screen.getByText(/provider: microsoft-entra-id/),
     ).toBeInTheDocument();
     expect(screen.getByText(/"entraOid": "oid-1"/)).toBeInTheDocument();
+    expect(screen.getByText("Username: Unknown user · App: Not applicable")).toBeInTheDocument();
   });
 
   it.each([
@@ -170,6 +171,7 @@ describe("AdminEventsPage", () => {
     expect(userLink).toHaveAttribute("href", "/admin/users/user-1");
 
     expect(screen.getByText(/"entraOid": "oid-1"/)).toBeInTheDocument();
+    expect(screen.getByText("Username: ada · App: Not applicable")).toBeInTheDocument();
   });
 
   it("passes parsed filters to searchAuditLog", async () => {

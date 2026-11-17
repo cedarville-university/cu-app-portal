@@ -284,6 +284,7 @@ function ConfirmGitHubInvitationForm({
 }) {
   return (
     <form action={saveGitHubUsernameAndGrantAccessAction.bind(null, requestId)}>
+      <input type="hidden" name="accessPurpose" value="confirmation" />
       <input
         type="hidden"
         name="githubUsername"

@@ -27,6 +27,7 @@ function dependencies(): GrantRepositoryAccessDependencies {
         update: vi.fn().mockResolvedValue({}),
       },
       repositoryAccessGrant: {
+        findUnique: vi.fn().mockResolvedValue(null),
         findMany: vi.fn().mockResolvedValue([]),
         upsert: vi.fn().mockResolvedValue({ id: "grant-1" }),
         update: vi.fn().mockResolvedValue({}),
@@ -104,6 +105,25 @@ describe("grantRepositoryAccessForActor", () => {
       );
     },
   );
+
+  it.each([
+    [null, "REPOSITORY_ACCESS_REQUESTED", "invitation"],
+    [{ status: "INVITED", revokedAt: null }, "REPOSITORY_ACCESS_CONFIRMATION_REQUESTED", "confirmation"],
+    [{ status: "GRANTED", revokedAt: null }, "REPOSITORY_ACCESS_CONFIRMATION_REQUESTED", "confirmation"],
+    [{ status: "INVITED", revokedAt: new Date() }, "REPOSITORY_ACCESS_REQUESTED", "invitation"],
+  ] as const)("classifies prior access %j and correlates the result", async (prior, event, accessPurpose) => {
+    vi.mocked(deps.prisma.repositoryAccessGrant.findUnique).mockResolvedValue(prior);
+    await grantRepositoryAccessForActor({ requestId: "request-123", actorUserId: "actor-123", githubUsername: "actor-name", source: "codex-mcp", idempotencyKey: "correlation-123", portalOperation: "request_github_access" }, deps);
+    expect(deps.recordAuditEvent).toHaveBeenCalledWith(event, expect.objectContaining({ accessPurpose, correlationKey: "correlation-123" }));
+    expect(deps.persistRepositoryAccessOutcome).toHaveBeenCalledWith(expect.objectContaining({ accessPurpose, correlationKey: "correlation-123", idempotencyKey: "correlation-123" }));
+  });
+
+  it("generates a shared correlation key for portal requests", async () => {
+    await grantRepositoryAccessForActor({ requestId: "request-123", actorUserId: "actor-123", githubUsername: "actor-name", source: "portal-ui", accessPurpose: "confirmation" }, deps);
+    const details = vi.mocked(deps.recordAuditEvent).mock.calls[0][1];
+    expect(details.correlationKey).toEqual(expect.any(String));
+    expect(deps.persistRepositoryAccessOutcome).toHaveBeenCalledWith(expect.objectContaining({ correlationKey: details.correlationKey, accessPurpose: "confirmation" }));
+  });
 
   it("uses the same quiet not-found result for a foreign or missing app", async () => {
     vi.mocked(deps.prisma.appRequest.findFirst).mockResolvedValue(null);
@@ -319,6 +339,8 @@ describe("grantRepositoryAccessForActor", () => {
         status,
         supportReference: "SUP-123",
         source: "portal-ui",
+        accessPurpose: "invitation",
+        correlationKey: expect.any(String),
       });
       expect(deps.prisma.appRequest.update).not.toHaveBeenCalled();
     },

@@ -1,3 +1,5 @@
+import { enrichAuditDetails } from "@/lib/audit-context";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { appAccessWhere } from "@/features/app-requests/access";
@@ -77,11 +79,11 @@ export async function reviewImportedAppLogin(actor: Actor, rawInput: unknown) {
   const target = identity(current);
   if (!needsImportedLoginReview(current) || JSON.stringify(target) !== JSON.stringify(snapshot.target) ||
       (await snapshot.github.getBranchHead(target)).sha !== input.commitSha) throw new PortalApiError("CONFLICT", "The app changed during review. Check its current sign-in state again.");
-  await prisma.auditLog.create({ data: { event: "IMPORTED_LOGIN_REVIEWED", details: {
-    version: 1, appId: app.id, actorUserId: actor.userId, commitSha: input.commitSha,
+  await prisma.auditLog.create({ data: { event: "IMPORTED_LOGIN_REVIEWED", details: await enrichAuditDetails({
+    version: 1, appId: app.id, appName: app.appName, actorUserId: actor.userId, commitSha: input.commitSha,
     repositoryOwner: target.owner, repositoryName: target.name, branch: target.branch,
     method: "actor_confirmed_code_and_tests", sourcePaths: [...new Set(input.sourcePaths)],
-  } } });
+  }, prisma) as Prisma.InputJsonObject } });
   return { appId: app.id, status: "REVIEWED" as const, commitSha: input.commitSha, evidence: EVIDENCE };
 }
 export async function assertImportedLoginReviewForFirstPublish(appId: string) {

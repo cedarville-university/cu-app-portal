@@ -6,8 +6,8 @@ import { InMemoryPortalOperationStore } from "@/test/portal-operation-store";
 
 const db = vi.hoisted(() => ({
   user: { findUnique: vi.fn(), update: vi.fn() },
-  appRequest: { findFirst: vi.fn() },
-  repositoryAccessGrant: { upsert: vi.fn(), update: vi.fn() },
+  appRequest: { findFirst: vi.fn(), findUnique: vi.fn() },
+  repositoryAccessGrant: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
   auditLog: { create: vi.fn() },
 }));
 const audit = vi.hoisted(() => vi.fn());
@@ -45,8 +45,11 @@ function fixture(savedUsername: string | null) {
   db.user.findUnique.mockImplementation(async ({ where }) => users.get(where.id) ?? null);
   db.user.update.mockImplementation(async ({ where, data }) => Object.assign(users.get(where.id)!, data));
   db.appRequest.findFirst.mockResolvedValue(request);
+  let grantStatus: string | null = null;
+  db.repositoryAccessGrant.findUnique.mockImplementation(async () => grantStatus ? { status: grantStatus, revokedAt: null } : null);
   db.repositoryAccessGrant.upsert.mockResolvedValue({ id: "grant-1" });
-  db.repositoryAccessGrant.update.mockResolvedValue({});
+  db.repositoryAccessGrant.update.mockImplementation(async ({ data }) => { grantStatus = data.status; return {}; });
+  db.appRequest.findUnique.mockResolvedValue({ appName: "Example app" });
   const provider = vi.fn().mockResolvedValue({ status: "INVITED" });
   let recordedAccess = app.repositoryAccess;
   const store = new InMemoryPortalOperationStore();
@@ -112,6 +115,15 @@ describe("profile, creation, and invitation integration", () => {
     expect(await f.access(checkKey)).toMatchObject({ structuredContent: { status: "GRANTED" } });
     await f.access(checkKey); // Uncertain response replays the check, not the grant.
     expect(f.provider).toHaveBeenCalledTimes(2);
+    const events = db.auditLog.create.mock.calls.map(([args]) => args.data);
+    expect(events).toEqual([
+      expect.objectContaining({ event: "REPOSITORY_ACCESS_SUCCEEDED", details: expect.objectContaining({ correlationKey: inviteKey, idempotencyKey: inviteKey, accessPurpose: "invitation", username: "employee", appName: "Example app" }) }),
+      expect.objectContaining({ event: "REPOSITORY_ACCESS_CONFIRMATION_SUCCEEDED", details: expect.objectContaining({ correlationKey: checkKey, idempotencyKey: checkKey, accessPurpose: "confirmation" }) }),
+    ]);
+    expect(audit.mock.calls.map(([event, details]) => [event, details.correlationKey])).toEqual([
+      ["REPOSITORY_ACCESS_REQUESTED", inviteKey],
+      ["REPOSITORY_ACCESS_CONFIRMATION_REQUESTED", checkKey],
+    ]);
     expect(await f.invoke("get_app", { appId: "app-1" })).toMatchObject({ structuredContent: { app: { repositoryAccess: { status: "GRANTED" } } } });
     expect(db.auditLog.create).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ details: expect.objectContaining({ actorUserId: "employee", accessStatus: "GRANTED" }) }) }));
     expect(f.deps.createGeneratedApp).toHaveBeenCalledTimes(1);

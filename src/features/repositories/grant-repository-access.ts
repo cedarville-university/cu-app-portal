@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { appAccessWhere, userHasAdminRole } from "@/features/app-requests/access";
 import { PortalApiError } from "@/features/portal-api/errors";
@@ -34,6 +35,7 @@ type RepositoryAccessDb = {
     update(args: Prisma.UserUpdateArgs): Promise<unknown>;
   };
   repositoryAccessGrant: {
+    findUnique(args: Prisma.RepositoryAccessGrantFindUniqueArgs): Promise<{ status: string; revokedAt: Date | null } | null>;
     upsert(args: Prisma.RepositoryAccessGrantUpsertArgs): Promise<{ id: string }>;
     update(args: Prisma.RepositoryAccessGrantUpdateArgs): Promise<unknown>;
   };
@@ -113,6 +115,7 @@ export async function grantRepositoryAccessForActor(
     source: "portal-ui" | "codex-mcp";
     portalOperation?: string;
     idempotencyKey?: string;
+    accessPurpose?: "invitation" | "confirmation";
   },
   dependencies: GrantRepositoryAccessDependencies = defaultDependencies,
 ): Promise<RepositoryAccessResult> {
@@ -142,7 +145,19 @@ export async function grantRepositoryAccessForActor(
       "Save this GitHub username in your CU Launch settings before requesting repository access.",
     );
   }
-  await dependencies.recordAuditEvent("REPOSITORY_ACCESS_REQUESTED", {
+  const priorGrant = input.accessPurpose ? null : await dependencies.prisma.repositoryAccessGrant.findUnique({
+    where: { appRequestId_actorUserId_githubUsername: { appRequestId: input.requestId, actorUserId: input.actorUserId, githubUsername } },
+    select: { status: true, revokedAt: true },
+  });
+  const accessPurpose = input.accessPurpose ?? (
+    priorGrant && !priorGrant.revokedAt && ["INVITED", "GRANTED"].includes(priorGrant.status)
+      ? "confirmation" : "invitation"
+  );
+  const correlationKey = input.idempotencyKey ?? randomUUID();
+  await dependencies.recordAuditEvent(accessPurpose === "confirmation"
+    ? "REPOSITORY_ACCESS_CONFIRMATION_REQUESTED" : "REPOSITORY_ACCESS_REQUESTED", {
+    accessPurpose,
+    correlationKey,
     requestId: input.requestId,
     actorUserId: input.actorUserId,
     supportReference: appRequest.supportReference,
@@ -235,6 +250,9 @@ export async function grantRepositoryAccessForActor(
       status,
       supportReference: authorizedAppRequest.supportReference,
       source: input.source,
+      accessPurpose,
+      correlationKey,
+      ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
     });
   } catch {
     throw new PortalApiError(

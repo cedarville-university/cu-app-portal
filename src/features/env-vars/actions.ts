@@ -24,7 +24,7 @@ export type EnvVarFormState = {
 
 async function loadAccessibleEnvVarAppRequest(
   appRequestId: string,
-): Promise<EnvVarAppRequest> {
+): Promise<{ appRequest: EnvVarAppRequest; actorUserId: string }> {
   const userId = await resolveCurrentUserId();
   const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
@@ -42,7 +42,7 @@ async function loadAccessibleEnvVarAppRequest(
     throw new Error("App request not found.");
   }
 
-  return appRequest;
+  return { appRequest, actorUserId: userId };
 }
 
 export async function saveEnvVarFormAction(
@@ -55,7 +55,7 @@ export async function saveEnvVarFormAction(
   const isSecret = formData.get("isSecret") === "true";
 
   try {
-    const appRequest = await loadAccessibleEnvVarAppRequest(appRequestId);
+    const { appRequest, actorUserId } = await loadAccessibleEnvVarAppRequest(appRequestId);
 
     await saveEnvironmentVariable(createDefaultEnvVarServiceDeps(), {
       appRequest,
@@ -65,6 +65,7 @@ export async function saveEnvVarFormAction(
     });
     await recordAuditEvent("ENV_VAR_SET", {
       requestId: appRequestId,
+      actorUserId,
       key,
       isSecret,
     });
@@ -93,7 +94,7 @@ export async function deleteEnvVarFormAction(
   void formData;
 
   try {
-    const appRequest = await loadAccessibleEnvVarAppRequest(appRequestId);
+    const { appRequest, actorUserId } = await loadAccessibleEnvVarAppRequest(appRequestId);
     const { isSecret } = await deleteEnvironmentVariable(
       createDefaultEnvVarServiceDeps(),
       { appRequest, key },
@@ -101,6 +102,7 @@ export async function deleteEnvVarFormAction(
 
     await recordAuditEvent("ENV_VAR_DELETED", {
       requestId: appRequestId,
+      actorUserId,
       key,
       isSecret,
     });
@@ -126,7 +128,7 @@ export async function saveEnvVarsFormAction(
   formData: FormData,
 ): Promise<EnvVarsFormState> {
   try {
-    const appRequest = await loadAccessibleEnvVarAppRequest(appRequestId);
+    const { appRequest, actorUserId } = await loadAccessibleEnvVarAppRequest(appRequestId);
     const parsed: unknown = JSON.parse(String(formData.get("changes") ?? ""));
     if (!Array.isArray(parsed) || !parsed.length || parsed.length > 100) {
       throw new Error("Submit between 1 and 100 variable changes at a time.");
@@ -144,7 +146,7 @@ export async function saveEnvVarsFormAction(
     const applied = await saveEnvironmentVariables(createDefaultEnvVarServiceDeps(), { appRequest, changes });
     for (const change of applied) {
       await recordAuditEvent(change.operation === "delete" ? "ENV_VAR_DELETED" : "ENV_VAR_SET", {
-        requestId: appRequestId, key: change.key, isSecret: change.isSecret,
+        requestId: appRequestId, actorUserId, key: change.key, isSecret: change.isSecret,
       });
     }
     revalidatePath(`/download/${appRequestId}`);

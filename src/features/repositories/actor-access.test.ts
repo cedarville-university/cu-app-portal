@@ -8,6 +8,8 @@ function auditDb(
   event: { event: string; details: unknown } | null = null,
 ) {
   return {
+    user: { findUnique: vi.fn().mockResolvedValue({ email: "collaborator@cedarville.edu" }) },
+    appRequest: { findUnique: vi.fn().mockResolvedValue({ appName: "Campus Dashboard" }) },
     auditLog: {
       findFirst: vi.fn().mockResolvedValue(event),
       create: vi.fn().mockResolvedValue({ id: "audit-123" }),
@@ -17,6 +19,8 @@ function auditDb(
 
 describe("resolveRepositoryAccessForActor", () => {
   it.each([
+    ["checking-actor", "actor-name", "REPOSITORY_ACCESS_CONFIRMATION_SUCCEEDED", "GRANTED", "GitHub access is ready for @actor-name."],
+    ["checking-actor", "actor-name", "REPOSITORY_ACCESS_CONFIRMATION_FAILED", "FAILED", "GitHub could not confirm repository access for @actor-name. Check the username and try again."],
     [
       "owner-123",
       "owner-name",
@@ -135,6 +139,12 @@ describe("resolveRepositoryAccessForActor", () => {
 });
 
 describe("persistRepositoryAccessOutcome", () => {
+  it.each(["GRANTED", "INVITED", "FAILED"] as const)("correlates confirmation %s results", async (status) => {
+    const db = auditDb();
+    await persistRepositoryAccessOutcome({ requestId: "request-123", actorUserId: "actor-123", githubUsername: "actor-name", status, source: "codex-mcp", supportReference: "SUP-123", accessPurpose: "confirmation", correlationKey: "key-123", idempotencyKey: "key-123" }, db);
+    expect(db.auditLog.create).toHaveBeenCalledWith({ data: { event: status === "FAILED" ? "REPOSITORY_ACCESS_CONFIRMATION_FAILED" : "REPOSITORY_ACCESS_CONFIRMATION_SUCCEEDED", details: expect.objectContaining({ accessStatus: status, accessPurpose: "confirmation", correlationKey: "key-123", idempotencyKey: "key-123", username: "collaborator", appName: "Campus Dashboard" }) } });
+  });
+
   it("stores an actor-keyed safe outcome without raw provider evidence", async () => {
     const db = auditDb();
 
@@ -162,6 +172,8 @@ describe("persistRepositoryAccessOutcome", () => {
             "GitHub could not confirm repository access for @collaborator-name. Check the username and try again.",
           supportReference: "SUP-123",
           source: "portal-form",
+          username: "collaborator",
+          appName: "Campus Dashboard",
         },
       },
     });

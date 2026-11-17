@@ -137,6 +137,7 @@ describe("repository access actions", () => {
       actorUserId: "collaborator-123",
       githubUsername: "collaborator-name",
       source: "portal-ui",
+      accessPurpose: "invitation",
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/download/req_123");
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/onboarding/req_123");

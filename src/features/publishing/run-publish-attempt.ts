@@ -296,6 +296,7 @@ export async function runPublishAttempt(
     });
 
     await recordAuditEvent("PUBLISH_SUCCEEDED", {
+      actorUserId: attempt.actorUserId,
       requestId: attempt.appRequestId,
       publishAttemptId: attemptId,
       publishUrl: deployment.publishUrl,
@@ -347,6 +348,7 @@ export async function runPublishAttempt(
     );
 
     await recordAuditEvent("PUBLISH_FAILED", {
+      actorUserId: attempt.actorUserId,
       requestId: attempt.appRequestId,
       publishAttemptId: attemptId,
       error: safeErrorSummary,

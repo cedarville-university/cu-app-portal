@@ -156,3 +156,6 @@ saved as ordinary configuration, so store credentials as secrets. Provider failu
 may leave partial changes because Azure and the database do not share a transaction.
 
 Codex handoffs and managed app skills require asking the user for permission and waiting for approval before calling any CU Launch plugin or connector tools. Browser or computer use is allowed when the user requests that method. Portal actions stay within the user’s authorized scope; repository setup or code changes alone do not authorize publishing, repair, upload confirmation, settings changes, or deletion.
+
+Audit event names, GitHub request/result correlation, and username/app-name
+context are documented in [Audit event context](docs/portal/audit-log.md).

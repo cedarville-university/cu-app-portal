@@ -128,6 +128,7 @@ export async function queueExternalRepositoryImport(
   });
 
   await recordAuditEvent("EXISTING_APP_ADD_REQUESTED", {
+    actorUserId: input.userId,
     requestId: created.requestId,
     supportReference: input.supportReference,
     sourceRepositoryUrl: input.source.url,
@@ -214,6 +215,7 @@ export async function finalizeRepositoryImportEnqueueFailure(
 
   if (failed) {
     await recordAuditEvent("EXISTING_APP_IMPORT_FAILED", {
+      actorUserId: input.userId,
       requestId: input.requestId,
       sourceRepository: `${input.sourceOwner}/${input.sourceName}`,
       targetRepository: `${input.targetOwner}/${input.targetName}`,

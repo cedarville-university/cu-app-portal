@@ -9,7 +9,7 @@ export const AUDIT_USER_ID_KEYS = [
   "invitedUserId",
 ] as const;
 
-export const AUDIT_APP_ID_KEYS = ["appRequestId", "requestId"] as const;
+export const AUDIT_APP_ID_KEYS = ["appRequestId", "requestId", "appId"] as const;
 
 export const AUDIT_ENTRA_OID_KEYS = ["entraOid"] as const;
 
@@ -108,5 +108,22 @@ export async function resolveAuditReferences(
         { id: user.id, displayName: user.displayName, email: user.email },
       ]),
     ),
+  };
+}
+
+/** Prefer immutable snapshots; resolve older audit payloads without rewriting history. */
+export function auditDisplayContext(details: unknown, references: AuditReferenceLabels) {
+  const record = details && typeof details === "object" && !Array.isArray(details)
+    ? details as Record<string, unknown> : {};
+  const userIds = AUDIT_USER_ID_KEYS.map(key => record[key]).filter((id): id is string => typeof id === "string");
+  const appIds = AUDIT_APP_ID_KEYS.map(key => record[key]).filter((id): id is string => typeof id === "string");
+  const user = userIds.length ? references.users.get(userIds[0])
+    : typeof record.entraOid === "string" ? references.usersByEntraOid.get(record.entraOid) : undefined;
+  const app = appIds.length ? references.apps.get(appIds[0]) : undefined;
+  return {
+    username: typeof record.username === "string" && record.username ? record.username
+      : user?.email.split("@")[0] ?? (userIds.length || record.entraOid ? "Unknown user" : "System"),
+    appName: typeof record.appName === "string" && record.appName ? record.appName
+      : app?.appName ?? (appIds.length ? "Unknown app" : "Not applicable"),
   };
 }

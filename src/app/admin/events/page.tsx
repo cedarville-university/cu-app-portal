@@ -3,6 +3,7 @@ import Link from "next/link";
 import React from "react";
 import { searchAuditLog, summarizeDetails } from "@/features/admin/audit-log";
 import {
+  auditDisplayContext,
   AUDIT_APP_ID_KEYS,
   AUDIT_ENTRA_OID_KEYS,
   AUDIT_USER_ID_KEYS,
@@ -278,6 +279,10 @@ export default async function AdminEventsPage({
                     )}
                   </span>
                   <span className="badge badge--info">{entry.event}</span>
+                  <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+                    Username: {auditDisplayContext(entry.details, references).username}
+                    {" · "}App: {auditDisplayContext(entry.details, references).appName}
+                  </span>
                   <span
                     style={{
                       fontSize: "0.875rem",

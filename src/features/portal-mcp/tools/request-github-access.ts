@@ -14,6 +14,7 @@ export const requestGitHubAccessToolInputSchema = z
     idempotencyKey: z.string().uuid(),
     appId: z.string().min(1).max(128),
     githubUsername: z.string().min(1).max(39),
+    accessPurpose: z.enum(["invitation", "confirmation"]).optional().describe("Use invitation to send/resend an invite; confirmation to check after the user accepts. If omitted, inferred from the active grant record."),
   })
   .strict();
 
@@ -33,7 +34,7 @@ export function registerRequestGitHubAccessTool(
     "request_github_access",
     {
       title: "Request GitHub Access",
-      description: "Request actor-specific access to an app's managed GitHub repository using the username saved in get_my_profile. Call automatically after approved creation including repository access. INVITED requires the user to accept in GitHub; after confirmed acceptance call once with a new UUID for a fresh check. Reuse the same UUID for uncertain-response replays; do not loop while an invitation is pending. This does not authenticate local Git.",
+      description: "Request actor-specific access to an app's managed GitHub repository using the username saved in get_my_profile. Call automatically after approved creation including repository access. INVITED requires the user to accept in GitHub; after confirmed acceptance call once with accessPurpose confirmation and a new UUID for a fresh check. Use accessPurpose invitation for an explicit resend. Reuse the same UUID for uncertain-response replays; do not loop while an invitation is pending. This does not authenticate local Git.",
       inputSchema: requestGitHubAccessMcpInputSchema,
       annotations: {
         readOnlyHint: false,
@@ -70,6 +71,7 @@ export function registerRequestGitHubAccessTool(
         const mutationInput = {
           appId: input.appId,
           githubUsername: input.githubUsername,
+          ...(input.accessPurpose ? { accessPurpose: input.accessPurpose } : {}),
         };
         const result = await context.executeIdempotentMutation({
           actorUserId: context.actor.userId,
@@ -90,6 +92,7 @@ export function registerRequestGitHubAccessTool(
               source: "codex-mcp",
               portalOperation: "request_github_access",
               idempotencyKey: input.idempotencyKey,
+              ...(input.accessPurpose ? { accessPurpose: input.accessPurpose } : {}),
             }),
           resultReferences: () => ({ appRequestId: input.appId }),
         });

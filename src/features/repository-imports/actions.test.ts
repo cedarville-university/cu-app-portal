@@ -1412,6 +1412,8 @@ describe("repository import actions", () => {
             in: [
               "REPOSITORY_ACCESS_SUCCEEDED",
               "REPOSITORY_ACCESS_FAILED",
+              "REPOSITORY_ACCESS_CONFIRMATION_SUCCEEDED",
+              "REPOSITORY_ACCESS_CONFIRMATION_FAILED",
             ],
           },
         }),
@@ -2173,6 +2175,7 @@ describe("repository import actions", () => {
     expect(recordAuditEvent).toHaveBeenCalledWith(
       "REPOSITORY_PREPARATION_FAILED",
       {
+        actorUserId: "user-123",
         requestId: "req_456",
         mode: "DIRECT_COMMIT",
         targetRepository: "cedarville-it/campus-dashboard",
@@ -2544,6 +2547,7 @@ describe("repository import actions", () => {
     expect(recordAuditEvent).toHaveBeenCalledWith(
       "REPOSITORY_PREPARATION_VERIFIED",
       {
+        actorUserId: "user-123",
         requestId: "req_verify",
         targetRepository: "cedarville-it/campus-dashboard",
       },

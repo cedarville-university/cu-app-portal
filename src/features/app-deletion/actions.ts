@@ -269,6 +269,7 @@ async function deleteApp(requestId: string, formData: FormData) {
   await recordDeletionAudit("APP_DELETION_REQUESTED", {
     requestId,
     supportReference: appRequest.supportReference,
+    appName: appRequest.appName,
     deletePortal: targets.portal,
     deleteGithub: targets.github,
     deleteAzure: targets.azure,
@@ -314,6 +315,7 @@ async function deleteApp(requestId: string, formData: FormData) {
     await recordDeletionAudit("APP_DELETION_SUCCEEDED", {
       requestId,
       supportReference: appRequest.supportReference,
+      appName: appRequest.appName,
       deletedPortal: targets.portal,
       deletedGithub: completed.github,
       deletedAzure: completed.azure,
@@ -331,6 +333,7 @@ async function deleteApp(requestId: string, formData: FormData) {
     await recordDeletionAudit("APP_DELETION_FAILED", {
       requestId,
       supportReference: appRequest.supportReference,
+      appName: appRequest.appName,
       deletePortal: targets.portal,
       deletedGithub: completed.github,
       deletedAzure: completed.azure,

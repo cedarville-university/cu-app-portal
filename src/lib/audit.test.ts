@@ -37,6 +37,8 @@ describe("recordAuditEvent", () => {
         details: {
           provider: "microsoft-entra-id",
           entraOid: "entra-oid",
+          username: null,
+          appName: null,
         },
       },
     });

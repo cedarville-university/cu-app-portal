@@ -1,3 +1,4 @@
+import { enrichAuditDetails } from "./audit-context";
 import type { Prisma } from "@prisma/client";
 
 export const AUDIT_EVENTS = [
@@ -27,6 +28,9 @@ export const AUDIT_EVENTS = [
   "REPOSITORY_ACCESS_REQUESTED",
   "REPOSITORY_ACCESS_SUCCEEDED",
   "REPOSITORY_ACCESS_FAILED",
+  "REPOSITORY_ACCESS_CONFIRMATION_REQUESTED",
+  "REPOSITORY_ACCESS_CONFIRMATION_SUCCEEDED",
+  "REPOSITORY_ACCESS_CONFIRMATION_FAILED",
   "EXISTING_APP_ADD_REQUESTED",
   "EXISTING_APP_IMPORT_SUCCEEDED",
   "EXISTING_APP_IMPORT_FAILED",
@@ -58,15 +62,16 @@ export async function recordAuditEvent(
   event: AuditEvent,
   details: Record<string, unknown>,
 ) {
-  console.info("[audit]", event, details);
-
   try {
     const { prisma } = await import("@/lib/db");
+
+    const enrichedDetails = await enrichAuditDetails(details, prisma);
+    console.info("[audit]", event, enrichedDetails);
 
     await prisma.auditLog.create({
       data: {
         event,
-        details: details as Prisma.InputJsonObject,
+        details: enrichedDetails as Prisma.InputJsonObject,
       },
     });
   } catch (error) {

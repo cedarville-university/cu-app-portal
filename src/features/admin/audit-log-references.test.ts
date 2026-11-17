@@ -193,3 +193,17 @@ describe("resolveAuditReferences", () => {
     expect(result.apps.has("app-missing")).toBe(false);
   });
 });
+
+describe("auditDisplayContext", () => {
+  it("shows stored names even after referenced records disappear", async () => {
+    const { auditDisplayContext } = await import("./audit-log-references");
+    expect(auditDisplayContext({ username: "ada", appName: "Deleted App", requestId: "deleted" }, { users: new Map(), apps: new Map(), usersByEntraOid: new Map() })).toEqual({ username: "ada", appName: "Deleted App" });
+  });
+  it("resolves historical IDs and distinguishes missing context from no association", async () => {
+    const { auditDisplayContext } = await import("./audit-log-references");
+    const refs = { users: new Map([["u1", { email: "ada@cedarville.edu", displayName: "Ada" }]]), apps: new Map([["a1", { appName: "Dashboard" }]]), usersByEntraOid: new Map() };
+    expect(auditDisplayContext({ actorUserId: "u1", appId: "a1" }, refs)).toEqual({ username: "ada", appName: "Dashboard" });
+    expect(auditDisplayContext({}, refs)).toEqual({ username: "System", appName: "Not applicable" });
+    expect(auditDisplayContext({ actorUserId: "deleted", requestId: "deleted" }, refs)).toEqual({ username: "Unknown user", appName: "Unknown app" });
+  });
+});
