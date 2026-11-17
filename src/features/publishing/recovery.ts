@@ -8,7 +8,7 @@ import { verifyPublishedUrl } from "./azure/verify-deployment";
 import { verifyMcpDeployment } from "@/features/mcp-servers/verify-deployment";
 import { createPublishQueue } from "./queue";
 import {
-  claimPublishAttempt, persistPublishProgress, releasePublishClaim,
+  claimPublishAttempt, persistPublishProgress, releasePublishClaim, renewPublishClaim,
   type PublishWorkerClaim,
 } from "./worker-lease";
 
@@ -116,14 +116,24 @@ export async function recoverPublishAttempt(attemptId: string, options: Recovery
   if (["SUCCEEDED", "FAILED"].includes(attempt.status)) return synchronizeSettledApp(attempt, options, evidence);
   const claim = await claimPublishAttempt(attempt);
   if (!claim) return "busy";
+  let heartbeat: ReturnType<typeof setInterval> | undefined;
+  let renewing = false;
   try {
     if (!options.markFailed && (attempt.status === "QUEUED" || (!attempt.dispatchStartedAt && !attempt.githubWorkflowRunId && attempt.stage === "PROVISIONING"))) {
       await releasePublishClaim(claim);
       await createPublishQueue().send({ attemptId });
       return "requeued";
     }
+    // Workflow inspection plus startup retries can outlast one claim. Final
+    // writes remain fenced if renewal fails or another worker takes ownership.
+    heartbeat = setInterval(() => {
+      if (renewing) return;
+      renewing = true;
+      void renewPublishClaim(claim).catch(() => {}).finally(() => { renewing = false; });
+    }, 20_000);
     return await reconcileClaimedPublish(attempt, claim, options, evidence);
   } finally {
+    clearInterval(heartbeat);
     await releasePublishClaim(claim);
   }
 }

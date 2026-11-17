@@ -6,14 +6,14 @@ import { verifyPublishedUrl } from "./azure/verify-deployment";
 vi.mock("@/features/mcp-servers/verify-deployment", () => ({ verifyMcpDeployment: vi.fn() }));
 vi.mock("./azure/verify-deployment", () => ({ verifyPublishedUrl: vi.fn() }));
 import { prisma } from "@/lib/db";
-import { persistPublishProgress } from "./worker-lease";
+import { claimPublishAttempt, persistPublishProgress, releasePublishClaim, renewPublishClaim } from "./worker-lease";
 vi.mock("@/lib/db", () => ({ prisma: {
   publishAttempt: { findUnique: vi.fn(), findFirst: vi.fn() },
   appRequest: { updateMany: vi.fn(), findUnique: vi.fn() },
   $transaction: vi.fn(),
 } }));
 vi.mock("@/lib/audit", () => ({ recordAuditEvent: vi.fn() }));
-vi.mock("./worker-lease", () => ({ persistPublishProgress: vi.fn().mockResolvedValue(undefined), claimPublishAttempt: vi.fn(), releasePublishClaim: vi.fn() }));
+vi.mock("./worker-lease", () => ({ persistPublishProgress: vi.fn().mockResolvedValue(undefined), claimPublishAttempt: vi.fn(), releasePublishClaim: vi.fn(), renewPublishClaim: vi.fn() }));
 
 const claim = { attemptId: "attempt", token: "lease" };
 const attempt = {
@@ -25,6 +25,35 @@ let evidence: RecoveryEvidence;
 beforeEach(() => { vi.clearAllMocks(); evidence = { workflow: vi.fn().mockResolvedValue({ status: "completed", conclusion: "success" }), health: vi.fn().mockResolvedValue({ verifiedAt: new Date() }) }; });
 
 describe("interrupted publishing recovery", () => {
+  it("keeps its claim alive through slow workflow and MCP startup verification", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({ ...attempt, appRequestId: "app", appRequest: { ...attempt.appRequest, publishStatus: "DEPLOYING" } } as RecoveryAttempt);
+      vi.mocked(prisma.publishAttempt.findFirst).mockResolvedValue({ id: "attempt" } as never);
+      vi.mocked(claimPublishAttempt).mockResolvedValue(claim);
+      let leaseExpiresAt = Date.now() + 120_000;
+      vi.mocked(renewPublishClaim).mockImplementation(async () => { leaseExpiresAt = Date.now() + 120_000; });
+      vi.mocked(evidence.workflow).mockImplementation(async () => {
+        await new Promise(resolve => setTimeout(resolve, 50_000));
+        return { status: "completed", conclusion: "success" };
+      });
+      vi.mocked(evidence.health).mockImplementation(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100_000));
+        return { verifiedAt: new Date() };
+      });
+      vi.mocked(persistPublishProgress).mockImplementationOnce(async () => {
+        if (Date.now() >= leaseExpiresAt) throw new Error("Lease expired");
+      });
+      const result = recoverPublishAttempt("attempt", {}, evidence).then(value => ({ value }), error => ({ error }));
+      await vi.advanceTimersByTimeAsync(150_000);
+      expect(await result).toEqual({ value: "succeeded" });
+      expect(renewPublishClaim).toHaveBeenCalledWith(claim);
+      expect(releasePublishClaim).toHaveBeenCalledWith(claim);
+      const count = vi.mocked(renewPublishClaim).mock.calls.length;
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(renewPublishClaim).toHaveBeenCalledTimes(count);
+    } finally { vi.useRealTimers(); }
+  });
   it("does not recover an MCP attempt through the generic health fallback", async () => {
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({template:{slug:"mcp-server"}} as never);
     vi.mocked(verifyPublishedUrl).mockResolvedValue({verifiedAt:new Date()});

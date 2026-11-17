@@ -1,5 +1,11 @@
 [
   {
+    "date": "2026-11-17",
+    "notes": [
+      "New MCP servers have more time to start before publishing is marked unsuccessful."
+    ]
+  },
+  {
     "date": "2026-11-16",
     "notes": [
       "Try the advanced MCP server setup in the isolated testing preview, with an optional PostgreSQL database.",
@@ -127,12 +133,6 @@
     "date": "2026-09-01",
     "notes": [
       "Collaborators now see their own code-access status, so one person’s invitation or error is not shown to someone else."
-    ]
-  },
-  {
-    "date": "2026-08-31",
-    "notes": [
-      "Improved publishing support for Python apps so required software is installed automatically during publishing."
     ]
   }
 ]
