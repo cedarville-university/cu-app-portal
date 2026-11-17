@@ -1,13 +1,13 @@
 // @vitest-environment node
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { collectReleaseNotes, readReleaseNoteCommits } from "./generate.mjs";
 
 const dirs: string[] = [];
-function temp() { const dir = mkdtempSync(join(tmpdir(), "release-notes-")); dirs.push(dir); return dir; }
+function temp() { const dir = realpathSync(mkdtempSync(join(tmpdir(), "release-notes-"))); dirs.push(dir); return dir; }
 function git(cwd: string, ...args: string[]) {
   return execFileSync("git", args, { cwd, encoding: "utf8", env: { ...process.env, GIT_AUTHOR_NAME: "Test", GIT_AUTHOR_EMAIL: "test@example.com", GIT_COMMITTER_NAME: "Test", GIT_COMMITTER_EMAIL: "test@example.com" } }).trim();
 }
@@ -53,6 +53,26 @@ describe("release notes", () => {
     git(dir, "merge", "--no-ff", "feature", "-m", "Merge feature\n\nRelease-note: Merged improvement");
     const notes = collectReleaseNotes(readReleaseNoteCommits(dir), []);
     expect(notes.flatMap((day: { notes: string[] }) => day.notes)).toEqual(["Merged improvement", "Main improvement"]);
+  });
+  it("generates an ignored artifact outside src without dirtying Git", () => {
+    const dir = temp();
+    git(dir, "init", "-b", "main");
+    mkdirSync(join(dir, "scripts/release-notes"), { recursive: true });
+    mkdirSync(join(dir, "src/features/release-notes"), { recursive: true });
+    copyFileSync(new URL("./generate.mjs", import.meta.url), join(dir, "scripts/release-notes/generate.mjs"));
+    writeFileSync(join(dir, ".gitignore"), "/.generated/\n");
+    writeFileSync(join(dir, "src/features/release-notes/baseline.json"), "[]\n");
+    git(dir, "add", ".");
+    git(dir, "commit", "-m", "Improvement\n\nRelease-note: A useful improvement.");
+    const script = join(dir, "scripts/release-notes/generate.mjs");
+    execFileSync(process.execPath, [script], { cwd: dir });
+    const output = join(dir, ".generated/release-notes.json");
+    expect(existsSync(output)).toBe(true);
+    expect(JSON.parse(readFileSync(output, "utf8"))[0].notes).toEqual(["A useful improvement."]);
+    expect(existsSync(join(dir, "src/features/release-notes/generated.json"))).toBe(false);
+    expect(git(dir, "status", "--porcelain")).toBe("");
+    execFileSync(process.execPath, [script], { cwd: dir });
+    expect(git(dir, "status", "--porcelain")).toBe("");
   });
   it("fails for absent Git metadata and shallow history", () => {
     const absent = temp(); expect(() => readReleaseNoteCommits(absent)).toThrow();

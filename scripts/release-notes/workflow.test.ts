@@ -10,10 +10,12 @@ describe("portal release-note deployment contract", () => {
     expect(workflow.on).toMatchObject({ workflow_dispatch: null, push: { branches: ["main"] } });
     expect(workflow.jobs.deploy.permissions.contents).toBe("read");
     expect(steps.find((step: { uses?: string }) => step.uses?.startsWith("actions/checkout@")).with["fetch-depth"]).toBe(0);
-    const generationIndex = steps.findIndex((step: { run?: string }) => step.run === "npm run release-notes:generate");
     const buildIndex = steps.findIndex((step: { run?: string }) => step.run === "npm run build");
-    expect(generationIndex).toBeGreaterThan(steps.findIndex((step: { run?: string }) => step.run === "npm ci"));
-    expect(buildIndex).toBeGreaterThan(generationIndex);
-    expect(JSON.parse(readFileSync("package.json", "utf8")).scripts["release-notes:generate"]).toBe("node scripts/release-notes/generate.mjs");
+    expect(buildIndex).toBeGreaterThan(steps.findIndex((step: { run?: string }) => step.run === "npm ci"));
+    const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
+    expect(scripts["release-notes:generate"]).toBe("node scripts/release-notes/generate.mjs");
+    for (const hook of ["prebuild", "predev", "pretest", "pretest:watch"]) {
+      expect(scripts[hook], hook).toBe("npm run release-notes:generate");
+    }
   });
 });

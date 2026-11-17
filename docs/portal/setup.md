@@ -380,3 +380,7 @@ Apply migration `20261028140000_push_to_deploy_default` with `npm run prisma:mig
 Generated repositories start with manual dispatch only. During the first explicitly requested publish, the Azure runtime activates the push trigger after writing deployment secrets, then dispatches the requested deployment. Push-to-deploy is automatic for later default-branch pushes. **Disable Auto-Deploy** removes the workflow's push trigger and saves `PORTAL_DISPATCH`, while preserving manual publishing. **Enable Auto-Deploy** restores it after a successful publish. These controls support generated and imported managed repositories.
 
 Codex handoffs and managed app skills require asking the user for permission and waiting for approval before calling any CU Launch plugin or connector tools. Browser or computer use is allowed when the user requests that method. Portal actions stay within the user’s authorized scope; repository setup or code changes alone do not authorize publishing, repair, upload confirmation, settings changes, or deletion.
+
+## Generated release notes
+
+The npm development, build, and test commands automatically create `.generated/release-notes.json` outside `src/`. This directory is ignored by Git; only the historical baseline and generator are source-controlled. Use a full Git checkout so generation can read release-note commits. For direct Next.js or Vitest commands, run `npm run release-notes:generate` first. See [release notes](release-notes.md).

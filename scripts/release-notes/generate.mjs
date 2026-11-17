@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -51,6 +51,8 @@ export function readReleaseNoteCommits(cwd) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const baseline = JSON.parse(readFileSync(resolve(root, "src/features/release-notes/baseline.json"), "utf8"));
   const notes = collectReleaseNotes(readReleaseNoteCommits(root), baseline);
-  writeFileSync(resolve(root, "src/features/release-notes/generated.json"), JSON.stringify(notes, null, 2) + "\n");
+  const output = resolve(root, ".generated/release-notes.json");
+  mkdirSync(dirname(output), { recursive: true });
+  writeFileSync(output, JSON.stringify(notes, null, 2) + "\n");
   console.log(`Generated release notes for ${notes.length} dates.`);
 }

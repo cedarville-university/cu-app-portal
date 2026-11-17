@@ -127,7 +127,7 @@ The most natural next features are:
 - For user-visible changes, include one or more single-line `Release-note: <plain-language improvement>` entries in the final commit message. Describe what users can do or what became easier; omit technical implementation details.
 - Maintenance-only commits need no release note.
 - Deployment reads first-parent history: preserve the notes in squash or merge commit messages when integrating branches.
-- Run `npm run release-notes:generate` to refresh local preview data. Production runs it automatically before building. See `docs/portal/release-notes.md`.
+- Release notes are generated into the ignored `.generated/release-notes.json` outside `src/`; never commit this output. The npm dev, build, test, and test:watch commands generate it automatically. Run `npm run release-notes:generate` to refresh it directly. See `docs/portal/release-notes.md`.
 
 ## Milestone Commits
 

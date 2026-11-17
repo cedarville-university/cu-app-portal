@@ -25,3 +25,6 @@ infra/repository-import-worker/main.json
 workers/publish/dist
 infra/publish-worker/main.bicepparam
 infra/publish-worker/main.json
+
+# Build-time release notes (outside src)
+/.generated/

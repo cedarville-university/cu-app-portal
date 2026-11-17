@@ -1,5 +1,5 @@
 import React from "react";
-import releaseNotes from "./generated.json";
+import releaseNotes from "../../../.generated/release-notes.json";
 
 type ReleaseNoteDay = { date: string; notes: string[] };
 const dateFormat = new Intl.DateTimeFormat("en-US", {
