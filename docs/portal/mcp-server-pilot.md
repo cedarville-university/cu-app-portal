@@ -4,6 +4,8 @@ Status November 17, 2026: **Both isolated MCP servers published; private Plugin 
 
 Local evidence covers the locked SDK 1.30.0, jose 6.2.10, zod 3.25.76, and Next.js 15.5.19; real locally signed JWTs; SDK initialization/tool listing/harmless call with protocol 2025-11-25; generated tests/typecheck/build without production credentials; and migration/lease checks on disposable PostgreSQL. These do not establish OAuth interoperability in Codex or ChatGPT.
 
+After production went live, the user requested [pilot cleanup](mcp-server-pilot-cleanup-2026-11-17.md). The isolated hosting and pilot Entra identities have been removed; test plugins are uninstalled and private test repositories archived. The evidence below remains a historical verification record.
+
 Pilot checklist (historical evidence; production rollout was subsequently authorized):
 
 1. Authorize a named disposable server/identity/client pilot. Record the operator, scope, safe resource references, and supported hosts. A code implementation request does not imply changing shared OAuth clients or granting tenant-wide permissions.
