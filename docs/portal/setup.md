@@ -383,4 +383,4 @@ Codex handoffs and managed app skills require asking the user for permission and
 
 ## Generated release notes
 
-The npm development, build, and test commands automatically create `.generated/release-notes.json` outside `src/`. This directory is ignored by Git; only the historical baseline and generator are source-controlled. Use a full Git checkout so generation can read release-note commits. For direct Next.js or Vitest commands, run `npm run release-notes:generate` first. See [release notes](release-notes.md).
+The portal npm development and build commands automatically create `.generated/release-notes.json` outside `src/`. This directory is ignored by Git; only the historical baseline and generator are source-controlled. Use a full Git checkout so generation can read release-note commits. Tests use fixed release-note fixture data so worker CI can run from shallow checkouts without generating portal artifacts. For direct Next.js commands, run `npm run release-notes:generate` first. See [release notes](release-notes.md).

@@ -86,7 +86,7 @@ setting.
 ## Key Scripts
 
 - `npm run dev` starts the Next.js development server.
-- `npm run build` generates release notes in the ignored `.generated/` directory, then creates a production build. Development and test commands also generate release notes automatically.
+- `npm run build` generates release notes in the ignored `.generated/` directory, then creates a production build. Portal development also generates release notes automatically. Tests use fixed fixtures; worker builds and tests do not generate portal release notes.
 - `npm test` runs the Vitest suite.
 - `npm run prisma:seed` syncs the in-code template catalog into the database.
 - `npm run docs:pdf` regenerates the downloadable CU Launch user documentation from `docs/user/` after the Python requirements in `scripts/docs/requirements.txt` are installed.

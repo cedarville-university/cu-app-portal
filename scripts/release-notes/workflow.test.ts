@@ -14,8 +14,12 @@ describe("portal release-note deployment contract", () => {
     expect(buildIndex).toBeGreaterThan(steps.findIndex((step: { run?: string }) => step.run === "npm ci"));
     const scripts = JSON.parse(readFileSync("package.json", "utf8")).scripts;
     expect(scripts["release-notes:generate"]).toBe("node scripts/release-notes/generate.mjs");
-    for (const hook of ["prebuild", "predev", "pretest", "pretest:watch"]) {
+    for (const hook of ["prebuild", "predev"]) {
       expect(scripts[hook], hook).toBe("npm run release-notes:generate");
     }
+    expect(scripts.pretest).toBeUndefined();
+    expect(scripts["pretest:watch"]).toBeUndefined();
+    expect(scripts["prebuild:publish-worker"]).toBeUndefined();
+    expect(scripts["prebuild:repository-import-worker"]).toBeUndefined();
   });
 });

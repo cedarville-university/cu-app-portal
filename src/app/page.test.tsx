@@ -10,6 +10,7 @@ describe("HomePage release notes", () => {
     const notes = screen.getByRole("heading", { name: "What’s changed" });
     expect(screen.getByText("How it works").compareDocumentPosition(notes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(main.lastElementChild).toContainElement(notes);
+    expect(screen.getByText("A sample CU Launch improvement.")).toBeVisible();
     expect(screen.getByRole("link", { name: "My Apps" })).toHaveAttribute("href", "/apps");
   });
 });
