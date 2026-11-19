@@ -24,7 +24,7 @@ export function AppHealthPanel({ app }: { app: {
       <form action={checkAppHealthAction.bind(null, app.id)}>
         <PendingSubmitButton idleLabel="Check Health" pendingLabel="Checking Health…" statusText="Checking your app and its recorded deployment status. This can take a moment." variant="secondary" title="Checks the running app without starting a deployment" />
       </form>
-      <p>Checks the running app without starting a deployment. A successful GitHub rerun and a healthy app can update a failed publishing status.</p>
+      <p>Checks the running app without starting a deployment. A verified successful GitHub deployment and a healthy app can update a failed publishing status.</p>
     </section>
   );
 }

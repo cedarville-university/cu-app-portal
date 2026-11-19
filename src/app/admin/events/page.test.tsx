@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { searchAuditLog } from "@/features/admin/audit-log";
@@ -96,7 +96,7 @@ describe("AdminEventsPage", () => {
     expect(screen.getByLabelText("Timezone")).toHaveValue(timezone);
     expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
       "href",
-      `/admin/events?timezone=${timezone}&page=2`,
+      `/admin/events?timezone=${timezone}&hideSystem=1&page=2`,
     );
   });
 
@@ -174,17 +174,18 @@ describe("AdminEventsPage", () => {
     expect(screen.getByText("Username: ada · App: Not applicable")).toBeInTheDocument();
   });
 
-  it("preserves Hide system events with other filters when paging", async () => {
+  it.each(["1", "0", ["0", "1"]])("preserves the system-event choice with other filters when paging (%j)", async (hideSystem) => {
     vi.mocked(searchAuditLog).mockResolvedValue({
       entries: [{ id: "evt-1", event: "SIGN_IN", details: {}, createdAt: new Date() }],
       totalCount: 30,
     });
-    render(await AdminEventsPage({ searchParams: Promise.resolve({ hideSystem: "1", q: "Arkanoid" }) }));
-    expect(screen.getByRole("checkbox", { name: "Hide system events" })).toBeChecked();
-    expect(searchAuditLog).toHaveBeenCalledWith(expect.objectContaining({ hideSystem: true, search: "Arkanoid" }), 1, 25);
+    render(await AdminEventsPage({ searchParams: Promise.resolve({ hideSystem, q: "Arkanoid" }) }));
+    const expected = hideSystem !== "0";
+    expect(screen.getByRole("checkbox", { name: "Hide system events" })).toHaveProperty("checked", expected);
+    expect(searchAuditLog).toHaveBeenCalledWith(expect.objectContaining({ hideSystem: expected, search: "Arkanoid" }), 1, 25);
     const href = screen.getByRole("link", { name: "Next" }).getAttribute("href")!;
     const params = new URL(href, "https://example.test").searchParams;
-    expect(params.get("hideSystem")).toBe("1");
+    expect(params.get("hideSystem")).toBe(expected ? "1" : "0");
     expect(params.get("q")).toBe("Arkanoid");
     expect(screen.getByRole("link", { name: "Clear" })).toHaveAttribute("href", "/admin/events");
   });
@@ -219,7 +220,7 @@ describe("AdminEventsPage", () => {
         from: new Date("2026-07-01T00:00:00"),
         to: new Date("2026-07-06T23:59:59.999"),
         search: "SUP-123",
-        hideSystem: false,
+        hideSystem: true,
       },
       1,
       25,
@@ -235,10 +236,15 @@ describe("AdminEventsPage", () => {
     expect(screen.getByLabelText("From")).toBeInTheDocument();
     expect(screen.getByLabelText("To")).toBeInTheDocument();
     expect(screen.getByLabelText("Search")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "Hide system events" })).not.toBeChecked();
+    const checkbox = screen.getByRole("checkbox", { name: "Hide system events" });
+    expect(checkbox).toBeChecked();
+    expect(searchAuditLog).toHaveBeenCalledWith(expect.objectContaining({ hideSystem: true }), 1, 25);
+    // An unchecked checkbox must submit an explicit opt-out of the default.
+    fireEvent.click(checkbox);
+    expect(new FormData(checkbox.closest("form")!).getAll("hideSystem")).toEqual(["0"]);
     expect(
       screen.getByRole("option", { name: "SIGN_IN" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("No events recorded yet.")).toBeInTheDocument();
+    expect(screen.getByText("No events match your filters.")).toBeInTheDocument();
   });
 });

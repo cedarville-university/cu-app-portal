@@ -5,10 +5,11 @@ import { verifyPublishedUrl } from "./azure/verify-deployment";
 import { probeMcpDeployment } from "@/features/mcp-servers/deployment-probe";
 import { createPublishQueue } from "./queue";
 import { createGitHubAppClient } from "@/features/repositories/github-app";
+vi.mock("./health-workflow", () => ({ inspectHealthWorkflow: vi.fn() }));
 import { checkAppHealth, checkDueAppHealth } from "./app-health";
 vi.mock("@/lib/db", () => ({ prisma: {
   appRequest: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
-  publishAttempt: { findFirst: vi.fn(), updateMany: vi.fn() }, $transaction: vi.fn(),
+  publishAttempt: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() }, $transaction: vi.fn(),
 } }));
 vi.mock("@/lib/audit", () => ({ recordAuditEvent: vi.fn() }));
 vi.mock("./recovery", () => ({ defaultRecoveryEvidence: { workflow: vi.fn() }, recoveredWarning: (_app: unknown, warning?: string) => warning ?? null }));
@@ -73,10 +74,18 @@ describe("app health", () => {
     expect(await checkAppHealth("app", undefined, { health, workflow })).toBe("skipped");
     expect(health).not.toHaveBeenCalled();
   });
-  it("does not guess a run when the failed attempt has no recorded run", async () => {
+  it("allows workflow inspection to find a later run when the failed attempt has no recorded run", async () => {
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({ ...app, publishAttempts: [{ ...attempt, githubWorkflowRunId: null }] } as never);
     await checkAppHealth("app", undefined, { health, workflow });
-    expect(workflow).not.toHaveBeenCalled();
+    expect(workflow).toHaveBeenCalled();
+  });
+  it("records a separate observed success without rewriting the failed attempt", async () => {
+    const replacementRun = { id: "456", url: "https://github.com/org/app/actions/runs/456", startedAt: new Date() };
+    workflow.mockResolvedValue({ status: "completed", conclusion: "success", replacementRun });
+    vi.mocked(prisma.publishAttempt.create).mockResolvedValue({ id: "observed-success" } as never);
+    expect(await checkAppHealth("app", undefined, { health, workflow })).toBe("recovered");
+    expect(prisma.publishAttempt.create).toHaveBeenCalledWith({ data: expect.objectContaining({ status: "SUCCEEDED", githubWorkflowRunId: "456", verifiedAt: expect.any(Date) }) });
+    expect(prisma.publishAttempt.updateMany).not.toHaveBeenCalled();
   });
   it("saves failed health with a timestamp without erasing successful publish history", async () => {
     vi.mocked(prisma.appRequest.findUnique).mockResolvedValue({ ...app, publishStatus: "SUCCEEDED" } as never);

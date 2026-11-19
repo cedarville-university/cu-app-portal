@@ -201,6 +201,10 @@ type GitHubWorkflowRunsResponse = {
     html_url: string;
     status: string;
     conclusion: string | null;
+    head_sha?: string;
+    head_branch?: string;
+    path?: string;
+    created_at?: string;
   }>;
 };
 
@@ -1121,6 +1125,10 @@ export function createGitHubAppClient({
         url: run.html_url,
         status: run.status,
         conclusion: run.conclusion,
+        ...(run.head_sha ? { headSha: run.head_sha } : {}),
+        ...(run.head_branch ? { headBranch: run.head_branch } : {}),
+        ...(run.path ? { path: run.path } : {}),
+        ...(run.created_at ? { createdAt: run.created_at } : {}),
       };
     },
     async getWorkflowRun({ owner, name, runId }: GetWorkflowRunInput) {

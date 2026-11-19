@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { probeMcpDeployment } from "@/features/mcp-servers/deployment-probe";
 import { verifyPublishedUrl } from "./azure/verify-deployment";
-import { defaultRecoveryEvidence, recoveredWarning, type RecoveryEvidence } from "./recovery";
+import { recoveredWarning, type RecoveryAttempt } from "./recovery";
+import { inspectHealthWorkflow, type HealthWorkflowEvidence } from "./health-workflow";
 import type { VerificationResult } from "./run-publish-attempt";
 
 type HealthApp = Prisma.AppRequestGetPayload<{ include: {
@@ -11,10 +12,10 @@ type HealthApp = Prisma.AppRequestGetPayload<{ include: {
 } }>;
 type HealthEvidence = {
   health(url: string, app: HealthApp): Promise<VerificationResult>;
-  workflow: RecoveryEvidence["workflow"];
+  workflow: (attempt: RecoveryAttempt) => Promise<HealthWorkflowEvidence>;
 };
 const defaultEvidence: HealthEvidence = {
-  workflow: defaultRecoveryEvidence.workflow,
+  workflow: inspectHealthWorkflow,
   async health(url, app) {
     if (app.template.slug !== "mcp-server") return verifyPublishedUrl(url, { timeoutMs: 5_000 });
     const config = app.mcpConfiguration;
@@ -56,11 +57,14 @@ export async function checkAppHealth(requestId: string, actorUserId?: string, ev
   const healthStatus = verification ? (healthSummary ? "WARNING" : "HEALTHY") : "UNHEALTHY";
   const attempt = app.publishAttempts[0];
   let recovered = false;
+  let replacementRun: HealthWorkflowEvidence["replacementRun"];
+  let recoveredAttemptId = attempt?.id;
   let reconciliationNote: string | null = null;
   if (verification && app.publishStatus === "FAILED") {
-    if (attempt?.status === "FAILED" && attempt.githubWorkflowRunId) {
+    if (attempt?.status === "FAILED") {
       try {
         const run = await evidence.workflow({ ...attempt, appRequest: app });
+        replacementRun = run.replacementRun;
         recovered = run.status === "completed" && run.conclusion === "success";
         if (!recovered) reconciliationNote = "The app is responding, but the recorded GitHub deployment has not completed successfully. Publishing status is unchanged.";
       } catch {
@@ -87,7 +91,15 @@ export async function checkAppHealth(requestId: string, actorUserId?: string, ev
         },
       });
       if (saved.count !== 1) throw new HealthObservationSuperseded();
-      if (recovered && attempt) {
+      if (recovered && replacementRun) {
+        // Preserve the failed attempt; this success came from another GitHub run.
+        const observed = await tx.publishAttempt.create({ data: {
+          appRequestId: app.id, status: "SUCCEEDED", stage: "COMPLETED",
+          githubWorkflowRunId: replacementRun.id, githubWorkflowRunUrl: replacementRun.url,
+          startedAt: replacementRun.startedAt, verifiedAt: verification!.verifiedAt,
+        } });
+        recoveredAttemptId = observed.id;
+      } else if (recovered && attempt) {
         const savedAttempt = await tx.publishAttempt.updateMany({
           where: { id: attempt.id, status: "FAILED", githubWorkflowRunId: attempt.githubWorkflowRunId },
           // Retain historical completion time; this is a verification observation.
@@ -103,7 +115,7 @@ export async function checkAppHealth(requestId: string, actorUserId?: string, ev
   await recordAuditEvent(recovered ? "PUBLISH_RECOVERED" : "APP_HEALTH_CHECKED", {
     appRequestId: app.id, actorUserId, supportReference: app.supportReference,
     healthStatus, checkedAt: checkedAt.toISOString(),
-    ...(recovered ? { publishAttemptId: attempt!.id, workflowRunId: attempt!.githubWorkflowRunId, outcome: "SUCCEEDED", reason: "Health check confirmed a successful GitHub rerun; no deployment was started." } : {}),
+    ...(recovered ? { publishAttemptId: recoveredAttemptId, previousPublishAttemptId: replacementRun ? attempt?.id : undefined, workflowRunId: replacementRun?.id ?? attempt!.githubWorkflowRunId, outcome: "SUCCEEDED", reason: "Health check confirmed a successful GitHub deployment; no deployment was started." } : {}),
   });
   return recovered ? "recovered" : "checked";
 }

@@ -104,7 +104,10 @@ export default async function AdminEventsPage({
     ? params.timezone[0]
     : params.timezone;
   const timezone = requestedTimezone === "local" ? "local" : "eastern";
-  const hideSystem = params.hideSystem === "1";
+  const systemFilter = Array.isArray(params.hideSystem)
+    ? params.hideSystem[params.hideSystem.length - 1]
+    : params.hideSystem;
+  const hideSystem = systemFilter !== "0";
   const filters = { event, from, to, search, hideSystem };
   const requestedPage = parsePage(params.page);
 
@@ -149,7 +152,7 @@ export default async function AdminEventsPage({
   if (typeof params.to === "string" && to) preservedParams.to = params.to;
   if (search) preservedParams.q = search;
   preservedParams.timezone = timezone;
-  if (hideSystem) preservedParams.hideSystem = "1";
+  preservedParams.hideSystem = hideSystem ? "1" : "0";
 
   return (
     <>
@@ -228,6 +231,7 @@ export default async function AdminEventsPage({
           />
         </label>
         <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", minHeight: "2.25rem" }}>
+          <input type="hidden" name="hideSystem" value="0" />
           <input type="checkbox" name="hideSystem" value="1" defaultChecked={hideSystem} />
           Hide system events
         </label>
