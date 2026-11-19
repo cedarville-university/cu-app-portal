@@ -76,6 +76,35 @@ describe("searchAuditLog", () => {
     expect(countQuery.values).toContain("%SUP-123%");
   });
 
+  it("excludes system events from both results and counts when requested", async () => {
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ count: 0n }]);
+
+    await searchAuditLog({ ...noFilters, hideSystem: true }, 1, 25);
+
+    for (const query of [queryArg(0), queryArg(1)]) {
+      expect(query.sql).toContain("CASE");
+      expect(query.sql).toContain("jsonb_typeof");
+      expect(query.values).toContain("System");
+      // Check saved usernames and legacy identity fields rather than hiding
+      // every health event, which would also hide user-requested checks.
+      for (const key of ["username", "actorUserId", "userId", "entraOid", "targetUserId"]) {
+        expect(query.values).toContain(key);
+      }
+      expect(query.values).not.toContain("APP_HEALTH_CHECKED");
+    }
+  });
+
+  it("keeps system events when the checkbox is off", async () => {
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ count: 0n }]);
+    await searchAuditLog({ ...noFilters, hideSystem: false }, 1, 25);
+    expect(queryArg(0).sql).not.toContain("WHERE");
+    expect(queryArg(1).sql).not.toContain("WHERE");
+  });
+
   it("paginates with LIMIT and OFFSET", async () => {
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce([])

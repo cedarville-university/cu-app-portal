@@ -1,12 +1,14 @@
 import { Prisma } from "@prisma/client";
 import type { AuditEvent } from "@/lib/audit";
 import { prisma } from "@/lib/db";
+import { AUDIT_USER_ID_KEYS, AUDIT_ENTRA_OID_KEYS } from "./audit-log-references";
 
 export type AuditLogFilters = {
   event: AuditEvent | null;
   from: Date | null;
   to: Date | null;
   search: string | null;
+  hideSystem?: boolean;
 };
 
 export type AuditLogEntry = {
@@ -18,6 +20,23 @@ export type AuditLogEntry = {
 
 function whereClause(filters: AuditLogFilters): Prisma.Sql {
   const conditions: Prisma.Sql[] = [];
+
+  if (filters.hideSystem) {
+    // Match the displayed username: prefer saved context, then identity fields
+    // on legacy records. Filter before LIMIT and COUNT so paging stays accurate.
+    const identityFields = [...AUDIT_USER_ID_KEYS, ...AUDIT_ENTRA_OID_KEYS].map(
+      (key) => Prisma.sql`COALESCE(jsonb_typeof("details" -> ${key}) = 'string', false)`,
+    );
+    conditions.push(Prisma.sql`(
+      CASE
+        WHEN jsonb_typeof("details" -> ${"username"}) = 'string'
+          AND "details" ->> ${"username"} <> ''
+          THEN "details" ->> ${"username"}
+        WHEN (${Prisma.join(identityFields, " OR ")}) THEN 'Unknown user'
+        ELSE 'System'
+      END
+    ) <> ${"System"}`);
+  }
 
   if (filters.event) {
     conditions.push(Prisma.sql`"event" = ${filters.event}`);

@@ -104,7 +104,8 @@ export default async function AdminEventsPage({
     ? params.timezone[0]
     : params.timezone;
   const timezone = requestedTimezone === "local" ? "local" : "eastern";
-  const filters = { event, from, to, search };
+  const hideSystem = params.hideSystem === "1";
+  const filters = { event, from, to, search, hideSystem };
   const requestedPage = parsePage(params.page);
 
   let page = requestedPage;
@@ -140,7 +141,7 @@ export default async function AdminEventsPage({
     return null;
   }
 
-  const hasFilters = Boolean(event || from || to || search);
+  const hasFilters = Boolean(event || from || to || search || hideSystem);
   const preservedParams: Record<string, string> = {};
 
   if (event) preservedParams.event = event;
@@ -148,6 +149,7 @@ export default async function AdminEventsPage({
   if (typeof params.to === "string" && to) preservedParams.to = params.to;
   if (search) preservedParams.q = search;
   preservedParams.timezone = timezone;
+  if (hideSystem) preservedParams.hideSystem = "1";
 
   return (
     <>
@@ -224,6 +226,10 @@ export default async function AdminEventsPage({
             placeholder="Support reference, email, app id..."
             defaultValue={search ?? ""}
           />
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", minHeight: "2.25rem" }}>
+          <input type="checkbox" name="hideSystem" value="1" defaultChecked={hideSystem} />
+          Hide system events
         </label>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button type="submit" className="btn btn--secondary btn--sm">

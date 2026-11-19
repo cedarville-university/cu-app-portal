@@ -174,6 +174,28 @@ describe("AdminEventsPage", () => {
     expect(screen.getByText("Username: ada · App: Not applicable")).toBeInTheDocument();
   });
 
+  it("preserves Hide system events with other filters when paging", async () => {
+    vi.mocked(searchAuditLog).mockResolvedValue({
+      entries: [{ id: "evt-1", event: "SIGN_IN", details: {}, createdAt: new Date() }],
+      totalCount: 30,
+    });
+    render(await AdminEventsPage({ searchParams: Promise.resolve({ hideSystem: "1", q: "Arkanoid" }) }));
+    expect(screen.getByRole("checkbox", { name: "Hide system events" })).toBeChecked();
+    expect(searchAuditLog).toHaveBeenCalledWith(expect.objectContaining({ hideSystem: true, search: "Arkanoid" }), 1, 25);
+    const href = screen.getByRole("link", { name: "Next" }).getAttribute("href")!;
+    const params = new URL(href, "https://example.test").searchParams;
+    expect(params.get("hideSystem")).toBe("1");
+    expect(params.get("q")).toBe("Arkanoid");
+    expect(screen.getByRole("link", { name: "Clear" })).toHaveAttribute("href", "/admin/events");
+  });
+
+  it("treats hiding system events as an active filter even by itself", async () => {
+    vi.mocked(searchAuditLog).mockResolvedValue({ entries: [], totalCount: 0 });
+    render(await AdminEventsPage({ searchParams: Promise.resolve({ hideSystem: "1" }) }));
+    expect(screen.getByText("No events match your filters.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Clear" })).toBeInTheDocument();
+  });
+
   it("passes parsed filters to searchAuditLog", async () => {
     vi.mocked(searchAuditLog).mockResolvedValue({ entries: [], totalCount: 0 });
 
@@ -197,6 +219,7 @@ describe("AdminEventsPage", () => {
         from: new Date("2026-07-01T00:00:00"),
         to: new Date("2026-07-06T23:59:59.999"),
         search: "SUP-123",
+        hideSystem: false,
       },
       1,
       25,
@@ -212,6 +235,7 @@ describe("AdminEventsPage", () => {
     expect(screen.getByLabelText("From")).toBeInTheDocument();
     expect(screen.getByLabelText("To")).toBeInTheDocument();
     expect(screen.getByLabelText("Search")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Hide system events" })).not.toBeChecked();
     expect(
       screen.getByRole("option", { name: "SIGN_IN" }),
     ).toBeInTheDocument();

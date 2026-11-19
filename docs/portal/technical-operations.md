@@ -382,7 +382,7 @@ FastAPI apps are runtime-built by Azure App Service. Their expected settings are
 
 ## Logs, Audit Evidence, and Data Handling
 
-The portal records audit events for security and lifecycle actions. Use the administrative event view and app details status first. Publishing setup-check metadata is deliberately sanitized: secret values must never be stored in support notes, portal records, screenshots, or tickets.
+The portal records audit events for security and lifecycle actions. Use the administrative event view and app details status first. In Events, select **Hide system events** and apply filters to hide background activity such as scheduled health checks. Manual health checks remain visible under the initiating user. The checkbox is preserved across pages, and Clear restores all events; no audit records are deleted. Publishing setup-check metadata is deliberately sanitized: secret values must never be stored in support notes, portal records, screenshots, or tickets.
 
 When a provider returns a request/correlation ID, retain that identifier with the support reference. It lets Azure, GitHub, or Entra administrators locate the server-side event without exposing credentials.
 
