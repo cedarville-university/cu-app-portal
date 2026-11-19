@@ -41,7 +41,7 @@ export const defaultRecoveryEvidence: RecoveryEvidence = {
   },
 };
 
-function recoveredWarning(app: RecoveryAttempt["appRequest"], healthWarning?: string) {
+export function recoveredWarning(app: RecoveryAttempt["appRequest"], healthWarning?: string) {
   // Recovery can verify an already dispatched run, but does not replay the
   // runtime's in-memory post-verification workflow mutation.
   const activationWarning = needsImportedLoginReview(app) && app.deploymentTriggerMode === "PUSH_TO_DEPLOY"

@@ -10,6 +10,13 @@ function readyResponses() {
   ];
 }
 describe("MCP deployment probe", () => {
+  it("can check ongoing health without startup retries", async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 503 }));
+    const sleepImpl = vi.fn();
+    await expect(probeMcpDeployment({ endpointUrl, tenantId: "tenant" }, { fetchImpl, sleepImpl, maxAttempts: 1 })).rejects.toThrow("MCP health check failed");
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(sleepImpl).not.toHaveBeenCalled();
+  });
   it("retries a network timeout while reading discovery metadata", async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(new Response(null, { status: 200 }))

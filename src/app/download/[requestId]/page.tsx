@@ -1,3 +1,4 @@
+import { AppHealthPanel } from "@/features/app-details/app-health-panel";
 import { savedImportedFeatures } from "@/features/repository-imports/features";
 import { getAppPageMetadata } from "@/features/navigation/page-metadata";
 import React from "react";
@@ -1175,6 +1176,8 @@ export default async function DownloadPage({
             pendingInvites={appRequest.collaborationInvites}
           />
         ) : null}
+
+        <AppHealthPanel app={appRequest} />
 
         <div className="card card--navy-border">
           <p className="section-title">Azure Publishing</p>

@@ -1,3 +1,4 @@
+import { AppHealthPanel } from "@/features/app-details/app-health-panel";
 import { ImportServicesHandoff } from "@/features/repository-imports/import-services-handoff";
 import { savedImportedFeatures } from "@/features/repository-imports/features";
 import { getImportedLoginReview, needsImportedLoginReview } from "@/features/repository-imports/login-review";
@@ -1327,18 +1328,19 @@ export default async function AppOnboardingPage({
           appName={app.appName}
           currentStage="Publish"
           title="Your app did not finish publishing"
-          explanation="The last attempt stopped before your app came online. Your app code, saved work, and existing online resources are still safe."
+          explanation="CU Launch recorded a publishing failure. If you completed deployment on GitHub, check app health to refresh its status."
           next={
             canOfferSetupRepair
-              ? "Try publishing again first. If the same problem returns, refresh publishing setup before another attempt. Each step usually takes several minutes."
-              : "Try publishing again to start a fresh attempt. This usually takes several minutes; if it stops again, share the support reference with the portal support team."
+              ? "If you reran deployment on GitHub, choose Check Health. To start another deployment, choose Try publishing again. Refresh publishing setup if the same problem returns."
+              : "If you reran deployment on GitHub, choose Check Health. Choose Try publishing again only when you want another deployment."
           }
           details={publishingTechnicalDetails}
         >
+          <AppHealthPanel app={app} />
           <div className="wizard-actions">
             <p role="alert">
               Publishing did not complete. Your app code and saved work are
-              still safe. Choose Try publishing again to start a fresh attempt.
+              still safe. Check Health can recognize a successful GitHub rerun; Try publishing again starts a fresh attempt.
             </p>
             {loginReviewPanel}
             {!loginReview || (!loginReview.publishingUpdateRequired && ["REVIEWED", "NOT_REQUIRED"].includes(loginReview.status)) ? <RetryPublishForm requestId={app.id} /> : null}

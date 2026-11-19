@@ -2,17 +2,18 @@ import type { VerificationResult } from "../run-publish-attempt";
 
 type VerifyOptions = {
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
 };
 
 export async function verifyPublishedUrl(
   publishUrl: string,
-  { fetchImpl = fetch }: VerifyOptions = {},
+  { fetchImpl = fetch, timeoutMs = 30_000 }: VerifyOptions = {},
 ): Promise<VerificationResult> {
   const healthUrl = new URL("/api/health", publishUrl).toString();
   const probe = (url: string) => fetchImpl(url, {
     method: "GET",
     redirect: "manual",
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(timeoutMs),
     cache: "no-store",
   });
 

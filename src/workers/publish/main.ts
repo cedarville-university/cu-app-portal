@@ -4,13 +4,16 @@ import { prisma } from "@/lib/db";
 import { loadPublishTransportConfig } from "@/features/publishing/transport-config";
 import { runDurablePublishAttempt } from "@/features/publishing/run-durable-attempt";
 import { recoverStalePublishes } from "@/features/publishing/recovery";
+import { checkDueAppHealth } from "@/features/publishing/app-health";
 import { processPublishMessage } from "./message";
 
 export async function runPublishWorker() {
   if (process.env.PUBLISH_WORKER_MODE === "recovery") {
     const result = await recoverStalePublishes();
     console.info("[publish-recovery]", result);
-    if (result.errors) throw new Error("Some publish attempts could not be inspected.");
+    const health = await checkDueAppHealth();
+    console.info("[app-health]", health);
+    if (result.errors || health.errors) throw new Error("Some publish attempts or app health checks could not be inspected.");
     return;
   }
   const config = loadPublishTransportConfig();
@@ -33,6 +36,7 @@ export async function runPublishWorker() {
       });
       for (const attempt of attempts) await runDurablePublishAttempt(attempt.id);
       await recoverStalePublishes();
+      await checkDueAppHealth();
       if (!stopped) await new Promise((resolve) => setTimeout(resolve, 5_000));
     }
     return;

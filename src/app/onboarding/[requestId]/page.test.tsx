@@ -155,6 +155,11 @@ afterEach(() => {
 });
 
 describe("AppOnboardingPage generated apps", () => {
+  it("offers Check Health after a publish failure without requiring another deployment", async () => {
+    vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(generatedApp({ azureWebAppName: "arkanoid", publishStatus: "FAILED", publishingSetupStatus: "READY" }));
+    await renderPage();
+    expect(screen.getByRole("button", { name: "Check Health" })).toBeInTheDocument();
+  });
   it("shows automatic Develop-stage progress while the repository is pending", async () => {
     vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
       generatedApp({

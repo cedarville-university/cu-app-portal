@@ -4,14 +4,15 @@ class McpStartupError extends Error {}
 
 export async function probeMcpDeployment(input: { endpointUrl: string; tenantId: string }, {
   fetchImpl = fetch,
+  maxAttempts = 6,
   sleepImpl = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)),
-}: { fetchImpl?: typeof fetch; sleepImpl?: (ms: number) => Promise<void> } = {}) {
+}: { fetchImpl?: typeof fetch; maxAttempts?: number; sleepImpl?: (ms: number) => Promise<void> } = {}) {
   const endpoint = requireManagedMcpEndpoint(input.endpointUrl);
   for (let attempt = 1; ; attempt++) {
     try {
       return await probeReadyMcpDeployment(endpoint, input.tenantId, fetchImpl);
     } catch (error) {
-      if (!(error instanceof McpStartupError) || attempt >= 6) throw error;
+      if (!(error instanceof McpStartupError) || attempt >= maxAttempts) throw error;
       await sleepImpl(5_000);
     }
   }

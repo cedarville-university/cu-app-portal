@@ -70,6 +70,10 @@ model AppRequest {
   publishUrl       String?
   publishErrorSummary String?
   publishWarningSummary String?
+  healthStatus String @default("NOT_CHECKED")
+  healthCheckVersion Int @default(0)
+  healthCheckedAt DateTime?
+  healthSummary String?
   publishingSetupStatus PublishingSetupStatus @default(NOT_CHECKED)
   publishingSetupCheckedAt DateTime?
   publishingSetupRepairedAt DateTime?

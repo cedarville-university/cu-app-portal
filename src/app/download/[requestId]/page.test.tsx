@@ -156,6 +156,11 @@ afterEach(() => {
 });
 
 describe("DownloadPage navigation", () => {
+  it("offers Check Health on a failed app with Azure resources", async () => {
+    await renderPage({ azureWebAppName: "arkanoid", publishStatus: "FAILED" });
+    expect(screen.getByRole("button", { name: "Check Health" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry Publish" })).toBeInTheDocument();
+  });
   it("offers an Express-specific update for imported sign-in apps", async () => {
     await renderPage({
       sourceOfTruth: "IMPORTED_REPOSITORY",

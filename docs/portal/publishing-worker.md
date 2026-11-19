@@ -55,6 +55,21 @@ The `Deploy Publishing Worker` GitHub workflow builds and smoke-tests the image,
 
 Existing stranded records such as FRED App can be recovered through the new admin action or the scheduled recovery job after rollout. Local implementation and tests do not update those live records.
 
-The health-fallback change requires migration `20261019180000_publish_health_warning` before deploying either the portal or publishing worker. Already failed, settled attempts remain failed until retried; active interrupted attempts use the fallback during recovery.
+The health-fallback change requires migration `20261019180000_publish_health_warning` before deploying either the portal or publishing worker. Active interrupted attempts use the fallback during recovery. Settled failed attempts can now be reconciled by the app health service described below.
 
 Managed-credential Key Vault rollout requires applying the updated infrastructure permissions as well as deploying the portal and worker images. Then run Repair Publishing Setup for existing apps; see [the migration runbook](technical-operations.md#migrating-managed-credentials-to-key-vault). An image-only workflow update does not grant Key Vault Secrets Officer.
+
+
+## App health checks
+
+App management and eligible failed-publishing onboarding pages offer **Check Health** to owners, collaborators and administrators. It checks the provisioned Azure default hostname immediately and refreshes the displayed availability and last-check time. It never queues publishing, dispatches a workflow, changes repository files, repairs settings or restarts an app. Current availability is separate from publishing history: an endpoint outage records unhealthy availability without turning a successful publish into a failed one.
+
+The existing five-minute recovery job also scans due apps. Apps with no observation, warnings or unhealthy results are due every five minutes. Once an app is healthy, its next scheduled check is due two hours later. Manual checks run immediately regardless of this interval. The schedule processes up to 20 apps per pass with four concurrent checks, ordered by the oldest observation first. Larger fleets or slow runs can take additional passes; these are target intervals, not exact deadlines. Queued and active publishes, deleted deployments, and apps without a provisioned Web App are skipped. Failed endpoint checks save their observation timestamp so they do not block the rest of the fleet.
+
+Ordinary apps require HTTP 200 from `/api/health`, with a warning fallback when only `/` responds with HTTP 200. Each request disables redirects and has a five-second timeout. MCP servers require health, matching OAuth discovery and the anonymous authentication challenge; periodic checks make one probe pass rather than retrying startup. This does not verify an authenticated MCP host connection or tool execution.
+
+For a settled failed publish, health checks also read its recorded GitHub run. When that same run now reports completed/success and the app passes verification, the service updates the latest attempt and app to succeeded together, clears the old publish error, retains applicable publishing warnings and records `PUBLISH_RECOVERED`. The verification observation has a new timestamp; existing publishing completion timestamps are preserved. An unrelated newer run or a healthy older deployment alone cannot establish recovery. If GitHub is unavailable or evidence is missing, availability is recorded with an explanation and publishing history stays unchanged. No notification is sent on each periodic check.
+
+Persistence uses a serializable transaction, the observed app version, a monotonically incrementing health-check version, and the latest attempt identity/status. Deployment changes or overlapping checks discard stale observations. Per-app failures are isolated and logged without exposing provider response bodies.
+
+Rollout requires migration `20261119180000_app_health_checks` before deploying **both** the portal and publishing worker image. The existing Azure job schedule remains `*/5 * * * *`. `npm run publish:recover` includes the due health scan, and the local database worker also performs scans. The worker needs outbound HTTPS access to the managed app endpoints and GitHub. After deployment, use Arkanoid's **Check Health** action and verify its saved health observation and any recovered run in the audit log; local tests do not update live app records.

@@ -1,0 +1,5 @@
+ALTER TABLE "AppRequest"
+  ADD COLUMN "healthCheckVersion" INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN "healthStatus" TEXT NOT NULL DEFAULT 'NOT_CHECKED',
+  ADD COLUMN "healthCheckedAt" TIMESTAMP(3),
+  ADD COLUMN "healthSummary" TEXT;

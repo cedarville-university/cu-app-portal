@@ -107,6 +107,8 @@ setting.
 
 ### Publishing worker and recovery
 
+App management and failed-publishing onboarding offer **Check Health** to inspect a running app without retrying publishing. Automatic checks run every five minutes until healthy, then every two hours. A healthy app plus a successful rerun of its recorded GitHub deployment can correct a stale failed publishing status. Apply migration `20261119180000_app_health_checks` before deploying the portal and publishing worker.
+
 Azure publishing runs in a separate durable worker. For local development, run `npm run publish:worker` in a second terminal alongside `npm run dev`. Production requires the Service Bus transport and the event-triggered publishing and scheduled recovery Container Apps Jobs. Admin app details include publishing reconciliation, interrupted-attempt closure, setup repair-state correction, and error-note controls. See [the publishing worker runbook](docs/portal/publishing-worker.md) for migration and rollout instructions.
 
 ## Editing app environment variables
