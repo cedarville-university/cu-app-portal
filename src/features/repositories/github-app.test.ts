@@ -502,6 +502,27 @@ describe("createGitHubAppClient", () => {
     );
   });
 
+  it("returns the exact dispatched run without polling the eventually consistent run list", async () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
+      .mockResolvedValueOnce(createJsonResponse({ workflow_run_id: 44813226748, run_url: "https://api.github.com/repos/org/app/actions/runs/44813226748", html_url: "https://github.com/org/app/actions/runs/44813226748" }));
+    const client = createGitHubAppClient({ appId: "12345", privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(), installationId: "111", fetchImpl });
+    await expect(client.dispatchWorkflow({ owner: "org", name: "app", workflowFileName: "deploy.yml", ref: "main", inputs: { cu_launch_commit_sha: "reviewed-sha" } })).resolves.toEqual({ id: "44813226748", url: "https://github.com/org/app/actions/runs/44813226748" });
+    expect(JSON.parse(String(fetchImpl.mock.calls[1][1]?.body))).toEqual({ ref: "main", return_run_details: true, inputs: { cu_launch_commit_sha: "reviewed-sha" } });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([{ workflow_run_id: 0, html_url: "https://github.com/org/app/actions/runs/0" }, { html_url: "https://github.com/org/app/actions/runs/123" }, { workflow_run_id: 123 }])("rejects malformed dispatch details without inventing a run ID: %j", async (details) => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const fetchImpl = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(createJsonResponse({ token: "installation-token" }))
+      .mockResolvedValueOnce(createJsonResponse(details));
+    const client = createGitHubAppClient({ appId: "12345", privateKey: privateKey.export({ type: "pkcs8", format: "pem" }).toString(), installationId: "111", fetchImpl });
+    await expect(client.dispatchWorkflow({ owner: "org", name: "app", workflowFileName: "deploy.yml", ref: "main" })).rejects.toThrow("invalid run details");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it("dispatches a workflow and finds the newest run", async () => {
     const { privateKey } = generateKeyPairSync("rsa", {
       modulusLength: 2048,
@@ -544,7 +565,7 @@ describe("createGitHubAppClient", () => {
       "https://api.github.com/repos/cedarville-it/campus-dashboard/actions/workflows/deploy-azure-app-service.yml/dispatches",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ ref: "main" }),
+        body: JSON.stringify({ ref: "main", return_run_details: true }),
       }),
     );
 

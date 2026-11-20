@@ -70,6 +70,21 @@ describe("runPublishAttempt", () => {
     expect(vi.mocked(persistPublishProgress).mock.calls.some(([, , data]) => data.status === "FAILED")).toBe(false);
   });
 
+  it("saves an identified workflow before the runtime can be interrupted", async () => {
+    vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({ id: "attempt-123", appRequestId: "request-123", appRequest: { id: "request-123" } } as never);
+    const claim = { attemptId: "attempt-123", token: "worker" };
+    await expect(runPublishAttempt("attempt-123", {
+      provisionInfrastructure: vi.fn().mockResolvedValue({}),
+      deployRepository: async (_id, options) => {
+        await options?.onWorkflowDispatching?.();
+        await options?.onWorkflowRunIdentified?.({ publishUrl: "https://app.example", githubWorkflowRunId: "44813226748", githubWorkflowRunUrl: "https://github.com/org/app/actions/runs/44813226748" });
+        throw new Error("runtime interrupted");
+      },
+      verifyDeployment: vi.fn(),
+    }, undefined, claim)).rejects.toThrow("runtime interrupted");
+    expect(persistPublishProgress).toHaveBeenCalledWith(claim, "request-123", { githubWorkflowRunId: "44813226748", githubWorkflowRunUrl: "https://github.com/org/app/actions/runs/44813226748", deploymentStartedAt: expect.any(Date) }, undefined);
+  });
+
   it("moves a queued publish attempt through provisioning, deploy, and success", async () => {
     vi.mocked(prisma.publishAttempt.findUnique).mockResolvedValue({
       id: "attempt-123",

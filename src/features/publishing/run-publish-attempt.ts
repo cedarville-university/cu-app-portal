@@ -48,6 +48,7 @@ export type DeployRepositoryOptions = {
   authorizeProviderMutation?: AuthorizeProviderMutation;
   onSetupStep?: (step: PublishingSetupCheckKey) => void;
   onWorkflowDispatched?: () => void;
+  onWorkflowRunIdentified?: (deployment: DeploymentRun) => Promise<void>;
   onWorkflowDispatching?: () => Promise<void>;
 };
 
@@ -241,6 +242,13 @@ export async function runPublishAttempt(
         },
         onWorkflowDispatched: () => {
           deploymentDispatchMayHaveStarted = true;
+        },
+        onWorkflowRunIdentified: async (deployment) => {
+          await persist({
+            githubWorkflowRunId: deployment.githubWorkflowRunId,
+            githubWorkflowRunUrl: deployment.githubWorkflowRunUrl,
+            deploymentStartedAt: new Date(),
+          });
         },
       },
     );

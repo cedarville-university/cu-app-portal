@@ -1090,11 +1090,23 @@ export function createGitHubAppClient({
         {
           method: "POST",
           headers,
-          body: JSON.stringify({ ref, ...(inputs ? { inputs } : {}) }),
+          body: JSON.stringify({ ref, return_run_details: true, ...(inputs ? { inputs } : {}) }),
         },
       );
 
-      await requireGitHubStatus(response, [204]);
+      await requireGitHubStatus(response, [200, 204]);
+      // Older GitHub versions may still return no content. Never redispatch:
+      // the runtime can discover that accepted dispatch through its read path.
+      if (response.status === 204) return;
+      const run = await response.json() as { workflow_run_id?: number; html_url?: string };
+      if (
+        typeof run.workflow_run_id !== "number" ||
+        !Number.isSafeInteger(run.workflow_run_id) || run.workflow_run_id <= 0 ||
+        typeof run.html_url !== "string" || !run.html_url
+      ) {
+        throw new Error("GitHub workflow dispatch returned invalid run details.");
+      }
+      return { id: String(run.workflow_run_id), url: run.html_url };
     },
     async getLatestWorkflowRun({
       owner,

@@ -53,3 +53,11 @@ Use this file to capture the operational details that make the next publish easi
 - The App Service plan was resized from `S1` to `B1` to reduce cost, while keeping the same plan resource name.
 - Remaining production caveat: Chrome Safe Browsing may still distrust the default `*.azurewebsites.net` hostname even when the app and auth flow are configured correctly.
 - Recommended follow-up: move production to a custom domain with TLS, then update `AUTH_URL`, `NEXTAUTH_URL`, and the Microsoft Entra redirect URI to that custom hostname.
+
+## 2026-11-20 FRED deployment status recovery
+
+- FRED attempt `cmwpfxyoc00faoej5apm2litb` dispatched at `20:38:45.072Z`. GitHub run `44813226748` was created at `20:38:46Z` and completed successfully at `20:40:52Z`.
+- The worker exhausted five run-list discovery checks one second apart and stopped at `20:38:53Z` without recording the run ID. Subsequent recovery correctly refused to infer success from an older deployment or health alone.
+- A one-time execution of the existing publishing job verified the exact repository, workflow path, manual event, bot actor, dispatch time window, latest attempt, expired worker lease, and current health response. A serializable compare-and-set transaction linked the run and completed the attempt and app together, preserving GitHub completion time and recording `PUBLISH_RECOVERED` under the requesting administrator. FRED was not redeployed.
+- Prevention: request exact run details from the GitHub dispatch response and persist them immediately through the worker lease before completion polling. Legacy 204 responses retain read-only discovery with a longer window. A lost dispatch response still requires review; never blindly redispatch after an uncertain outcome.
+- API contract: [GitHub workflow dispatch run details](https://docs.github.com/en/enterprise-cloud@latest/rest/actions/workflows?apiVersion=2022-11-28#create-a-workflow-dispatch-event).

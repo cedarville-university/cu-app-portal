@@ -849,6 +849,43 @@ describe("createAzurePublishRuntime", () => {
     ).rejects.toThrow("Managed repository is not ready for Azure publishing.");
   });
 
+  it("persists the exact dispatch response before verification even when the run list stays stale", async () => {
+    const { deps, github } = createDeps();
+    github.dispatchWorkflow.mockResolvedValue({ id: "44813226748", url: "https://github.com/org/app/actions/runs/44813226748" });
+    const saved: unknown[] = [];
+    const runtime = createAzurePublishRuntime(deps);
+    const deployment = await runtime.deployRepository(readyAppRequest.id, {
+      onWorkflowRunIdentified: async (run) => { saved.push(run); },
+    });
+    expect(saved).toEqual([{ publishUrl: "https://app-campus-dashboard-clx9abc1.azurewebsites.net", githubWorkflowRunId: "44813226748", githubWorkflowRunUrl: "https://github.com/org/app/actions/runs/44813226748" }]);
+    expect(deployment.githubWorkflowRunId).toBe("44813226748");
+    expect(github.getLatestWorkflowRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows delayed run-list visibility for legacy dispatch responses without dispatching again", async () => {
+    const old = { id: "old", url: "https://github.com/org/app/actions/runs/old" };
+    const newer = { id: "new", url: "https://github.com/org/app/actions/runs/new" };
+    const getLatestWorkflowRun = vi.fn().mockResolvedValueOnce(old);
+    for (let i = 0; i < 8; i += 1) getLatestWorkflowRun.mockResolvedValueOnce(old);
+    getLatestWorkflowRun.mockResolvedValue(newer);
+    const { deps, github } = createDeps({ getLatestWorkflowRun });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const deployment = await createAzurePublishRuntime({ ...deps, sleep }).deployRepository(readyAppRequest.id);
+    expect(deployment.githubWorkflowRunId).toBe("new");
+    expect(github.dispatchWorkflow).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledTimes(8);
+  });
+
+  it("stops if saving the dispatched identity fails instead of waiting for completion", async () => {
+    const { deps, github } = createDeps();
+    github.dispatchWorkflow.mockResolvedValue({ id: "44813226748", url: "https://github.com/org/app/actions/runs/44813226748" });
+    await expect(createAzurePublishRuntime(deps).deployRepository(readyAppRequest.id, {
+      onWorkflowRunIdentified: async () => { throw new Error("database unavailable"); },
+    })).rejects.toThrow("database unavailable");
+    expect(github.getWorkflowRun).not.toHaveBeenCalled();
+    expect(github.dispatchWorkflow).toHaveBeenCalledTimes(1);
+  });
+
   it("waits for a workflow run created after dispatch", async () => {
     const sleep = vi.fn().mockResolvedValue(undefined);
     const getLatestWorkflowRun = vi

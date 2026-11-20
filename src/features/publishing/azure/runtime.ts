@@ -142,7 +142,7 @@ type RuntimeDeps = {
       workflowFileName: string;
       ref: string;
       inputs?: Record<string, string>;
-    }): Promise<void>;
+    }): Promise<{ id: string; url: string } | void>;
     getLatestWorkflowRun(input: {
       owner: string;
       name: string;
@@ -197,8 +197,8 @@ const STARTUP_COMMAND = "npm start";
 const NEXT_ENTRA_CALLBACK_PATH = "/api/auth/callback/microsoft-entra-id";
 const FASTAPI_ENTRA_CALLBACK_PATH = "/auth/callback";
 const IMPORTED_WEB_APP_TEMPLATE_SLUG = "imported-web-app";
-const DEFAULT_WORKFLOW_RUN_POLL_ATTEMPTS = 5;
-const DEFAULT_WORKFLOW_RUN_POLL_INTERVAL_MS = 1000;
+const DEFAULT_WORKFLOW_RUN_POLL_ATTEMPTS = 60;
+const DEFAULT_WORKFLOW_RUN_POLL_INTERVAL_MS = 2000;
 const DEFAULT_WORKFLOW_COMPLETION_POLL_ATTEMPTS = 30;
 const DEFAULT_WORKFLOW_COMPLETION_POLL_INTERVAL_MS = 10_000;
 
@@ -813,7 +813,7 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         throw new Error("The app code changed after sign-in review. Review its current commit before publishing.");
       }
       await options?.onWorkflowDispatching?.();
-      await deps.github.dispatchWorkflow({
+      const dispatchedRun = await deps.github.dispatchWorkflow({
         owner,
         name,
         workflowFileName: WORKFLOW_FILE_NAME,
@@ -821,17 +821,21 @@ export function createAzurePublishRuntime(deps: RuntimeDeps): PublishRuntime {
         ...(reviewedCommit ? { inputs: { cu_launch_commit_sha: reviewedCommit } } : {}),
       });
       options?.onWorkflowDispatched?.();
-      const run = await waitForNewWorkflowRun(
+      const run = dispatchedRun ?? await waitForNewWorkflowRun(
         workflowRunInput,
         previousRun?.id ?? null,
       );
       lastDeploymentRun = { owner, name, runId: run.id, ...(reviewedCommit ? { firstPublish: { appId: appRequestId, branch, commitSha: reviewedCommit, authorize: options?.authorizeProviderMutation } } : {}) };
 
-      return {
+      const deployment = {
         publishUrl: appRequest.primaryPublishUrl ?? names.primaryPublishUrl,
         githubWorkflowRunId: run.id,
         githubWorkflowRunUrl: run.url,
       };
+      // Save correlation before returning to the orchestrator or waiting for
+      // workflow completion, so recovery can inspect this exact accepted run.
+      await options?.onWorkflowRunIdentified?.(deployment);
+      return deployment;
     },
     async verifyDeployment(publishUrl: string): Promise<VerificationResult> {
       if (!lastDeploymentRun) {
