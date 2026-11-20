@@ -87,7 +87,7 @@ if (args[0] === "webapp") {
   }
   console.log(JSON.stringify(current));
 } else if ((operation === "containerapp job update" || isPatch) && process.env.TEST_FAILURE === "update") {
-  console.error("ERROR: (AuthorizationFailed) Azure error containing sensitive setting: " + JSON.parse(process.env.TEST_SETTINGS)[5].value);
+  console.error("ERROR: Bad Request (" + JSON.stringify({error:{code:"AuthorizationFailed",message:JSON.parse(process.env.TEST_SETTINGS)[5].value}}) + ")");
   process.exit(1);
 } else if (!isPatch && !["containerapp job update", "resource wait --updated"].includes(operation)) {
   process.exit(2);
@@ -129,7 +129,7 @@ if (args[0] === "webapp") {
         const container = call.payload.properties.template.containers[0];
         expect(container.image).toBe("registry/worker@sha256:test");
         expect(container.resources).toEqual(job.properties.template.containers[0].resources);
-        expect(call.payload.identity).toEqual(job.identity);
+        expect(call.payload).not.toHaveProperty("identity");
         expect(call.payload.properties.configuration.eventTriggerConfig).toEqual(job.properties.configuration.eventTriggerConfig);
         expect(container.env).toContainEqual({ name: "DATABASE_URL", secretRef: "database" });
         expect(call.payload.properties.configuration.secrets).toContainEqual(job.properties.configuration.secrets[0]);

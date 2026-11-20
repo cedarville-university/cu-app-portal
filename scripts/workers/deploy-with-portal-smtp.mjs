@@ -8,14 +8,16 @@ function az(args, description) {
     encoding: "utf8",
     maxBuffer: 8 * 1024 * 1024,
   });
-  // CLI errors can echo request bodies. Report only recognized static codes,
+  // CLI errors can echo request bodies. Report only structured service codes,
   // never arbitrary error text or submitted settings.
   if (result.status !== 0) {
-    const code = result.stderr?.match(/^ERROR: \(([A-Za-z]+)\)/m)?.[1];
+    const code = result.stderr?.match(/^ERROR: \(([A-Za-z][A-Za-z0-9]{0,79})\)/m)?.[1] ??
+      result.stderr?.match(/"code"\s*:\s*"([A-Za-z][A-Za-z0-9]{0,79})"/)?.[1];
     const knownCodes = ["AuthorizationFailed", "LinkedAuthorizationFailed", "Forbidden",
       "RequestDisallowedByAzure", "RequestDisallowedByPolicy", "ResourceNotFound",
       "Conflict", "TooManyRequests", "InvalidParameterValueInContainerTemplate",
-      "ContainerAppSecretInvalid", "InvalidIdentityValues", "MissingSubscriptionRegistration"];
+      "ContainerAppSecretInvalid", "InvalidIdentityValues", "MissingSubscriptionRegistration",
+      "InvalidRequestContent", "InvalidApiVersionParameter", "BadRequest", "InvalidParameter"];
     throw new Error(description + (knownCodes.includes(code) ? ` Azure error code: ${code}.` : ""));
   }
   return result.stdout;
@@ -115,8 +117,10 @@ function deploy() {
       job.properties.configuration.secrets = [...secrets.values()];
       // Submit only mutable properties. Keep values out of argv, logs, and
       // GitHub outputs; the Azure CLI reads the body from this private file.
+      // Omit the unchanged identity assignment. Resubmitting it requires
+      // Managed Identity assign permission beyond the job-scoped CI role.
       const payload = {
-        location: job.location, tags: job.tags, identity: job.identity,
+        location: job.location, tags: job.tags,
         properties: {
           configuration: job.properties.configuration,
           template: job.properties.template,
