@@ -27,13 +27,14 @@ const job = {
     environmentId: "/environment",
     configuration: {
       triggerType: "Event",
-      secrets: [{ name: "database", keyVaultUrl: "https://vault/secrets/db", identity: "/identity" }],
+      secrets: [{ name: "database", keyVaultUrl: "https://vault/secrets/db", identity: "/identity" }, { name: "existing-api-key" }],
       eventTriggerConfig: { scale: { maxExecutions: 5 } },
     },
     template: { containers: [{
       name: "worker", image: "old-image", resources: { cpu: 1, memory: "2Gi" },
       env: [
         { name: "DATABASE_URL", secretRef: "database" },
+        { name: "EMPTY_VALUE", value: "" },
         { name: "SMTP_FROM", value: "Old Sender <old@example.edu>" },
         { name: "SMTP_USERNAME", value: "old-user" },
         { name: "SMTP_PASSWORD", secretRef: "old-password" },
@@ -59,8 +60,10 @@ const fs = require("node:fs");
 const args = process.argv.slice(2);
 const call = { args };
 const operation = args.slice(0, 3).join(" ");
-if (operation === "containerapp job update" && args.includes("--yaml")) {
-  const path = args[args.indexOf("--yaml") + 1];
+const isPatch = args[0] === "rest" && args[args.indexOf("--method") + 1] === "patch";
+if ((operation === "containerapp job update" && args.includes("--yaml")) || isPatch) {
+  const path = isPatch ? args[args.indexOf("--body") + 1].slice(1) : args[args.indexOf("--yaml") + 1];
+  call.payloadPath = path;
   call.payload = JSON.parse(fs.readFileSync(path, "utf8"));
   call.fileMode = fs.statSync(path).mode & 0o777;
   call.directoryMode = fs.statSync(require("node:path").dirname(path)).mode & 0o777;
@@ -71,10 +74,22 @@ if (args[0] === "webapp") {
   console.log(process.env.TEST_SETTINGS);
 } else if (operation === "containerapp job show") {
   console.log(args.includes("--query") ? JSON.parse(process.env.TEST_JOB).id : process.env.TEST_JOB);
-} else if (operation === "containerapp job update" && process.env.TEST_FAILURE === "update") {
-  console.error("Azure error containing sensitive setting: " + JSON.parse(process.env.TEST_SETTINGS)[5].value);
+} else if (args[0] === "rest" && args[args.indexOf("--method") + 1] === "post") {
+  if (process.env.TEST_FAILURE === "secrets") process.exit(1);
+  console.log(JSON.stringify({ value: [{ name: "database", keyVaultUrl: "https://vault/secrets/db", identity: "/identity" }, { name: "existing-api-key", value: "existing-value" }] }));
+} else if (args[0] === "rest" && args[args.indexOf("--method") + 1] === "get") {
+  const calls = fs.readFileSync(process.env.TEST_AZ_LOG, "utf8").trim().split("\\n").map(JSON.parse);
+  const lastPatch = calls.filter(c => c.payload).at(-1);
+  const current = process.env.TEST_FAILURE === "verify" ? JSON.parse(process.env.TEST_JOB) : lastPatch.payload;
+  for (const c of current.properties.template.containers) for (const e of c.env ?? []) {
+    if (e.value === "" || !("value" in e)) e.value = null;
+    if (!("secretRef" in e)) e.secretRef = null;
+  }
+  console.log(JSON.stringify(current));
+} else if ((operation === "containerapp job update" || isPatch) && process.env.TEST_FAILURE === "update") {
+  console.error("ERROR: (AuthorizationFailed) Azure error containing sensitive setting: " + JSON.parse(process.env.TEST_SETTINGS)[5].value);
   process.exit(1);
-} else if (!["containerapp job update", "resource wait --updated"].includes(operation)) {
+} else if (!isPatch && !["containerapp job update", "resource wait --updated"].includes(operation)) {
   process.exit(2);
 }
 `, { mode: 0o755 });
@@ -106,10 +121,11 @@ if (args[0] === "webapp") {
       const updates = calls.filter((call) => call.payload);
       expect(updates).toHaveLength(workflow.jobs.length);
       updates.forEach((call, index) => {
-        expect(call.args).toEqual(expect.arrayContaining([workflow.jobs[index], "--output", "none"]));
+        expect(call.args).toEqual(expect.arrayContaining(["--output", "none"]));
+        expect(calls.some((item) => item.args.includes("show") && item.args.includes(workflow.jobs[index]))).toBe(true);
         expect(call.fileMode).toBe(0o600);
         expect(call.directoryMode).toBe(0o700);
-        expect(existsSync(call.args[call.args.indexOf("--yaml") + 1])).toBe(false);
+        expect(existsSync(call.payloadPath)).toBe(false);
         const container = call.payload.properties.template.containers[0];
         expect(container.image).toBe("registry/worker@sha256:test");
         expect(container.resources).toEqual(job.properties.template.containers[0].resources);
@@ -127,6 +143,36 @@ if (args[0] === "webapp") {
         expect(container.env.find((item: { name: string }) => item.name === "SMTP_OLD_SETTING")).toBeUndefined();
       });
       expect(result.stdout + result.stderr).not.toContain(settings[5].value);
+    });
+
+    it("updates through the versioned API without the CLI YAML secret round-trip", () => {
+      const { result, calls } = deploy();
+      expect(result.status, result.stderr).toBe(0);
+      expect(calls.some((call) => call.args.slice(0, 3).join(" ") === "containerapp job update")).toBe(false);
+      const patches = calls.filter((call) => call.args[0] === "rest" && call.args.includes("patch"));
+      expect(patches).toHaveLength(workflow.jobs.length);
+      for (const call of patches) {
+        expect(call.args).toContain(`https://management.azure.com${job.id}?api-version=2025-07-01`);
+        expect(call.args).toContain(`@${call.payloadPath}`);
+        expect(call.payload.properties.configuration.secrets).toContainEqual({ name: "existing-api-key", value: "existing-value" });
+        expect(call.payload.properties.configuration.secrets).toContainEqual(job.properties.configuration.secrets[0]);
+        expect(call.payload.properties).not.toHaveProperty("environmentId");
+        expect(call.payload).not.toHaveProperty("id");
+        expect(call.payload).not.toHaveProperty("systemData");
+      }
+      expect(result.stdout + result.stderr).not.toContain("existing-value");
+    });
+
+    it("stops without changing a job when existing literal secrets cannot be read", () => {
+      const { result, calls } = deploy(settings, "secrets");
+      expect(result.status).not.toBe(0);
+      expect(calls.filter((call) => call.payload)).toHaveLength(0);
+    });
+
+    it("does not report success when Azure retains the previous image", () => {
+      const { result } = deploy(settings, "verify");
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("does not match");
     });
 
     it.each(["absent", "empty"])("clears stale optional settings when %s in the portal", (state) => {
@@ -169,9 +215,10 @@ if (args[0] === "webapp") {
       const { result, calls } = deploy(settings, "update");
       expect(result.status).not.toBe(0);
       expect(result.stdout + result.stderr).not.toContain(settings[5].value);
+      expect(result.stderr).toContain("AuthorizationFailed");
       const update = calls.find((call) => call.payload);
       expect(update).toBeDefined();
-      expect(existsSync(update.args[update.args.indexOf("--yaml") + 1])).toBe(false);
+      expect(existsSync(update.payloadPath)).toBe(false);
     });
   });
 }

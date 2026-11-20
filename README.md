@@ -111,6 +111,8 @@ App management and failed-publishing onboarding offer **Check Health** to inspec
 
 Publishing saves the exact GitHub run returned by workflow dispatch immediately, so delayed run-list updates do not leave a successful deployment stuck at **Deploying**.
 
+Worker deployment workflows preserve Key Vault references and verify the applied image and environment through a versioned Azure API before reporting success.
+
 Azure publishing runs in a separate durable worker. For local development, run `npm run publish:worker` in a second terminal alongside `npm run dev`. Production requires the Service Bus transport and the event-triggered publishing and scheduled recovery Container Apps Jobs. Admin app details include publishing reconciliation, interrupted-attempt closure, setup repair-state correction, and error-note controls. See [the publishing worker runbook](docs/portal/publishing-worker.md) for migration and rollout instructions.
 
 ## Editing app environment variables
