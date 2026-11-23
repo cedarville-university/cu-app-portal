@@ -11,7 +11,7 @@ export function PublicListingPanel({
 }) {
   return (
     <section aria-label="Share with Cedarville" className="card">
-      <p className="section-title">Share with Cedarville</p>
+      <h3 className="section-title">Share with Cedarville</h3>
       <p style={{ color: "var(--text-secondary)", marginTop: 0 }}>
         Sharing with Cedarville lets people who sign in to CU Launch
         see this app&apos;s name, description, and link. It does not change who can

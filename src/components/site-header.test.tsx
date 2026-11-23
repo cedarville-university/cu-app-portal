@@ -5,6 +5,10 @@ import { SiteHeader } from "./site-header";
 import { getServerSession } from "@/auth/session";
 import { userHasAdminRole } from "@/features/app-requests/access";
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/apps/public",
+}));
+
 vi.mock("@/auth/session", () => ({
   getServerSession: vi.fn(),
 }));
@@ -36,7 +40,7 @@ describe("SiteHeader", () => {
     render(await SiteHeader());
 
     expect(
-      screen.queryByRole("link", { name: "Launch New App" }),
+      screen.queryByRole("link", { name: "Launch Your App" }),
     ).not.toBeInTheDocument();
   });
 
@@ -109,7 +113,7 @@ describe("SiteHeader", () => {
     expect(accountMenu).toContainElement(logoutButton);
   });
 
-  it("keeps the account menu outside the horizontally scrollable navigation links", async () => {
+  it("keeps account controls separate from primary navigation", async () => {
     mockGetServerSession.mockResolvedValue({
       user: {
         id: "user-123",
@@ -127,13 +131,7 @@ describe("SiteHeader", () => {
     const navigation = screen.getByRole("navigation", {
       name: "Primary navigation",
     });
-    const linkStrip = navigation.querySelector(".site-header__nav-links");
-
-    expect(linkStrip).not.toBeNull();
-    expect(linkStrip).not.toContainElement(
-      screen.queryByRole("link", { name: "Launch New App" }),
-    );
-    expect(linkStrip).not.toContainElement(accountMenu);
+    expect(navigation).not.toContainElement(accountMenu);
   });
 
   it("links to the public apps page", async () => {
@@ -144,6 +142,8 @@ describe("SiteHeader", () => {
     expect(
       screen.getByRole("link", { name: /Cedarville apps/i }),
     ).toHaveAttribute("href", "/apps/public");
+    expect(screen.getByRole("link", { name: "Cedarville Apps" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "My Apps" })).not.toHaveAttribute("aria-current");
   });
 
   it("shows a log in button when no user is signed in", async () => {

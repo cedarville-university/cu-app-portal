@@ -16,7 +16,9 @@ export function AppReadinessChecklist({
   const publishingMessage =
     publishStatus === "SUCCEEDED"
       ? "Your app is online."
-      : publishingReady
+      : publishStatus === "FAILED"
+        ? "The last publish did not complete."
+        : publishingReady
         ? "Your app is ready to publish."
         : "Publishing still needs to be set up.";
 
@@ -29,7 +31,7 @@ export function AppReadinessChecklist({
 
   return (
     <section aria-label="App readiness" className="card">
-      <h2 className="section-title">App readiness</h2>
+      <h3 className="section-title">App readiness</h3>
       <ul className="checklist" style={{ marginBottom: 0 }}>
         <li>
           {repositoryReady

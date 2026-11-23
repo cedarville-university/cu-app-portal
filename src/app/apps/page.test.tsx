@@ -119,7 +119,7 @@ describe("MyAppsPage", () => {
     expect(row).not.toHaveTextContent(/provider token|must-not-render/i);
   });
 
-  it("renders the page heading and launch actions for an empty app list", async () => {
+  it("offers the shared launch flow for an empty app list", async () => {
     vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
     vi.mocked(prisma.appRequest.findMany).mockResolvedValue(
       [] as Awaited<ReturnType<typeof prisma.appRequest.findMany>>,
@@ -128,9 +128,10 @@ describe("MyAppsPage", () => {
 
     expect(screen.getByRole("heading", { name: "My Apps" })).toBeInTheDocument();
     expect(screen.getByText("No apps yet")).toBeInTheDocument();
-    for (const launchLink of screen.getAllByRole("link", { name: "Launch New App" })) {
-      expect(launchLink).toHaveAttribute("href", "/create");
-    }
+    expect(screen.getByRole("link", { name: "Launch Your App" })).toHaveAttribute(
+      "href",
+      "/onboarding",
+    );
   });
 
   it("renders a compact app row with setup status and management links", async () => {

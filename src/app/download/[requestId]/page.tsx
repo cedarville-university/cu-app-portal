@@ -44,6 +44,8 @@ import { removeAppCollaboratorAction } from "@/features/collaboration-invites/ac
 import { CollaborationInvitePanel } from "@/features/collaboration-invites/invite-panel";
 import { EnvVarsPanel } from "@/features/env-vars/env-vars-panel";
 import { AppReadinessChecklist } from "@/features/app-details/app-readiness-checklist";
+import { AppDetailsSectionLayout } from "@/features/app-details/section-layout";
+import { appDetailsSectionHref, getAppDetailsSection } from "@/features/app-details/sections";
 import { McpConnectionCard } from "@/features/app-details/mcp-connection-card";
 import { buildMcpConnectionSummary } from "@/features/mcp-servers/connection-summary";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
@@ -73,15 +75,15 @@ function publishBadge(status: string): { label: string; variant: BadgeVariant } 
     case "SUCCEEDED":
       return { label: "Published", variant: "success" };
     case "FAILED":
-      return { label: "Failed", variant: "error" };
+      return { label: "Publish failed", variant: "error" };
     case "QUEUED":
     case "PROVISIONING":
     case "DEPLOYING":
-      return { label: "In progress", variant: "info" };
+      return { label: "Publishing", variant: "info" };
     case "DELETED":
       return { label: "Deleted", variant: "default" };
     default:
-      return { label: formatStatus(status), variant: "default" };
+      return { label: "Not published", variant: "default" };
   }
 }
 
@@ -192,7 +194,7 @@ function renderAppAccessSummary({
 
   return (
     <section aria-label="App access" className="card">
-      <p className="section-title">App Access</p>
+      <h3 className="section-title">App access</h3>
       <div className="status-table">
         <div className="status-row">
           <span className="status-row__label">Owner</span>
@@ -310,7 +312,9 @@ function renderPublishingSetupStatus(request: {
     <section aria-label="Publishing setup status" className="setup-status">
       <h3 className="setup-status__title">Publishing setup</h3>
       <p>Status: {formatStatus(status)}</p>
-      {setupActionEligibility.eligible && request.publishStatus !== "FAILED" ? (
+      {setupActionEligibility.eligible &&
+      request.publishStatus !== "FAILED" &&
+      !(request.publishStatus === "SUCCEEDED" && status === "READY") ? (
         <form action={repairAction}>
           <PendingSubmitButton
             idleLabel="Repair Publishing Setup"
@@ -468,7 +472,7 @@ function renderImportedRepositoryStatus({
   return (
     <section
       aria-label="Imported repository status"
-      className="card card--gold-border"
+      className="card"
     >
       <p className="section-title">Publishing Setup Status</p>
       <div className="status-table" style={{ marginBottom: "1rem" }}>
@@ -669,7 +673,7 @@ function renderPublishAction({
               idleLabel="Retry Publish"
               pendingLabel="Retrying Publish…"
               statusText="Retrying publish to Azure…"
-              variant="primary"
+              variant="primary-solid"
               title="Starts a new Azure deployment now and refreshes CU Launch-managed publishing credentials if needed"
             />
           </form>
@@ -746,40 +750,43 @@ function renderPublishedRecoveryActions({
   const retryEligibility = getPublishEligibility(eligibilityInput, {
     allowedPublishStatuses: ["SUCCEEDED"],
   });
-  const repairEligibility =
-    getPublishingSetupRepairEligibility(eligibilityInput);
+  // A blocking setup status already exposes repair in the main publishing panel.
+  const canRepair = publishingSetupStatus === "READY" &&
+    getPublishingSetupRepairEligibility(eligibilityInput).eligible;
 
-  if (!retryEligibility.eligible && !repairEligibility.eligible) return null;
+  if (!retryEligibility.eligible && !canRepair) return null;
 
   return (
-    <div className="card card--gold-border">
-      <p className="section-title">Repair or retry publishing</p>
-      <p>Refresh publishing setup or start another Azure deployment.</p>
-      <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-        {repairEligibility.eligible ? (
-          <form action={repairPublishingSetupAction.bind(null, requestId)}>
-            <PendingSubmitButton
-              idleLabel="Repair Publishing Setup"
-              pendingLabel="Repairing Publishing Setup..."
-              statusText="Refreshing your Azure hosting, Microsoft login, and GitHub publishing settings."
-              variant="ghost"
-              title="Refreshes publishing credentials and settings without starting an Azure deployment"
-            />
-          </form>
-        ) : null}
-        {retryEligibility.eligible ? (
-          <form action={publishToAzureAction.bind(null, requestId)}>
-            <PendingSubmitButton
-              idleLabel="Retry Publish"
-              pendingLabel="Retrying Publish…"
-              statusText="Retrying publish to Azure…"
-              variant="primary"
-              title="Starts a new Azure deployment now"
-            />
-          </form>
-        ) : null}
+    <details className="card app-details__disclosure">
+      <summary>Repair or retry publishing</summary>
+      <div className="app-details__disclosure-content">
+        <p>Refresh publishing setup or start another Azure deployment.</p>
+        <div className="app-details__actions">
+          {canRepair ? (
+            <form action={repairPublishingSetupAction.bind(null, requestId)}>
+              <PendingSubmitButton
+                idleLabel="Repair Publishing Setup"
+                pendingLabel="Repairing Publishing Setup..."
+                statusText="Refreshing your Azure hosting, Microsoft login, and GitHub publishing settings."
+                variant="ghost"
+                title="Refreshes publishing credentials and settings without starting an Azure deployment"
+              />
+            </form>
+          ) : null}
+          {retryEligibility.eligible ? (
+            <form action={publishToAzureAction.bind(null, requestId)}>
+              <PendingSubmitButton
+                idleLabel="Retry Publish"
+                pendingLabel="Retrying Publish…"
+                statusText="Retrying publish to Azure…"
+                variant="primary"
+                title="Starts a new Azure deployment now"
+              />
+            </form>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -932,13 +939,13 @@ function renderDeletePanel(request: {
 
 function renderSupportReference(supportReference: string) {
   return (
-    <details className="card">
-      <summary>Support information</summary>
+    <section className="card" aria-labelledby="app-support-heading">
+      <h3 className="section-title" id="app-support-heading">Support reference</h3>
       <p>
         If you need help, share this support reference: {" "}
         <code>{supportReference}</code>
       </p>
-    </details>
+    </section>
   );
 }
 
@@ -953,8 +960,10 @@ export async function generateMetadata({
 
 export default async function DownloadPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ requestId: string }>;
+  searchParams?: Promise<{ section?: string | string[] }>;
 }) {
   const { requestId } = await params;
   const userId = await getCurrentUserIdOrNull();
@@ -1021,21 +1030,9 @@ export default async function DownloadPage({
     redirect(`/onboarding/${appRequest.id}`);
   }
 
-  const isImportedApp = appRequest.sourceOfTruth === "IMPORTED_REPOSITORY";
-
+  const publishFailed = appRequest.publishStatus === "FAILED";
+  const section = getAppDetailsSection((await searchParams)?.section, publishFailed);
   const canDeleteAppRequest = isAdmin || appRequest.userId === userId;
-
-  const currentUser = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { githubUsername: true, email: true },
-  });
-  const actorRepositoryAccess = await resolveRepositoryAccessForActor({
-    requestId: appRequest.id,
-    actorUserId: userId,
-    githubUsername: currentUser?.githubUsername ?? null,
-    legacyStatus: appRequest.repositoryAccessStatus,
-    legacyNote: appRequest.repositoryAccessNote,
-  });
 
   const displayPublishUrl = getDisplayPublishUrl(
     appRequest.primaryPublishUrl,
@@ -1046,50 +1043,466 @@ export default async function DownloadPage({
     publishStatus: appRequest.publishStatus,
     publishingSetupStatus: appRequest.publishingSetupStatus,
   });
-  const importedRepositoryRemoteWorkflow = getImportedRepositoryRemoteWorkflow({
-    repositoryImport: appRequest.repositoryImport,
-    repositoryUrl: appRequest.repositoryUrl,
-    repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
-  });
-  const isLocalCodexApp = isLocalCodexSource(appRequest.submittedConfig);
-  const appAudience = getAppAudience(appRequest.submittedConfig);
-  const loginUpdateFramework = getLoginUpdateFramework(appRequest);
-  const loginReview = needsImportedLoginReview(appRequest) ? await getImportedLoginReview({ userId, isAdmin }, appRequest.id) : null;
-  const codexHandoffPrompt =
-    isLocalCodexApp && appRequest.repositoryUrl
-      ? buildLocalCodexGitSetupPrompt({
-          repositoryUrl: appRequest.repositoryUrl,
-          appName: appRequest.appName,
-          requestId,
-          defaultBranch: appRequest.repositoryDefaultBranch,
-          gitAuthor: currentUser ?? {},
-          importFeatures: savedImportedFeatures(appRequest.submittedConfig),
-        })
-      : appRequest.repositoryUrl
-        ? buildCodexHandoffPrompt(
-            appRequest.repositoryUrl,
-            appRequest.appName,
-            requestId,
-            {
+  const showLoginNotices = section === "overview" || section === "deployment";
+  const loginUpdateFramework = showLoginNotices ? getLoginUpdateFramework(appRequest) : null;
+  const loginReview = showLoginNotices && needsImportedLoginReview(appRequest)
+    ? await getImportedLoginReview({ userId, isAdmin }, appRequest.id)
+    : null;
+
+  const warning = (
+    <>
+      {appRequest.publishStatus === "SUCCEEDED" && appRequest.publishWarningSummary ? (
+        <div className="warning-box" role="status">
+          {appRequest.publishWarningSummary}
+        </div>
+      ) : null}
+    </>
+  );
+  const loginNotices = (
+    <>
+      {appRequest.repositoryUrl && loginUpdateFramework ? (
+        <LoginUpdateNotice
+          appRequestId={appRequest.id}
+          userId={userId}
+          prompt={buildLoginUpdatePrompt({ repositoryUrl: appRequest.repositoryUrl, appName: appRequest.appName, framework: loginUpdateFramework })}
+        />
+      ) : null}
+      {loginReview ? <LoginReviewPanel appId={appRequest.id} review={loginReview} prompt={buildImportedLoginReviewPrompt(appRequest)} /> : null}
+    </>
+  );
+
+  let content: React.ReactNode;
+  switch (section) {
+    case "deployment":
+      content = (
+        <>
+          {loginNotices}
+          <section className="card app-details__publishing" aria-labelledby="app-publishing-heading">
+            <h3 id="app-publishing-heading" className="section-title">Azure publishing</h3>
+
+            {isAdmin && appRequest.publishErrorSummary &&
+            appRequest.repositoryStatus !== "FAILED" ? (
+              <div
+                className="warning-box"
+                style={{ marginBottom: "0.875rem" }}
+              >
+                Last publish note: {appRequest.publishErrorSummary}
+              </div>
+            ) : null}
+
+            {renderPublishingSetupStatus({
+              id: appRequest.id,
+              repositoryStatus: appRequest.repositoryStatus,
+              sourceOfTruth: appRequest.sourceOfTruth,
+              preparationStatus: appRequest.repositoryImport?.preparationStatus,
+              publishStatus: appRequest.publishStatus,
+              publishingSetupStatus: effectivePublishingSetupStatus,
+            })}
+
+            {!loginReview || (!loginReview.publishingUpdateRequired && ["REVIEWED", "NOT_REQUIRED"].includes(loginReview.status)) ? renderPublishAction({
+              requestId,
+              publishStatus: appRequest.publishStatus,
+              repositoryStatus: appRequest.repositoryStatus,
+              sourceOfTruth: appRequest.sourceOfTruth,
+              preparationStatus: appRequest.repositoryImport?.preparationStatus,
+              publishingSetupStatus: effectivePublishingSetupStatus,
+            }) : <p>Complete the sign-in review above before the first publish.</p>}
+            {renderPushToDeployButton({
+              id: appRequest.id,
+              sourceOfTruth: appRequest.sourceOfTruth,
+              repositoryStatus: appRequest.repositoryStatus,
+              publishStatus: appRequest.publishStatus,
+              deploymentTarget: appRequest.deploymentTarget,
+              deploymentTriggerMode: appRequest.deploymentTriggerMode,
+            })}
+          </section>
+          {appRequest.publishStatus === "SUCCEEDED"
+            ? renderPublishedRecoveryActions({
+                requestId,
+                sourceOfTruth: appRequest.sourceOfTruth,
+                repositoryStatus: appRequest.repositoryStatus,
+                preparationStatus: appRequest.repositoryImport?.preparationStatus,
+                publishingSetupStatus: effectivePublishingSetupStatus,
+              })
+            : null}
+          <details className="card app-details__disclosure">
+            <summary>Deployment details</summary>
+            <div className="app-details__disclosure-content">
+              <div className="status-table" style={{ marginBottom: "1rem" }}>
+                {appRequest.azureWebAppName ? (
+                  <div className="status-row">
+                    Azure app: {appRequest.azureWebAppName}
+                  </div>
+                ) : null}
+                {appRequest.sourceOfTruth === "PORTAL_MANAGED_REPO" ? (
+                  <div className="status-row">
+                    <span title={deploymentModeTooltip(appRequest.deploymentTriggerMode)}>
+                      Deployment mode:{" "}
+                      {formatDeploymentMode(appRequest.deploymentTriggerMode)}
+                    </span>
+                  </div>
+                ) : null}
+                {displayPublishUrl ? (
+                  <div className="status-row">
+                    <a
+                      href={displayPublishUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="meta-link"
+                    >
+                      {displayPublishUrl}
+                    </a>
+                  </div>
+                ) : null}
+                {appRequest.publishAttempts[0]?.githubWorkflowRunUrl ? (
+                  <div className="status-row">
+                    <a
+                      href={
+                        appRequest.publishAttempts[0].githubWorkflowRunUrl
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="meta-link"
+                      title="View the automated process that deployed your app to Azure — useful for troubleshooting if a publish fails"
+                    >
+                      Deployment log
+                    </a>
+                  </div>
+                ) : null}
+              </div>
+
+              {isAdmin && appRequest.publishingSetupErrorSummary ? (
+                <div className="warning-box" style={{ marginBottom: "0.875rem" }}>
+                  Publishing setup note: {appRequest.publishingSetupErrorSummary}
+                </div>
+              ) : null}
+              {appRequest.publishSetupChecks?.length ? (
+                <ul className="setup-status__checks">
+                  {appRequest.publishSetupChecks.map((check) => (
+                    <li key={check.checkKey}>
+                      {formatCheckKey(check.checkKey)}: {formatStatus(check.status)}
+                      {isAdmin ? <> — {check.message}</> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </details>
+        </>
+      );
+      break;
+    case "health":
+      content = (
+        <>
+          {warning}
+          {appRequest.azureWebAppName && ["FAILED", "SUCCEEDED"].includes(appRequest.publishStatus) ? (
+            <AppHealthPanel app={appRequest} inDetailsSection />
+          ) : (
+            <div className="card">
+              <h3 className="section-title">Health checks are unavailable</h3>
+              <p>There is no tracked Azure deployment to check.</p>
+            </div>
+          )}
+        </>
+      );
+      break;
+    case "listing":
+      content = (
+        <>
+          <PublicListingPanel
+            appRequestId={appRequest.id}
+            isPubliclyListed={appRequest.isPubliclyListed}
+          />
+        </>
+      );
+      break;
+    case "collaborators":
+      content = (
+        <>
+          {renderAppAccessSummary({
+            owner: appRequest.user,
+            collaborators: appRequest.collaborators,
+            canManageCollaborators: appRequest.userId === userId || isAdmin,
+            appRequestId: appRequest.id,
+          })}
+          {appRequest.userId === userId || isAdmin ? (
+            <CollaborationInvitePanel
+              appRequestId={appRequest.id}
+              pendingInvites={appRequest.collaborationInvites}
+            />
+          ) : null}
+        </>
+      );
+      break;
+    case "repository": {
+      const isImportedApp = appRequest.sourceOfTruth === "IMPORTED_REPOSITORY";
+      const importedRepositoryRemoteWorkflow = getImportedRepositoryRemoteWorkflow({
+        repositoryImport: appRequest.repositoryImport,
+        repositoryUrl: appRequest.repositoryUrl,
+        repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
+      });
+      const isLocalCodexApp = isLocalCodexSource(appRequest.submittedConfig);
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { githubUsername: true, email: true },
+      });
+      const actorRepositoryAccess = await resolveRepositoryAccessForActor({
+        requestId: appRequest.id,
+        actorUserId: userId,
+        githubUsername: currentUser?.githubUsername ?? null,
+        legacyStatus: appRequest.repositoryAccessStatus,
+        legacyNote: appRequest.repositoryAccessNote,
+      });
+      const codexHandoffPrompt =
+        isLocalCodexApp && appRequest.repositoryUrl
+          ? buildLocalCodexGitSetupPrompt({
+              repositoryUrl: appRequest.repositoryUrl,
+              appName: appRequest.appName,
+              requestId,
+              defaultBranch: appRequest.repositoryDefaultBranch,
               gitAuthor: currentUser ?? {},
               importFeatures: savedImportedFeatures(appRequest.submittedConfig),
-              defaultBranch:
-                importedRepositoryRemoteWorkflow?.defaultBranch ??
-                appRequest.repositoryDefaultBranch,
-              sourceRepositoryUrl:
-                importedRepositoryRemoteWorkflow?.sourceRepositoryUrl ??
-                (isImportedApp
-                  ? appRequest.repositoryImport?.sourceRepositoryUrl ?? appRequest.repositoryUrl
-                  : undefined),
-              localFolderMode: isImportedApp
-                ? undefined
-                : "new-or-existing",
-            },
-          )
-        : null;
+            })
+          : appRequest.repositoryUrl
+            ? buildCodexHandoffPrompt(
+                appRequest.repositoryUrl,
+                appRequest.appName,
+                requestId,
+                {
+                  gitAuthor: currentUser ?? {},
+                  importFeatures: savedImportedFeatures(appRequest.submittedConfig),
+                  defaultBranch:
+                    importedRepositoryRemoteWorkflow?.defaultBranch ??
+                    appRequest.repositoryDefaultBranch,
+                  sourceRepositoryUrl:
+                    importedRepositoryRemoteWorkflow?.sourceRepositoryUrl ??
+                    (isImportedApp
+                      ? appRequest.repositoryImport?.sourceRepositoryUrl ?? appRequest.repositoryUrl
+                      : undefined),
+                  localFolderMode: isImportedApp
+                    ? undefined
+                    : "new-or-existing",
+                },
+              )
+            : null;
+
+      content = (
+        <>
+          <div className="card">
+            <h3 className="section-title">Your Code Repository</h3>
+            {appRequest.repositoryStatus === "READY" && appRequest.repositoryUrl ? (
+              <>
+                <div className="status-table" style={{ marginBottom: "1rem" }}>
+                  <div className="status-row">
+                    <span>
+                      Repository ready:{" "}
+                      <a
+                        href={appRequest.repositoryUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="meta-link"
+                      >
+                        {appRequest.repositoryUrl}
+                      </a>
+                    </span>
+                  </div>
+                </div>
+                {codexHandoffPrompt ? (
+                  <CopyCodexHandoffButton prompt={codexHandoffPrompt} />
+                ) : null}
+              </>
+            ) : appRequest.repositoryStatus === "FAILED" ? (
+              <div className="error-box">
+                Repository setup failed.
+                A CU Launch administrator may need to fix the configuration before publishing can continue.
+              </div>
+            ) : (
+              <div className="info-box">
+                Setting up your code repository — check back shortly.
+              </div>
+            )}
+
+            {isAdmin && appRequest.publishErrorSummary &&
+            appRequest.repositoryStatus === "FAILED" ? (
+              <div className="warning-box" style={{ marginTop: "0.75rem" }}>
+                Repo setup note: {appRequest.publishErrorSummary}
+              </div>
+            ) : null}
+          </div>
+          <div className="card">
+            <p className="section-title">Codex Workflow</p>
+            <CodexPreparationChecklist
+              appName={appRequest.appName}
+              folderKind={
+                isLocalCodexApp || isImportedApp
+                  ? "existing"
+                  : "new-or-existing"
+              }
+            />
+          </div>
+
+          {/* GitHub access section */}
+          {appRequest.repositoryStatus === "READY" ? (
+            <div className="card">
+              <p className="section-title">Connect Codex to Your Repository</p>
+              {actorRepositoryAccess.status === "GRANTED" ? (
+                <div className="success-box">
+                  Repository access has been granted for this app.
+                </div>
+              ) : null}
+              <p
+                style={{
+                  fontSize: "0.9375rem",
+                  marginBottom: "0.875rem",
+                  marginTop:
+                    actorRepositoryAccess.status === "GRANTED"
+                      ? "0.875rem"
+                      : undefined,
+                }}
+              >
+                Want Codex to edit your app&rsquo;s code?{" "}
+                <a
+                  href="https://github.com/signup"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Create a free GitHub account
+                </a>
+                , then enter your username below. CU Launch will send you an invite to the repository.
+              </p>
+              {actorRepositoryAccess.note ? (
+                <div
+                  className="warning-box"
+                  style={{ marginBottom: "0.875rem" }}
+                >
+                  {actorRepositoryAccess.note}
+                </div>
+              ) : null}
+              <form
+                action={saveGitHubUsernameAndGrantAccessAction.bind(
+                  null,
+                  requestId,
+                )}
+                style={{
+                  display: "flex",
+                  gap: "0.625rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <input
+                  name="githubUsername"
+                  type="text"
+                  required
+                  aria-label="GitHub username"
+                  placeholder="GitHub username"
+                  defaultValue={currentUser?.githubUsername ?? ""}
+                  className="form-control"
+                  style={{ maxWidth: "240px" }}
+                />
+                <button
+                  type="submit"
+                  className="btn btn--secondary-solid"
+                >
+                  {actorRepositoryAccess.status === "INVITED"
+                    ? "Resend Repo Access Invite"
+                    : actorRepositoryAccess.status === "GRANTED"
+                      ? "Request Repository Access"
+                      : "Send Repository Invite"}
+                </button>
+              </form>
+            </div>
+          ) : null}
+
+          {isLocalCodexApp
+            ? renderLocalCodexSetup({
+                repositoryUrl: appRequest.repositoryUrl,
+              })
+            : null}
+
+          {/* Imported repository status section */}
+          {isImportedApp
+            ? renderImportedRepositoryStatus({
+                requestId,
+                repositoryImport: appRequest.repositoryImport,
+                showProviderDiagnostics: isAdmin,
+              })
+            : null}
+
+          {importedRepositoryRemoteWorkflow ? (
+            <div className="card">
+              <p className="section-title">Use Codex to sync your imported app</p>
+              <p>
+                Keep the app connected to its original GitHub home and let Codex
+                add the CU Launch-managed repository as a separate publishing
+                destination. Open the local Codex project you already use for
+                this app, then copy the complete prompt under Your Code Repository into a
+                task inside that project.
+              </p>
+              <p>
+                Codex will inspect both connections, protect your existing
+                history and unfinished work, and run the technical Git commands.
+                Do not run terminal commands yourself.
+              </p>
+            </div>
+          ) : null}
+        </>
+      );
+      break;
+    }
+    case "environment":
+      content = (
+        <>
+          <EnvVarsPanel
+            appRequestId={appRequest.id}
+            envVars={appRequest.environmentVariables ?? []}
+            isPublished={Boolean(appRequest.azureWebAppName)}
+          />
+        </>
+      );
+      break;
+    case "support":
+      content = (
+        <>
+          {renderSupportReference(appRequest.supportReference)}
+          {canDeleteAppRequest
+            ? renderDeletePanel({
+                mcpIdentity: appRequest.template.slug === "mcp-server",
+                id: appRequest.id,
+                repositoryOwner: appRequest.repositoryOwner,
+                repositoryName: appRequest.repositoryName,
+                repositoryStatus: appRequest.repositoryStatus,
+                publishStatus: appRequest.publishStatus,
+                azureWebAppName: appRequest.azureWebAppName,
+                azureDatabaseName: appRequest.azureDatabaseName,
+              })
+            : null}
+        </>
+      );
+      break;
+    case "overview":
+      content = (
+        <>
+          {warning}
+          {loginNotices}
+          <AppReadinessChecklist
+            repositoryReady={appRequest.repositoryStatus === "READY"}
+            publishingReady={effectivePublishingSetupStatus === "READY"}
+            publishStatus={appRequest.publishStatus}
+            audience={getAppAudience(appRequest.submittedConfig)}
+          />
+          {appRequest.template.slug === "mcp-server" ? <McpConnectionCard connection={buildMcpConnectionSummary(appRequest.mcpConfiguration,{published:appRequest.publishStatus === "SUCCEEDED"})} /> : null}
+          <div className="app-details__overview-links">
+            <Link className="btn btn--ghost" href={appDetailsSectionHref("deployment")}>
+              {publishFailed ? "Review publishing" : "View deployment"}
+            </Link>
+          </div>
+        </>
+      );
+      break;
+  }
 
   return (
-    <main>
+    <main className="app-details">
       <nav aria-label="Breadcrumb" className="breadcrumb">
         <Link href="/">Home</Link>
         <span className="breadcrumb__sep" aria-hidden="true">
@@ -1099,402 +1512,29 @@ export default async function DownloadPage({
         <span className="breadcrumb__sep" aria-hidden="true">
           /
         </span>
-        <span aria-current="page">{appRequest.appName}</span>
+        <span aria-current="page">App details</span>
       </nav>
 
-      <div
-        className="page-header"
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "1rem",
-        }}
-      >
-        <div>
-          <h1>{isImportedApp ? "Imported App Details" : "Your App Is Ready"}</h1>
-          <p>
-            {isImportedApp
-              ? `CU Launch tracks ${appRequest.appName} for Azure publishing.`
-              : `${appRequest.appName} — Set up Codex, and publish to Azure.`}
-          </p>
+      <header className="page-header app-details__header">
+        <div className="app-details__identity">
+          <h1>{appRequest.appName}</h1>
+          <span className={`badge badge--${pub.variant}`}>{pub.label}</span>
         </div>
-      </div>
-
-      {appRequest.repositoryUrl && loginUpdateFramework ? (
-        <LoginUpdateNotice
-          appRequestId={appRequest.id}
-          userId={userId}
-          prompt={buildLoginUpdatePrompt({ repositoryUrl: appRequest.repositoryUrl, appName: appRequest.appName, framework: loginUpdateFramework })}
-        />
-      ) : null}
-      {loginReview ? <LoginReviewPanel appId={appRequest.id} review={loginReview} prompt={buildImportedLoginReviewPrompt(appRequest)} /> : null}
-
-      <div style={{ display: "grid", gap: "1.25rem" }}>
-        <AppReadinessChecklist
-          repositoryReady={appRequest.repositoryStatus === "READY"}
-          publishingReady={effectivePublishingSetupStatus === "READY"}
-          publishStatus={appRequest.publishStatus}
-          audience={appAudience}
-        />
-        {appRequest.template.slug === "mcp-server" ? <McpConnectionCard connection={buildMcpConnectionSummary(appRequest.mcpConfiguration,{published:appRequest.publishStatus === "SUCCEEDED"})} /> : null}
-
         {appRequest.publishStatus === "SUCCEEDED" && displayPublishUrl ? (
           <a
-            className="btn btn--primary-solid"
+            className="btn btn--primary-solid app-details__open"
             href={displayPublishUrl}
             target="_blank"
             rel="noreferrer"
-            style={{ justifySelf: "start" }}
           >
             Open your app
           </a>
         ) : null}
+      </header>
 
-        {appRequest.publishStatus === "SUCCEEDED" && appRequest.publishWarningSummary ? (
-          <div className="warning-box" role="status">
-            {appRequest.publishWarningSummary}
-          </div>
-        ) : null}
-
-        <PublicListingPanel
-          appRequestId={appRequest.id}
-          isPubliclyListed={appRequest.isPubliclyListed}
-        />
-
-        {renderAppAccessSummary({
-          owner: appRequest.user,
-          collaborators: appRequest.collaborators,
-          canManageCollaborators: appRequest.userId === userId || isAdmin,
-          appRequestId: appRequest.id,
-        })}
-
-        {appRequest.userId === userId || isAdmin ? (
-          <CollaborationInvitePanel
-            appRequestId={appRequest.id}
-            pendingInvites={appRequest.collaborationInvites}
-          />
-        ) : null}
-
-        <AppHealthPanel app={appRequest} />
-
-        <div className="card card--navy-border">
-          <p className="section-title">Azure Publishing</p>
-          <div className="status-table" style={{ marginBottom: "1rem" }}>
-            <div className="status-row">
-              <span className="status-row__label">Status</span>
-              <span className={`badge badge--${pub.variant}`}>
-                {pub.label}
-              </span>
-            </div>
-          </div>
-
-          {isAdmin && appRequest.publishErrorSummary &&
-          appRequest.repositoryStatus !== "FAILED" ? (
-            <div
-              className="warning-box"
-              style={{ marginBottom: "0.875rem" }}
-            >
-              Last publish note: {appRequest.publishErrorSummary}
-            </div>
-          ) : null}
-
-          {renderPublishingSetupStatus({
-            id: appRequest.id,
-            repositoryStatus: appRequest.repositoryStatus,
-            sourceOfTruth: appRequest.sourceOfTruth,
-            preparationStatus: appRequest.repositoryImport?.preparationStatus,
-            publishStatus: appRequest.publishStatus,
-            publishingSetupStatus: effectivePublishingSetupStatus,
-          })}
-
-          {!loginReview || (!loginReview.publishingUpdateRequired && ["REVIEWED", "NOT_REQUIRED"].includes(loginReview.status)) ? renderPublishAction({
-            requestId,
-            publishStatus: appRequest.publishStatus,
-            repositoryStatus: appRequest.repositoryStatus,
-            sourceOfTruth: appRequest.sourceOfTruth,
-            preparationStatus: appRequest.repositoryImport?.preparationStatus,
-            publishingSetupStatus: effectivePublishingSetupStatus,
-          }) : <p>Complete the sign-in review above before the first publish.</p>}
-          {renderPushToDeployButton({
-            id: appRequest.id,
-            sourceOfTruth: appRequest.sourceOfTruth,
-            repositoryStatus: appRequest.repositoryStatus,
-            publishStatus: appRequest.publishStatus,
-            deploymentTarget: appRequest.deploymentTarget,
-            deploymentTriggerMode: appRequest.deploymentTriggerMode,
-          })}
-        </div>
-
-        <details className="card">
-          <summary className="section-title">Advanced options</summary>
-          <div style={{ display: "grid", gap: "1.25rem", marginTop: "1.25rem" }}>
-        {appRequest.publishStatus === "SUCCEEDED"
-          ? renderPublishedRecoveryActions({
-              requestId,
-              sourceOfTruth: appRequest.sourceOfTruth,
-              repositoryStatus: appRequest.repositoryStatus,
-              preparationStatus: appRequest.repositoryImport?.preparationStatus,
-              publishingSetupStatus: effectivePublishingSetupStatus,
-            })
-          : null}
-        {/* Codex workflow steps */}
-        <div className="card">
-          <p className="section-title">Codex Workflow</p>
-          <CodexPreparationChecklist
-            appName={appRequest.appName}
-            folderKind={
-              isLocalCodexApp || isImportedApp
-                ? "existing"
-                : "new-or-existing"
-            }
-          />
-        </div>
-
-        {/* GitHub access section */}
-        {appRequest.repositoryStatus === "READY" ? (
-          <div className="card card--gold-border">
-            <p className="section-title">Connect Codex to Your Repository</p>
-            {actorRepositoryAccess.status === "GRANTED" ? (
-              <div className="success-box">
-                Repository access has been granted for this app.
-              </div>
-            ) : null}
-            <p
-              style={{
-                fontSize: "0.9375rem",
-                marginBottom: "0.875rem",
-                marginTop:
-                  actorRepositoryAccess.status === "GRANTED"
-                    ? "0.875rem"
-                    : undefined,
-              }}
-            >
-              Want Codex to edit your app&rsquo;s code?{" "}
-              <a
-                href="https://github.com/signup"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Create a free GitHub account
-              </a>
-              , then enter your username below. CU Launch will send you an invite to the repository.
-            </p>
-            {actorRepositoryAccess.note ? (
-              <div
-                className="warning-box"
-                style={{ marginBottom: "0.875rem" }}
-              >
-                {actorRepositoryAccess.note}
-              </div>
-            ) : null}
-            <form
-              action={saveGitHubUsernameAndGrantAccessAction.bind(
-                null,
-                requestId,
-              )}
-              style={{
-                display: "flex",
-                gap: "0.625rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <input
-                name="githubUsername"
-                type="text"
-                required
-                placeholder="GitHub username"
-                defaultValue={currentUser?.githubUsername ?? ""}
-                className="form-control"
-                style={{ maxWidth: "240px" }}
-              />
-              <button
-                type="submit"
-                className="btn btn--secondary-solid"
-              >
-                {actorRepositoryAccess.status === "INVITED"
-                  ? "Resend Repo Access Invite"
-                  : actorRepositoryAccess.status === "GRANTED"
-                    ? "Request Repository Access"
-                    : "Send Repository Invite"}
-              </button>
-            </form>
-          </div>
-        ) : null}
-
-        {isLocalCodexApp
-          ? renderLocalCodexSetup({
-              repositoryUrl: appRequest.repositoryUrl,
-            })
-          : null}
-
-        {/* Imported repository status section */}
-        {isImportedApp
-          ? renderImportedRepositoryStatus({
-              requestId,
-              repositoryImport: appRequest.repositoryImport,
-              showProviderDiagnostics: isAdmin,
-            })
-          : null}
-
-        {importedRepositoryRemoteWorkflow ? (
-          <div className="card">
-            <p className="section-title">Use Codex to sync your imported app</p>
-            <p>
-              Keep the app connected to its original GitHub home and let Codex
-              add the CU Launch-managed repository as a separate publishing
-              destination. Open the local Codex project you already use for
-              this app, then copy the complete prompt under Your Code Repository into a
-              task inside that project.
-            </p>
-            <p>
-              Codex will inspect both connections, protect your existing
-              history and unfinished work, and run the technical Git commands.
-              Do not run terminal commands yourself.
-            </p>
-          </div>
-        ) : null}
-
-        {/* Repository section */}
-        <div className="card card--navy-border">
-          <p className="section-title">Your Code Repository</p>
-          {appRequest.repositoryStatus === "READY" && appRequest.repositoryUrl ? (
-            <>
-              <div className="status-table" style={{ marginBottom: "1rem" }}>
-                <div className="status-row">
-                  <span>
-                    Repository ready:{" "}
-                    <a
-                      href={appRequest.repositoryUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="meta-link"
-                    >
-                      {appRequest.repositoryUrl}
-                    </a>
-                  </span>
-                </div>
-              </div>
-              {codexHandoffPrompt ? (
-                <CopyCodexHandoffButton prompt={codexHandoffPrompt} />
-              ) : null}
-            </>
-          ) : appRequest.repositoryStatus === "FAILED" ? (
-            <div className="error-box">
-              Repository setup failed.
-              A CU Launch administrator may need to fix the configuration before publishing can continue.
-            </div>
-          ) : (
-            <div className="info-box">
-              Setting up your code repository — check back shortly.
-            </div>
-          )}
-
-          {isAdmin && appRequest.publishErrorSummary &&
-          appRequest.repositoryStatus === "FAILED" ? (
-            <div className="warning-box" style={{ marginTop: "0.75rem" }}>
-              Repo setup note: {appRequest.publishErrorSummary}
-            </div>
-          ) : null}
-        </div>
-
-        {/* Publishing diagnostics */}
-        <div className="card card--navy-border">
-          <p className="section-title">Azure Publishing Details</p>
-          <div className="status-table" style={{ marginBottom: "1rem" }}>
-            {appRequest.azureWebAppName ? (
-              <div className="status-row">
-                Azure app: {appRequest.azureWebAppName}
-              </div>
-            ) : null}
-            {appRequest.sourceOfTruth === "PORTAL_MANAGED_REPO" ? (
-              <div className="status-row">
-                <span title={deploymentModeTooltip(appRequest.deploymentTriggerMode)}>
-                  Deployment mode:{" "}
-                  {formatDeploymentMode(appRequest.deploymentTriggerMode)}
-                </span>
-              </div>
-            ) : null}
-            {displayPublishUrl ? (
-              <div className="status-row">
-                <a
-                  href={displayPublishUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="meta-link"
-                >
-                  {displayPublishUrl}
-                </a>
-              </div>
-            ) : null}
-            {appRequest.publishAttempts[0]?.githubWorkflowRunUrl ? (
-              <div className="status-row">
-                <a
-                  href={
-                    appRequest.publishAttempts[0].githubWorkflowRunUrl
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                  className="meta-link"
-                  title="View the automated process that deployed your app to Azure — useful for troubleshooting if a publish fails"
-                >
-                  Deployment log
-                </a>
-              </div>
-            ) : null}
-          </div>
-
-          {isAdmin && appRequest.publishingSetupErrorSummary ? (
-            <div className="warning-box" style={{ marginBottom: "0.875rem" }}>
-              Publishing setup note: {appRequest.publishingSetupErrorSummary}
-            </div>
-          ) : null}
-          {appRequest.publishSetupChecks?.length ? (
-            <ul className="setup-status__checks">
-              {appRequest.publishSetupChecks.map((check) => (
-                <li key={check.checkKey}>
-                  {formatCheckKey(check.checkKey)}: {formatStatus(check.status)}
-                  {isAdmin ? <> — {check.message}</> : null}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-
-        <EnvVarsPanel
-          appRequestId={appRequest.id}
-          envVars={appRequest.environmentVariables ?? []}
-          isPublished={Boolean(appRequest.azureWebAppName)}
-        />
-          </div>
-        </details>
-
-        {canDeleteAppRequest
-          ? renderDeletePanel({
-              mcpIdentity: appRequest.template.slug === "mcp-server",
-              id: appRequest.id,
-              repositoryOwner: appRequest.repositoryOwner,
-              repositoryName: appRequest.repositoryName,
-              repositoryStatus: appRequest.repositoryStatus,
-              publishStatus: appRequest.publishStatus,
-              azureWebAppName: appRequest.azureWebAppName,
-              azureDatabaseName: appRequest.azureDatabaseName,
-            })
-          : null}
-
-        {renderSupportReference(appRequest.supportReference)}
-      </div>
-
-      <div
-        style={{
-          marginTop: "1.5rem",
-          fontSize: "0.875rem",
-          color: "var(--text-secondary)",
-        }}
-      >
-        Need to revisit this later? Go to <Link href="/apps">My Apps</Link>.
-      </div>
+      <AppDetailsSectionLayout section={section} publishFailed={publishFailed}>
+        {content}
+      </AppDetailsSectionLayout>
     </main>
   );
 }

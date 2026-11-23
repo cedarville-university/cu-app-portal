@@ -5,6 +5,7 @@ import { getServerSession } from "@/auth/session";
 import { userHasAdminRole } from "@/features/app-requests/access";
 import { AccountMenu } from "./account-menu";
 import { CuLaunchBrand } from "./cu-launch-brand";
+import { SiteNavLinks } from "./site-nav-links";
 
 export async function SiteHeader() {
   const session = await getServerSession();
@@ -20,19 +21,12 @@ export async function SiteHeader() {
           <CuLaunchBrand compact surface="dark" />
         </Link>
 
-        <nav className="site-header__nav" aria-label="Primary navigation">
-          <div className="site-header__nav-links">
-            <Link href="/">Home</Link>
-            <Link href="/apps">My Apps</Link>
-            <Link href="/apps/public">Cedarville Apps</Link>
-            <Link href="/help">Help</Link>
-            {isAdmin ? <Link href="/admin">Admin</Link> : null}
-          </div>
+        <SiteNavLinks isAdmin={isAdmin} />
+        <div className="site-header__account">
           {session?.user ? (
             <AccountMenu userDisplayName={userDisplayName ?? "Account"} />
-          ) : null}
-          {session?.user ? null : <LoginButton />}
-        </nav>
+          ) : <LoginButton />}
+        </div>
       </div>
     </header>
   );

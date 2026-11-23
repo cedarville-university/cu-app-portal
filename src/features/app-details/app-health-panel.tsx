@@ -2,7 +2,7 @@ import React from "react";
 import { checkAppHealthAction } from "@/features/publishing/health-actions";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 
-export function AppHealthPanel({ app }: { app: {
+export function AppHealthPanel({ app, inDetailsSection = false }: { inDetailsSection?: boolean; app: {
   id: string;
   azureWebAppName?: string | null;
   publishStatus: string;
@@ -15,8 +15,12 @@ export function AppHealthPanel({ app }: { app: {
   const healthy = app.healthStatus === "HEALTHY";
   const variant = healthy ? "success" : app.healthStatus === "UNHEALTHY" ? "error" : "warning";
   return (
-    <section aria-label="App health" className="card">
-      <h2 className="section-title">App Health</h2>
+    <section aria-label={inDetailsSection ? "Latest health check" : "App health"} className="card">
+      {inDetailsSection ? (
+        <h3 className="section-title">Latest health check</h3>
+      ) : (
+        <h2 className="section-title">App Health</h2>
+      )}
       <p><span className={`badge badge--${variant}`}>{labels[app.healthStatus ?? "NOT_CHECKED"] ?? "Not checked yet"}</span></p>
       {app.healthCheckedAt ? <p>Last checked: <time dateTime={app.healthCheckedAt.toISOString()}>{app.healthCheckedAt.toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" })} Eastern</time></p> : null}
       {app.healthSummary ? <p role="status">{app.healthSummary}</p> : null}

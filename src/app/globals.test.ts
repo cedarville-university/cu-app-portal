@@ -19,16 +19,12 @@ describe("CU Launch global styles", () => {
     expect(css).toContain(".hero :focus-visible {\n  outline-color: var(--launch-gold);");
   });
 
-  it("keeps the account flyout outside the horizontally scrolling mobile link strip", async () => {
+  it("wraps primary links and preserves mobile touch targets", async () => {
     const css = await readFile(globalStyles, "utf8");
-    const mobileRules = css.slice(css.indexOf("@media (max-width: 760px)"));
+    const mobileRules = css.slice(css.indexOf("@media (max-width: 880px)"));
 
-    expect(mobileRules).toContain(".site-header__nav-links {");
-    expect(mobileRules).toContain("overflow-x: auto;");
-    expect(mobileRules).toContain(".site-header__nav-links > a {");
-    expect(mobileRules).toContain("flex: 0 0 auto;");
-    expect(mobileRules).toContain("white-space: nowrap;");
-    expect(mobileRules).not.toMatch(/\.site-header__nav\s*{[^}]*overflow-x:\s*auto/s);
+    expect(mobileRules).toMatch(/\.site-header__nav-links \{[^}]*flex-wrap: wrap/);
+    expect(mobileRules).toMatch(/\.site-header__nav-links > a \{[^}]*min-height: 2\.75rem/);
   });
 
   it("keeps account-menu links navy on the white flyout at every viewport", async () => {
@@ -42,7 +38,7 @@ describe("CU Launch global styles", () => {
   it("keeps hero branding safe at 320px", async () => {
     const css = await readFile(globalStyles, "utf8");
 
-    expect(css).toContain("@media (max-width: 420px)");
+    expect(css).toContain("@media (max-width: 360px)");
     expect(css).toContain(".hero h1 .cu-launch-brand {\n    align-items: flex-start;\n    flex-direction: column;");
   });
 });
