@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { Inter, Montserrat } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { initializeAppearance } from "@/components/appearance";
+import { AppearanceProvider } from "@/components/appearance-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -31,12 +33,17 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${montserrat.variable}`}>
+    <html lang="en" className={`${inter.variable} ${montserrat.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: initializeAppearance }} />
+      </head>
       <body>
-        <a className="skip-link" href="#main-content">Skip to main content</a>
-        <SiteHeader />
-        <div id="main-content" tabIndex={-1}>{children}</div>
-        <SiteFooter />
+        <AppearanceProvider>
+          <a className="skip-link" href="#main-content">Skip to main content</a>
+          <SiteHeader />
+          <div id="main-content" tabIndex={-1}>{children}</div>
+          <SiteFooter />
+        </AppearanceProvider>
       </body>
     </html>
   );

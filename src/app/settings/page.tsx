@@ -5,6 +5,7 @@ import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import { PendingSubmitButton } from "@/features/forms/pending-submit-button";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "@/features/notifications/preferences";
 import { updateNotificationPreferencesAction } from "@/features/settings/actions";
+import { AppearanceSettings } from "@/features/settings/appearance-settings";
 import { prisma } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -35,13 +36,15 @@ export default async function SettingsPage() {
   const preferences = savedPreferences ?? DEFAULT_NOTIFICATION_PREFERENCES;
 
   return (
-    <main>
+    <main className="settings-page">
       <div className="page-header">
         <h1>Settings</h1>
         <p>Manage account preferences for your CU Launch account.</p>
       </div>
 
-      <section className="card" style={{ maxWidth: "760px" }}>
+      <AppearanceSettings />
+
+      <section className="card settings-page__account">
         <form action={updateNotificationPreferencesAction} className="form-stack">
           <section className="form-stack" aria-labelledby="account-settings-title">
             <h2

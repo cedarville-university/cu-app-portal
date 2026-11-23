@@ -5,17 +5,17 @@ import { describe, expect, it } from "vitest";
 const globalStyles = resolve(process.cwd(), "src/app/globals.css");
 
 describe("CU Launch global styles", () => {
-  it("uses contrasting focus rings for light surfaces, the dark header, and its white account menu", async () => {
+  it("uses theme focus rings on content and gold focus rings on the navy header", async () => {
     const css = await readFile(globalStyles, "utf8");
 
-    expect(css).toContain(":focus-visible {\n  outline: 3px solid var(--launch-navy);");
+    expect(css).toContain(":focus-visible {\n  outline: 3px solid var(--focus-ring);");
     expect(css).toContain(
       ".site-header__nav > .site-header__nav-links > a:focus-visible,",
     );
     expect(css).toContain(".site-header__user-name:focus-visible");
     expect(css).toContain("outline-color: var(--launch-gold);");
     expect(css).toContain(".site-header__account-menu-content a:focus-visible,");
-    expect(css).toContain("outline-color: var(--launch-navy);");
+    expect(css).toContain("outline-color: var(--focus-ring);");
     expect(css).toContain(".hero :focus-visible {\n  outline-color: var(--launch-gold);");
   });
 
@@ -27,12 +27,13 @@ describe("CU Launch global styles", () => {
     expect(mobileRules).toMatch(/\.site-header__nav-links > a \{[^}]*min-height: 2\.75rem/);
   });
 
-  it("keeps account-menu links navy on the white flyout at every viewport", async () => {
+  it("uses the current theme's text and surface colors in the account menu", async () => {
     const css = await readFile(globalStyles, "utf8");
 
     expect(css).toMatch(
-      /\.site-header__account-menu-content a \{\n  color: var\(--launch-navy\);/,
+      /\.site-header__account-menu-content a \{\n  color: var\(--text-heading\);/,
     );
+    expect(css).toMatch(/\.site-header__account-menu-content \{[^}]*background: var\(--bg-white\)/);
   });
 
   it("keeps hero branding safe at 320px", async () => {

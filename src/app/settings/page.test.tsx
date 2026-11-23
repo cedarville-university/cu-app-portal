@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SettingsPage from "./page";
+import { AppearanceProvider } from "@/components/appearance-provider";
 
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/features/app-requests/current-user", () => ({
@@ -32,11 +33,15 @@ describe("SettingsPage", () => {
   });
 
   it("renders account settings and notification preferences with default-on values", async () => {
-    render(await SettingsPage());
+    const page = await SettingsPage();
+    render(<AppearanceProvider>{page}</AppearanceProvider>);
 
     expect(
       screen.getByRole("heading", { name: "Settings" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Light" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Dark" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
     expect(screen.getByRole("heading", { name: "Account" })).toBeInTheDocument();
     expect(screen.getByText("Olivia Owner")).toBeInTheDocument();
     expect(screen.getByText("owner@cedarville.edu")).toBeInTheDocument();
