@@ -30,7 +30,6 @@ export function OnboardingProgress({
             key={stage}
             className={`onboarding-progress__stage onboarding-progress__stage--${status}`}
             aria-current={status === "current" ? "step" : undefined}
-            aria-disabled={status === "future" ? true : undefined}
           >
             {stage}
           </li>

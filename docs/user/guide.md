@@ -17,17 +17,17 @@ The portal does not design every screen or write every business rule for you. Af
 
 ## 2. Understand the app lifecycle
 
-1. **Launch or add:** Select **Launch New App** for a template or **Add Existing App** for code that already exists.
+1. **Launch or add:** Select **Launch Your App** from Home or My Apps and choose where your app is today.
 2. **Customize:** Use Codex or a developer to change the managed GitHub repository.
 3. **Prepare:** The portal adds and checks the settings needed for GitHub and Azure to work together.
 4. **Publish:** The portal starts the GitHub workflow that sends the current app to Azure.
-5. **Manage:** Before the first successful publish, use **Continue Setup**. After success, use **Manage App** for the full details and management controls.
+5. **Manage:** Use **Continue Setup** to resume a first publish. To manage an app, select its name in My Apps or choose **App details** from the more options menu.
 
 ## 3. Choose the right starting point
 
-### Launch New App
+### I need a new app
 
-Choose **Launch New App** when you are starting a new project and want Cedarville-approved defaults. The entry page first explains that choosing a template is the next step. Recommended Templates are written for common, non-technical use cases. Developer Starters expose lower-level choices and are better when a developer already knows the intended architecture.
+Choose **I need a new app** to browse templates with Cedarville-approved defaults. **Recommended Templates** cover common use cases. **Developer Starters** expose more technical choices for developers who already know their intended architecture.
 
 Common template choices include:
 
@@ -38,19 +38,17 @@ Common template choices include:
 
 Choose only the options your app needs. The portal no longer asks you to choose a runtime; it prepares that technical detail for you.
 
-### Add Existing App
+### Bring an existing app
 
-Choose **Add Existing App** when code already exists.
-
-- **Already on GitHub:** Give the portal the repository address. If necessary, the portal imports it into Cedarville's managed GitHub organization while preserving its history. The portal checks whether it matches a supported Azure App Service runtime.
-- **Only on my computer:** Let the portal create an empty managed repository. The focused wizard provides a prompt that makes Codex responsible for checking the folder, protecting secrets, preserving existing change history, connecting the managed repository, and uploading the code.
+- **My app is already on GitHub:** Give the portal the repository address. If necessary, the portal imports it into Cedarville's managed GitHub organization while preserving its history. The portal checks whether it matches a supported Azure App Service runtime.
+- **My app is only on my computer:** Let the portal create an empty managed repository. The focused wizard provides a prompt that makes Codex responsible for checking the folder, protecting secrets, preserving existing change history, connecting the managed repository, and uploading the code.
 
 Imported apps currently support root Next.js, Express, Python FastAPI, and plain static Python apps. A repository with conflicting publishing files may require a GitHub review page before the portal applies its setup.
 
 ## 4. Launch and choose what happens next
 
-1. From the home page, select **Launch New App** and then **Choose an app template**.
-2. Read the template summaries and select the closest match.
+1. Select **Launch Your App**, then **I need a new app**.
+2. Read the summaries and select **Launch App** on the closest template.
 3. Enter a short, recognizable app name. Avoid department abbreviations that coworkers may not understand.
 4. Describe the app's purpose and intended users.
 5. Choose who can use the app:
@@ -120,7 +118,9 @@ Before publishing, confirm:
 
 For a customized generated app or an imported or local app, select **Publish to Azure** from the focused wizard after preparation and setup are ready. This separate button is the explicit confirmation for those paths; setup and repair never publish on their own. An unchanged generated starter does not show a second confirmation because **Publish the starter now** already starts publishing. Publishing may take several minutes. Preparation, setup checks, repairs, and publishing pages refresh automatically, so leave the page open and do not repeat an action while it is running.
 
-When publishing succeeds, the wizard shows **Your app is online**, **Open your app**, and **Open app details**. Open the app first to check its main task. The details page includes a plain-language readiness summary; technical management controls are under **Advanced options**. If you leave earlier, My Apps shows **Continue Setup** and resumes the exact safe step. After success, My Apps shows **Manage App**.
+When publishing succeeds, the wizard shows **Your app is online**, **Open your app**, and **Open app details**. Open the app first to check its main task. If you leave earlier, use **Continue Setup** in My Apps. After publishing, use **Open app** to visit the live site. Select the app's name or choose **App details** from the more options menu to manage it.
+
+Choose a section on the left of **App details** or open **Sections** on a phone. **Overview** summarizes readiness. **Publishing** groups deployment controls and app health. **Sharing and access** groups the Cedarville Apps listing and collaborators. **Advanced** contains the code repository, environment variables, and support and deletion options.
 
 **Share in Portal** is separate from app access. It lets signed-in Cedarville portal users discover the app's name, description, and link. It does not make an app public or change the audience you chose at creation.
 
@@ -130,7 +130,7 @@ After publishing, open the app and test its most important task. A successful de
 
 1. Make and test the change with Codex or a developer.
 2. Push the change to the managed GitHub repository.
-3. Push-to-deploy is enabled by default for new apps: after first publish, pushes to the managed repository’s default branch publish automatically. To stop this, open **Manage App** and select **Disable Auto-Deploy**. Then use **Publish to Azure** for updates. **Enable Auto-Deploy** turns automatic publishing back on. Existing apps keep their saved setting.
+3. Push-to-deploy is enabled by default for new apps: after first publish, pushes to the managed repository’s default branch publish automatically. To stop this, open **Deployment** in **App details** and select **Disable Auto-Deploy**. Then use **Publish to Azure** for updates. **Enable Auto-Deploy** turns automatic publishing back on. Existing apps keep their saved setting.
 4. Test the published app again.
 
 ## 8. Environment variables and secrets

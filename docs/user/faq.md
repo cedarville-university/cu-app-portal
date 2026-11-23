@@ -51,13 +51,13 @@ On Windows, install Git from **Company Portal**. On macOS, Git should be install
 
 Read the request and allow only what the current app task needs. It is normal to allow the selected app folder, normal development commands, and secure browser sign-in that you complete yourself. Choose **Allow once** when it is available, unless Cedarville IT has approved a broader established workflow. Do not approve unrelated folders or applications, and never provide passwords, tokens, private keys, or portal credentials.
 
-## What is the difference between Continue Setup and Manage App?
+## How do I resume setup, open an app, or manage it?
 
-**Continue Setup** returns an unpublished app to its focused first-publish wizard. **Manage App** appears after a successful first publish and opens the full app details page.
+In **My Apps**, **Continue Setup** resumes the first-publish wizard and **Open app** opens the live site. To manage an app, select its name or choose **App details** from the more options menu.
 
 ## What happens after someone changes the code?
 
-The change must be committed and pushed to the portal-managed GitHub repository’s default branch. Push-to-deploy is enabled by default for new apps, so pushes after first publish deploy automatically. Select **Disable Auto-Deploy** under **Manage App** to require manual **Publish to Azure** for updates. **Enable Auto-Deploy** turns it back on. Existing apps retain their saved setting.
+The change must be committed and pushed to the portal-managed GitHub repository’s default branch. Push-to-deploy is enabled by default for new apps, so pushes after first publish deploy automatically. In **App details**, open **Deployment** and select **Disable Auto-Deploy** to publish manually with **Publish to Azure**. **Enable Auto-Deploy** turns it back on. Existing apps retain their saved setting.
 
 ## Can another person help manage my app?
 

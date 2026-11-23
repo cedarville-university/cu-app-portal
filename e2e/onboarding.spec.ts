@@ -370,7 +370,41 @@ test.describe("novice onboarding", () => {
     await page.goto("/apps");
     await publishedManageLink.click();
     await expect(page).toHaveURL(`/download/${fixtureIds.published}`);
-    await expect(page.getByRole("heading", { name: "Your App Is Ready" })).toBeVisible();
-    await expect(page.getByText("E2E Published Starter — Set up Codex, and publish to Azure.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "E2E Published Starter", level: 1 })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open your app" })).toBeVisible();
+  });
+
+  test("navigates App Details sections and stays on the selected section after saving", async ({ page }) => {
+    const appPath = `/download/${fixtureIds.published}`;
+    await page.goto(appPath);
+    const sections = page.getByRole("navigation", { name: "App details sections" });
+    await expect(sections.getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+    await sections.getByRole("link", { name: "Deployment", exact: true }).click();
+    await expect(page).toHaveURL(appPath + "?section=deployment");
+    await expect(page.getByRole("button", { name: "Publish to Azure", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Deployment", exact: true })).toBeFocused();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const picker = page.getByRole("button", { name: "Sections Deployment" });
+    await expect(sections).toBeHidden();
+    await picker.press("Enter");
+    await expect(sections).toBeVisible();
+    await sections.getByRole("link", { name: "Cedarville listing", exact: true }).click();
+    await expect(page).toHaveURL(appPath + "?section=listing");
+    await expect(page.getByRole("button", { name: "Sections Cedarville listing" })).toHaveAttribute("aria-expanded", "false");
+    await page.getByRole("button", { name: "Share with Cedarville", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Remove from Cedarville Sharing", exact: true })).toBeVisible();
+    await expect(page).toHaveURL(appPath + "?section=listing");
+
+    await page.goBack();
+    await expect(page).toHaveURL(appPath + "?section=deployment");
+    await expect(picker).toHaveAttribute("aria-expanded", "false");
+    await picker.press("Enter");
+    await sections.getByText("Advanced", { exact: true }).click();
+    await sections.getByRole("link", { name: "Environment variables", exact: true }).click();
+    await expect(page).toHaveURL(appPath + "?section=environment");
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Environment variables", level: 2 })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Environment variables", exact: true }).getByRole("button", { name: "Save Changes" })).toBeVisible();
   });
 });

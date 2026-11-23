@@ -42,34 +42,23 @@ export default function HomePage() {
         />
       </div>
 
-      <p className="section-title">How it works</p>
-      <div className="grid grid--3">
-        <div className="card card--navy-border">
-          <p style={{ fontSize: "1.75rem", margin: "0 0 0.5rem" }}>🛠️</p>
-          <div className="card__title">Generate</div>
-          <p className="card__desc">
-            Pick a Cedarville-approved template, fill in your project details,
-            and CU Launch generates a ready-to-use app package in seconds.
-          </p>
-        </div>
-        <div className="card card--gold-border">
-          <p style={{ fontSize: "1.75rem", margin: "0 0 0.5rem" }}>📦</p>
-          <div className="card__title">Keep your work safe</div>
-          <p className="card__desc">
-            CU Launch sets up a private online home for your app&rsquo;s code.
-            When you are ready, Codex can help you customize the app and save
-            your changes there.
-          </p>
-        </div>
-        <div className="card card--navy-border">
-          <p style={{ fontSize: "1.75rem", margin: "0 0 0.5rem" }}>🚀</p>
-          <div className="card__title">Publish</div>
-          <p className="card__desc">
-            Put your app online directly from this portal. Return to CU Launch to
-            start and monitor publishing.
-          </p>
-        </div>
-      </div>
+      <section aria-labelledby="how-it-works">
+        <h2 id="how-it-works">How it works</h2>
+        <ol className="home-steps">
+          <li>
+            <h3>Start with an app</h3>
+            <p>Choose a Cedarville-approved template or bring an app you already have.</p>
+          </li>
+          <li>
+            <h3>Save your code</h3>
+            <p>CU Launch sets up a private home for your code on GitHub. You can use Codex to make changes.</p>
+          </li>
+          <li>
+            <h3>Publish when ready</h3>
+            <p>Start publishing from CU Launch, then come back to check progress and open your live app.</p>
+          </li>
+        </ol>
+      </section>
       <WhatsChanged />
     </main>
   );

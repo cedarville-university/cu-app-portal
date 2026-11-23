@@ -35,7 +35,7 @@ export function CollaborationInvitePanel({
 }) {
   return (
     <section aria-label="Invite collaborators" className="card">
-      <h2 className="section-title">Invite Collaborators</h2>
+      <h3 className="section-title">Invite collaborators</h3>
       <CollaborationInviteForm appRequestId={appRequestId} />
 
       {pendingInvites.length ? (

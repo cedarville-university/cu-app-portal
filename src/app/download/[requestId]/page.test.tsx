@@ -131,13 +131,14 @@ function appRequest(overrides: Record<string, unknown> = {}) {
   } as Awaited<ReturnType<typeof prisma.appRequest.findFirst>>;
 }
 
-async function renderPage(overrides: Record<string, unknown> = {}) {
+async function renderPage(overrides: Record<string, unknown> = {}, section?: string) {
   vi.mocked(prisma.appRequest.findFirst).mockResolvedValue(
     appRequest(overrides),
   );
   render(
     await DownloadPage({
       params: Promise.resolve({ requestId: "request-123" }),
+      searchParams: Promise.resolve({ section }),
     }),
   );
 }
@@ -156,10 +157,18 @@ afterEach(() => {
 });
 
 describe("DownloadPage navigation", () => {
-  it("offers Check Health on a failed app with Azure resources", async () => {
+  it("opens Deployment by default for failed publishes", async () => {
     await renderPage({ azureWebAppName: "arkanoid", publishStatus: "FAILED" });
-    expect(screen.getByRole("button", { name: "Check Health" })).toBeInTheDocument();
+    expect(screen.getByText("Publish failed")).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Open your app" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Deployment", level: 2 })).toBeVisible();
     expect(screen.getByRole("button", { name: "Retry Publish" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check Health" })).not.toBeInTheDocument();
+  });
+  it("offers Check Health in the App health section for a failed app with Azure resources", async () => {
+    await renderPage({ azureWebAppName: "arkanoid", publishStatus: "FAILED" }, "health");
+    expect(screen.getByRole("button", { name: "Check Health" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry Publish" })).not.toBeInTheDocument();
   });
   it("offers an Express-specific update for imported sign-in apps", async () => {
     await renderPage({
@@ -172,7 +181,7 @@ describe("DownloadPage navigation", () => {
     expect(prompt).not.toContain("server action");
   });
   it("shows the sign-in update for older sign-in apps above app readiness", async () => {
-    await renderPage({ templateVersion: "1.0.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } });
+    await renderPage({ templateVersion: "1.0.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } }, "overview");
     const notice = screen.getByRole("region", { name: "Sign-in update" });
     expect(notice).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copy update prompt" })).toBeInTheDocument();
@@ -203,12 +212,20 @@ describe("DownloadPage navigation", () => {
   });
 
   it("lets an owner manage settings and delete an app after a failed first publish", async () => {
-    await renderPage({ publishStatus: "FAILED", azureWebAppName: null });
+    await renderPage({ publishStatus: "FAILED", azureWebAppName: null }, "environment");
+    expect(screen.getByRole("region", { name: "Environment variables" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Environment variables" })).toHaveAttribute("aria-current", "page");
 
-    expect(screen.getByText("Advanced options")).toBeInTheDocument();
+    cleanup();
+    await renderPage({ publishStatus: "FAILED", azureWebAppName: null }, "support");
     expect(screen.getByText("Delete App")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Environment variables", hidden: true })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Retry Publish" })).toBeInTheDocument();
+    expect(screen.getByText("SUP-20260818-ABC123")).toBeVisible();
+  });
+
+  it("shows support information without the delete controls to a collaborator", async () => {
+    await renderPage({ userId: "another-owner" }, "support");
+    expect(screen.getByText("SUP-20260818-ABC123")).toBeVisible();
+    expect(screen.queryByText("Delete App")).not.toBeInTheDocument();
   });
 
   it("renders published app details for a non-admin", async () => {
@@ -219,7 +236,7 @@ describe("DownloadPage navigation", () => {
     });
 
     expect(
-      screen.getByRole("heading", { name: /your app is ready/i }),
+      screen.getByRole("heading", { name: "Campus Dashboard", level: 1 }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "App readiness" }),
@@ -229,7 +246,8 @@ describe("DownloadPage navigation", () => {
       "href",
       "https://campus-dashboard.azurewebsites.net",
     );
-    expect(screen.getByText("Advanced options")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByText("Advanced", { selector: "summary" })).toBeInTheDocument();
   });
 
   it("shows the health warning to a published app owner", async () => {
@@ -239,25 +257,25 @@ describe("DownloadPage navigation", () => {
     expect(screen.getByRole("link", { name: "Open your app" })).toHaveAttribute("href", "https://app.example.test");
   });
 
-  it("offers repair and retry controls under advanced options for published apps", async () => {
+  it("offers repair and retry controls under the Deployment recovery disclosure for published apps", async () => {
     await renderPage({
       publishStatus: "SUCCEEDED",
       publishingSetupStatus: "READY",
-    });
+    }, "deployment");
 
-    const advancedOptions = screen
-      .getByText("Advanced options")
+    const recovery = screen
+      .getByText("Repair or retry publishing")
       .closest("details");
-    expect(advancedOptions).not.toBeNull();
+    expect(recovery).not.toBeNull();
     for (const name of ["Repair Publishing Setup", "Retry Publish"]) {
       expect(
-        within(advancedOptions!).getByRole("button", { name }),
+        within(recovery!).getByRole("button", { name }),
       ).toBeInTheDocument();
     }
   });
 
   it("keeps published customization inside a local Codex project", async () => {
-    await renderPage({ publishStatus: "SUCCEEDED" });
+    await renderPage({ publishStatus: "SUCCEEDED" }, "repository");
 
     expect(
       screen.getByRole("heading", { name: "Before opening Codex" }),
@@ -273,7 +291,7 @@ describe("DownloadPage navigation", () => {
     await renderPage({
       publishStatus: "SUCCEEDED",
       submittedConfig: { localOnlySource: true },
-    });
+    }, "repository");
 
     expect(
       screen.getByRole("heading", { name: "Use your existing app folder" }),
@@ -293,7 +311,7 @@ describe("DownloadPage navigation", () => {
         preparationStatus: "SUCCEEDED",
         preparationMode: "DIRECT_COMMIT",
       },
-    });
+    }, "repository");
 
     expect(
       screen.getByRole("heading", { name: "Before opening Codex" }),
@@ -318,7 +336,7 @@ describe("DownloadPage navigation", () => {
     await renderPage();
 
     expect(
-      screen.getByRole("heading", { name: /your app is ready/i }),
+      screen.getByRole("heading", { name: "Campus Dashboard", level: 1 }),
     ).toBeInTheDocument();
   });
 });
@@ -399,7 +417,7 @@ describe("DownloadPage admin publishing recovery", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("keeps the disable auto-deploy control visible while leaving diagnostics advanced", async () => {
+  it("keeps the disable auto-deploy control visible while grouping diagnostics in Deployment details", async () => {
     await renderPage({
       deploymentTriggerMode: "PUSH_TO_DEPLOY",
       publishStatus: "SUCCEEDED",
@@ -412,7 +430,7 @@ describe("DownloadPage admin publishing recovery", () => {
             "https://github.com/cedarville-it/campus-dashboard/actions/runs/123",
         },
       ],
-    });
+    }, "deployment");
 
     expect(
       screen.getByRole("button", { name: "Disable Auto-Deploy" }).closest("details"),
@@ -501,7 +519,7 @@ describe("DownloadPage actor-specific GitHub access", () => {
         repositoryAccessStatus: "FAILED",
         repositoryAccessNote:
           "GitHub access failed for @another-actor: secret=other-actor-detail",
-      });
+      }, "repository");
 
       expect(screen.getByText(expected)).toBeInTheDocument();
       expect(document.body).not.toHaveTextContent(
@@ -538,7 +556,7 @@ describe("DownloadPage actor-specific GitHub access", () => {
       repositoryAccessStatus: "FAILED",
       repositoryAccessNote:
         "GitHub access failed for @owner-name: secret=owner-provider-detail",
-    });
+    }, "repository");
 
     expect(
       screen.getByText(/repository access has been granted/i),
@@ -551,7 +569,7 @@ describe("DownloadPage diagnostic redaction", () => {
   const hostileSummary =
     "Azure response https://management.azure.com/op?token=raw-token secret=provider-detail";
 
-  it("keeps provider evidence out of the full ordinary-user DOM", async () => {
+  it.each(["deployment", "repository", "support"])("keeps provider evidence out of the ordinary-user %s section", async (section) => {
     await renderPage({
       publishStatus: "SUCCEEDED",
       publishErrorSummary: hostileSummary,
@@ -573,13 +591,11 @@ describe("DownloadPage diagnostic redaction", () => {
         preparationMode: "DIRECT_COMMIT",
         preparationErrorSummary: `Preparation ${hostileSummary}`,
       },
-    });
+    }, section);
 
     expect(document.body.innerHTML).not.toMatch(
       /management\.azure\.com|raw-token|provider-detail|raw-123|metadata-detail|secret=|error\.message/i,
     );
-    expect(screen.getByText("SUP-20260818-ABC123")).toBeInTheDocument();
-    expect(screen.getByText(/share this support reference/i)).toBeInTheDocument();
   });
 
   it("shows raw provider diagnostics only to an admin", async () => {

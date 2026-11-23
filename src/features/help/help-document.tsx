@@ -5,13 +5,26 @@ import remarkGfm from "remark-gfm";
 import rehypeSlug from "rehype-slug";
 import type { HelpDocument } from "./docs";
 
-export function HelpDocumentContent({ document }: { document: HelpDocument }) {
+export function HelpDocumentContent({
+  document,
+  embedded = false,
+}: {
+  document: HelpDocument;
+  embedded?: boolean;
+}) {
+  const Title = embedded ? "h2" : "h1";
+
   return (
     <article className="help-document">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSlug]}
         components={{
+          h1: ({ id, children }) => <Title id={id} className="help-document__title">{children}</Title>,
+          ...(embedded ? {
+            h2: ({ id, children }) => <h3 id={id}>{children}</h3>,
+            h3: ({ id, children }) => <h4 id={id}>{children}</h4>,
+          } : {}),
           a: ({ href = "", children }) => {
             const external = href.startsWith("http://") || href.startsWith("https://");
             return external ? (

@@ -86,9 +86,9 @@ export default async function MyAppsPage() {
           <h1>My Apps</h1>
           <p>Manage and monitor your launched applications.</p>
         </div>
-        <Link href="/create" className="btn btn--primary-solid my-apps-page__launch">
+        <Link href="/onboarding" className="btn btn--primary-solid my-apps-page__launch">
           <LaunchRocketIcon />
-          Launch New App
+          Launch Your App
         </Link>
       </div>
 
@@ -97,12 +97,8 @@ export default async function MyAppsPage() {
           <div className="empty-state__icon">📦</div>
           <div className="empty-state__title">No apps yet</div>
           <p className="empty-state__desc">
-            Launch your first CU Launch app to get started.
+            Start with a template, import an app from GitHub, or bring one from your computer.
           </p>
-          <Link href="/create" className="btn btn--primary-solid">
-            <LaunchRocketIcon />
-            Launch New App
-          </Link>
         </div>
       ) : (
         <ul className="my-apps-list">
@@ -171,7 +167,7 @@ export default async function MyAppsPage() {
                       href={actionHref}
                     >
                       {request.publishStatus === "SUCCEEDED"
-                        ? "Manage App"
+                        ? "App details"
                         : "Continue Setup"}
                     </Link>
                   )}

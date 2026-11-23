@@ -11,8 +11,11 @@ Use this page when you are launching a CU Launch app for the first time. You do 
 
 ## Start in the right place
 
-- **Launch New App:** Start from an approved template. The next page explains that you will choose a template.
-- **Add Existing App:** Choose **Already on GitHub** if the app is saved on GitHub, or **Only on my computer** if its files have not been uploaded there.
+Select [**Launch Your App**](/onboarding) from Home or My Apps, then choose where your app is today.
+
+- **I need a new app** opens the Cedarville-approved templates.
+- **My app is already on GitHub** opens a form for the repository address.
+- **My app is only on my computer** sets up a private online home and guides you through adding your files with Codex.
 
 GitHub is a secure website that stores app files and their change history. Azure is Microsoft's service for running the published app. You do not need to know Git, GitHub, or Azure commands.
 
@@ -27,17 +30,17 @@ Git keeps change history in the app folder on your computer. GitHub keeps Cedarv
 
 ## Launch a starter
 
-1. Select **Launch New App**, then **Choose an app template**.
-2. Choose a recommended template. Each template explains what it is best for. If you are unsure, use the option whose examples are closest to your project.
+1. Select **Launch Your App**, then **I need a new app**.
+2. Under **Recommended Templates**, select **Launch App** on the template that best matches your project.
 3. Enter the app name and description. Choose whether Cedarville sign-in is required or the app is openly public. An openly public app can be used by anyone who knows or discovers its address, so read and confirm the warning before choosing it. Choose a database only when your app needs it.
 4. Select **Launch App**. This creates the starter and its private online code home; it does not publish.
 5. **Publish the starter now** starts Azure publishing immediately. It is the only publish confirmation for an unchanged starter. Or select **Customize it with Codex first**. Codex is an AI coding assistant. Follow the page's GitHub account, invitation, and local-project steps. Return after Codex says the changes were pushed. The customized path later asks you to select **Publish to Azure** after setup is ready.
 6. Leave the progress page open. It updates automatically during preparation, publishing setup, and publishing. Do not click an action again while it is running.
-7. When **Your app is online** appears, select **Open your app** and test the app's main task. Use **Open app details** afterward for collaborators, publishing, and settings; technical controls are under **Advanced options**.
+7. When **Your app is online** appears, select **Open your app** and test the app's main task. Use **Open app details** afterward to manage the app. Choose a section on the left or open **Sections** on a phone.
 
 ## Return later
 
-Open **My Apps**. An app that has not finished its first publish shows **Continue Setup** and returns to the exact safe step. A successfully published app shows **Manage App** and opens full details for later publishing, coworkers, settings, repair, or deletion.
+Open **My Apps**. Use **Continue Setup** to resume an app's first publish. **Open app** opens the live site. To manage an app, select its name or choose **App details** from the more options menu.
 
 ## If something needs attention
 
@@ -47,4 +50,4 @@ Never send passwords, secret values, or the contents of environment variables wh
 
 ## Publishing later changes
 
-Push-to-deploy is enabled by default for new apps. After first publish, pushes to the managed GitHub repository's default branch publish automatically. Select **Disable Auto-Deploy** under **Manage App** to use manual **Publish to Azure** instead. **Enable Auto-Deploy** turns automatic publishing back on. Existing apps keep their saved setting.
+Push-to-deploy is enabled by default for new apps. After first publish, pushes to the managed GitHub repository's default branch publish automatically. In **App details**, open **Deployment** and select **Disable Auto-Deploy** to publish manually with **Publish to Azure**. **Enable Auto-Deploy** turns automatic publishing back on. Existing apps keep their saved setting.

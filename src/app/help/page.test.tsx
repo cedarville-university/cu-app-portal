@@ -6,8 +6,8 @@ import HelpPage from "./page";
 describe("HelpPage", () => {
   it("starts with quick-start guidance and offers both PDF downloads", async () => {
     render(await HelpPage());
-    expect(screen.getByRole("heading", { name: /help center/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /^quick start$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/help center/i);
+    expect(screen.getByRole("heading", { name: /^quick start$/i, level: 2 })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /download quick start pdf/i })).toHaveAttribute(
       "href",
       "/docs/cu-launch-quick-start.pdf",

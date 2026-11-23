@@ -29,7 +29,7 @@ describe("OnboardingStartPage", () => {
       screen.getByRole("link", { name: /my app is already on github/i }),
     ).toHaveAttribute("href", "/apps/add?source=github");
     expect(
-      screen.getByText(/bring an app you have already saved online into the portal/i),
+      screen.getByText(/import your app from its GitHub repository/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /my app is only on my computer/i }),

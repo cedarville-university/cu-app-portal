@@ -43,7 +43,7 @@ export default async function HelpPage() {
       <div className="page-header help-header">
         <div>
           <h1>CU Launch Help Center</h1>
-          <p>Start here to launch your first app, then use the detailed guides when you need them.</p>
+          <p>Start with Quick Start or <a href="#help-topics">browse help topics</a>.</p>
         </div>
         <div className="help-downloads" aria-label="Documentation downloads">
           <a className="btn btn--primary-solid btn--sm" href="/docs/cu-launch-quick-start.pdf" download>
@@ -55,16 +55,19 @@ export default async function HelpPage() {
         </div>
       </div>
 
-      <nav className="help-section-nav" aria-label="Help topics">
-        {sections.map((section) => (
-          <Link key={section.href} href={section.href} className="card card--interactive card--navy-border">
-            <span className="card__title">{section.title}</span>
-            <span className="card__desc">{section.description}</span>
-          </Link>
-        ))}
-      </nav>
+      <HelpDocumentContent document={quickStart} embedded />
 
-      <HelpDocumentContent document={quickStart} />
+      <nav id="help-topics" tabIndex={-1} className="help-topics" aria-labelledby="help-topics-heading">
+        <h2 id="help-topics-heading">Help topics</h2>
+        <ul className="help-section-nav">
+          {sections.map((section) => (
+            <li key={section.href}>
+              <Link href={section.href}>{section.title}</Link>
+              <p>{section.description}</p>
+            </li>
+          ))}
+        </ul>
+      </nav>
     </main>
   );
 }
