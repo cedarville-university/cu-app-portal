@@ -105,6 +105,27 @@ model AppRequest {
   notificationDeliveries NotificationDelivery[]
   environmentVariables AppEnvironmentVariable[]
   mcpConfiguration AppMcpConfiguration?
+  securityReview AppSecurityReview?
+}
+
+model AppSecurityReview {
+  appRequestId  String   @id
+  repositoryUrl String
+  checkedAt     DateTime
+  results       Json
+  appRequest    AppRequest @relation(fields: [appRequestId], references: [id], onDelete: Cascade)
+}
+
+model NightlyRepositoryScan {
+  repository    String   @id
+  nextCheckAt   DateTime @default(now())
+  lease         String?
+  cycle         DateTime?
+  targetSha     String?
+  attempts      Int      @default(0)
+  successfulSha String?
+  source        Json?
+  lastError     String?
 }
 
 model AppMcpConfiguration {

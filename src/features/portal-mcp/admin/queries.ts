@@ -9,6 +9,7 @@ const ownerSelect = {
   id: true, displayName: true, email: true
 } as const;
 const summarySelect = {
+  healthStatus: true, healthCheckedAt: true, deploymentTriggerMode: true,
   id: true, appName: true, user: { select: ownerSelect }, template: { select: { slug: true, name: true } }, sourceOfTruth: true, generationStatus: true, repositoryStatus: true, publishingSetupStatus: true, publishStatus: true, repositoryUrl: true, publishUrl: true, primaryPublishUrl: true, supportReference: true, createdAt: true, updatedAt: true
 } satisfies Prisma.AppRequestSelect;
 type SummaryRecord = Prisma.AppRequestGetPayload<{
@@ -16,6 +17,7 @@ type SummaryRecord = Prisma.AppRequestGetPayload<{
 }>;
 function summary(app: SummaryRecord) {
   return {
+    healthStatus: app.healthStatus, healthCheckedAt: app.healthCheckedAt, deploymentTriggerMode: app.deploymentTriggerMode,
     id: app.id, appName: app.appName, owner: {
       id: app.user.id, displayName: app.user.displayName, email: app.user.email
     }, template: { slug: app.template.slug, name: app.template.name }, sourceOfTruth: app.sourceOfTruth, generationStatus: app.generationStatus, repositoryStatus: app.repositoryStatus, publishingSetupStatus: app.publishingSetupStatus, publishStatus: app.publishStatus, repositoryUrl: app.repositoryUrl, liveUrl: app.publishUrl ?? app.primaryPublishUrl, supportReference: app.supportReference, createdAt: app.createdAt, updatedAt: app.updatedAt

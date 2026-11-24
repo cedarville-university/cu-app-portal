@@ -48,6 +48,10 @@ import { AppDetailsSectionLayout } from "@/features/app-details/section-layout";
 import { appDetailsSectionHref, getAppDetailsSection } from "@/features/app-details/sections";
 import { McpConnectionCard } from "@/features/app-details/mcp-connection-card";
 import { buildMcpConnectionSummary } from "@/features/mcp-servers/connection-summary";
+import { SecurityReviewPanel } from "@/features/security-review/panel";
+import { enrolledRepository, readDependencyReview } from "@/features/security-review/update-service";
+import { applySecurityUpdate } from "@/features/security-review/update-action";
+import { ownerSecurityReview } from "@/features/security-review/owner-results";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
 import { getLoginUpdateFramework } from "@/features/app-details/login-update";
 import { getImportedLoginReview, needsImportedLoginReview } from "@/features/repository-imports/login-review";
@@ -972,6 +976,7 @@ export default async function DownloadPage({
     notFound();
   }
 
+  const requestedSection = (await searchParams)?.section;
   const isAdmin = await userHasAdminRole(userId);
   const appRequest = await prisma.appRequest.findFirst({
     where: appAccessWhere(requestId, userId, isAdmin),
@@ -1008,6 +1013,7 @@ export default async function DownloadPage({
         take: 1,
       },
       repositoryImport: true,
+      securityReview: true,
       publishSetupChecks: {
         orderBy: { checkedAt: "desc" },
         take: 7,
@@ -1031,7 +1037,7 @@ export default async function DownloadPage({
   }
 
   const publishFailed = appRequest.publishStatus === "FAILED";
-  const section = getAppDetailsSection((await searchParams)?.section, publishFailed);
+  const section = getAppDetailsSection(requestedSection, publishFailed);
   const canDeleteAppRequest = isAdmin || appRequest.userId === userId;
 
   const displayPublishUrl = getDisplayPublishUrl(
@@ -1043,7 +1049,19 @@ export default async function DownloadPage({
     publishStatus: appRequest.publishStatus,
     publishingSetupStatus: appRequest.publishingSetupStatus,
   });
-  const showLoginNotices = section === "overview" || section === "deployment";
+  const showLoginNotices = section === "deployment";
+  const nightly = appRequest.repositoryUrl && appRequest.repositoryStatus === "READY" && (section === "overview" || section === "security")
+    ? await prisma.nightlyRepositoryScan.findUnique({ where: { repository: appRequest.repositoryUrl.toLowerCase() },
+      select: { successfulSha: true, source: true } }) : null;
+  let securityReview = ownerSecurityReview(appRequest.repositoryUrl, appRequest.securityReview, nightly);
+  const pilot = (section === "security" || (section === "overview" && !securityReview)) ? enrolledRepository(appRequest) : null;
+  const liveDependency = pilot ? await readDependencyReview(pilot).catch(() => null) : null;
+  if (liveDependency) {
+    securityReview = {
+      checkedAt: new Date(Math.max(securityReview?.checkedAt.getTime() ?? 0, Date.parse(liveDependency.checkedAt))),
+      results: { ...(securityReview?.results ?? { revision: null, source: null, checks: [] }), dependency: liveDependency },
+    };
+  }
   const loginUpdateFramework = showLoginNotices ? getLoginUpdateFramework(appRequest) : null;
   const loginReview = showLoginNotices && needsImportedLoginReview(appRequest)
     ? await getImportedLoginReview({ userId, isAdmin }, appRequest.id)
@@ -1479,11 +1497,24 @@ export default async function DownloadPage({
         </>
       );
       break;
+    case "security":
+      content = <>
+        {pilot && !liveDependency && <p role="status">Live update information from GitHub is unavailable. Any results below are from the last saved review.</p>}
+        <SecurityReviewPanel appName={appRequest.appName} repository={appRequest.repositoryUrl} review={securityReview} controls={{
+          live: Boolean(liveDependency), automaticPublishing: appRequest.deploymentTriggerMode === "PUSH_TO_DEPLOY",
+          apply: canDeleteAppRequest && liveDependency ? applySecurityUpdate.bind(null, appRequest.id) : undefined,
+        }} />
+      </>;
+      break;
     case "overview":
       content = (
         <>
           {warning}
-          {loginNotices}
+          {securityReview && <section className="card security-review__notice" aria-labelledby="security-notice">
+            <h3 id="security-notice">You have security details to review</h3>
+            <p>Your app’s latest scan results are ready.</p>
+            <Link href={appDetailsSectionHref("security")}>Review security details</Link>
+          </section>}
           <AppReadinessChecklist
             repositoryReady={appRequest.repositoryStatus === "READY"}
             publishingReady={effectivePublishingSetupStatus === "READY"}

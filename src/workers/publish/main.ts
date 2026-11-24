@@ -5,6 +5,7 @@ import { loadPublishTransportConfig } from "@/features/publishing/transport-conf
 import { runDurablePublishAttempt } from "@/features/publishing/run-durable-attempt";
 import { recoverStalePublishes } from "@/features/publishing/recovery";
 import { checkDueAppHealth } from "@/features/publishing/app-health";
+import { checkNightlySecurity } from "@/features/security-review/worker";
 import { processPublishMessage } from "./message";
 
 export async function runPublishWorker() {
@@ -13,6 +14,8 @@ export async function runPublishWorker() {
     console.info("[publish-recovery]", result);
     const health = await checkDueAppHealth();
     console.info("[app-health]", health);
+    const security = await checkNightlySecurity();
+    if (security.scanned || security.unchanged || security.failed) console.info("[nightly-security]", security);
     if (result.errors || health.errors) throw new Error("Some publish attempts or app health checks could not be inspected.");
     return;
   }
@@ -37,6 +40,7 @@ export async function runPublishWorker() {
       for (const attempt of attempts) await runDurablePublishAttempt(attempt.id);
       await recoverStalePublishes();
       await checkDueAppHealth();
+      await checkNightlySecurity();
       if (!stopped) await new Promise((resolve) => setTimeout(resolve, 5_000));
     }
     return;

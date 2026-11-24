@@ -83,6 +83,7 @@ vi.mock("@/lib/db", () => ({
     user: { findUnique: vi.fn() },
     userRole: { findFirst: vi.fn() },
     appRequest: { findFirst: vi.fn() },
+    nightlyRepositoryScan: { findUnique: vi.fn(async () => null) },
     auditLog: { findFirst: vi.fn() },
   },
 }));
@@ -180,13 +181,39 @@ describe("DownloadPage navigation", () => {
     expect(prompt).toContain("Express");
     expect(prompt).not.toContain("server action");
   });
-  it("shows the sign-in update for older sign-in apps above app readiness", async () => {
+  it("links to Security review but shows neither notice on Overview without scan results", async () => {
     await renderPage({ templateVersion: "1.0.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } }, "overview");
-    const notice = screen.getByRole("region", { name: "Sign-in update" });
-    expect(notice).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copy update prompt" })).toBeInTheDocument();
-    expect((screen.getByRole("textbox", { name: "Codex sign-in update prompt" }) as HTMLTextAreaElement).value).toContain("https://github.com/cedarville-it/campus-dashboard");
-    expect(notice.compareDocumentPosition(screen.getByRole("heading", { name: "App readiness" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Security review" })).toHaveAttribute("href", "?section=security");
+    expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Review security details" })).not.toBeInTheDocument();
+  });
+
+  const date = "2026-11-24T12:00:00Z";
+  const emptyResults = { revision: null, dependency: null, source: null, checks: [] };
+  const review = {
+    checkedAt: new Date(date), repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
+    results: { ...emptyResults, dependency: { checkedAt: date, alerts: [] } },
+  };
+
+  it("links to the saved results even when a completed check found no issues", async () => {
+    await renderPage({ securityReview: review }, "overview");
+    expect(screen.getByRole("link", { name: "Review security details" })).toHaveAttribute("href", "?section=security");
+    cleanup();
+    await renderPage({ securityReview: review }, "security");
+    expect(screen.getByRole("heading", { name: "The completed checks found no issues" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Copy fix/ })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { ...review, repositoryUrl: "https://github.com/other/other" },
+    { ...review, results: {} },
+    { ...review, results: { ...emptyResults, checks: [{ rule: "login", component: "app", checkedAt: null, outcome: "coverage-gap" }] } },
+  ])("suppresses a mismatched, invalid or gap-only review", async (securityReview) => {
+    await renderPage({ securityReview }, "overview");
+    expect(screen.queryByRole("link", { name: "Review security details" })).not.toBeInTheDocument();
+    cleanup();
+    await renderPage({ securityReview }, "security");
+    expect(screen.getByText("No security scan results are available for this app yet.")).toBeVisible();
   });
 
   it("does not show the sign-in update for new starter versions", async () => {

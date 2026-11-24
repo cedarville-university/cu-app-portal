@@ -1,5 +1,6 @@
 export const appDetailsSections = {
   overview: { title: "Overview" },
+  security: { title: "Security review" },
   deployment: { title: "Deployment", description: "Publish to Azure and review the latest deployment." },
   health: { title: "App health", description: "Check whether the app responds at its published address." },
   listing: { title: "Cedarville listing", description: "Manage whether the app appears in the Cedarville Apps directory." },

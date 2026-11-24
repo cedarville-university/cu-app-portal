@@ -81,6 +81,7 @@ export function AppDetailsSectionLayout({
         <nav className="app-sections__nav" id="app-details-sections" aria-label="App details sections">
           <p className="app-sections__label">App sections</p>
           {sectionLink("overview")}
+          {sectionLink("security")}
           {appDetailsGroups.map((group) => (
             <details key={group.title} open={group.open || group.sections.includes(section)}>
               <summary>{group.title}</summary>

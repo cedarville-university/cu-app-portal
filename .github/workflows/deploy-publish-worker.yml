@@ -7,7 +7,9 @@ on:
       - '.github/workflows/deploy-publish-worker.yml'
       - '.github/workflows/worker-smtp.test.ts'
       - 'scripts/workers/**'
+      - 'scripts/hosted-apps/test_nightly_scan.py'
       - 'src/features/publishing/**'
+      - 'src/features/security-review/**'
       - 'src/features/mcp-servers/**'
       - 'src/features/repositories/**'
       - 'src/features/app-requests/access.ts'
@@ -64,6 +66,7 @@ jobs:
         run: |
           docker build -f workers/publish/Dockerfile -t "$IMAGE_REF" .
           docker run --rm --entrypoint node "$IMAGE_REF" --input-type=module -e 'const m = await import("/app/dist/main.js"); if (typeof m.runPublishWorker !== "function") process.exit(1);'
+          docker run --rm --entrypoint python3 -v "$PWD/scripts/hosted-apps/test_nightly_scan.py:/tmp/test_nightly_scan.py:ro" "$IMAGE_REF" /tmp/test_nightly_scan.py
       - name: Scan candidate image
         uses: aquasecurity/trivy-action@v0.36.0
         with:

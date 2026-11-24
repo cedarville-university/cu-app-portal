@@ -1,0 +1,35 @@
+{
+  "lockfile": {
+    "lockfileVersion": 3,
+    "packages": {
+      "node_modules/lodash": {
+        "version": "4.17.21"
+      }
+    }
+  },
+  "source": "const fixture = 'example';",
+  "store": {
+    "records": [
+      {
+        "fixtureStudentId": "synthetic-001"
+      }
+    ],
+    "readers": [
+      "registrar"
+    ],
+    "encrypted": true,
+    "retentionDays": 30
+  },
+  "routeTests": {
+    "anonymousPage": 302,
+    "anonymousApi": 401
+  },
+  "loginReview": {
+    "framework": "express",
+    "brandedPage": true,
+    "serverInitiation": true,
+    "csrfProtected": true,
+    "safeReturn": true,
+    "callback": true
+  }
+}

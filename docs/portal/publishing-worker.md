@@ -81,3 +81,5 @@ Both worker workflows call `scripts/workers/deploy-with-portal-smtp.mjs`. It use
 After Azure reports the resource updated, the helper reads back the image, commit environment, and SMTP secret references. A mismatch fails the workflow. Error output includes only structured Azure error codes, never provider response bodies containing credentials. Verify automatic publishing **and** recovery jobs plus the repository-import job against the workflow commit; a successful image build or registry push is not a completed rollout.
 
 The PATCH intentionally omits the unchanged top-level `identity` block. Reassigning those identities requires `Microsoft.ManagedIdentity/userAssignedIdentities/assign/action`, which is outside the existing job-scoped CI role. Routine rollouts preserve the current assignments without requesting that permission.
+
+The same recovery schedule also checks for [nightly changes to managed repositories](hosted-app-scanning-pilot.md#nightly-repository-source-scans) and runs Semgrep inside the worker.
