@@ -7,7 +7,7 @@
     "@azure/identity": "4.13.1",
     "@azure/service-bus": "7.9.5",
     "@prisma/client": "6.19.3",
-    "nodemailer": "10.0.13",
+    "nodemailer": "10.1.4",
     "yaml": "2.8.3"
   },
   "overrides": {
