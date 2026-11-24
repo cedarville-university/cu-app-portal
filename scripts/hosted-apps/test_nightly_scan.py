@@ -18,8 +18,9 @@ class WorkerScannerTest(unittest.TestCase):
             repo = root / "repo"
             subprocess.run(["git", "init", "-q", str(repo)], check=True)
             (repo / "test").mkdir()
-            (repo / "app.py").write_text("title = 'Example'\n")
+            (repo / "app.py").write_text("import hashlib\nchecksum = hashlib.md5(b'fixture')\n")
             (repo / "test" / "sample.test.js").write_text("const example = 5;\n")
+            (repo / "title.ts").write_text("export const title: string = 'Example';\n")
             (repo / "link.ts").symlink_to("app.py")
             subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
             subprocess.run(["git", "-C", str(repo), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
@@ -28,8 +29,9 @@ class WorkerScannerTest(unittest.TestCase):
             (repo / "untracked.ts").write_text("const unused = 1;\n")
             result = scan_tree(repo, sha, root, scanner / "rules", str(scanner / "venv/bin/semgrep"))
             self.assertTrue(result["complete"])
-            self.assertEqual(result["scannedFiles"], 2)
-            self.assertEqual(result["findings"], [])
+            self.assertEqual(result["scannedFiles"], 3)
+            self.assertEqual([(f["file"], f["line"], f["rule"]) for f in result["findings"]],
+                             [("app.py", 2, "insecure-hash-algorithm-md5")])
 
 
 if __name__ == "__main__":

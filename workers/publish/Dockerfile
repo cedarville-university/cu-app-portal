@@ -13,7 +13,15 @@ RUN npm ci --omit=dev --ignore-scripts
 
 FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS scanner
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates git python3-venv && rm -rf /var/lib/apt/lists/*
-RUN python3 -m venv /opt/cu-security/venv && /opt/cu-security/venv/bin/pip install --no-cache-dir semgrep==1.186.0
+# The worker uses the wheel's native scan engine. The Python CLI, MCP server and
+# package installers are build-time tools and do not belong in the runtime image.
+RUN python3 -m venv /tmp/installer \
+    && /tmp/installer/bin/pip install --no-cache-dir --no-deps --only-binary=:all: --target /tmp/wheel semgrep==1.186.0 \
+    && mkdir -p /opt/cu-security/venv/bin \
+    && cp -a /tmp/wheel/semgrep/bin/libs /opt/cu-security/venv/bin/ \
+    && install -m 755 /tmp/wheel/semgrep/bin/semgrep-core /opt/cu-security/venv/bin/osemgrep \
+    && printf '%s\n' '#!/bin/sh' 'exec /opt/cu-security/venv/bin/osemgrep "$@" --experimental' > /opt/cu-security/venv/bin/semgrep \
+    && chmod 755 /opt/cu-security/venv/bin/semgrep
 COPY workers/publish/security/*.py /opt/cu-security/
 RUN git init -q /tmp/rules \
     && git -C /tmp/rules fetch -q --depth=1 https://github.com/semgrep/semgrep-rules.git a5ad1714f00c9f7fde980cab0ea1d6dc6d414fd2 \
