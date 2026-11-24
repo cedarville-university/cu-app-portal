@@ -1,3 +1,4 @@
+import { dependabotUpdates } from "./dependabot-updates";
 import { createSign } from "node:crypto";
 import sodium from "libsodium-wrappers";
 import type { GitHubRepoVisibility } from "./config";
@@ -562,7 +563,8 @@ export function createGitHubAppClient({
   fetchImpl = fetch,
   sleepImpl = defaultSleep,
 }: GitHubAppClientOptions) {
-  async function createInstallationToken() {
+  type TokenScope = { repositories: string[]; permissions: Record<string, string> };
+  async function createInstallationToken(scope?: TokenScope) {
     const response = await fetchImpl(
       `https://api.github.com/app/installations/${installationId}/access_tokens`,
       {
@@ -572,6 +574,7 @@ export function createGitHubAppClient({
           Authorization: `Bearer ${createGitHubAppJwt(appId, privateKey)}`,
           "X-GitHub-Api-Version": "2022-11-28",
         },
+        ...(scope ? { body: JSON.stringify(scope) } : {}),
       },
     );
 
@@ -580,8 +583,8 @@ export function createGitHubAppClient({
     return data.token;
   }
 
-  async function withInstallationHeaders() {
-    const token = await createInstallationToken();
+  async function withInstallationHeaders(scope?: TokenScope) {
+    const token = await createInstallationToken(scope);
 
     return {
       Accept: "application/vnd.github+json",
@@ -592,6 +595,48 @@ export function createGitHubAppClient({
   }
 
   return {
+    ...dependabotUpdates(fetchImpl, (name, permissions) => withInstallationHeaders({ repositories: [name], permissions })),
+    async enableDependabotAlerts({ owner, name }: GetRepositoryInput) {
+      const headers = await withInstallationHeaders({ repositories: [name], permissions: { administration: "write" } });
+      const url = `https://api.github.com/repos/${githubPathSegment(owner)}/${githubPathSegment(name)}/vulnerability-alerts`;
+      await requireGitHubStatus(await fetchImpl(url, { method: "PUT", headers }), [204]);
+      await requireGitHubStatus(await fetchImpl(url, { headers }), [204]);
+    },
+    async readOpenDependabotAlerts({ owner, name }: GetRepositoryInput) {
+      const headers = await withInstallationHeaders({ repositories: [name], permissions: { vulnerability_alerts: "read" } });
+      const base = new URL(`https://api.github.com/repos/${githubPathSegment(owner)}/${githubPathSegment(name)}/dependabot/alerts`);
+      let url: URL | null = new URL(base);
+      url.search = "state=open&per_page=100";
+      const seen = new Set<string>();
+      const alerts = new Map<number, { number: number; severity: string; package: string; manifest: string; advisory: string; summary?: string; patchedVersion?: string }>();
+      while (url) {
+        if (url.origin !== base.origin || url.pathname !== base.pathname || seen.has(url.href)) {
+          throw new Error("Unexpected Dependabot pagination link.");
+        }
+        seen.add(url.href);
+        const response: Response = await fetchImpl(url.href, { headers, redirect: "error" });
+        const page = await readJson<Array<{
+          number: number; security_advisory: { ghsa_id: string; summary?: string };
+          security_vulnerability: { severity: string; first_patched_version?: { identifier: string } | null };
+          dependency: { package: { name: string }; manifest_path: string };
+        }>>(response);
+        for (const alert of page) {
+          alerts.set(alert.number, { number: alert.number, severity: alert.security_vulnerability.severity,
+            package: alert.dependency.package.name, manifest: alert.dependency.manifest_path, advisory: alert.security_advisory.ghsa_id,
+            summary: alert.security_advisory.summary || undefined, patchedVersion: alert.security_vulnerability.first_patched_version?.identifier || undefined });
+        }
+        const next: string | undefined = response.headers.get("link")?.match(/<([^>]+)>;\s*rel="next"/)?.[1];
+        url = next ? new URL(next) : null;
+        if (url && url.origin === base.origin && /^\/repositories\/\d+\/dependabot\/alerts$/.test(url.pathname)) {
+          // GitHub sometimes uses its numeric repository route in pagination links.
+          url.pathname = base.pathname;
+        }
+      }
+      return [...alerts.values()];
+    },
+    async createSourceReadToken(name: string) {
+      return createInstallationToken({ repositories: [name], permissions: { contents: "read" } });
+    },
     async createInstallationTokenForGit() {
       return createInstallationToken();
     },

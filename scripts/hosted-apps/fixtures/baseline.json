@@ -1,0 +1,35 @@
+{
+  "lockfile": {
+    "lockfileVersion": 3,
+    "packages": {
+      "node_modules/lodash": {
+        "version": "4.17.20"
+      }
+    }
+  },
+  "source": "const fixture = 'CU_PILOT_TEST_MARKER';",
+  "store": {
+    "records": [
+      {
+        "fixtureStudentId": "synthetic-001"
+      }
+    ],
+    "readers": [
+      "anonymous"
+    ],
+    "encrypted": true,
+    "retentionDays": 30
+  },
+  "routeTests": {
+    "anonymousPage": 302,
+    "anonymousApi": 200
+  },
+  "loginReview": {
+    "framework": "express",
+    "brandedPage": true,
+    "serverInitiation": true,
+    "csrfProtected": false,
+    "safeReturn": true,
+    "callback": true
+  }
+}

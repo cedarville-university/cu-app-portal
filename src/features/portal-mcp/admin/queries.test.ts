@@ -7,6 +7,7 @@ const admin: PortalActor = {
   userId: "a", entraOid: "o", email: "a@cedarville.edu", displayName: "Admin", isAdmin: true
 };
 const row = {
+  healthStatus: "HEALTHY", healthCheckedAt: new Date("2026-11-23T12:00:00Z"), deploymentTriggerMode: "PUSH_TO_DEPLOY",
   id: "app", appName: "Example", user: {
     id: "u", displayName: "User", email: "user@cedarville.edu"
   }, template: { slug: "web", name: "Web" }, sourceOfTruth: "PORTAL_MANAGED_REPO", generationStatus: "SUCCEEDED", repositoryStatus: "READY", publishingSetupStatus: "READY", publishStatus: "FAILED", repositoryUrl: "https://github.com/org/repo", publishUrl: null, primaryPublishUrl: null, supportReference: "SUP", createdAt: new Date(), updatedAt: new Date(), submittedConfig: { password: "hidden" }, workerToken: "hidden"
@@ -27,7 +28,8 @@ describe("admin data", () => {
     });
     expect(result.nextOffset).toBe(1);
     expect(result.apps).toHaveLength(1);
-    expect(result.apps[0]).toMatchObject({ id: "app", owner: { id: "u" } });
+    expect(result.apps[0]).toMatchObject({ id: "app", owner: { id: "u" },
+      healthStatus: "HEALTHY", healthCheckedAt: row.healthCheckedAt, deploymentTriggerMode: "PUSH_TO_DEPLOY" });
     expect(JSON.stringify(result)).not.toContain("hidden");
     expect(db.appRequest.findMany.mock.calls[0][0]).toMatchObject({
       where: { userId: "u", OR: [{ appName: { contains: "Exam", mode: "insensitive" } }, { supportReference: { contains: "Exam", mode: "insensitive" } }] }, take: 2, orderBy: [{ createdAt: "desc" }, { id: "desc" }]

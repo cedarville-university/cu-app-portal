@@ -24,6 +24,38 @@ const TEST_PRIVATE_KEY = testPrivateKey
   .toString();
 
 describe("createGitHubAppClient", () => {
+  const pilotRepo = { owner: "cu-app-portal-repos", name: "slide-show-inator" };
+  const alertsUrl = "https://api.github.com/repos/cu-app-portal-repos/slide-show-inator/dependabot/alerts";
+  it("enables and verifies Dependabot with a repository-scoped admin token", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(json({ token: "admin-token" }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 })).mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const client = createGitHubAppClient({ appId: "1", privateKey: TEST_PRIVATE_KEY, installationId: "2", fetchImpl });
+    await client.enableDependabotAlerts(pilotRepo);
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ repositories: [pilotRepo.name], permissions: { administration: "write" } });
+    expect(fetchImpl.mock.calls[1][1].method).toBe("PUT");
+    expect(fetchImpl.mock.calls[2][0]).toBe(fetchImpl.mock.calls[1][0]);
+    expect(fetchImpl.mock.calls[2][1].method).toBeUndefined();
+  });
+  it("reads all open Dependabot pages using a separate repository-scoped read token", async () => {
+    const alert = (number: number) => ({ number, security_advisory: { ghsa_id: "GHSA-test", summary: "Example advisory" }, security_vulnerability: { severity: "high", first_patched_version: { identifier: "1.2.3" } },
+      dependency: { package: { name: "next" }, manifest_path: "package.json" } });
+    const fetchImpl = vi.fn().mockResolvedValueOnce(json({ token: "reader" }))
+      .mockResolvedValueOnce(json([alert(1)], { headers: { link: '<https://api.github.com/repositories/42/dependabot/alerts?after=abc>; rel="next"' } }))
+      .mockResolvedValueOnce(json([alert(2)]));
+    const client = createGitHubAppClient({ appId: "1", privateKey: TEST_PRIVATE_KEY, installationId: "2", fetchImpl });
+    const alerts = await client.readOpenDependabotAlerts(pilotRepo);
+    expect(alerts.map(a => a.number)).toEqual([1, 2]);
+    expect(alerts[0]).toMatchObject({ summary: "Example advisory", patchedVersion: "1.2.3" });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ repositories: [pilotRepo.name], permissions: { vulnerability_alerts: "read" } });
+    expect(fetchImpl.mock.calls[2][0]).toBe(alertsUrl + "?after=abc");
+  });
+  it("rejects a pagination link to a different host before sending credentials", async () => {
+    const fetchImpl = vi.fn().mockResolvedValueOnce(json({ token: "reader" }))
+      .mockResolvedValueOnce(json([], { headers: { link: '<https://example.com/other>; rel="next"' } }));
+    const client = createGitHubAppClient({ appId: "1", privateKey: TEST_PRIVATE_KEY, installationId: "2", fetchImpl });
+    await expect(client.readOpenDependabotAlerts(pilotRepo)).rejects.toThrow("pagination");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
   it("returns an installation token for authenticated git remotes", async () => {
     const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
     const fetchImpl = vi
