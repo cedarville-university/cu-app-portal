@@ -1,11 +1,14 @@
 import { appAccessWhere, userHasAdminRole } from "@/features/app-requests/access";
 import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
-import { enrolledRepository, readDependencyReview } from "@/features/security-review/update-service";
+import { DependencyRefreshTimedOut, refreshDependencyReview } from "@/features/security-review/dependency-cache";
+import { enrolledRepository } from "@/features/security-review/update-service";
 import { prisma } from "@/lib/db";
 
 const headers = { "Cache-Control": "private, no-store" };
 
-export async function GET(request: Request, { params }: { params: Promise<{ requestId: string }> }) {
+type RouteContext = { params: Promise<{ requestId: string }> };
+
+async function dependencyReview({ params }: RouteContext, force: boolean) {
   const userId = await getCurrentUserIdOrNull();
   if (!userId) return new Response(null, { status: 401, headers });
 
@@ -19,17 +22,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ requ
     select: { repositoryOwner: true, repositoryName: true, repositoryUrl: true, repositoryStatus: true },
   });
   const repository = app && enrolledRepository(app);
-  if (!app || !repository) return new Response(null, { status: 404, headers });
+  if (!app?.repositoryUrl || !repository) return new Response(null, { status: 404, headers });
 
-  const deadline = AbortSignal.timeout(10_000);
-  const controller = new AbortController();
-  const signal = AbortSignal.any([request.signal, deadline, controller.signal]);
   try {
-    const dependency = await readDependencyReview(repository, signal);
+    const dependency = await refreshDependencyReview(requestId, app.repositoryUrl, repository, force);
     return Response.json({ repository: app.repositoryUrl, dependency }, { headers });
-  } catch {
-    return new Response(null, { status: deadline.aborted ? 504 : 502, headers });
-  } finally {
-    controller.abort();
+  } catch (error) {
+    return new Response(null, { status: error instanceof DependencyRefreshTimedOut ? 504 : 502, headers });
   }
+}
+
+export async function GET(_request: Request, context: RouteContext) {
+  return dependencyReview(context, false);
+}
+
+export async function POST(_request: Request, context: RouteContext) {
+  return dependencyReview(context, true);
 }

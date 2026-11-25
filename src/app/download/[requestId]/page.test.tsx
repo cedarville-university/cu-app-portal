@@ -90,6 +90,7 @@ vi.mock("@/lib/db", () => ({
     userRole: { findFirst: vi.fn() },
     appRequest: { findFirst: vi.fn() },
     nightlyRepositoryScan: { findUnique: vi.fn(async () => null) },
+    appDependencyReview: { findUnique: vi.fn(async () => null) },
     auditLog: { findFirst: vi.fn() },
   },
 }));
@@ -157,6 +158,7 @@ beforeEach(() => {
   vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.user.findUnique).mockResolvedValue({ githubUsername: null });
   vi.mocked(prisma.auditLog.findFirst).mockResolvedValue(null);
+  vi.mocked(prisma.appDependencyReview.findUnique).mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -189,12 +191,12 @@ describe("DownloadPage navigation", () => {
     expect(prompt).toContain("Express");
     expect(prompt).not.toContain("server action");
   });
-  it("links to Security review but shows neither notice on Overview without scan results", async () => {
+  it("shows the Security review notice on Overview before the first GitHub refresh", async () => {
     await renderPage({ templateVersion: "1.0.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } }, "overview");
     expect(screen.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
     expect(screen.getByRole("link", { name: "Security review" })).toHaveAttribute("href", "?section=security");
     expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Review security details" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review security details" })).toHaveAttribute("href", "?section=security");
     expect(readDependencyReview).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -206,14 +208,53 @@ describe("DownloadPage navigation", () => {
     results: { ...emptyResults, dependency: { checkedAt: date, alerts: [] } },
   };
 
-  const liveReview = () => Response.json({
-    repository: review.repositoryUrl,
-    dependency: {
-      checkedAt: date,
+  const dependency = (checkedAt = new Date().toISOString()) => ({
+      checkedAt,
       alerts: [{ number: 1, package: "example", advisory: "GHSA-example", severity: "high", manifest: "package.json" }],
       updates: [{ number: 2, head: "a".repeat(40), base: "b".repeat(40), branch: "main",
         alerts: [1], ready: true, checks: "passed", checkNames: [] }],
-    },
+  });
+  const liveReview = () => Response.json({ repository: review.repositoryUrl, dependency: dependency() });
+
+  it("shows cached GitHub results with the refresh timestamp and age without fetching on either section", async () => {
+    const checkedAt = new Date(Date.now() - 3 * 60_000).toISOString();
+    vi.mocked(prisma.appDependencyReview.findUnique).mockResolvedValue({
+      appRequestId: "request-123", repository: review.repositoryUrl, checkedAt: new Date(checkedAt), dependency: dependency(checkedAt),
+    });
+    await renderPage({}, "overview");
+    expect(screen.getByRole("link", { name: "Review security details" })).toBeVisible();
+    expect(screen.getByText(/3 minutes ago/)).toHaveAttribute("datetime", checkedAt);
+    expect(fetch).not.toHaveBeenCalled();
+    cleanup();
+
+    await renderPage({}, "security");
+    expect(screen.getByText(/3 minutes ago/)).toHaveAttribute("datetime", checkedAt);
+    expect(screen.getByText("Review individual security updates (1)")).toBeVisible();
+    expect(fetch).not.toHaveBeenCalled();
+
+    vi.mocked(fetch).mockResolvedValueOnce(liveReview());
+    fireEvent.click(screen.getByRole("button", { name: "Refresh from GitHub" }));
+    await screen.findByText(/just now/);
+    expect(fetch).toHaveBeenCalledWith("/api/apps/request-123/security-review", expect.objectContaining({ method: "POST" }));
+  });
+
+  it.each([
+    ["overview", ["securityReview", "template"]],
+    ["listing", []],
+    ["health", []],
+    ["deployment", ["template", "publishAttempts", "publishSetupChecks", "repositoryImport"]],
+    ["collaborators", ["user", "collaborators", "collaborationInvites"]],
+    ["repository", ["repositoryImport"]],
+    ["environment", ["environmentVariables"]],
+    ["security", ["securityReview"]],
+    ["support", ["template"]],
+  ] as const)("reads only the relations needed by the %s section", async (section, expected) => {
+    await renderPage({}, section);
+    const relations = ["securityReview", "template", "mcpConfiguration", "user", "collaborators", "collaborationInvites",
+      "publishAttempts", "publishSetupChecks", "repositoryImport", "environmentVariables"];
+    const queries = vi.mocked(prisma.appRequest.findFirst).mock.calls.flatMap(([args]) => [args?.select, args?.include]);
+    const selected = relations.filter(relation => queries.some(query => query && Reflect.get(query, relation)));
+    expect(selected.sort()).toEqual([...expected].sort());
   });
 
   it("renders Security review and saved results while the live GitHub request is pending", async () => {
@@ -238,7 +279,8 @@ describe("DownloadPage navigation", () => {
   it("keeps saved results available after a GitHub failure and lets the user retry", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 503 }));
     await renderPage({ securityReview: review }, "security");
-    const retry = await screen.findByRole("button", { name: "Retry GitHub check" });
+    await screen.findByText(/Live update information from GitHub is unavailable/);
+    const retry = screen.getByRole("button", { name: "Refresh from GitHub" });
     expect(screen.getByRole("heading", { name: "The completed checks found no issues" })).toBeVisible();
     vi.mocked(fetch).mockResolvedValueOnce(liveReview());
     fireEvent.click(retry);
@@ -275,7 +317,7 @@ describe("DownloadPage navigation", () => {
     { ...review, results: { ...emptyResults, checks: [{ rule: "login", component: "app", checkedAt: null, outcome: "coverage-gap" }] } },
   ])("suppresses a mismatched, invalid or gap-only review", async (securityReview) => {
     await renderPage({ securityReview }, "overview");
-    expect(screen.queryByRole("link", { name: "Review security details" })).not.toBeInTheDocument();
+    expect(screen.queryByText("You have security details to review")).not.toBeInTheDocument();
     cleanup();
     await renderPage({ securityReview }, "security");
     expect(screen.getByText("No security scan results are available for this app yet.")).toBeVisible();

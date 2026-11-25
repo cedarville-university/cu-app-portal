@@ -1,5 +1,8 @@
 import type { McpIdentityRecord } from "./types";
-export function buildMcpConnectionSummary(record: McpIdentityRecord | null | undefined, deployment: { published: boolean }) {
+type McpConnectionRecord = Pick<McpIdentityRecord, "endpointUrl" | "tenantId" | "setupStatus" | "checkedAt" |
+  "probeStatus" | "probeAttemptId" | "probeCommitSha" | "probeCheckedAt">;
+
+export function buildMcpConnectionSummary(record: McpConnectionRecord | null | undefined, deployment: { published: boolean }) {
   if (!record) return null;
   const endpoint = record.setupStatus === "READY" && deployment.published ? record.endpointUrl : null;
   return {

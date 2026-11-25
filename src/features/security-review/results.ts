@@ -18,6 +18,11 @@ export const reviewResults = z.object({
   checks: z.array(z.object({ gapReason: text.nullish(), failedControls: z.array(text).optional(), rule: text, component: text, checkedAt: time.nullable(), outcome: z.enum(["pass", "finding", "coverage-gap"]) })),
 });
 export type ReviewResults = z.infer<typeof reviewResults>;
+export type DependencyReview = NonNullable<ReviewResults["dependency"]>;
+
+export function isFreshDependencyReview(dependency: DependencyReview | null, now: number) {
+  return dependency !== null && now - Date.parse(dependency.checkedAt) < 15 * 60_000;
+}
 
 export function hasScanResults(results: ReviewResults) {
   return Boolean(results.deployedSource?.findings.length || results.dependency || (results.source && (results.source.scannedFiles > 0 || results.source.findings.length > 0))

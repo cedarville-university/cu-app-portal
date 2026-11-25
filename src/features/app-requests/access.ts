@@ -28,6 +28,7 @@ export async function userHasAdminRole(userId: string) {
       userId,
       role: "ADMIN",
     },
+    select: { id: true },
   });
 
   return Boolean(role);

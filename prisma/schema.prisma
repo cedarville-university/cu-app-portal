@@ -106,6 +106,7 @@ model AppRequest {
   environmentVariables AppEnvironmentVariable[]
   mcpConfiguration AppMcpConfiguration?
   securityReview AppSecurityReview?
+  dependencyReviews AppDependencyReview[]
 }
 
 model AppSecurityReview {
@@ -114,6 +115,16 @@ model AppSecurityReview {
   checkedAt     DateTime
   results       Json
   appRequest    AppRequest @relation(fields: [appRequestId], references: [id], onDelete: Cascade)
+}
+
+model AppDependencyReview {
+  appRequestId String
+  repository   String
+  checkedAt    DateTime
+  dependency   Json
+  appRequest   AppRequest @relation(fields: [appRequestId], references: [id], onDelete: Cascade)
+
+  @@id([appRequestId, repository])
 }
 
 model NightlyRepositoryScan {

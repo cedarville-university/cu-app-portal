@@ -1,7 +1,16 @@
-import { hasScanResults, reviewResults } from "./results";
+import { hasScanResults, reviewResults, type DependencyReview, type ReviewResults } from "./results";
 
 type PilotReview = { checkedAt: Date; repositoryUrl: string; results: unknown };
 type NightlyReview = { successfulSha: string | null; source: unknown };
+export type SavedSecurityReview = { checkedAt: Date; results: ReviewResults };
+
+export function withDependencyReview(review: SavedSecurityReview | null, dependency: DependencyReview | null) {
+  if (!dependency) return review;
+  return {
+    checkedAt: new Date(Math.max(review?.checkedAt.getTime() ?? 0, Date.parse(dependency.checkedAt))),
+    results: { ...(review?.results ?? { revision: null, source: null, checks: [] }), dependency },
+  };
+}
 
 export function ownerSecurityReview(repository: string | null, pilot: PilotReview | null, nightly: NightlyReview | null) {
   if (!repository) return null;
