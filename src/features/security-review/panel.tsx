@@ -2,6 +2,7 @@ import React from "react";
 import { UpdateReview, type UpdateControls } from "./update-review";
 import { CopyFixInstructions } from "./copy-instructions";
 import { ReviewFindings } from "./review-findings";
+import { ReviewFreshness } from "./review-freshness";
 import { fixInstructions, needsAttention, type ReviewResults } from "./results";
 
 function DependabotHandoff({ appName, repository }: { appName: string; repository: string }) {
@@ -21,8 +22,9 @@ function DependabotHandoff({ appName, repository }: { appName: string; repositor
   </>;
 }
 
-export function SecurityReviewPanel({ appName, repository, review, controls }: {
+export function SecurityReviewPanel({ appName, repository, review, controls, showDate = true }: {
   controls?: UpdateControls;
+  showDate?: boolean;
   appName: string; repository: string | null; review: { checkedAt: Date; results: ReviewResults } | null;
 }) {
   if (!review || !repository) return <p className="card">No security scan results are available for this app yet.</p>;
@@ -35,9 +37,8 @@ export function SecurityReviewPanel({ appName, repository, review, controls }: {
   const remaining = { ...results, dependency: results.dependency && { ...results.dependency, alerts: alerts.filter(a => !covered.has(a.number)) } };
   const remainingIssues = Boolean(remaining.dependency?.alerts.length || remaining.checks.some(c => c.outcome === "finding"));
   const partial = results.source?.complete === false;
-  const date = review.checkedAt.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "America/New_York" });
   return <div className="security-review">
-    <p className="security-review__date">Last checked <time dateTime={review.checkedAt.toISOString()}>{date}</time></p>
+    {showDate && <ReviewFreshness asOf={Date.now()} scanCheckedAt={results.source?.checkedAt ?? review.checkedAt.toISOString()} />}
     <section className="card">
       <h3>{hasIssues ? "We found security issues in your app" : action ? "A security check needs a closer look" : partial ? "No issues found in the checks that ran" : "The completed checks found no issues"}</h3>
       {partial && <p>Some files could not be checked.</p>}

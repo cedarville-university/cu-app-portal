@@ -15,9 +15,9 @@ const createdAppNamePrefix = "E2E Created Starter";
 const createdAppName = `${createdAppNamePrefix} Handoff`;
 const createdRequestIds: string[] = [];
 
-test("MCP creation stays gated and a published fixture shows the Plugin Creator handoff", async ({ page }) => {
+test("lists the advanced MCP template and shows the published app’s Plugin Creator handoff", async ({ page }) => {
   await page.goto("/create");
-  await expect(page.getByText("MCP Server (Advanced)", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("MCP Server (Advanced)", { exact: true })).toBeVisible();
   const user=await prisma.user.upsert({where:{entraOid:"e2e-bypass-user"},update:{},create:{entraOid:"e2e-bypass-user",email:"e2e-bypass@cedarville.edu",displayName:"E2E Bypass User"}});
   const template=await prisma.template.upsert({where:{slug:"mcp-server"},update:{},create:{slug:"mcp-server",name:"MCP Server (Advanced)",description:"MCP fixture",version:"1.0.0",status:"DISABLED",inputSchema:{},hostingOptions:[]}});
   const id="e2e-mcp-connection";
@@ -421,39 +421,57 @@ test.describe("novice onboarding", () => {
       },
     });
     const release = Promise.withResolvers<void>();
-    let requests = 0;
+    const requests: string[] = [];
+    const firstRefresh = new Date(Date.now() - 3 * 60_000).toISOString();
+    const manualRefresh = new Date().toISOString();
     await page.route(`**/api/apps/${appId}/security-review`, async route => {
-      requests++;
+      const method = route.request().method();
+      requests.push(method);
       await release.promise;
-      await route.fulfill({ json: {
-        repository,
-        dependency: {
-          checkedAt,
-          alerts: [{ number: 1, package: "fixture", advisory: "GHSA-fixture", severity: "high", manifest: "package.json" }],
-          updates: [],
-        },
-      } });
+      const refreshedAt = method === "POST" ? manualRefresh : firstRefresh;
+      const dependency = {
+        checkedAt: refreshedAt,
+        alerts: [{ number: 1, package: "fixture", advisory: "GHSA-fixture", severity: "high", manifest: "package.json" }],
+        updates: [],
+      };
+      await prisma.appDependencyReview.upsert({
+        where: { appRequestId_repository: { appRequestId: appId, repository } },
+        create: { appRequestId: appId, repository, checkedAt: new Date(refreshedAt), dependency },
+        update: { checkedAt: new Date(refreshedAt), dependency },
+      });
+      await route.fulfill({ json: { repository, dependency } });
     });
 
     try {
       await page.goto(`/download/${appId}`);
       await expect(page.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
       await expect(page.getByRole("link", { name: "Review security details" })).toBeVisible();
-      expect(requests).toBe(0);
+      expect(requests).toEqual([]);
 
       const sections = page.getByRole("navigation", { name: "App details sections" });
       await sections.getByRole("link", { name: "Security review", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Security review", level: 2 })).toBeVisible();
       await expect(page.getByRole("heading", { name: "The completed checks found no issues" })).toBeVisible();
       await expect(page.getByText(/Checking GitHub for current dependency alerts and updates/)).toBeVisible();
-      await expect.poll(() => requests).toBeGreaterThan(0);
+      await expect.poll(() => requests.length).toBeGreaterThan(0);
 
       release.resolve();
       await expect(page.getByRole("heading", { name: "We found security issues in your app" })).toBeVisible();
-      const securityRequests = requests;
+      const initialRequests = requests.length;
       await sections.getByRole("link", { name: "Overview", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
-      expect(requests).toBe(securityRequests);
+      await expect(page.getByText(/3 minutes ago/)).toHaveAttribute("datetime", firstRefresh);
+      await sections.getByRole("link", { name: "Security review", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "We found security issues in your app" })).toBeVisible();
+      await expect(page.getByText(/3 minutes ago/)).toHaveAttribute("datetime", firstRefresh);
+      expect(requests).toHaveLength(initialRequests);
+      await page.getByRole("button", { name: "Refresh from GitHub" }).click();
+      await expect(page.getByText(/just now/)).toHaveAttribute("datetime", manualRefresh);
+      expect(requests.at(-1)).toBe("POST");
+      const refreshedRequests = requests.length;
+      await sections.getByRole("link", { name: "Overview", exact: true }).click();
+      await expect(page.getByText(/just now/)).toHaveAttribute("datetime", manualRefresh);
+      expect(requests).toHaveLength(refreshedRequests);
     } finally {
       release.resolve();
     }

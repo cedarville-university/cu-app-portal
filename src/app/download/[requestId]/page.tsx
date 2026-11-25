@@ -1,21 +1,17 @@
 import { AppHealthPanel } from "@/features/app-details/app-health-panel";
+import { getAppDetailsFields, getAppDetailsHeader, getAppSecurityData, securityReviewFields } from "@/features/app-details/data";
 import { savedImportedFeatures } from "@/features/repository-imports/features";
-import { getAppPageMetadata } from "@/features/navigation/page-metadata";
 import React from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type {
+  Prisma,
   PublishStatus,
   PublishingSetupStatus,
   RepositoryPreparationStatus,
   RepositoryStatus,
   SourceOfTruth,
 } from "@prisma/client";
-import {
-  appAccessWhere,
-  userHasAdminRole,
-} from "@/features/app-requests/access";
-import { getCurrentUserIdOrNull } from "@/features/app-requests/current-user";
 import {
   enablePushToDeployAction,
   disablePushToDeployAction,
@@ -50,9 +46,8 @@ import { McpConnectionCard } from "@/features/app-details/mcp-connection-card";
 import { buildMcpConnectionSummary } from "@/features/mcp-servers/connection-summary";
 import { SecurityReviewPanel } from "@/features/security-review/panel";
 import { LiveSecurityReview } from "@/features/security-review/live-review";
-import { enrolledRepository } from "@/features/security-review/update-service";
 import { applySecurityUpdate } from "@/features/security-review/update-action";
-import { ownerSecurityReview } from "@/features/security-review/owner-results";
+import { OverviewSecurityNotice } from "@/features/security-review/overview-notice";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
 import { getLoginUpdateFramework } from "@/features/app-details/login-update";
 import { getImportedLoginReview, needsImportedLoginReview } from "@/features/repository-imports/login-review";
@@ -960,7 +955,14 @@ export async function generateMetadata({
   params: Promise<{ requestId: string }>;
 }) {
   const { requestId } = await params;
-  return getAppPageMetadata(requestId, "details");
+  const details = await getAppDetailsHeader(requestId);
+  return { title: details?.app.appName ?? "App Details" };
+}
+
+function renderPublishWarning(app: { publishStatus: PublishStatus; publishWarningSummary: string | null }) {
+  return app.publishStatus === "SUCCEEDED" && app.publishWarningSummary
+    ? <div className="warning-box" role="status">{app.publishWarningSummary}</div>
+    : null;
 }
 
 export default async function DownloadPage({
@@ -970,123 +972,71 @@ export default async function DownloadPage({
   params: Promise<{ requestId: string }>;
   searchParams?: Promise<{ section?: string | string[] }>;
 }) {
-  const { requestId } = await params;
-  const userId = await getCurrentUserIdOrNull();
+  const [{ requestId }, query] = await Promise.all([params, searchParams]);
+  const details = await getAppDetailsHeader(requestId);
+  if (!details) notFound();
 
-  if (!userId) {
-    notFound();
+  const { app, where, userId, isAdmin } = details;
+  if (app.publishStatus !== "SUCCEEDED" && app.publishStatus !== "FAILED" && !isAdmin) {
+    redirect(`/onboarding/${app.id}`);
   }
 
-  const requestedSection = (await searchParams)?.section;
-  const isAdmin = await userHasAdminRole(userId);
-  const appRequest = await prisma.appRequest.findFirst({
-    where: appAccessWhere(requestId, userId, isAdmin),
-    include: {
-      template: { select: { slug: true } },
-      mcpConfiguration: true,
-      user: {
-        select: {
-          displayName: true,
-          email: true,
-        },
-      },
-      collaborators: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              displayName: true,
-              email: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "asc" },
-      },
-      collaborationInvites: {
-        where: { status: "PENDING" },
-        orderBy: { createdAt: "desc" },
-        include: {
-          inviter: { select: { displayName: true, email: true } },
-        },
-      },
-      publishAttempts: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
-      repositoryImport: true,
-      securityReview: true,
-      publishSetupChecks: {
-        orderBy: { checkedAt: "desc" },
-        take: 7,
-      },
-      environmentVariables: {
-        orderBy: { key: "asc" },
-      },
-    },
-  });
-
-  if (!appRequest) {
-    notFound();
-  }
-
-  if (
-    appRequest.publishStatus !== "SUCCEEDED" &&
-    appRequest.publishStatus !== "FAILED" &&
-    !isAdmin
-  ) {
-    redirect(`/onboarding/${appRequest.id}`);
-  }
-
-  const publishFailed = appRequest.publishStatus === "FAILED";
-  const section = getAppDetailsSection(requestedSection, publishFailed);
-  const canDeleteAppRequest = isAdmin || appRequest.userId === userId;
-
-  const displayPublishUrl = getDisplayPublishUrl(
-    appRequest.primaryPublishUrl,
-    appRequest.publishUrl,
-  );
-  const pub = publishBadge(appRequest.publishStatus);
-  const effectivePublishingSetupStatus = getEffectivePublishingSetupStatus({
-    publishStatus: appRequest.publishStatus,
-    publishingSetupStatus: appRequest.publishingSetupStatus,
-  });
-  const showLoginNotices = section === "deployment";
-  const nightly = appRequest.repositoryUrl && appRequest.repositoryStatus === "READY" && (section === "overview" || section === "security")
-    ? await prisma.nightlyRepositoryScan.findUnique({ where: { repository: appRequest.repositoryUrl.toLowerCase() },
-      select: { successfulSha: true, source: true } }) : null;
-  const securityReview = section === "overview" || section === "security"
-    ? ownerSecurityReview(appRequest.repositoryUrl, appRequest.securityReview, nightly)
-    : null;
-  const loginUpdateFramework = showLoginNotices ? getLoginUpdateFramework(appRequest) : null;
-  const loginReview = showLoginNotices && needsImportedLoginReview(appRequest)
-    ? await getImportedLoginReview({ userId, isAdmin }, appRequest.id)
-    : null;
-
-  const warning = (
-    <>
-      {appRequest.publishStatus === "SUCCEEDED" && appRequest.publishWarningSummary ? (
-        <div className="warning-box" role="status">
-          {appRequest.publishWarningSummary}
-        </div>
-      ) : null}
-    </>
-  );
-  const loginNotices = (
-    <>
-      {appRequest.repositoryUrl && loginUpdateFramework ? (
-        <LoginUpdateNotice
-          appRequestId={appRequest.id}
-          userId={userId}
-          prompt={buildLoginUpdatePrompt({ repositoryUrl: appRequest.repositoryUrl, appName: appRequest.appName, framework: loginUpdateFramework })}
-        />
-      ) : null}
-      {loginReview ? <LoginReviewPanel appId={appRequest.id} review={loginReview} prompt={buildImportedLoginReviewPrompt(appRequest)} /> : null}
-    </>
-  );
+  const publishFailed = app.publishStatus === "FAILED";
+  const section = getAppDetailsSection(query?.section, publishFailed);
+  const canDeleteAppRequest = isAdmin || app.userId === userId;
+  const displayPublishUrl = getDisplayPublishUrl(app.primaryPublishUrl, app.publishUrl);
+  const pub = publishBadge(app.publishStatus);
+  const readSection = <T extends Prisma.AppRequestSelect,>(select: T) =>
+    getAppDetailsFields(where, select);
 
   let content: React.ReactNode;
   switch (section) {
-    case "deployment":
+    case "deployment": {
+      const appRequest = { ...app, ...await readSection({
+        azureWebAppName: true,
+        createdAt: true,
+        deploymentTarget: true,
+        deploymentTriggerMode: true,
+        lastPublishedAt: true,
+        publishErrorSummary: isAdmin,
+        publishedAt: true,
+        publishingSetupErrorSummary: isAdmin,
+        publishingSetupStatus: true,
+        repositoryStatus: true,
+        repositoryUrl: true,
+        sourceOfTruth: true,
+        submittedConfig: true,
+        templateVersion: true,
+        template: { select: { slug: true } },
+        repositoryImport: { select: { preparationStatus: true } },
+        publishAttempts: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { status: true, githubWorkflowRunUrl: true },
+        },
+        publishSetupChecks: {
+          orderBy: { checkedAt: "desc" },
+          take: 7,
+          select: { checkKey: true, status: true, message: isAdmin },
+        },
+      }) };
+      const effectivePublishingSetupStatus = getEffectivePublishingSetupStatus(appRequest);
+      const loginUpdateFramework = getLoginUpdateFramework(appRequest);
+      const loginReview = needsImportedLoginReview(appRequest)
+        ? await getImportedLoginReview({ userId, isAdmin }, app.id)
+        : null;
+      const loginNotices = (
+        <>
+          {appRequest.repositoryUrl && loginUpdateFramework ? (
+            <LoginUpdateNotice
+              appRequestId={app.id}
+              userId={userId}
+              prompt={buildLoginUpdatePrompt({ repositoryUrl: appRequest.repositoryUrl, appName: app.appName, framework: loginUpdateFramework })}
+            />
+          ) : null}
+          {loginReview ? <LoginReviewPanel appId={app.id} review={loginReview} prompt={buildImportedLoginReviewPrompt(appRequest)} /> : null}
+        </>
+      );
       content = (
         <>
           {loginNotices}
@@ -1204,10 +1154,14 @@ export default async function DownloadPage({
         </>
       );
       break;
-    case "health":
+    }
+    case "health": {
+      const appRequest = { ...app, ...await readSection({
+        azureWebAppName: true, healthStatus: true, healthCheckedAt: true, healthSummary: true, publishWarningSummary: true,
+      }) };
       content = (
         <>
-          {warning}
+          {renderPublishWarning(appRequest)}
           {appRequest.azureWebAppName && ["FAILED", "SUCCEEDED"].includes(appRequest.publishStatus) ? (
             <AppHealthPanel app={appRequest} inDetailsSection />
           ) : (
@@ -1219,35 +1173,86 @@ export default async function DownloadPage({
         </>
       );
       break;
-    case "listing":
+    }
+    case "listing": {
+      const { isPubliclyListed } = await readSection({ isPubliclyListed: true });
       content = (
         <>
           <PublicListingPanel
-            appRequestId={appRequest.id}
-            isPubliclyListed={appRequest.isPubliclyListed}
+            appRequestId={app.id}
+            isPubliclyListed={isPubliclyListed}
           />
         </>
       );
       break;
-    case "collaborators":
+    }
+    case "collaborators": {
+      const collaboratorFields = {
+        user: { select: { displayName: true, email: true } },
+        collaborators: {
+          orderBy: { createdAt: "asc" },
+          select: { user: { select: { id: true, displayName: true, email: true } } },
+        },
+      } satisfies Prisma.AppRequestSelect;
+      const { user, collaborators, collaborationInvites } = canDeleteAppRequest ? await readSection({
+        ...collaboratorFields,
+        collaborationInvites: {
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            invitedEmail: true,
+            invitedDisplayName: true,
+            status: true,
+            expiresAt: true,
+            lastSentAt: true,
+            inviter: { select: { displayName: true, email: true } },
+          },
+        },
+      }) : { ...await readSection(collaboratorFields), collaborationInvites: null };
       content = (
         <>
           {renderAppAccessSummary({
-            owner: appRequest.user,
-            collaborators: appRequest.collaborators,
-            canManageCollaborators: appRequest.userId === userId || isAdmin,
-            appRequestId: appRequest.id,
+            owner: user,
+            collaborators,
+            canManageCollaborators: canDeleteAppRequest,
+            appRequestId: app.id,
           })}
-          {appRequest.userId === userId || isAdmin ? (
+          {collaborationInvites ? (
             <CollaborationInvitePanel
-              appRequestId={appRequest.id}
-              pendingInvites={appRequest.collaborationInvites}
+              appRequestId={app.id}
+              pendingInvites={collaborationInvites}
             />
           ) : null}
         </>
       );
       break;
+    }
     case "repository": {
+      const [repositoryFields, currentUser] = await Promise.all([
+        readSection({
+          publishErrorSummary: isAdmin,
+          repositoryAccessNote: true,
+          repositoryAccessStatus: true,
+          repositoryDefaultBranch: true,
+          repositoryStatus: true,
+          repositoryUrl: true,
+          sourceOfTruth: true,
+          submittedConfig: true,
+          repositoryImport: { select: {
+            sourceRepositoryUrl: true,
+            importStatus: true,
+            importErrorSummary: isAdmin,
+            compatibilityStatus: true,
+            preparationMode: true,
+            preparationStatus: true,
+            preparationPullRequestUrl: true,
+            preparationErrorSummary: isAdmin,
+          } },
+        }),
+        prisma.user.findUnique({ where: { id: userId }, select: { githubUsername: true, email: true } }),
+      ]);
+      const appRequest = { ...app, ...repositoryFields };
       const isImportedApp = appRequest.sourceOfTruth === "IMPORTED_REPOSITORY";
       const importedRepositoryRemoteWorkflow = getImportedRepositoryRemoteWorkflow({
         repositoryImport: appRequest.repositoryImport,
@@ -1255,10 +1260,6 @@ export default async function DownloadPage({
         repositoryDefaultBranch: appRequest.repositoryDefaultBranch,
       });
       const isLocalCodexApp = isLocalCodexSource(appRequest.submittedConfig);
-      const currentUser = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { githubUsername: true, email: true },
-      });
       const actorRepositoryAccess = await resolveRepositoryAccessForActor({
         requestId: appRequest.id,
         actorUserId: userId,
@@ -1462,18 +1463,35 @@ export default async function DownloadPage({
       );
       break;
     }
-    case "environment":
+    case "environment": {
+      const { azureWebAppName, environmentVariables } = await readSection({
+        azureWebAppName: true,
+        environmentVariables: {
+          orderBy: { key: "asc" },
+          select: { key: true, isSecret: true, value: true, updatedAt: true },
+        },
+      });
       content = (
         <>
           <EnvVarsPanel
-            appRequestId={appRequest.id}
-            envVars={appRequest.environmentVariables ?? []}
-            isPublished={Boolean(appRequest.azureWebAppName)}
+            appRequestId={app.id}
+            envVars={environmentVariables}
+            isPublished={Boolean(azureWebAppName)}
           />
         </>
       );
       break;
-    case "support":
+    }
+    case "support": {
+      const appRequest = { ...app, ...await readSection({
+        supportReference: true,
+        template: canDeleteAppRequest && { select: { slug: true } },
+        repositoryOwner: canDeleteAppRequest,
+        repositoryName: canDeleteAppRequest,
+        repositoryStatus: canDeleteAppRequest,
+        azureWebAppName: canDeleteAppRequest,
+        azureDatabaseName: canDeleteAppRequest,
+      }) };
       content = (
         <>
           {renderSupportReference(appRequest.supportReference)}
@@ -1492,37 +1510,70 @@ export default async function DownloadPage({
         </>
       );
       break;
-    case "security":
-      content = appRequest.repositoryUrl && enrolledRepository(appRequest) ? (
+    }
+    case "security": {
+      const appRequest = await readSection({ ...securityReviewFields, deploymentTriggerMode: true });
+      const { canRefresh, dependency, savedReview } = await getAppSecurityData(appRequest, "security");
+      content = appRequest.repositoryUrl && canRefresh ? (
         <LiveSecurityReview
-          key={`${appRequest.id}:${appRequest.repositoryUrl}`}
-          appId={appRequest.id}
-          appName={appRequest.appName}
+          key={`${app.id}:${appRequest.repositoryUrl}`}
+          appId={app.id}
+          appName={app.appName}
           repository={appRequest.repositoryUrl}
-          savedReview={securityReview}
+          savedReview={savedReview}
+          cachedDependency={dependency}
+          asOf={Date.now()}
           automaticPublishing={appRequest.deploymentTriggerMode === "PUSH_TO_DEPLOY"}
-          applyAction={canDeleteAppRequest ? applySecurityUpdate.bind(null, appRequest.id) : undefined}
+          applyAction={canDeleteAppRequest ? applySecurityUpdate.bind(null, app.id) : undefined}
         />
       ) : (
-        <SecurityReviewPanel appName={appRequest.appName} repository={appRequest.repositoryUrl} review={securityReview} />
+        <SecurityReviewPanel appName={app.appName} repository={appRequest.repositoryUrl} review={savedReview} />
       );
       break;
-    case "overview":
+    }
+    case "overview": {
+      const appRequest = { ...app, ...await readSection({
+        ...securityReviewFields,
+        publishingSetupStatus: true,
+        publishWarningSummary: true,
+        submittedConfig: true,
+        template: { select: { slug: true } },
+      }) };
+      const [{ canRefresh, githubCheckedAt, savedReview }, mcp] = await Promise.all([
+        getAppSecurityData(appRequest, "overview"),
+        appRequest.template.slug === "mcp-server" ? readSection({ mcpConfiguration: { select: {
+          endpointUrl: true,
+          tenantId: true,
+          setupStatus: true,
+          checkedAt: true,
+          probeStatus: true,
+          probeAttemptId: true,
+          probeCommitSha: true,
+          probeCheckedAt: true,
+        } } }) : null,
+      ]);
+      const hasSecurityReview = Boolean(savedReview || githubCheckedAt);
+      const effectivePublishingSetupStatus = getEffectivePublishingSetupStatus(appRequest);
       content = (
         <>
-          {warning}
-          {securityReview && <section className="card security-review__notice" aria-labelledby="security-notice">
-            <h3 id="security-notice">You have security details to review</h3>
-            <p>Your app’s latest scan results are ready.</p>
-            <Link href={appDetailsSectionHref("security")}>Review security details</Link>
-          </section>}
+          {renderPublishWarning(appRequest)}
+          {(hasSecurityReview || canRefresh) && (
+            <OverviewSecurityNotice
+              key={`${app.id}:${appRequest.repositoryUrl}`}
+              appId={app.id}
+              repository={canRefresh ? appRequest.repositoryUrl : null}
+              asOf={Date.now()}
+              githubCheckedAt={githubCheckedAt}
+              scanCheckedAt={savedReview?.results.source?.checkedAt ?? savedReview?.checkedAt.toISOString()}
+            />
+          )}
           <AppReadinessChecklist
             repositoryReady={appRequest.repositoryStatus === "READY"}
             publishingReady={effectivePublishingSetupStatus === "READY"}
             publishStatus={appRequest.publishStatus}
             audience={getAppAudience(appRequest.submittedConfig)}
           />
-          {appRequest.template.slug === "mcp-server" ? <McpConnectionCard connection={buildMcpConnectionSummary(appRequest.mcpConfiguration,{published:appRequest.publishStatus === "SUCCEEDED"})} /> : null}
+          {mcp ? <McpConnectionCard connection={buildMcpConnectionSummary(mcp.mcpConfiguration, { published: app.publishStatus === "SUCCEEDED" })} /> : null}
           <div className="app-details__overview-links">
             <Link className="btn btn--ghost" href={appDetailsSectionHref("deployment")}>
               {publishFailed ? "Review publishing" : "View deployment"}
@@ -1531,6 +1582,7 @@ export default async function DownloadPage({
         </>
       );
       break;
+    }
   }
 
   return (
@@ -1549,10 +1601,10 @@ export default async function DownloadPage({
 
       <header className="page-header app-details__header">
         <div className="app-details__identity">
-          <h1>{appRequest.appName}</h1>
+          <h1>{app.appName}</h1>
           <span className={`badge badge--${pub.variant}`}>{pub.label}</span>
         </div>
-        {appRequest.publishStatus === "SUCCEEDED" && displayPublishUrl ? (
+        {app.publishStatus === "SUCCEEDED" && displayPublishUrl ? (
           <a
             className="btn btn--primary-solid app-details__open"
             href={displayPublishUrl}
