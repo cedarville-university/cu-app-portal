@@ -17,16 +17,22 @@ export function enrolledRepository(app: Registration) {
   return { owner, name };
 }
 
-export function updateClient(owner: string) {
+export function updateClient(owner: string, signal?: AbortSignal) {
   const config = loadGitHubAppConfig();
   const org = config.allowedOrgs.find(o => o.toLowerCase() === owner.toLowerCase());
   const installationId = org && config.installationIdsByOrg[org];
   if (!installationId) throw new Error("Repository is outside the managed installation.");
-  return createGitHubAppClient({ appId: config.appId, privateKey: config.privateKey, installationId });
+  const fetchImpl: typeof fetch | undefined = signal && ((input, init) =>
+    fetch(input, {
+      ...init,
+      signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal,
+    }));
+  return createGitHubAppClient({ appId: config.appId, privateKey: config.privateKey, installationId, fetchImpl });
 }
 
-export async function readDependencyReview(repo: { owner: string; name: string }) {
-  const client = updateClient(repo.owner);
+export async function readDependencyReview(repo: { owner: string; name: string }, signal?: AbortSignal) {
+  const client = updateClient(repo.owner, signal);
   const [alerts, updates] = await Promise.all([client.readOpenDependabotAlerts(repo), client.readUpdates(repo)]);
+  signal?.throwIfAborted();
   return reviewResults.shape.dependency.unwrap().parse({ checkedAt: new Date().toISOString(), alerts, updates });
 }

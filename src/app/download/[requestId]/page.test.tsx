@@ -1,5 +1,5 @@
 import React from "react";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DownloadPage from "./page";
 import { readDependencyReview } from "@/features/security-review/update-service";
@@ -151,6 +151,7 @@ async function renderPage(overrides: Record<string, unknown> = {}, section?: str
 }
 
 beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockImplementation(() => new Promise(() => {})));
   mockUseFormStatus.mockReturnValue({ pending: false });
   vi.mocked(getCurrentUserIdOrNull).mockResolvedValue("user-123");
   vi.mocked(prisma.userRole.findFirst).mockResolvedValue(null);
@@ -161,6 +162,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("DownloadPage navigation", () => {
@@ -189,9 +191,12 @@ describe("DownloadPage navigation", () => {
   });
   it("links to Security review but shows neither notice on Overview without scan results", async () => {
     await renderPage({ templateVersion: "1.0.0", submittedConfig: { templateSlug: "web-app", entraLogin: true } }, "overview");
+    expect(screen.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
     expect(screen.getByRole("link", { name: "Security review" })).toHaveAttribute("href", "?section=security");
     expect(screen.queryByRole("region", { name: "Sign-in update" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Review security details" })).not.toBeInTheDocument();
+    expect(readDependencyReview).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   const date = "2026-11-24T12:00:00Z";
@@ -201,17 +206,44 @@ describe("DownloadPage navigation", () => {
     results: { ...emptyResults, dependency: { checkedAt: date, alerts: [] } },
   };
 
-  it("offers the owner a review for a linked update outside the original pilot", async () => {
-    vi.mocked(readDependencyReview).mockResolvedValueOnce({
+  const liveReview = () => Response.json({
+    repository: review.repositoryUrl,
+    dependency: {
       checkedAt: date,
       alerts: [{ number: 1, package: "example", advisory: "GHSA-example", severity: "high", manifest: "package.json" }],
       updates: [{ number: 2, head: "a".repeat(40), base: "b".repeat(40), branch: "main",
-        alerts: [1], ready: false, checks: "pending", checkNames: [] }],
-    });
-    await renderPage({}, "security");
-    expect(readDependencyReview).toHaveBeenCalledWith({ owner: "cedarville-it", name: "campus-dashboard" });
+        alerts: [1], ready: true, checks: "passed", checkNames: [] }],
+    },
+  });
+
+  it("renders Security review and saved results while the live GitHub request is pending", async () => {
+    let finishRequest!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise(resolve => { finishRequest = resolve; }));
+    await renderPage({ securityReview: review }, "security");
+    expect(readDependencyReview).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledWith("/api/apps/request-123/security-review", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(screen.getByRole("heading", { name: "Security review", level: 2 })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "The completed checks found no issues" })).toBeVisible();
+    expect(screen.getByText(/Checking GitHub for current dependency alerts and updates/)).toHaveAttribute("role", "status");
+    expect(screen.queryByRole("button", { name: "Apply update" })).not.toBeInTheDocument();
+
+    await act(async () => { finishRequest(liveReview()); });
     expect(screen.getByRole("link", { name: "Open in Codex" })).toBeVisible();
     expect(screen.getByText("Review individual security updates (1)")).toBeVisible();
+    fireEvent.click(screen.getByText("Review individual security updates (1)"));
+    fireEvent.click(screen.getByRole("button", { name: "Review update" }));
+    expect(screen.getByRole("button", { name: "Apply update" })).toBeVisible();
+  });
+
+  it("keeps saved results available after a GitHub failure and lets the user retry", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await renderPage({ securityReview: review }, "security");
+    const retry = await screen.findByRole("button", { name: "Retry GitHub check" });
+    expect(screen.getByRole("heading", { name: "The completed checks found no issues" })).toBeVisible();
+    vi.mocked(fetch).mockResolvedValueOnce(liveReview());
+    fireEvent.click(retry);
+    expect(await screen.findByText("Review individual security updates (1)")).toBeVisible();
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it.each(["", "cu-app-portal-repos/testing-bouncer"])("respects a narrower live review setting (%s)", async setting => {
@@ -219,6 +251,7 @@ describe("DownloadPage navigation", () => {
     try {
       await renderPage({}, "security");
       expect(readDependencyReview).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
       expect(screen.queryByRole("button", { name: "Review update" })).toBeNull();
     } finally {
       vi.unstubAllEnvs();
@@ -228,6 +261,8 @@ describe("DownloadPage navigation", () => {
   it("links to the saved results even when a completed check found no issues", async () => {
     await renderPage({ securityReview: review }, "overview");
     expect(screen.getByRole("link", { name: "Review security details" })).toHaveAttribute("href", "?section=security");
+    expect(readDependencyReview).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
     cleanup();
     await renderPage({ securityReview: review }, "security");
     expect(screen.getByRole("heading", { name: "The completed checks found no issues" })).toBeVisible();

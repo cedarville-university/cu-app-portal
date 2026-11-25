@@ -407,4 +407,55 @@ test.describe("novice onboarding", () => {
     await expect(page.getByRole("heading", { name: "Environment variables", level: 2 })).toBeVisible();
     await expect(page.getByRole("region", { name: "Environment variables", exact: true }).getByRole("button", { name: "Save Changes" })).toBeVisible();
   });
+
+  test("shows Overview and saved security results without waiting for GitHub", async ({ page }) => {
+    const appId = fixtureIds.published;
+    const repository = "https://github.com/cedarville-e2e/published-starter";
+    const checkedAt = "2026-11-24T12:00:00Z";
+    await prisma.appSecurityReview.create({
+      data: {
+        appRequestId: appId,
+        repositoryUrl: repository,
+        checkedAt: new Date(checkedAt),
+        results: { revision: null, dependency: { checkedAt, alerts: [] }, source: null, checks: [] },
+      },
+    });
+    const release = Promise.withResolvers<void>();
+    let requests = 0;
+    await page.route(`**/api/apps/${appId}/security-review`, async route => {
+      requests++;
+      await release.promise;
+      await route.fulfill({ json: {
+        repository,
+        dependency: {
+          checkedAt,
+          alerts: [{ number: 1, package: "fixture", advisory: "GHSA-fixture", severity: "high", manifest: "package.json" }],
+          updates: [],
+        },
+      } });
+    });
+
+    try {
+      await page.goto(`/download/${appId}`);
+      await expect(page.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Review security details" })).toBeVisible();
+      expect(requests).toBe(0);
+
+      const sections = page.getByRole("navigation", { name: "App details sections" });
+      await sections.getByRole("link", { name: "Security review", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Security review", level: 2 })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "The completed checks found no issues" })).toBeVisible();
+      await expect(page.getByText(/Checking GitHub for current dependency alerts and updates/)).toBeVisible();
+      await expect.poll(() => requests).toBeGreaterThan(0);
+
+      release.resolve();
+      await expect(page.getByRole("heading", { name: "We found security issues in your app" })).toBeVisible();
+      const securityRequests = requests;
+      await sections.getByRole("link", { name: "Overview", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
+      expect(requests).toBe(securityRequests);
+    } finally {
+      release.resolve();
+    }
+  });
 });
