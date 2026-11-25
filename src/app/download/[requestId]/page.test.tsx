@@ -2,6 +2,12 @@ import React from "react";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DownloadPage from "./page";
+import { readDependencyReview } from "@/features/security-review/update-service";
+
+vi.mock("@/features/security-review/update-service", async importOriginal => ({
+  ...await importOriginal<typeof import("@/features/security-review/update-service")>(),
+  readDependencyReview: vi.fn().mockRejectedValue(new Error("GitHub unavailable")),
+}));
 vi.mock("@/features/repository-imports/login-review", async importOriginal => ({
   ...await importOriginal<typeof import("@/features/repository-imports/login-review")>(),
   getImportedLoginReview: vi.fn().mockResolvedValue({ status: "NEEDS_REVIEW", commitSha: "a".repeat(40), sourcePaths: ["src/auth.ts"], findings: [], evidence: "Code review required" }),
@@ -194,6 +200,29 @@ describe("DownloadPage navigation", () => {
     checkedAt: new Date(date), repositoryUrl: "https://github.com/cedarville-it/campus-dashboard",
     results: { ...emptyResults, dependency: { checkedAt: date, alerts: [] } },
   };
+
+  it("offers the owner a review for a linked update outside the original pilot", async () => {
+    vi.mocked(readDependencyReview).mockResolvedValueOnce({
+      checkedAt: date,
+      alerts: [{ number: 1, package: "example", advisory: "GHSA-example", severity: "high", manifest: "package.json" }],
+      updates: [{ number: 2, head: "a".repeat(40), base: "b".repeat(40), branch: "main",
+        alerts: [1], ready: false, checks: "pending", checkNames: [] }],
+    });
+    await renderPage({}, "security");
+    expect(readDependencyReview).toHaveBeenCalledWith({ owner: "cedarville-it", name: "campus-dashboard" });
+    expect(screen.getByRole("button", { name: "Review update" })).toBeVisible();
+  });
+
+  it.each(["", "cu-app-portal-repos/testing-bouncer"])("respects a narrower live review setting (%s)", async setting => {
+    vi.stubEnv("DEPENDABOT_REVIEW_REPOSITORIES", setting);
+    try {
+      await renderPage({}, "security");
+      expect(readDependencyReview).not.toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: "Review update" })).toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 
   it("links to the saved results even when a completed check found no issues", async () => {
     await renderPage({ securityReview: review }, "overview");
