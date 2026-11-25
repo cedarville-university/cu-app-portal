@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useId, useState } from "react";
-import { CopyFixInstructions } from "./copy-instructions";
 import type { ReviewResults } from "./results";
 import { checkLabels, type SecurityUpdate } from "./update-types";
 
@@ -19,13 +18,6 @@ export function UpdateReview({ update, alerts, appName, repository, apply, live,
   const covered = alerts.filter(a => update.alerts.includes(a.number));
   const packages = [...new Set(covered.map(a => a.package))].join(", ");
   const url = repository + "/pull/" + update.number;
-  const prompt = [
-    `Help me handle the existing Dependabot security update for ${appName}: ${url}.`,
-    `Verify that the open Codex project matches ${repository}. Check that pull request #${update.number} is still open against ${update.branch} and verify its current head. CU Launch reviewed ${update.head}. If it changed, review the new diff.`,
-    "Findings covered by this update:", ...covered.map(a => `#${a.number}: ${a.package} (${a.advisory}) in ${a.manifest}`),
-    `Recorded check status: ${checkLabels[update.checks]}. Inspect the current checks and review the changes for compatibility. Use the existing pull request. Run the relevant tests and build locally. If checks fail, diagnose the cause and prepare any needed fixes while preserving my work.`,
-    "Explain what was tested and whether I can apply the update. Ask me before committing, pushing, merging or publishing. Ask before using the CU Launch connector.",
-  ].join("\n\n");
   async function confirmApply() {
     if (!apply || pending || result?.applied) return;
     setPending(true);
@@ -54,10 +46,6 @@ export function UpdateReview({ update, alerts, appName, repository, apply, live,
       {!live && <p>This saved review shows the last known results. Applying an update requires a live check with GitHub.</p>}
       {live && update.ready && !apply && <p>An app owner or administrator can apply this update.</p>}
       <p role="status">{result?.message}</p>
-      <h5>Let Codex handle this update</h5>
-      <p>Open the instructions in Codex, choose the {appName} project, and send. Codex can investigate failed checks and test the update before you decide.</p>
-      <a className="btn btn--secondary" href={`codex://threads/new?${new URLSearchParams({ prompt })}`}>Open in Codex</a>
-      <CopyFixInstructions confirmed={false} instructions={prompt} label="update instructions" secondary />
       <p className="security-update__link"><a href={url} target="_blank" rel="noreferrer">View pull request #{update.number} on GitHub</a></p>
     </div>
   </article>;

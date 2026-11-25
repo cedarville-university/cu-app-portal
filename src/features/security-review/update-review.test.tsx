@@ -13,6 +13,7 @@ function show(controls: UpdateControls, overrides?: Partial<SecurityUpdate>) {
     review={{ checkedAt: new Date(checkedAt), results: { revision: null, source: null, checks: [], dependency: {
       checkedAt, alerts: [alert(1), alert(2), alert(3)], updates: [{ ...update, ...overrides }],
     } } }} />);
+  fireEvent.click(screen.getByText("Review individual security updates (1)"));
   fireEvent.click(screen.getByRole("button", { name: "Review update" }));
   return within(screen.getByRole("article", { name: "Security update 12" }));
 }
@@ -23,10 +24,10 @@ it("reviews one group, applies its pinned revision on explicit click and separat
   expect(apply).not.toHaveBeenCalled();
   expect(card.getByText(/2 security issues covered/)).toBeVisible();
   expect(card.getByText(/automatically publish/)).toBeVisible();
-  const prompt = new URL(card.getByRole("link", { name: "Open in Codex" }).getAttribute("href")!).searchParams.get("prompt");
-  expect(prompt).toContain("https://github.com/example/demo/pull/12");
-  expect(prompt).toContain(update.head);
-  expect(prompt).not.toContain("GHSA-3");
+  const prompt = new URL(screen.getByRole("link", { name: "Open in Codex" }).getAttribute("href")!).searchParams.get("prompt");
+  expect(prompt).toContain("https://github.com/example/demo");
+  expect(prompt).toContain("every page");
+  expect(prompt).toContain("Before closing a superseded PR");
   fireEvent.click(screen.getByText("Read the fix instructions"));
   const remaining = screen.getByRole("textbox", { name: "Instructions for Codex" });
   expect((remaining as HTMLTextAreaElement).value).toContain("GHSA-3");
@@ -38,10 +39,22 @@ it("reviews one group, applies its pinned revision on explicit click and separat
 it.each(["failed","pending","unavailable"] as const)("offers Codex help on %s checks", (checks) => {
   const card = show({ live: true, apply: vi.fn() }, { ready: false, checks });
   expect(card.queryByRole("button", { name: "Apply update" })).toBeNull();
-  expect(card.getByRole("link", { name: "Open in Codex" })).toBeVisible();
+  expect(screen.getByRole("link", { name: "Open in Codex" })).toBeVisible();
 });
 it("keeps saved checks viewable without offering a live apply", () => {
   const card = show({ live: false, apply: vi.fn() });
   expect(card.getByText(/last known results/)).toBeVisible();
   expect(card.queryByRole("button", { name: "Apply update" })).toBeNull();
+});
+
+it("offers one identical handoff for multiple updates and keeps individual reviews optional", () => {
+  render(<SecurityReviewPanel appName="Demo" repository="https://github.com/example/demo"
+    review={{ checkedAt: new Date(checkedAt), results: { revision: null, source: null, checks: [], dependency: {
+      checkedAt, alerts: [alert(1), alert(2)], updates: [update, { ...update, number: 13 }],
+    } } }} />);
+  expect(screen.getByText("Review individual security updates (2)").closest("details")).not.toHaveAttribute("open");
+  const open = screen.getByRole("link", { name: "Open in Codex" });
+  fireEvent.click(screen.getByText("Read the update instructions"));
+  const instructions = screen.getByRole("textbox", { name: "Update instructions for Codex" });
+  expect(instructions).toHaveValue(new URL(open.getAttribute("href")!).searchParams.get("prompt"));
 });
