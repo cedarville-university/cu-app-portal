@@ -8,9 +8,12 @@ export function enrolledRepository(app: Registration) {
   const { repositoryName: name, repositoryOwner: owner } = app;
   if (app.repositoryStatus !== "READY" || !owner || !name || !/^[a-z\d-]+$/i.test(owner) || !/^[\w.-]+$/.test(name)) return null;
   const fullName = (owner + "/" + name).toLowerCase();
-  const enrolled = (process.env.DEPENDABOT_REVIEW_REPOSITORIES ?? "cu-app-portal-repos/testing-bouncer")
-    .split(",").map(s => s.trim().toLowerCase());
-  if (!enrolled.includes(fullName) || app.repositoryUrl?.toLowerCase() !== "https://github.com/" + fullName) return null;
+  if (app.repositoryUrl?.toLowerCase() !== "https://github.com/" + fullName) return null;
+  const restrictedRepos = process.env.DEPENDABOT_REVIEW_REPOSITORIES;
+  if (restrictedRepos !== undefined) {
+    const allowed = restrictedRepos.split(",").map(repo => repo.trim().toLowerCase());
+    if (!allowed.includes(fullName)) return null;
+  }
   return { owner, name };
 }
 

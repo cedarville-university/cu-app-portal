@@ -1054,8 +1054,8 @@ export default async function DownloadPage({
     ? await prisma.nightlyRepositoryScan.findUnique({ where: { repository: appRequest.repositoryUrl.toLowerCase() },
       select: { successfulSha: true, source: true } }) : null;
   let securityReview = ownerSecurityReview(appRequest.repositoryUrl, appRequest.securityReview, nightly);
-  const pilot = (section === "security" || (section === "overview" && !securityReview)) ? enrolledRepository(appRequest) : null;
-  const liveDependency = pilot ? await readDependencyReview(pilot).catch(() => null) : null;
+  const reviewRepo = (section === "security" || (section === "overview" && !securityReview)) ? enrolledRepository(appRequest) : null;
+  const liveDependency = reviewRepo ? await readDependencyReview(reviewRepo).catch(() => null) : null;
   if (liveDependency) {
     securityReview = {
       checkedAt: new Date(Math.max(securityReview?.checkedAt.getTime() ?? 0, Date.parse(liveDependency.checkedAt))),
@@ -1499,7 +1499,7 @@ export default async function DownloadPage({
       break;
     case "security":
       content = <>
-        {pilot && !liveDependency && <p role="status">Live update information from GitHub is unavailable. Any results below are from the last saved review.</p>}
+        {reviewRepo && !liveDependency && <p role="status">Live update information from GitHub is unavailable. Any results below are from the last saved review.</p>}
         <SecurityReviewPanel appName={appRequest.appName} repository={appRequest.repositoryUrl} review={securityReview} controls={{
           live: Boolean(liveDependency), automaticPublishing: appRequest.deploymentTriggerMode === "PUSH_TO_DEPLOY",
           apply: canDeleteAppRequest && liveDependency ? applySecurityUpdate.bind(null, appRequest.id) : undefined,
