@@ -49,7 +49,8 @@ import { appDetailsSectionHref, getAppDetailsSection } from "@/features/app-deta
 import { McpConnectionCard } from "@/features/app-details/mcp-connection-card";
 import { buildMcpConnectionSummary } from "@/features/mcp-servers/connection-summary";
 import { SecurityReviewPanel } from "@/features/security-review/panel";
-import { enrolledRepository, readDependencyReview } from "@/features/security-review/update-service";
+import { LiveSecurityReview } from "@/features/security-review/live-review";
+import { enrolledRepository } from "@/features/security-review/update-service";
 import { applySecurityUpdate } from "@/features/security-review/update-action";
 import { ownerSecurityReview } from "@/features/security-review/owner-results";
 import { LoginUpdateNotice } from "@/features/app-details/login-update-notice";
@@ -1053,15 +1054,9 @@ export default async function DownloadPage({
   const nightly = appRequest.repositoryUrl && appRequest.repositoryStatus === "READY" && (section === "overview" || section === "security")
     ? await prisma.nightlyRepositoryScan.findUnique({ where: { repository: appRequest.repositoryUrl.toLowerCase() },
       select: { successfulSha: true, source: true } }) : null;
-  let securityReview = ownerSecurityReview(appRequest.repositoryUrl, appRequest.securityReview, nightly);
-  const reviewRepo = (section === "security" || (section === "overview" && !securityReview)) ? enrolledRepository(appRequest) : null;
-  const liveDependency = reviewRepo ? await readDependencyReview(reviewRepo).catch(() => null) : null;
-  if (liveDependency) {
-    securityReview = {
-      checkedAt: new Date(Math.max(securityReview?.checkedAt.getTime() ?? 0, Date.parse(liveDependency.checkedAt))),
-      results: { ...(securityReview?.results ?? { revision: null, source: null, checks: [] }), dependency: liveDependency },
-    };
-  }
+  const securityReview = section === "overview" || section === "security"
+    ? ownerSecurityReview(appRequest.repositoryUrl, appRequest.securityReview, nightly)
+    : null;
   const loginUpdateFramework = showLoginNotices ? getLoginUpdateFramework(appRequest) : null;
   const loginReview = showLoginNotices && needsImportedLoginReview(appRequest)
     ? await getImportedLoginReview({ userId, isAdmin }, appRequest.id)
@@ -1498,13 +1493,19 @@ export default async function DownloadPage({
       );
       break;
     case "security":
-      content = <>
-        {reviewRepo && !liveDependency && <p role="status">Live update information from GitHub is unavailable. Any results below are from the last saved review.</p>}
-        <SecurityReviewPanel appName={appRequest.appName} repository={appRequest.repositoryUrl} review={securityReview} controls={{
-          live: Boolean(liveDependency), automaticPublishing: appRequest.deploymentTriggerMode === "PUSH_TO_DEPLOY",
-          apply: canDeleteAppRequest && liveDependency ? applySecurityUpdate.bind(null, appRequest.id) : undefined,
-        }} />
-      </>;
+      content = appRequest.repositoryUrl && enrolledRepository(appRequest) ? (
+        <LiveSecurityReview
+          key={`${appRequest.id}:${appRequest.repositoryUrl}`}
+          appId={appRequest.id}
+          appName={appRequest.appName}
+          repository={appRequest.repositoryUrl}
+          savedReview={securityReview}
+          automaticPublishing={appRequest.deploymentTriggerMode === "PUSH_TO_DEPLOY"}
+          applyAction={canDeleteAppRequest ? applySecurityUpdate.bind(null, appRequest.id) : undefined}
+        />
+      ) : (
+        <SecurityReviewPanel appName={appRequest.appName} repository={appRequest.repositoryUrl} review={securityReview} />
+      );
       break;
     case "overview":
       content = (
