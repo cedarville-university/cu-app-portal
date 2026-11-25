@@ -4,6 +4,23 @@ import { CopyFixInstructions } from "./copy-instructions";
 import { ReviewFindings } from "./review-findings";
 import { fixInstructions, needsAttention, type ReviewResults } from "./results";
 
+function DependabotHandoff({ appName, repository }: { appName: string; repository: string }) {
+  const prompt = [
+    `Handle all open Dependabot pull requests for ${appName} in ${repository} together. Verify the attached project and its Git remote match this repository. Use a separate clean worktree to preserve my existing work.`,
+    "Read every page of open GitHub pull requests in this repository. Verify the Dependabot bot identity, repository, base branch, current head and diff for each. Include version updates and security updates, even those missing from CU Launch. If none are open, report that and stop.",
+    "Group compatible changes by target branch. Reconcile overlapping package and lockfile changes with the project's package manager, including transitive dependencies. Account for every PR and alert. Leave conflicting or unverified fixes open and explain why. Keep unrelated work out of the batch.",
+    "Test the combined result on the current base with the project's tests and build. Report failures or missing coverage. Present one plain-language summary of fixes, blockers, and the exact merge and cleanup plan. Ask once for approval before committing, pushing, merging or closing PRs. Explain any automatic publishing triggered by a merge. Ask before using the CU Launch connector.",
+    "After approval, carry out the agreed plan, respect branch protections and required checks, and verify the merged result on each target branch. Before closing a superseded PR, re-read its current head and confirm every change is covered by the merged code and resolved dependency versions. Link the merged fix when closing it. Leave newly changed, uncovered or blocked PRs open. Only remove clean temporary worktrees and branches created for this task after verifying their work is safely merged.",
+    "Refresh GitHub and give me one final summary of merged fixes, closed PRs, completed cleanup and anything still open. Distinguish alerts still awaiting GitHub rechecking from confirmed resolutions.",
+  ].join("\n\n");
+  return <>
+    <h4>Handle all updates together</h4>
+    <p>Codex can test the updates together and ask you to approve one plan. After the fixes are merged, it can close the requests they cover.</p>
+    <a className="btn btn--primary-solid" href={`codex://threads/new?${new URLSearchParams({ prompt })}`}>Open in Codex</a>
+    <CopyFixInstructions confirmed={false} instructions={prompt} label="update instructions" secondary />
+  </>;
+}
+
 export function SecurityReviewPanel({ appName, repository, review, controls }: {
   controls?: UpdateControls;
   appName: string; repository: string | null; review: { checkedAt: Date; results: ReviewResults } | null;
@@ -24,10 +41,16 @@ export function SecurityReviewPanel({ appName, repository, review, controls }: {
     <section className="card">
       <h3>{hasIssues ? "We found security issues in your app" : action ? "A security check needs a closer look" : partial ? "No issues found in the checks that ran" : "The completed checks found no issues"}</h3>
       {partial && <p>Some files could not be checked.</p>}
-      {updates.length > 0 && <>
-        <p>{updates.length === 1 ? "A security update is ready to review." : "Security updates are ready to review."} Check what will change and decide whether to apply it or ask Codex for help.</p>
-        {updates.map(update => <UpdateReview key={update.number + update.head} appName={appName} repository={repository} update={update} alerts={alerts} {...controls} />)}
-      </>}
+      {updates.length > 0 ? <>
+        <DependabotHandoff appName={appName} repository={repository} />
+        <details>
+          <summary>Review individual security updates ({updates.length})</summary>
+          {updates.map(update => <UpdateReview key={update.number + update.head} appName={appName} repository={repository} update={update} alerts={alerts} {...controls} />)}
+        </details>
+      </> : results.dependency && <details>
+        <summary>Check for other Dependabot updates</summary>
+        <DependabotHandoff appName={appName} repository={repository} />
+      </details>}
       {needsAttention(remaining) ? <>
         <p>{updates.length ? "Some findings still need a closer look. Codex can help you with those separately." : alerts.length ? "Some software in your app’s project has known security issues. Ask Codex to check which updates your app needs." :
           "Ask Codex to check the findings against your app’s code."}</p>

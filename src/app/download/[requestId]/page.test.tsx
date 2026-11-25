@@ -210,7 +210,8 @@ describe("DownloadPage navigation", () => {
     });
     await renderPage({}, "security");
     expect(readDependencyReview).toHaveBeenCalledWith({ owner: "cedarville-it", name: "campus-dashboard" });
-    expect(screen.getByRole("button", { name: "Review update" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open in Codex" })).toBeVisible();
+    expect(screen.getByText("Review individual security updates (1)")).toBeVisible();
   });
 
   it.each(["", "cu-app-portal-repos/testing-bouncer"])("respects a narrower live review setting (%s)", async setting => {

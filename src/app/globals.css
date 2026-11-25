@@ -2866,6 +2866,7 @@ h1, h2, h3, h4, h5,
 .security-review { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; overflow-wrap: anywhere; }
 .security-review__date { color: var(--text-secondary); font-size: .875rem; margin: 0; }
 .security-review .card { margin: 0; }
+.security-review a.btn:has(+ button.btn) { margin: 0 .5rem .35rem 0; }
 .security-review p { max-width: 65ch; }
 .security-review h4 { margin: 1.25rem 0 .5rem; }
 .security-review summary { cursor: pointer; font-weight: 650; padding-block: .4rem; }
